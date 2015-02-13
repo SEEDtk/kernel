@@ -386,7 +386,7 @@ sub WriteAllParams {
     # Write each parameter.
     Env::WriteParam($oh, 'root directory of the local web server', web_dir => $webRootDir);
     Env::WriteParam($oh, 'directory for temporary files', temp => "$webRootDir/Tmp");
-    Env::WriteParam($oh, 'URL for the directory of temporary files', temp_url => 'http://localhost/Tmp');
+    Env::WriteParam($oh, 'URL for the directory of temporary files', temp_url => 'http://fig.localhost/Tmp');
     Env::WriteParam($oh, 'TRUE for windows mode', win_mode => ($winMode ? 1 : 0));
     Env::WriteParam($oh, 'source code project directory', proj => $projDir);
     ## Put new non-Shrub parameters here.
