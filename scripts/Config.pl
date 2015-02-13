@@ -1,3 +1,4 @@
+
 #!/usr/bin/env perl
 
 #
@@ -227,7 +228,8 @@ L</WriteAllParams> method.
             $outputName = "$projDir/config/$outputName";
         }
         # If we are overwriting the real FIG_Config, back it up.
-        if ($outputName eq $fig_config_name) {
+        if (-f $fig_config_name && $outputName eq $fig_config_name) {
+            print "Backing up $fig_config_name.\n";
             copy $fig_config_name, "$projDir/config/FIG_Config_old.pm";
         }
         # Write the FIG_Config.
@@ -388,12 +390,14 @@ sub WriteAllParams {
     Env::WriteParam($oh, 'TRUE for windows mode', win_mode => ($winMode ? 1 : 0));
     Env::WriteParam($oh, 'source code project directory', proj => $projDir);
     ## Put new non-Shrub parameters here.
-    # These next parameters use code, so are not subject to the usual Env::WriteParam logic.
+    # Now we need to build our directory lists.
+    my @scripts = map { "$modules->{$_}/scripts" } @FIG_Config::modules;
+    my @libs = map { "$modules->{$_}/lib" } @FIG_Config::modules;
     Env::WriteLines($oh, "", "# list of script directories",
-            "our \@scripts = (" . join(", ", map { "'$modules->{$_}/scripts'" } @FIG_Config::modules) . ");",
+            "our \@scripts = ('" . join("', '", @scripts) . "');",
             "",  "# list of PERL libraries",
-            "our \@libs = (" . join(", ", "'$projDir/config'",
-                    map { "'$modules->{$_}/lib'" } @FIG_Config::modules) . ");");
+            "our \@libs = ('" . join("', '", "$projDir/config", @libs) . "');"
+            );
     # Now comes the Shrub configuration section.
     Env::WriteLines($oh, "", "", "# SHRUB CONFIGURATION", "");
     Env::WriteParam($oh, 'root directory for Shrub data files (should have subdirectories "Inputs" (optional) and "LoadFiles" (required))',
@@ -423,7 +427,7 @@ sub WriteAllParams {
     if ($opt->eclipse) {
         # For an Eclipse project, we need to modify the path.
         my $delim = ($winMode ? ';' : ':');
-        my $newPath = Env::BuildPathList($winMode, $delim, @FIG_Config::scripts);
+        my $newPath = Env::BuildPathList($winMode, $delim, @scripts);
         my $newPathLen = length($newPath);
         # Now we have the text and length of the new path string. Escape any backslashes
         # in the path string and convert it to a quoted string.
@@ -433,7 +437,7 @@ sub WriteAllParams {
         Env::WriteLines($oh, "",
             "# Insure the path has our scripts in it.",
             "my \$newPath = $newPath;",
-            "if (substr(\$ENV{PATH|,0, $newPathLen) ne \$newPath) {",
+            "if (substr(\$ENV{PATH}, 0, $newPathLen) ne \$newPath) {",
             "    \$ENV{PATH} = \"\$newPath$delim\$ENV{PATH}\";",
             "}");
     }
@@ -485,34 +489,43 @@ Command-line options object.
 sub WriteAllConfigs {
     # Get the parameters.
     my ($winMode, $modules, $projDir, $opt) = @_;
+    # Adjust for syntax differences between Windows and Mac. $delim
+    # is the delimiter between paths. $q1 and $q2 are the quoting
+    # characters for environment variable names. $cmd is the command
+    # to set an environment variable.
+    my ($delim, $q1, $q2, $cmd);
+    if ($winMode) {
+        ($delim, $q1, $q2, $cmd) = (';', '%', '%', 'SET');
+    } else {
+        ($delim, $q1, $q2, $cmd) = (':', '$', '', 'export');
+    }
     # Open the output file.
     my $fileName = "$projDir/user-env.sh";
     open(my $oh, ">$fileName") || die "Could not open shell configuration file $fileName: $!";
     print "Writing environment changes to $fileName.\n";
     # Compute the script paths.
     my $paths = join(':', @FIG_Config::scripts);
-    print $oh,
-        "# Add SEEDtk scripts to the execution path.\n",
-        "PATH=$paths:\$PATH\n",
-        "export PATH\n";
+    print $oh
+        "# Add SEEDtk scripts to the execution path.\n" .
+        "$cmd PATH=$paths$delim${q1}PATH$q2\n";
     # Set the PERL libraries.
-    my $libs = join(':', @FIG_Config::libs);
+    my $libs = join($delim, @FIG_Config::libs);
     print $oh "# Add SEEDtk libraries to the PERL library path.\n";
     if ($ENV{PERL5LIB}) {
-        print $oh "PERL5LIB=$libs:\$PERL5LIB\n";
+        print $oh "$cmd PERL5LIB=$libs$delim${q1}PERL5LIB$q2\n";
     } else {
-        print $oh "PERL5LIB=$libs\n"
+        print $oh "$cmd PERL5LIB=$libs\n"
     }
     if ($winMode && $ENV{PATHEXT} !~ /.pl(?:;|$)/) {
         # Here we are in Windows and PERL scripts are not set up as
         # an executable type. We need to fix that.
-        print $oh "PATHEXT=\$PATHEXT;.pl\n"
+        print $oh "SET PATHEXT=\$PATHEXT;.pl\n"
     }
     # Close the output file.
     close $oh;
     # Now we need to create the includepath file. This is an XML file that has
     # to appear in every project directory. First, we create the text of the file.
-    my $xmlOut = XML::Writer->new(OUTPUT => 'self', NEWLINE => 1);
+    my $xmlOut = XML::Writer->new(OUTPUT => 'self', NEWLINES => 1);
     $xmlOut->xmlDecl("UTF-8");
     # The main tag enclosing all others is "includepath".
     $xmlOut->startTag("includepath");

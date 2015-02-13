@@ -19,7 +19,7 @@
 
 =head1 Display Roles with EC Numbers
 
-    ShowEcRoles.pl [options] parms
+    ShowEcRoles [options] parms
 
 This is a simple script that displays the roles associated with EC numbers. It is used
 to verify that the current configuration is working and connects to the database correctly.
