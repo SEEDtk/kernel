@@ -454,7 +454,7 @@ sub WriteAllParams {
     WriteAllConfigs($winMode, \%modules, $projDir, $opt);
 
 Write out the path and library configuration parameters for an
-Eclipse environment. This creates a C<user-env.sh> file in the
+Eclipse environment. This creates a C<user-env> file in the
 project directory and builds the C<.includepath> files for all
 the Eclipse projects. The C<user-env.sh> file is used in a
 command shel to set up environment variables for PERL includes and
@@ -489,37 +489,58 @@ Command-line options object.
 sub WriteAllConfigs {
     # Get the parameters.
     my ($winMode, $modules, $projDir, $opt) = @_;
-    # Adjust for syntax differences between Windows and Mac. $delim
-    # is the delimiter between paths. $q1 and $q2 are the quoting
-    # characters for environment variable names. $cmd is the command
-    # to set an environment variable.
-    my ($delim, $q1, $q2, $cmd);
+    # Compute the output file, the comment mark, and the path delimiter.
+    my $fileName = "$projDir/user-env.";
+    my ($delim, $rem);
     if ($winMode) {
-        ($delim, $q1, $q2, $cmd) = (';', '%', '%', 'SET');
+        $fileName .= "cmd";
+        $delim = ";";
+        $rem = "REM ";
     } else {
-        ($delim, $q1, $q2, $cmd) = (':', '$', '', 'export');
+        $fileName .= "sh";
+        $delim = ":";
+        $rem = "#";
     }
     # Open the output file.
-    my $fileName = "$projDir/user-env.sh";
     open(my $oh, ">$fileName") || die "Could not open shell configuration file $fileName: $!";
+    # Do an ECHO OFF for Windows.
+    if ($winMode) {
+        print $oh "\@ECHO OFF\n";
+    }
     print "Writing environment changes to $fileName.\n";
+    #
     # Compute the script paths.
-    my $paths = join(':', @FIG_Config::scripts);
-    print $oh
-        "# Add SEEDtk scripts to the execution path.\n" .
-        "$cmd PATH=$paths$delim${q1}PATH$q2\n";
+    my $paths = join($delim, @FIG_Config::scripts);
+    # Write the comment.
+    print $oh "$rem Add SEEDtk scripts to the execution path.\n";
+    # Do the path update.
+    if ($winMode) {
+        # In Windows it's complicated, because variables at the command prompt are
+        # double-interpolated and we can't use them safely. We have to use an
+        # explicit path-- the current environment has the path we need already in it.
+        $paths = "$ENV{PATH}";
+        $paths =~ s/&/^&/g;
+        print $oh "path $paths\n";
+    } else {
+        print $oh "export PATH=$paths:\$PATH\n";
+    }
     # Set the PERL libraries.
     my $libs = join($delim, @FIG_Config::libs);
-    print $oh "# Add SEEDtk libraries to the PERL library path.\n";
+    print $oh "$rem Add SEEDtk libraries to the PERL library path.\n";
     if ($ENV{PERL5LIB}) {
-        print $oh "$cmd PERL5LIB=$libs$delim${q1}PERL5LIB$q2\n";
-    } else {
-        print $oh "$cmd PERL5LIB=$libs\n"
+        # There are already libraries, so set this up as an append operation.
+        $libs .= ($winMode ? ';%PERL5LIB%' : ':$PERL5LIB');
     }
-    if ($winMode && $ENV{PATHEXT} !~ /.pl(?:;|$)/) {
+    if ($winMode) {
+        print $oh "SET PERL5LIB=$libs\n";
+    } else {
+        print $oh "export PERL5LIB=$libs\n";
+    }
+    # The libraries and the path are now set up.
+    if ($winMode && $ENV{PATHEXT} !~ /.pl(?:;|$)/i) {
         # Here we are in Windows and PERL scripts are not set up as
         # an executable type. We need to fix that.
-        print $oh "SET PATHEXT=\$PATHEXT;.pl\n"
+        print $oh "SET PATHEXT=%PATHEXT%;.PL\n"
     }
     # Close the output file.
     close $oh;
