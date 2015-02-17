@@ -40,8 +40,8 @@ constraint, and a list of I<fields> to be returned.
 The positional parameters are the names of the fields to be returned in order.
 The field names should be specified in L<ERDB/Standard Field Name Format>.
 
-The command-line options are those found in L<Shrub/new_for_script> plus
-the following.
+The command-line options are those found in L<Shrub/script_options>
+and L<ScriptUtils/ih_options> plus the following.
 
 =over 4
 
@@ -65,13 +65,8 @@ array, so if you need to specify more than one value, you simply specify the
 option more than once. If you are using an input file, you can specify a value
 taken from a column of the current input record using a dollar sign (C<$>)
 followed by a column number. The column numbers are 1-based so a value parameter of
-C<$1> would indicate the first column of the input file.
-
-=item input
-
-The name of the input file. If omitted, the standard input is used. The input
-file is only used if one or more occurrences of the I<value> parameter
-indicates an input column.
+C<$1> would indicate the first column of the input file. The special value C<$n>
+indicates the last column of the input file.
 
 =item count
 
@@ -111,14 +106,16 @@ the IDs of the features that produce the protein.
 
 =cut
 
-    # Connect to the database and get the command parameters.
-    my ($shrub, $opt) = Shrub->new_for_script('%c %o parm1 parm2 ...', { },
+    # Get the command parameters.
+    my $opt = ScriptUtils::Opts('field1 field2 ...', Shrub::script_options(),
+            ScriptUtils::ih_options(),
             ["path|p=s", "path through the database", { required => 1} ],
             ["constraint|c=s", "query constraint (if any)"],
             ["value|v=s@", "parameter values for the query constraint (multiple)"],
-            ["input|i=s", "name of the input file (if not the standard input)"],
-              ["count|n=i", "maximum number of records to output per input line (default is 0, meaning return everything)", { default => 0 }]
+            ["count|n=i", "maximum number of records to output per input line (default is 0, meaning return everything)", { default => 0 }]
             );
+    # Connect to the database.
+    my $shrub = Shrub->new_for_script($opt);
     # Get the list of parameter values. If none were supplied, we use an empty list.
     my $valueList = $opt->value // [];
     # Check for input markers. This list will contain undef if the parameter value is a constant,

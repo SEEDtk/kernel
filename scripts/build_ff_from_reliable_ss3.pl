@@ -46,18 +46,23 @@ a FIGfam release.
 
 There are no positional parameters.
 
-The command-line options are those found in L<Shrub/new_for_script>.
+The command-line options are those found in L<Shrub/script_options>.
 
 =cut
 
 use strict;
 use Data::Dumper;
 use Shrub;
+use ScriptUtils;
 
+# Get the command-line options.
+my $opt = ScriptUtils::Opts('', Shrub::script_options());
 # Connect to the database.
-my ($shrub, $opt) = Shrub->new_for_script('%c %o', { });
+my $shrub = Shrub->new_for_script($opt);
+# Get a list of all the privileged subsystems.
 my @privileged_subsystems = map { $_->[0] }
-                            $shrub->GetAll("Subsystem","Subsystem(security) = ?",[2],"Subsystem(id)");
+                            $shrub->GetAll("Subsystem","Subsystem(security) = ?",[Shrub::PRIV()],"Subsystem(id)");
+my %poss_fams;
 foreach my $ss (@privileged_subsystems)
 {
     my %active_genomes = map { ($_->[0] => 1) }
@@ -65,18 +70,15 @@ foreach my $ss (@privileged_subsystems)
           "(Subsystem2Genome(from-link) = ? AND Subsystem2Genome(variant) != ?) and (Subsystem2Genome(variant) != ?)",
           [$ss, '-1', '*-1'],
           "Subsystem2Genome(to-link)");
-    my %poss_fams;
-    ## NOTE: Feature2Function does not always work, because most functions connect to proteins. I created a Shrub method
-    ##       to circumvent this.
     # Get all the features in the subsystem.
     my @fids = map { $_->[0] } $shrub->GetAll("Subsystem2Feature", 'Subsystem2Feature(from-link) = ?', [$ss], 'Subsystem2Feature(to-link)');
     # Get the related functions.
     my $funHash = $shrub->Feature2Function(2, \@fids);
     foreach my $peg (@fids)
     {
-        my $function = $funHash->{$peg}[1];
+        my ($funID, $function, $comment) = @{$funHash->{$peg}};
         # Discard features with "trunc" or "frame" in the comment.
-        unless ($function =~ /trunc|frame/) {
+        unless ($comment =~ /trunc|frame/) {
             my $g = &SeedUtils::genome_of($peg);
             if ($active_genomes{$g})
             {
@@ -84,20 +86,23 @@ foreach my $ss (@privileged_subsystems)
             }
         }
     }
-    my $nxt_fam = "FIG00000001";
-    my @functions = map { $_->[0] }
-                    sort { $b->[1] <=> $a->[1] }
-                    map { [$_,scalar @{$poss_fams{$_}}] } keys(%poss_fams);
-    foreach my $f (@functions)
+}
+my $nxt_fam = "FIG00000001";
+# Get the function names sorted by the number of pegs in each function's group,
+# biggest group first.
+my @functions = map { $_->[0] }
+                sort { $b->[1] <=> $a->[1] }
+                map { [$_,scalar @{$poss_fams{$_}}] } keys(%poss_fams);
+foreach my $f (@functions)
+{
+    my $pegsH = $poss_fams{$f};
+    if (keys(%$pegsH) > 1)
     {
-        my $pegsH = $poss_fams{$f};
-        if (keys(%$pegsH) > 1)
+        foreach my $peg (sort { &SeedUtils::by_fig_id($a,$b) } keys(%$pegsH))
         {
-            foreach my $peg (sort { &SeedUtils::by_fig_id($a,$b) } keys(%$pegsH))
-            {
-                print join("\t",($nxt_fam,$peg,$f)),"\n";
-            }
-            $nxt_fam++;
+            print join("\t",($nxt_fam,$peg,$f)),"\n";
         }
+        $nxt_fam++;
     }
 }
+
