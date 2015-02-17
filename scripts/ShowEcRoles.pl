@@ -39,4 +39,4 @@ The command-line options are those found in L<Shrub/new_for_script>.
     # Connect to the database.
     my ($shrub, $opt) = Shrub->new_for_script('%c %o', { });
     # Get all the roles with EC numbers and write them out.
-    $shrub->PutAll(\*STDOUT, 'Role', 'Role(ec-number) >= ?', ['1'], 'ec-number id statement');
+    $shrub->PutAll(\*STDOUT, 'Role', 'Role(ec-number) >= ?', ['1'], 'ec-number id description');
