@@ -61,7 +61,7 @@ my $opt = ScriptUtils::Opts('', Shrub::script_options());
 my $shrub = Shrub->new_for_script($opt);
 # Get a list of all the privileged subsystems.
 my @privileged_subsystems = map { $_->[0] }
-                            $shrub->GetAll("Subsystem","Subsystem(security) = ?",[Shrub::PRIV()],"Subsystem(id)");
+                            $shrub->GetAll("Subsystem","Subsystem(security) = ?",[Shrub::PRIV],"Subsystem(id)");
 my %poss_fams;
 foreach my $ss (@privileged_subsystems)
 {
@@ -73,7 +73,7 @@ foreach my $ss (@privileged_subsystems)
     # Get all the features in the subsystem.
     my @fids = map { $_->[0] } $shrub->GetAll("Subsystem2Feature", 'Subsystem2Feature(from-link) = ?', [$ss], 'Subsystem2Feature(to-link)');
     # Get the related functions.
-    my $funHash = $shrub->Feature2Function(2, \@fids);
+    my $funHash = $shrub->Feature2Function(Shrub::PRIV, \@fids);
     foreach my $peg (@fids)
     {
         my ($funID, $function, $comment) = @{$funHash->{$peg}};
