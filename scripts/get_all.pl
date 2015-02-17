@@ -126,8 +126,9 @@ the IDs of the features that produce the protein.
     # Loop through the parameter values.
     my $n = scalar @$valueList;
     for (my $i = 0; $i < $n; $i++) {
-        if ($valueList->[$i] =~ /^\$(\d+)/) {
+        if ($valueList->[$i] =~ /^\$(\d+|n)/) {
             # We have an input column marker. Save the column number.
+            my $col = (($1 eq 'n') ? -1 : ($1 - 1));
             push @inputList, ($1 - 1);
             # If this is our first marker, open the input file.
             if (! defined $ih) {
@@ -159,7 +160,9 @@ the IDs of the features that produce the protein.
         my @parms;
         for (my $i = 0; $i < $n; $i++) {
             if (defined $inputList[$i]) {
-                push @parms, $cols[$inputList[$i]];
+                my $colIdx = $inputList[$i];
+                $colIdx = $#cols if $colIdx < 0;
+                push @parms, $cols[$colIdx];
             } else {
                 push @parms, $valueList->[$i];
             }
