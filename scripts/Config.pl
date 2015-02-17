@@ -1,4 +1,3 @@
-
 #!/usr/bin/env perl
 
 #
@@ -68,11 +67,6 @@ be generated from scratch.
 If specified, a prototype C<Links.html> file will be generated in the web directory if one does not
 already exist.
 
-=item apache
-
-If specified, the name of an Apache web configuration file (usually the B<extras/httpd-vhosts.conf>),
-which will be updated to run the SEEDtk development testing server.
-
 =item dirs
 
 If specified, the default data and web subdirectories will be set up.
@@ -133,17 +127,11 @@ L</WriteAllParams> method.
             ["clear|c", "ignore current configuration values"],
             ["fc=s", "name of a file to use for the FIG_Config output, or \"off\" to turn off FIG_Config output",
                     { default => "FIG_Config.pm" }],
-            ["apache=s", "location of the Apache configuration files for the testing server"],
             ["dirs", "verify default subdirectories exist"],
             ["dna=s", "location of the DNA repository (if other than local)"],
             ["links", "generate Links.html file"],
             ["eclipse=s", "if specified, then we will set up for Eclipse; the value must be the base name of the project directory project"]
             );
-    # Validate the web directory options.
-    my $apache = $opt->apache;
-    if ($apache && ! -f $apache) {
-        die "Apache config file $apache not found."
-    }
     print "Analyzing directories.\n";
     # The root directories will be put in here.
     my ($dataRootDir, $webRootDir) = ('', '');
@@ -263,12 +251,10 @@ L</WriteAllParams> method.
     if ($eclipseMode) {
         # Set up the paths and PERL libraries.
         WriteAllConfigs($winMode, \%modules, $projDir, $opt);
-    }
-    # Check for an Apache Vhosts update request.
-    if ($apache) {
-        # Yes. Do the update.
-        print "Updating Apache configuration file $apache.\n";
-        SetupVHosts($apache, $winMode);
+        if (! $winMode) {
+            # For an Eclipse Mac installation, we have to set up binary versions of the scripts.
+            SetupBinaries($projDir, \%modules, $opt);
+        }
     }
     # Finally, check for the links file.
     if ($opt->links) {
@@ -396,7 +382,9 @@ sub WriteAllParams {
     Env::WriteLines($oh, "", "# list of script directories",
             "our \@scripts = ('" . join("', '", @scripts) . "');",
             "",  "# list of PERL libraries",
-            "our \@libs = ('" . join("', '", "$projDir/config", @libs) . "');"
+            "our \@libs = ('" . join("', '", "$projDir/config", @libs) . "');",
+            "", "# list of project modules",
+            "our \@modules = qw(" . join(" ", @FIG_Config::modules) . ");",
             );
     # Now comes the Shrub configuration section.
     Env::WriteLines($oh, "", "", "# SHRUB CONFIGURATION", "");
@@ -424,10 +412,9 @@ sub WriteAllParams {
     }
     Env::WriteParam($oh, 'location of the DNA repository', shrub_dna => $dnaRepo);
     ## Put new Shrub parameters here.
-    if ($opt->eclipse) {
-        # For an Eclipse project, we need to modify the path.
-        my $delim = ($winMode ? ';' : ':');
-        my $newPath = Env::BuildPathList($winMode, $delim, @scripts);
+    if ($opt->eclipse && $winMode) {
+        # For a Windows Eclipse project, we need to convince FIG_Config to modify the path.
+        my $newPath = Env::BuildPathList($winMode, ';', @scripts);
         my $newPathLen = length($newPath);
         # Now we have the text and length of the new path string. Escape any backslashes
         # in the path string and convert it to a quoted string.
@@ -438,7 +425,7 @@ sub WriteAllParams {
             "# Insure the path has our scripts in it.",
             "my \$newPath = $newPath;",
             "if (substr(\$ENV{PATH}, 0, $newPathLen) ne \$newPath) {",
-            "    \$ENV{PATH} = \"\$newPath$delim\$ENV{PATH}\";",
+            "    \$ENV{PATH} = \"\$newPath;\$ENV{PATH}\";",
             "}");
     }
 
@@ -544,6 +531,10 @@ sub WriteAllConfigs {
     }
     # Close the output file.
     close $oh;
+    # If this is NOT Windows, fix the permissions.
+    if (! $winMode) {
+        chmod $fileName, 0x755;
+    }
     # Now we need to create the includepath file. This is an XML file that has
     # to appear in every project directory. First, we create the text of the file.
     my $xmlOut = XML::Writer->new(OUTPUT => 'self', NEWLINES => 1);
@@ -569,99 +560,6 @@ sub WriteAllConfigs {
 }
 
 
-=head3 SetupVHosts
-
-    SetupVHosts($fileName, $winmode);
-
-This method updates an Apache vhosts file to enable the fig.localhost virtual local
-server for SEEDtk development. It replaces or adds a specially-marked section that
-defines the server root and its characteristics.
-
-=over 4
-
-=item fileName
-
-Name of the B<vhosts.conf> file to udpate.
-
-=item winmode
-
-TRUE if the server is on Windows, else FALSE.
-
-=back
-
-=cut
-
-sub SetupVHosts {
-    # Get the parameters.
-    my ($fileName, $winmode) = @_;
-    # Open the configuration file for input.
-    open(my $ih, "<$fileName") || die "Could not open configuration file $fileName: $!";
-    # We'll put the file lines in here, omitting any existing SEEDtk section.
-    my @lines;
-    my $skipping;
-    while (! eof $ih) {
-        my $line = <$ih>;
-        # Are we in the SEEDtk section?
-        if ($skipping) {
-            # Yes. Check for an end marker.
-            if ($line =~ /^## END SEEDtk SECTION/) {
-                # Found it. Stop skipping.
-                $skipping = 0;
-            }
-        } else {
-            # No. Check for a begin marker.
-            if ($line =~ /^## BEGIN SEEDtk SECTION/) {
-                # Found it. Start skipping.
-                $skipping = 1;
-            } else {
-                # Not a marker. Save the line.
-                push @lines, $line;
-            }
-        }
-    }
-    # Close the file.
-    close $ih;
-    # Open it again for output.
-    open(my $oh, ">$fileName") || die "Could not open configuration file $fileName: $!";
-    # Unspool the lines from the old file.
-    for my $line (@lines) {
-        print $oh $line;
-    }
-    # Now we add our new stuff. First, get the name of the web directory.
-    my $webdir = File::Spec->rel2abs($FIG_Config::web_dir);
-    # Rel2Abs added a drive letter if we needed it, but we must fix the Windows
-    # backslash craziness. Apache requires forward slashes.
-    $webdir =~ tr/\\/\//;
-    # Write the start marker.
-    print $oh "## BEGIN SEEDtk SECTION\n";
-    # Declare the root directory for the virtual host.
-    print $oh "<Directory \"$webdir\">\n";
-    print $oh "    Options Indexes FollowSymLinks ExecCGI\n";
-    print $oh "    AllowOverride None\n";
-    print $oh "    Require all granted\n";
-    print $oh "</Directory>\n";
-    print $oh "\n";
-    # Configure the virtual host itself.
-    print $oh "<VirtualHost *:80>\n";
-    # Declare the URL and file location of the root directory.
-    print $oh "    DocumentRoot \"$webdir\"\n";
-    print $oh "    ServerName fig.localhost\n";
-    # If this is Windows, set up the registry for CGI execution.
-    if ($winmode) {
-        print $oh "    ScriptInterpreterSource Registry\n";
-    }
-    # Define the local logs.
-    print $oh "    ErrorLog \"$webdir/logs/error.log\"\n";
-    print $oh "    CustomLog \"$webdir/logs/access.log\" common\n";
-    # Set up the default files for each directory to the usual suspects.
-    print $oh "    DirectoryIndex index.cgi index.html index.htm\n";
-    # Finish the host definition.
-    print $oh "</VirtualHost>\n";
-    # Write the end marker.
-    print $oh "## END SEEDtk SECTION\n";
-    # Close the output file.
-    close $oh;
-}
 
 =head3 BuildPaths
 
@@ -747,3 +645,69 @@ sub FixPath {
     # Return the result.
     return $retVal;
 }
+
+
+=head3 SetupBinaries
+
+    SetupBinaries($projDir, \%modules, $opt);
+
+Create the bin directory (if needed) and insure all the scripts have
+executable wrappers. This is only needed for the Eclipse environment on
+the Mac. Wrappers are unnecessary in Windows, and a different mechanism
+exists for the wrappers in pure Unix.
+
+=over 4
+
+=item projDir
+
+The path to the project directory. The C<bin> directory is put in here.
+
+=item modules
+
+Reference to a hash that maps each module name to its directory. The
+scripts are all in the C<scripts> subdirectories of the module
+directories.
+
+=item opt
+
+The command-line options from the configuration script.
+
+=back
+
+=cut
+
+sub SetupBinaries {
+    # Get the parameters.
+    my ($projDir, $modules, $opt) = @_;
+    # Insure we have a bin directory.
+    my $binDir = "$projDir/bin";
+    if (! -d $binDir) {
+        File::Path::make_path($binDir);
+        print "$binDir created.\n";
+    }
+    # Loop through the modules.
+    for my $module (keys %$modules) {
+        # Get the scripts for this module.
+        my $scriptDir = "$modules->{$module}/scripts";
+        opendir(my $dh, $scriptDir) || die "Could not open script directory $scriptDir.";
+        my @scripts = grep { substr($_, -3, 3) eq '.pl' } readdir($dh);
+        closedir $dh;
+        # Loop through them, creating the wrappers.
+        for my $script (@scripts) {
+            # Get the unsuffixed script name.
+            my $binaryName = substr($script, 0, -3);
+            # Create the wrapper file.
+            my $fileName = "$binDir/$binaryName";
+            open(my $oh, ">$fileName") || die "Could not open $binaryName: $!";
+            print $oh "#!/usr/bin/sh\n";
+            print $oh "perl $scriptDir/$script \"\$\@\"\n";
+            close $oh;
+            # Turn on the execution bits.
+            my @finfo = stat $fileName;
+            my $newMode = ($finfo[2] & 0777) | 0111;
+            chmod $newMode, $fileName;
+        }
+    }
+}
+
+

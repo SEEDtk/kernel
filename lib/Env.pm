@@ -184,7 +184,7 @@ sub GetScripts {
     # Open the directory.
     opendir(my $dh, $dir) || die "Could not open directory $dir: $!";
     # Find all the script files.
-    my @files = grep { $_ =~ /^\w+\.pl$/ } readdir($dh);
+    my @files = grep { substr($_, -3, 3) eq '.pl' } readdir($dh);
     close $dh;
     # Loop through the file names.
     for my $file (@files) {
