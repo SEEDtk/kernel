@@ -22,6 +22,7 @@
     use FIG_Config;
     use Env;
     use File::Spec;
+    use Getopt::Long::Descriptive;
 
 =head1 Apache VHosts Fixup Script
 
@@ -37,49 +38,64 @@ C</etc/apache2/extra/httpd=vhosts.conf>. On Windows, this will depend on which
 Apache installation you are using. For example, on a standard XAMPP installation,
 it would be C</xampp/apache/conf/extra/httpd-vhosts.conf>.
 
+The command-line options are as follows:
+
+=over 4
+
+=item mac
+
+If this is a mac, the location of the main Apache configuration file. This is usually
+C</private/etc/apache2/httpd.conf>.
+
+=back
+
 On a Mac, you must have root privileges to run this script (which is why it is no
 longer a part of L<Config.pl>).
 
 =cut
 
     $| = 1; # Prevent buffering on STDOUT.
+    # Get the command-line options.
+    my ($opt, $usage) = describe_options('%o %c vhostsFile',
+    		['mac=s', 'main Apache configuration file (if this is a Mac)']);
     my $fileName = $ARGV[0];
     if (! $fileName) {
         die "The VHOSTS file name is required.";
-    } elsif (! -f $fileName) {
-        die "$fileName does not exist.";
     }
     # Determine the operating system.
     my $winMode = ($^O =~ /Win/ ? 1 : 0);
-    # Set up the VHOSTS file.
-    # Open the configuration file for input.
-    open(my $ih, "<$fileName") || die "Could not open configuration file $fileName: $!";
     # We'll put the file lines in here, omitting any existing SEEDtk section.
     my @lines;
-    my $skipping;
-    while (! eof $ih) {
-        my $line = <$ih>;
-        # Are we in the SEEDtk section?
-        if ($skipping) {
-            # Yes. Check for an end marker.
-            if ($line =~ /^## END SEEDtk SECTION/) {
-                # Found it. Stop skipping.
-                $skipping = 0;
-            }
-        } else {
-            # No. Check for a begin marker.
-            if ($line =~ /^## BEGIN SEEDtk SECTION/) {
-                # Found it. Start skipping.
-                $skipping = 1;
-            } else {
-                # Not a marker. Save the line.
-                push @lines, $line;
-            }
-        }
+    # Set up the VHOSTS file. Is there a previous copy?
+    if (-f $fileName) {
+	    # Open the configuration file for input.
+	    open(my $ih, "<$fileName") || die "Could not open configuration file $fileName: $!";
+	    my $skipping;
+	    while (! eof $ih) {
+	        my $line = <$ih>;
+	        # Are we in the SEEDtk section?
+	        if ($skipping) {
+	            # Yes. Check for an end marker.
+	            if ($line =~ /^## END SEEDtk SECTION/) {
+	                # Found it. Stop skipping.
+	                $skipping = 0;
+	            }
+	        } else {
+	            # No. Check for a begin marker.
+	            if ($line =~ /^## BEGIN SEEDtk SECTION/) {
+	                # Found it. Start skipping.
+	                $skipping = 1;
+	            } else {
+	                # Not a marker. Save the line.
+	                push @lines, $line;
+	            }
+	        }
+	    }
+	    # Close the file.
+	    close $ih;
     }
-    # Close the file.
-    close $ih;
-    # Open it again for output.
+    # Now the file lines we want to keep from the old file (if any) are
+    # in @lines. Open the file for output.
     open(my $oh, ">$fileName") || die "Could not open configuration file $fileName: $!";
     # Unspool the lines from the old file.
     for my $line (@lines) {
@@ -120,4 +136,41 @@ longer a part of L<Config.pl>).
     # Close the output file.
     close $oh;
     print "VHOSTS file updated.\n";
+    # Check for a Mac requirement.
+    if ($opt->mac) {
+    	# Here we must update the main config file to enable virtual hosting.
+		my $confFile = $opt->mac;
+    	open(my $ih, "<$confFile") || die "Could not open $confFile: $!";
+		# We'll accumulate output lines in here.
+		@lines = ();
+		# This will be set to the number of lines updated.
+		my $count = 0;
+    	while (! eof $ih) {
+    		my $line = <$ih>;
+    		if ($line =~ /^(\s*)#(\w+\s.+vhost.*)/ ||
+    			$line =~ /^(\s*)#(LoadModule\s+cgi_module.+)/ ||
+    			$line =~ /^(\s*)#(AddHandler\s+cgi.+)/) {
+    			# Here we want to uncomment the line.
+    			push @lines, "$1$2\n";
+    			$count++;
+    		} else {
+    			# Here the line should be kept unchanged.
+    			push @lines, $line;
+    		}
+    	}
+    	# Close the file.
+    	close $ih;
+    	# Do we need to update it?
+    	if ($count) {
+			# Yes. Open it for output.
+	    	undef $oh;
+	    	open($oh, ">$confFile") || die "Could not open $confFile for output: $!";
+			# Write out the updated lines.
+	    	for my $line (@lines) {
+	    		print $oh $line;
+	    	}
+	    	close $oh;
+	    	print "$count lines updated in $confFile.\n";
+    	}
+    }
 

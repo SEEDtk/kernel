@@ -252,7 +252,8 @@ L</WriteAllParams> method.
         # Set up the paths and PERL libraries.
         WriteAllConfigs($winMode, \%modules, $projDir, $opt);
         if (! $winMode) {
-            # For an Eclipse Mac installation, we have to set up binary versions of the scripts.
+            # For an Eclipse Mac installation, we have to set up binary versions of the scripts
+            # and make the
             SetupBinaries($projDir, \%modules, $opt);
         }
     }
@@ -509,7 +510,8 @@ sub WriteAllConfigs {
         $paths =~ s/&/^&/g;
         print $oh "path $paths\n";
     } else {
-        print $oh "export PATH=$paths:\$PATH\n";
+    	# On the Mac, we simply put the bin subdirectory in the path.
+        print $oh "export PATH=$projDir/bin:\$PATH\n";
     }
     # Set the PERL libraries.
     my $libs = join($delim, @FIG_Config::libs);
@@ -533,7 +535,7 @@ sub WriteAllConfigs {
     close $oh;
     # If this is NOT Windows, fix the permissions.
     if (! $winMode) {
-        chmod $fileName, 0x755;
+        chmod 0755, $fileName;
     }
     # Now we need to create the includepath file. This is an XML file that has
     # to appear in every project directory. First, we create the text of the file.
@@ -699,7 +701,7 @@ sub SetupBinaries {
             # Create the wrapper file.
             my $fileName = "$binDir/$binaryName";
             open(my $oh, ">$fileName") || die "Could not open $binaryName: $!";
-            print $oh "#!/usr/bin/sh\n";
+            print $oh "#!/usr/bin/env bash\n";
             print $oh "perl $scriptDir/$script \"\$\@\"\n";
             close $oh;
             # Turn on the execution bits.
