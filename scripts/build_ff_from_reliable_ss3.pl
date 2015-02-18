@@ -95,10 +95,11 @@ my @functions = map { $_->[0] }
                 map { [$_,scalar @{$poss_fams{$_}}] } keys(%poss_fams);
 foreach my $f (@functions)
 {
-    my $pegsH = $poss_fams{$f};
-    if (keys(%$pegsH) > 1)
+    # Get the list of pegs in this family.
+    my $pegsL = $poss_fams{$f};
+    if (scalar(@$pegsL) > 1)
     {
-        foreach my $peg (sort { &SeedUtils::by_fig_id($a,$b) } keys(%$pegsH))
+        foreach my $peg (sort { &SeedUtils::by_fig_id($a,$b) } (@$pegsL))
         {
             print join("\t",($nxt_fam,$peg,$f)),"\n";
         }
