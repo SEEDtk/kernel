@@ -28,15 +28,18 @@ to verify that the current configuration is working and connects to the database
 
 There are no positional parameters.
 
-The command-line options are those found in L<Shrub/new_for_script>.
+The command-line options are those found in L<Shrub/script_options>.
 
 =cut
 
     use strict;
     use warnings;
     use Shrub;
+    use ScriptUtils;
 
+    # Get the command-line options.
+    my $opt = ScriptUtils::Opts('', Shrub::script_options());
     # Connect to the database.
-    my ($shrub, $opt) = Shrub->new_for_script('%c %o', { });
+    my $shrub = Shrub->new_for_script($opt);
     # Get all the roles with EC numbers and write them out.
     $shrub->PutAll(\*STDOUT, 'Role', 'Role(ec-number) >= ?', ['1'], 'ec-number id description');
