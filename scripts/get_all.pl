@@ -27,9 +27,12 @@
     get_all [ options ] -p path -c ' constraint' -v parm1 -v parm2 ... field1 field2 ...
 
 This script performs a general database query. It can either perform a standalone query
-or process data from a tab-delimited input file. The L<ERDB/GetAll> command is used to
-perform the processing, and the documentation there should be consulted for more
-details.
+or process data from a tab-delimited input file. If the input is from a tab-delimited
+input file, the output file will consist of the result columns tacked on to the
+end of each input row.
+
+The L<ERDB/GetAll> command is used to perform the query processing, and the
+documentation there should be consulted for more details.
 
 Essentially, to navigate the database you must specify a I<path> through the entities and
 relationships, a I<constraint> that limits the output, one or more I<parameters> to the
@@ -99,10 +102,11 @@ same three columns as in the previous example.
             "Subsystem2Genome(to-link)" "Subsystem2Genome(variant)"
 
 This reads a list of protein MD5s from the standard input and outputs
-the IDs of the features that produce the protein.
+the IDs of the features that produce the protein. The protein MD5s
+are in the last column of the input file.
 
-    get_all -p "Protein Protein2Feature" -c "Protein(id) = ?"
-            -v \$1 "Protein2Feature(to-link)"
+    get_all -p "Protein2Feature" -c "Protein2Feature(from-link) = ?"
+            -v \$n "Protein2Feature(to-link)"
 
 =cut
 
