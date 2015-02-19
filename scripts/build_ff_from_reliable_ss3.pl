@@ -65,25 +65,17 @@ my @privileged_subsystems = map { $_->[0] }
 my %poss_fams;
 foreach my $ss (@privileged_subsystems)
 {
-    my %active_genomes = map { ($_->[0] => 1) }
-                         $shrub->GetAll("Subsystem2Genome",
-          "(Subsystem2Genome(from-link) = ? AND Subsystem2Genome(variant) != ?) and (Subsystem2Genome(variant) != ?)",
-          [$ss, '-1', '*-1'],
-          "Subsystem2Genome(to-link)");
-    # Get all the features in the subsystem.
-    my @fids = map { $_->[0] } $shrub->GetAll("Subsystem2Feature", 'Subsystem2Feature(from-link) = ?', [$ss], 'Subsystem2Feature(to-link)');
+    # Get all the features in the subsystem. Note that vacant subsystems are not included in the database,
+    # so we don't need to filter on variant codes any more.
+    my $fidList = $shrub->Subsystem2Feature(id => $ss);
     # Get the related functions.
-    my $funHash = $shrub->Feature2Function(Shrub::PRIV, \@fids);
-    foreach my $peg (@fids)
+    my $funHash = $shrub->Feature2Function(Shrub::PRIV, $fidList);
+    foreach my $peg ($fidList)
     {
         my ($funID, $function, $comment) = @{$funHash->{$peg}};
         # Discard features with "trunc" or "frame" in the comment.
         unless ($comment =~ /trunc|frame/) {
-            my $g = &SeedUtils::genome_of($peg);
-            if ($active_genomes{$g})
-            {
-                push(@{$poss_fams{$function}},$peg);
-            }
+            push(@{$poss_fams{$function}},$peg);
         }
     }
 }
