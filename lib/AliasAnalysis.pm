@@ -217,7 +217,6 @@ sub AliasCheck {
     if ($alias =~ /^([^|:]+)/) {
         # Check the prefix against the black list.
         my $prefix = lc $1;
-        Trace("Prefix for $alias is $prefix.") if T(3);
         if ($BlackList{$prefix}) {
             $retVal = 0;
         }
@@ -279,15 +278,12 @@ sub Find {
     } else {
         # Get the pattern for the specified alias type.
         my $pattern = $AliasTable{$type}->{pattern};
-        Trace("Alias pattern is /$pattern/.") if T(3);
         # Search for matching aliases. We can't use GREP here because we want
         # to stop as soon as we find a match. That way, the $1,$2.. variables
         # will be set properly.
         my $found;
         for my $alias (@$aliases) { last if $found;
-            Trace("Matching against \"$alias\".") if T(4);
             if ($alias =~ /^$pattern$/) {
-                Trace("Match found.") if T(4);
                 # Here we have a match. Return the matching alias's natural form.
                 $retVal = eval($AliasTable{$type}->{convert}->{natural});
                 $found = 1;
@@ -421,7 +417,6 @@ sub Format {
         my $convertExpression = $AliasTable{$aliasType}->{convert}->{$type};
         # Check to see if we found the right type.
         my $pattern = $AliasTable{$aliasType}->{pattern};
-        Trace("Matching \"$alias\" to /$pattern/.") if T(4);
         if ($alias =~ /^$pattern$/) {
             # Here we did. Denote we found the type.
             $found = 1;
@@ -429,7 +424,6 @@ sub Format {
             if ($convertExpression) {
                 # It does, so do the conversion.
                 $retVal = eval("\"$convertExpression\"");
-                Trace("Convert expression was \"$convertExpression\".") if T(3);
             }
         }
     }
@@ -468,7 +462,6 @@ sub TypeOf {
     for my $aliasType (keys %AliasTable) { last if defined $retVal;
         # Check to see if we found the right type.
         my $pattern = $AliasTable{$aliasType}->{pattern};
-        Trace("Matching \"$alias\" to /$pattern/.") if T(4);
         if ($alias =~ /^$pattern$/) {
             # Here we did. Denote we found the type.
             $retVal = $aliasType;

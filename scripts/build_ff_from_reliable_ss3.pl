@@ -61,21 +61,26 @@ my $opt = ScriptUtils::Opts('', Shrub::script_options());
 my $shrub = Shrub->new_for_script($opt);
 # Get a list of all the privileged subsystems.
 my @privileged_subsystems = map { $_->[0] }
-                            $shrub->GetAll("Subsystem","Subsystem(security) = ?",[Shrub::PRIV],"Subsystem(id)");
+                            $shrub->GetAll("Subsystem","Subsystem(privileged) = ?",[1],"Subsystem(id)");
 my %poss_fams;
 foreach my $ss (@privileged_subsystems)
 {
     # Get all the features in the subsystem. Note that vacant subsystems are not included in the database,
     # so we don't need to filter on variant codes any more.
-    my $fidList = $shrub->Subsystem2Feature(id => $ss);
+    my $fidList = $shrub->Subsystem2Feature($ss);
     # Get the related functions.
     my $funHash = $shrub->Feature2Function(Shrub::PRIV, $fidList);
-    foreach my $peg ($fidList)
+    foreach my $peg (@$fidList)
     {
-        my ($funID, $function, $comment) = @{$funHash->{$peg}};
-        # Discard features with "trunc" or "frame" in the comment.
-        unless ($comment =~ /trunc|frame/) {
-            push(@{$poss_fams{$function}},$peg);
+        my $pegData = $funHash->{$peg};
+        # A feature may not have a function at privilege level 2, so we need to insure
+        # we got something back.
+        if ($pegData) {
+            my ($funID, $function, $comment) = @$pegData;
+            # Discard features with "trunc" or "frame" in the comment.
+            unless ($comment =~ /trunc|frame/) {
+                push(@{$poss_fams{$function}},$peg);
+            }
         }
     }
 }
