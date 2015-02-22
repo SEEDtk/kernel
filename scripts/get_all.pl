@@ -181,4 +181,6 @@ are in the last column of the input file.
         $line = (defined $ih ? <$ih> : undef);
     }
     # All done. Close the input.
-    close $ih;
+    if (defined $ih) {
+        close $ih;
+    }
