@@ -17,10 +17,10 @@
 #
 
 
-    use strict;
-    use warnings;
-    use Shrub;
-    use ScriptUtils;
+use strict;
+use warnings;
+use Shrub;
+use ScriptUtils;
 
 =head1 Perform a General Database Query
 
@@ -108,77 +108,77 @@ are in the last column of the input file.
 
 =cut
 
-    # Get the command parameters.
-    my $opt = ScriptUtils::Opts('field1 field2 ...', Shrub::script_options(),
-            ScriptUtils::ih_options(),
-            ["path|p=s", "path through the database", { required => 1} ],
-            ["constraint|c=s", "query constraint (if any)"],
-            ["value|v=s@", "parameter values for the query constraint (multiple)"],
-            ["count|n=i", "maximum number of records to output per input line (default is 0, meaning return everything)", { default => 0 }]
-            );
-    # Connect to the database.
-    my $shrub = Shrub->new_for_script($opt);
-    # Get the list of parameter values. If none were supplied, we use an empty list.
-    my $valueList = $opt->value // [];
-    # Check for input markers. This list will contain undef if the parameter value is a constant,
-    # and a column index if the parameter value is taken from the input line.
-    my @inputList;
-    # This will be set to the input file handle if we find at least one input marker.
-    my $ih;
-    # Loop through the parameter values.
-    my $n = scalar @$valueList;
+# Get the command parameters.
+my $opt = ScriptUtils::Opts('field1 field2 ...', Shrub::script_options(),
+        ScriptUtils::ih_options(),
+        ["path|p=s", "path through the database", { required => 1} ],
+        ["constraint|c=s", "query constraint (if any)"],
+        ["value|v=s@", "parameter values for the query constraint (multiple)"],
+        ["count|n=i", "maximum number of records to output per input line (default is 0, meaning return everything)", { default => 0 }]
+        );
+# Connect to the database.
+my $shrub = Shrub->new_for_script($opt);
+# Get the list of parameter values. If none were supplied, we use an empty list.
+my $valueList = $opt->value // [];
+# Check for input markers. This list will contain undef if the parameter value is a constant,
+# and a column index if the parameter value is taken from the input line.
+my @inputList;
+# This will be set to the input file handle if we find at least one input marker.
+my $ih;
+# Loop through the parameter values.
+my $n = scalar @$valueList;
+for (my $i = 0; $i < $n; $i++) {
+    if ($valueList->[$i] =~ /^\$(\d+|n)/) {
+        # We have an input column marker. Save the column number.
+        my $col = (($1 eq 'n') ? -1 : ($1 - 1));
+        push @inputList, ($1 - 1);
+        # If this is our first marker, open the input file.
+        if (! defined $ih) {
+            $ih = ScriptUtils::IH($opt->input);
+        }
+    } else {
+        # Here we have an ordinary constant value.
+        push @inputList, undef;
+    }
+}
+# Now get the path, constraint, and count. The count already defaults to 0 so we don't
+# need to worry about it being undefined.
+my $path = $opt->path;
+my $constraint = $opt->constraint // '';
+my $count = $opt->count;
+# Get the list of output field names.
+my @fields = @ARGV;
+if (! scalar(@fields)) {
+    die "No output fields specified.\n";
+}
+# Get the first line of input. If we have no input, this is an empty string.
+my $line = (defined $ih ? <$ih> : "\n");
+# Loop until we run out of input.
+while (defined $line) {
+    # Parse the input line.
+    chomp $line;
+    my @cols = split /\t/, $line;
+    # Form the list of parameter values.
+    my @parms;
     for (my $i = 0; $i < $n; $i++) {
-        if ($valueList->[$i] =~ /^\$(\d+|n)/) {
-            # We have an input column marker. Save the column number.
-            my $col = (($1 eq 'n') ? -1 : ($1 - 1));
-            push @inputList, ($1 - 1);
-            # If this is our first marker, open the input file.
-            if (! defined $ih) {
-                $ih = ScriptUtils::IH($opt->input);
-            }
+        if (defined $inputList[$i]) {
+            my $colIdx = $inputList[$i];
+            $colIdx = $#cols if $colIdx < 0;
+            push @parms, $cols[$colIdx];
         } else {
-            # Here we have an ordinary constant value.
-            push @inputList, undef;
+            push @parms, $valueList->[$i];
         }
     }
-    # Now get the path, constraint, and count. The count already defaults to 0 so we don't
-    # need to worry about it being undefined.
-    my $path = $opt->path;
-    my $constraint = $opt->constraint // '';
-    my $count = $opt->count;
-    # Get the list of output field names.
-    my @fields = @ARGV;
-    if (! scalar(@fields)) {
-        die "No output fields specified.\n";
+    # Query the database.
+    my @rows = $shrub->GetAll($path, $constraint, \@parms, \@fields, $count);
+    # Output the results.
+    for my $row (@rows) {
+        print join("\t", @cols, @$row) . "\n";
     }
-    # Get the first line of input. If we have no input, this is an empty string.
-    my $line = (defined $ih ? <$ih> : "\n");
-    # Loop until we run out of input.
-    while (defined $line) {
-        # Parse the input line.
-        chomp $line;
-        my @cols = split /\t/, $line;
-        # Form the list of parameter values.
-        my @parms;
-        for (my $i = 0; $i < $n; $i++) {
-            if (defined $inputList[$i]) {
-                my $colIdx = $inputList[$i];
-                $colIdx = $#cols if $colIdx < 0;
-                push @parms, $cols[$colIdx];
-            } else {
-                push @parms, $valueList->[$i];
-            }
-        }
-        # Query the database.
-        my @rows = $shrub->GetAll($path, $constraint, \@parms, \@fields, $count);
-        # Output the results.
-        for my $row (@rows) {
-            print join("\t", @cols, @$row) . "\n";
-        }
-        # Get the next input line (or undef if there is no input file).
-        $line = (defined $ih ? <$ih> : undef);
-    }
-    # All done. Close the input.
-    if (defined $ih) {
-        close $ih;
-    }
+    # Get the next input line (or undef if there is no input file).
+    $line = (defined $ih ? <$ih> : undef);
+}
+# All done. Close the input.
+if (defined $ih) {
+    close $ih;
+}
