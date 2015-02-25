@@ -82,30 +82,28 @@ a maximum of 50 results.
 
 =head2 Examples
 
-These examples are broken into multiple lines for readability, but in
-actual practice they would be single-line commands.
-
 The following command reads a list of subsystem IDs from the standard input
 and lists all the genomes in each subsystem along with each genome's variant
 code. The subsystem IDs are taken from the first column of the input.
 
-    get_all -p "Subsystem Subsystem2Genome" -c "Subsystem(id) = ?" -v \$1
-            "Subsystem2Genome(to-link)" "Subsystem2Genome(variant)"
+    get_all -p "Subsystem Subsystem2Row Row2Genome" -c "Subsystem(id) = ?" \
+            -v \$1 "Row2Genome(to-link)" "Row2Genome(variant)"
 
 The following command does the same thing, but instead of reading from the
 standard input it just displays the genomes for Histidine Degradation.
 Note that we include the Subsystem ID in the output so that we have the
 same three columns as in the previous example.
 
-    get_all -p "Subsystem Subsystem2Genome" -c "Subsystem(id) = ?"
-            -v "Histidine Degradation" "Subsystem(id)"
-            "Subsystem2Genome(to-link)" "Subsystem2Genome(variant)"
+    get_all -p "Subsystem Subsystem2Row Row2Genome" -c "Subsystem(id) = ?" \
+            -v "HistDegr" "Subsystem(id)" "Row2Genome(to-link)" \
+            "Row2Genome(variant)"
+
 
 This reads a list of protein MD5s from the standard input and outputs
 the IDs of the features that produce the protein. The protein MD5s
 are in the last column of the input file.
 
-    get_all -p "Protein2Feature" -c "Protein2Feature(from-link) = ?"
+    get_all -p "Protein2Feature" -c "Protein2Feature(from-link) = ?" \
             -v \$n "Protein2Feature(to-link)"
 
 =cut
