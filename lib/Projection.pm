@@ -14,12 +14,12 @@ sub relevant_projection_data {
     $state->{roles} = \@tuples;
 
     @tuples = $shrub->GetAll(
-	"Subsystem2Row SubsystemRow Row2Cell Cell2Feature Feature Feature2Protein Protein AND 
+	        "Subsystem2Row SubsystemRow Row2Cell Cell2Feature Feature Feature2Protein Protein AND 
              Feature Feature2Function Function AND Feature Feature2Contig",
         "(Subsystem2Row(from-link) = ?) AND Feature2Function(security) = ?",
              [$subsystem_id,2],
         "SubsystemRow(variant-code) Cell2Feature(to-link) Function(description) Protein(sequence) 
-             Feature2Contig(to-link) Feature2Cointig(begin) Feature2Contig(dir)" );
+             Feature2Contig(to-link) Feature2Contig(begin) Feature2Contig(dir)" );
 
     my %by_vc;
     my %seqs;
@@ -35,7 +35,7 @@ sub relevant_projection_data {
 	$by_vc{$vc}->{$peg}++;
 	$to_func{$peg} = $function;
 	$func_to_pegs{$function}->{$peg} = 1;
-	$peg2loc{$peg) = [$contig,$begin,$strand];
+	$peg2loc{$peg} = [$contig,$begin,$strand];
     }
     $state->{by_vc} = \%by_vc;
     $state->{seqs}  = \%seqs;

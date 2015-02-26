@@ -22,6 +22,7 @@ use FIG_Config;
 use Shrub;
 use ScriptUtils;
 use JSON::XS;
+use Projection;
 
 =head1 compute properties of solid roles to be used in projections
 
