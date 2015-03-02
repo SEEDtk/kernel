@@ -938,5 +938,4 @@ sub dna_identity
     $n_position ? $n_identity / $n_position : undef
 }
 
-
 1;
