@@ -1,4 +1,4 @@
-﻿package gjoparseblast;
+package gjoparseblast;
 
 # This is a SAS component
 #

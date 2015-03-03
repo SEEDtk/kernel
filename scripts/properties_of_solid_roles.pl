@@ -18,11 +18,11 @@
 
 use strict;
 use warnings;
-use FIG_Config;
 use Shrub;
 use ScriptUtils;
 use JSON::XS;
 use Projection;
+use Data::Dumper;
 
 =head1 compute properties of solid roles to be used in projections
 
@@ -52,11 +52,11 @@ full subsystem name.
 my $opt = ScriptUtils::Opts(
     '', Shrub::script_options(),
     ScriptUtils::ih_options(),
-    [ 'subsystem|s=s',
-        'ID of the subsystem to process'
-    ]   
+    [ 'subsystem|s=s','ID of the subsystem to process'],
+    [ 'dataD|d=s','Data Directory for Subsystem Projection']
 );
 my $subsystem_id = $opt->subsystem;
+my $dataD        = $opt->datad;
 
 # Connect to the database.
 my $shrub = Shrub->new_for_script($opt);
@@ -67,7 +67,4 @@ my @genomes = map { ( $_ =~ /(\d+\.\d+)/ ) ? $1 : () } <$ih>;
 close($ih);
 
 my $state = &Projection::relevant_projection_data($subsystem_id,\@genomes,$shrub);
-
-my $json = JSON::XS->new;
-$json->pretty(1);
-print $json->encode($state);
+&Projection::create_recognition_parameters($state,$dataD,$shrub);
