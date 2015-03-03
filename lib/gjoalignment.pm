@@ -18,89 +18,91 @@
 
 package gjoalignment;
 
-#===============================================================================
-#  A package of functions for alignments (to be expanded)
-#
-#    @align = align_with_clustal(  @seqs )
-#    @align = align_with_clustal( \@seqs )
-#    @align = align_with_clustal( \@seqs, \%opts )
-#   \@align = align_with_clustal(  @seqs )
-#   \@align = align_with_clustal( \@seqs )
-#   \@align = align_with_clustal( \@seqs, \%opts )
-#
-#    @align = clustal_profile_alignment( \@seqs,  $seq )
-#   \@align = clustal_profile_alignment( \@seqs,  $seq )
-#    @align = clustal_profile_alignment( \@seqs, \@seqs )
-#   \@align = clustal_profile_alignment( \@seqs, \@seqs )
-#
-#   \@align                           = align_with_muscle( \@seqs )
-#   \@align                           = align_with_muscle( \@seqs, \%opts )
-#   \@align                           = align_with_muscle( \%opts )
-# ( \@align, $newick-tree-as-string ) = align_with_muscle( \@seqs )
-# ( \@align, $newick-tree-as-string ) = align_with_muscle( \@seqs, \%opts )
-# ( \@align, $newick-tree-as-string ) = align_with_muscle( \%opts )
-#
-#   \@align                           = align_with_mafft( \@seqs )
-#   \@align                           = align_with_mafft( \@seqs, \%opts )
-#   \@align                           = align_with_mafft( \%opts )
-# ( \@align, $newick-tree-as-string ) = align_with_mafft( \@seqs )
-# ( \@align, $newick-tree-as-string ) = align_with_mafft( \@seqs, \%opts )
-# ( \@align, $newick-tree-as-string ) = align_with_mafft( \%opts )
-#
-#    $tree      = tree_with_clustal( \@alignment );
-#
-#    @alignment = add_to_alignment(     $seqentry, \@alignment );
-#    @alignment = add_to_alignment_v2(  $seqentry, \@alignment, \%options );
-#    @alignment = add_to_alignment_v2a( $seqentry, \@alignment, \%options );
-#
-#  Compare two sequences for fraction identity.
-#
-#     $fract_id = fraction_identity( $seq1, $seq2, $type );
-#     $fract_id = fraction_aa_identity( $seq1, $seq2 );
-#     $fract_id = fraction_nt_identity( $seq1, $seq2 );
-#
-#     $type is 'p' or 'n' (D = p)
-#
-#  Find the consensus amino acid (or nucleotide) at specified alignment column.
-#
-#       $residue              = consensus_aa_in_column( \@align, $column )
-#     ( $residue, $fraction ) = consensus_aa_in_column( \@align, $column )
-#
-#       $residue              = consensus_aa_in_column( \@seqR, $column )
-#     ( $residue, $fraction ) = consensus_aa_in_column( \@seqR, $column )
-#
-#       $residue              = consensus_nt_in_column( \@align, $column )
-#     ( $residue, $fraction ) = consensus_nt_in_column( \@align, $column )
-#
-#       $residue              = consensus_nt_in_column( \@seqR, $column )
-#     ( $residue, $fraction ) = consensus_nt_in_column( \@seqR, $column )
-#
-#  The first form of each takes a reference to an array of sequence triples,
-#  while the second form takes a reference to an array of references to
-#  sequences. Column numbers are 1-based.
-#
-#  Extract a representative set from an alignment
-#
-#     @alignment = representative_alignment( \@alignment, \%options );
-#    \@alignment = representative_alignment( \@alignment, \%options );
-#
-#  Remove divergent sequences from an alignment
-#
-#     @alignment = filter_by_similarity( \@align, $min_sim, @id_def_seq );
-#    \@alignment = filter_by_similarity( \@align, $min_sim, @id_def_seq );
-#
-#     @alignment = filter_by_similarity( \@align, $min_sim, @ids );
-#    \@alignment = filter_by_similarity( \@align, $min_sim, @ids );
-#
-#  Bootstrap sample an alignment:
-#
-#   \@alignment = bootstrap_sample( \@alignment );
-#
-#===============================================================================
+=pod
+
+  A package of functions for alignments (to be expanded)
+
+    @align = align_with_clustal(  @seqs )
+    @align = align_with_clustal( \@seqs )
+    @align = align_with_clustal( \@seqs, \%opts )
+   \@align = align_with_clustal(  @seqs )
+   \@align = align_with_clustal( \@seqs )
+   \@align = align_with_clustal( \@seqs, \%opts )
+
+    @align = clustal_profile_alignment( \@seqs,  $seq )
+   \@align = clustal_profile_alignment( \@seqs,  $seq )
+    @align = clustal_profile_alignment( \@seqs, \@seqs )
+   \@align = clustal_profile_alignment( \@seqs, \@seqs )
+
+   \@align                           = align_with_muscle( \@seqs )
+   \@align                           = align_with_muscle( \@seqs, \%opts )
+   \@align                           = align_with_muscle( \%opts )
+ ( \@align, $newick-tree-as-string ) = align_with_muscle( \@seqs )
+ ( \@align, $newick-tree-as-string ) = align_with_muscle( \@seqs, \%opts )
+ ( \@align, $newick-tree-as-string ) = align_with_muscle( \%opts )
+
+   \@align                           = align_with_mafft( \@seqs )
+   \@align                           = align_with_mafft( \@seqs, \%opts )
+   \@align                           = align_with_mafft( \%opts )
+ ( \@align, $newick-tree-as-string ) = align_with_mafft( \@seqs )
+ ( \@align, $newick-tree-as-string ) = align_with_mafft( \@seqs, \%opts )
+ ( \@align, $newick-tree-as-string ) = align_with_mafft( \%opts )
+
+    $tree      = tree_with_clustal( \@alignment );
+
+    @alignment = add_to_alignment(     $seqentry, \@alignment );
+    @alignment = add_to_alignment_v2(  $seqentry, \@alignment, \%options );
+    @alignment = add_to_alignment_v2a( $seqentry, \@alignment, \%options );
+
+  Compare two sequences for fraction identity.
+
+     $fract_id = fraction_identity( $seq1, $seq2, $type );
+     $fract_id = fraction_aa_identity( $seq1, $seq2 );
+     $fract_id = fraction_nt_identity( $seq1, $seq2 );
+
+     $type is 'p' or 'n' (D = p)
+
+  Find the consensus amino acid (or nucleotide) at specified alignment column.
+
+       $residue              = consensus_aa_in_column( \@align, $column )
+     ( $residue, $fraction ) = consensus_aa_in_column( \@align, $column )
+
+       $residue              = consensus_aa_in_column( \@seqR, $column )
+     ( $residue, $fraction ) = consensus_aa_in_column( \@seqR, $column )
+
+       $residue              = consensus_nt_in_column( \@align, $column )
+     ( $residue, $fraction ) = consensus_nt_in_column( \@align, $column )
+
+       $residue              = consensus_nt_in_column( \@seqR, $column )
+     ( $residue, $fraction ) = consensus_nt_in_column( \@seqR, $column )
+
+  The first form of each takes a reference to an array of sequence triples,
+  while the second form takes a reference to an array of references to
+  sequences. Column numbers are 1-based.
+
+  Extract a representative set from an alignment
+
+     @alignment = representative_alignment( \@alignment, \%options );
+    \@alignment = representative_alignment( \@alignment, \%options );
+
+  Remove divergent sequences from an alignment
+
+     @alignment = filter_by_similarity( \@align, $min_sim, @id_def_seq );
+    \@alignment = filter_by_similarity( \@align, $min_sim, @id_def_seq );
+
+     @alignment = filter_by_similarity( \@align, $min_sim, @ids );
+    \@alignment = filter_by_similarity( \@align, $min_sim, @ids );
+
+  Bootstrap sample an alignment:
+
+   \@alignment = bootstrap_sample( \@alignment );
+
+=cut
 
 use strict;
 use gjoseqlib;
 use SeedAware;
+use File::Copy;
 use Carp;                       # Used for diagnostics
 eval { require Data::Dumper };  # Not present on all systems
 
@@ -119,33 +121,34 @@ our @EXPORT = qw(
         );
 
 
-#===============================================================================
-#  Align sequences with muscle and return the alignment, or alignment and tree.
-#
-#     \@align                           = align_with_mafft( \@seqs )
-#     \@align                           = align_with_mafft( \@seqs, \%opts )
-#     \@align                           = align_with_mafft( \%opts )
-#   ( \@align, $newick-tree-as-string ) = align_with_mafft( \@seqs )
-#   ( \@align, $newick-tree-as-string ) = align_with_mafft( \@seqs, \%opts )
-#   ( \@align, $newick-tree-as-string ) = align_with_mafft( \%opts )
-#
-#  If input sequences are not supplied, they must be included as an in or in1
-#  option value.
-#
-#  Options:
-#
-#     add       =>  $seq      #  Add one sequence to \@ali1 alignment
-#     algorithm =>  linsi, einsi, ginsi, nwnsi, nwns, fftnsi, fftns (d)
-#                             #  Algorithms in descending order or accuracy
-#     in        => \@seqs     #  Input sequences; same as in1, or \@seqs
-#     in1       => \@ali1     #  Input sequences; same as in, or \@seqs
-#     in2       => \@ali2     #  Align \@seqs with \@ali2; same as profile, or seed
-#     profile   => \@ali2     #  Align \@seqs with \@ali2; same as in2, or seed
-#     seed      => \@ali2     #  Align \@seqs with \@ali2; same as in2, or profile
-#     version   =>  $bool     #  Return the program version number, or undef
-#
-#  Many of the program flags can be used as keys (without the leading --).
-#===============================================================================
+=pod
+
+  Align sequences with muscle and return the alignment, or alignment and tree.
+
+     \@align                           = align_with_mafft( \@seqs )
+     \@align                           = align_with_mafft( \@seqs, \%opts )
+     \@align                           = align_with_mafft( \%opts )
+   ( \@align, $newick-tree-as-string ) = align_with_mafft( \@seqs )
+   ( \@align, $newick-tree-as-string ) = align_with_mafft( \@seqs, \%opts )
+   ( \@align, $newick-tree-as-string ) = align_with_mafft( \%opts )
+
+  If input sequences are not supplied, they must be included as an in or in1
+  option value.
+
+  Options:
+
+     add       =>  $seq      #  Add one sequence to \@ali1 alignment
+     algorithm =>  linsi, einsi, ginsi, nwnsi, nwns, fftnsi, fftns (d)
+                             #  Algorithms in descending order or accuracy
+     in        => \@seqs     #  Input sequences; same as in1, or \@seqs
+     in1       => \@ali1     #  Input sequences; same as in, or \@seqs
+     in2       => \@ali2     #  Align \@seqs with \@ali2; same as profile, or seed
+     profile   => \@ali2     #  Align \@seqs with \@ali2; same as in2, or seed
+     seed      => \@ali2     #  Align \@seqs with \@ali2; same as in2, or profile
+     version   =>  $bool     #  Return the program version number, or undef
+
+  Many of the program flags can be used as keys (without the leading --).
+=cut
 sub align_with_mafft
 {
     my( $seqs, $opts );
@@ -294,14 +297,16 @@ sub align_with_mafft
 
     my $redirects = { stdout => $tmpout, stderr => '/dev/null' };
     SeedAware::system_with_redirect( $mafft, @params, $redirects );
-    
+
     my @ali = &gjoseqlib::read_fasta( $tmpout );
     foreach $_ ( @ali ) { $_->[1] = $comment{$_->[0]} }
 
     my $treestr;
     my $treeF  = "$tmpin.tree";
     if ( $tree && open( TREE, "<$treeF" ) ) { $treestr = join( "", <TREE> ); close( TREE ) }
-    if ( $opts->{ treeout } ) { SeedAware::system_with_redirect( "cp", $treeF, $opts->{ treeout } ) }
+    if ( $opts->{ treeout } ) {
+        File::Copy::copy($treeF, $opts->{ treeout })
+    }
 
     unlink( $tmpin, $tmpout,
             ( $profile ? $tmpin2 : () ),
@@ -311,31 +316,32 @@ sub align_with_mafft
     return wantarray ? ( \@ali, $treestr ) : \@ali;
 }
 
-#===============================================================================
-#  Align sequences with muscle and return the alignment, or alignment and tree.
-#
-#     \@align                           = align_with_muscle( \@seqs )
-#     \@align                           = align_with_muscle( \@seqs, \%opts )
-#     \@align                           = align_with_muscle( \%opts )
-#   ( \@align, $newick-tree-as-string ) = align_with_muscle( \@seqs )
-#   ( \@align, $newick-tree-as-string ) = align_with_muscle( \@seqs, \%opts )
-#   ( \@align, $newick-tree-as-string ) = align_with_muscle( \%opts )
-#
-#  If input sequences are not supplied, they must be included as an in or in1
-#  option value.
-#
-#  Options:
-#
-#     add      =>  $seq      #  Add one sequence to \@ali1 alignment
-#     in       => \@seqs     #  Input sequences; same as in1, or \@seqs
-#     in1      => \@ali1     #  Input sequences; same as in, or \@seqs
-#     in2      => \@ali2     #  Align \@seqs with \@ali2; same as profile
-#     profile  => \@ali2     #  Align \@seqs with \@ali2; same as in2
-#     refine   =>  $bool     #  Do not start from scratch
-#     version  =>  $bool     #  Return the program version number, or undef
-#
-#  Many of the program flags can be used as keys (without the leading -).
-#===============================================================================
+=pod
+
+  Align sequences with muscle and return the alignment, or alignment and tree.
+
+     \@align                           = align_with_muscle( \@seqs )
+     \@align                           = align_with_muscle( \@seqs, \%opts )
+     \@align                           = align_with_muscle( \%opts )
+   ( \@align, $newick-tree-as-string ) = align_with_muscle( \@seqs )
+   ( \@align, $newick-tree-as-string ) = align_with_muscle( \@seqs, \%opts )
+   ( \@align, $newick-tree-as-string ) = align_with_muscle( \%opts )
+
+  If input sequences are not supplied, they must be included as an in or in1
+  option value.
+
+  Options:
+
+     add      =>  $seq      #  Add one sequence to \@ali1 alignment
+     in       => \@seqs     #  Input sequences; same as in1, or \@seqs
+     in1      => \@ali1     #  Input sequences; same as in, or \@seqs
+     in2      => \@ali2     #  Align \@seqs with \@ali2; same as profile
+     profile  => \@ali2     #  Align \@seqs with \@ali2; same as in2
+     refine   =>  $bool     #  Do not start from scratch
+     version  =>  $bool     #  Return the program version number, or undef
+
+  Many of the program flags can be used as keys (without the leading -).
+=cut
 sub align_with_muscle
 {
     my( $seqs, $opts );
@@ -356,7 +362,7 @@ sub align_with_muscle
 
     if ( $version )
     {
-        $version = SeedAware::run_gathering_output($muscle, "-version");
+        SeedAware::system_with_redirect($muscle, "-version", { stdout => \$version });
         chomp $version;
         return $version;
     }
@@ -470,8 +476,7 @@ sub align_with_muscle
         push @params, "-$_", $opts->{$_}  if $prog_val{ $_ };
     }
 
-    my $redirects = { stdout => '/dev/null', stderr => '/dev/null' };
-    SeedAware::system_with_redirect( $muscle, @params, $redirects );
+    SeedAware::run_redirected( $muscle, @params);
 
     my @ali = &gjoseqlib::read_fasta( $tmpout );
     foreach $_ ( @ali ) { $_->[1] = $comment{$_->[0]} }
@@ -488,17 +493,18 @@ sub align_with_muscle
 }
 
 
-#===============================================================================
-#  Align sequence with clustalw and return the alignment
-#
-#    @align = align_with_clustal(  @sequences )
-#    @align = align_with_clustal( \@sequences )
-#    @align = align_with_clustal( \@sequences, \%opts )
-#   \@align = align_with_clustal(  @sequences )
-#   \@align = align_with_clustal( \@sequences )
-#   \@align = align_with_clustal( \@sequences, \%opts )
-#
-#===============================================================================
+=pod
+
+  Align sequence with clustalw and return the alignment
+
+    @align = align_with_clustal(  @sequences )
+    @align = align_with_clustal( \@sequences )
+    @align = align_with_clustal( \@sequences, \%opts )
+   \@align = align_with_clustal(  @sequences )
+   \@align = align_with_clustal( \@sequences )
+   \@align = align_with_clustal( \@sequences, \%opts )
+
+=cut
 sub align_with_clustal
 {
     return wantarray ? [] : () if ! @_;        #  No input
@@ -547,8 +553,7 @@ sub align_with_clustal
                    '-maxdiv=0',
                    '-align'
                  );
-    my $redirects = { stdout => '/dev/null' };
-    SeedAware::system_with_redirect( $clustalw, @params, $redirects );
+    SeedAware::run_redirected( $clustalw, @params);
 
     my @aligned = gjoseqlib::read_clustal_file( $outfile );
     unlink( $seqfile, $outfile, $dndfile );
@@ -581,12 +586,13 @@ sub fix_sequence
     join '', map { $_ eq '-' ? '-' : substr( $seq1, $i++, 1 ) } split //, $seq2;
 }
 
-#===============================================================================
-#  Insert a new sequence into an alignment without altering the relative
-#  alignment of the existing sequences.  The alignment is based on a profile
-#  of those sequences that are not significantly less similar than the most
-#  similar sequence.
-#===============================================================================
+=pod
+
+  Insert a new sequence into an alignment without altering the relative
+  alignment of the existing sequences.  The alignment is based on a profile
+  of those sequences that are not significantly less similar than the most
+  similar sequence.
+=cut
 
 sub add_to_alignment
 {
@@ -676,8 +682,7 @@ sub add_to_alignment
                    '-maxdiv=0',
                    '-profile'
                  );
-    my $redirects = { stdout => '/dev/null' };
-    SeedAware::system_with_redirect( $clustalw, @params, $redirects );
+    SeedAware::run_redirected( $clustalw, @params );
 
     my @relevant_aligned = map { $_->[2] } gjoseqlib::read_clustal_file( $outfile );
 
@@ -726,23 +731,24 @@ sub add_to_alignment
 }
 
 
-#===============================================================================
-#  Insert a new sequence into an alignment without altering the relative
-#  alignment of the existing sequences.  The alignment is based on a profile
-#  of those sequences that are not significantly less similar than the most
-#  similar sequence.  This differs from v2a in that it removes the shared gap
-#  columns in the subset of sequences before doing the profile alignment.
-#
-#    \@align = add_to_alignment_v2( $seq, \@ali, \%options )
-#
-#  Options:
-#
-#     trim    => bool     # trim sequence start and end
-#     silent  => bool     # no information messages
-#     stddev  => float    # window of similarity to include in profile (D = 1.5)
-#     verbose => bool     # add information messages
-#
-#===============================================================================
+=pod
+
+  Insert a new sequence into an alignment without altering the relative
+  alignment of the existing sequences.  The alignment is based on a profile
+  of those sequences that are not significantly less similar than the most
+  similar sequence.  This differs from v2a in that it removes the shared gap
+  columns in the subset of sequences before doing the profile alignment.
+
+    \@align = add_to_alignment_v2( $seq, \@ali, \%options )
+
+  Options:
+
+     trim    => bool     # trim sequence start and end
+     silent  => bool     # no information messages
+     stddev  => float    # window of similarity to include in profile (D = 1.5)
+     verbose => bool     # add information messages
+
+=cut
 
 sub add_to_alignment_v2
 {
@@ -883,59 +889,60 @@ sub add_to_alignment_v2
 }
 
 
-#- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-#  Build the alignment merging information for coverting the original alignment
-#  and the added sequence into the final alignment.
-#
-#  ( $m4, $m5 ) = merge_alignment_information( $m1, $m2, $m3 )
-#
-#  The inputs are:
-#
-#     $m1 = the gaps removed from the original alignment to make the
-#               profile of "relevant" sequences,
-#     $m2 = the gaps that clustal introduced into the profile, and
-#     $m3 = the gaps that clustal introduced into the added sequence.
-#
-#  The outputs are:
-#
-#     $m4 = the locations to add new gaps to the original alignment, and
-#     $m5 = the locations to add gaps to the new sequence.
-#
-#  ali  rel
-#  pos  pos  seq  m1  m2  m3  m4  m5
-#   1    1    1    1   1   1   1   1
-#   2    2    2    1   1   1   1   1
-#   3    3    3    1   1   1   1   1
-#   4              0           1   0
-#   5              0           1   0
-#   6    4    4    1   1   1   1   1
-#   7    5    5    1   1   1   1   1
-#   8    6    6    1   1   1   1   1
-#   9         7    0   0   1   1   1
-#  10         8    0   0   1   1   1
-#  11              0           1   0
-#  12    7    9    1   1   1   1   1
-#  13    8   10    1   1   1   1   1
-#  14    9         1   1   0   1   0
-#  15   10         1   1   0   1   0
-#  16   11   11    1   1   1   1   1
-#            12        0   1   0   1
-#            13        0   1   0   1
-#  17   12   14    1   1   1   1   1
-#  18   13   15    1   1   1   1   1
-#
-#
-#  -----------------------------------------
-#      length              number of 1s
-#  -----------------------------------------
-#  m1  length of ali       length of profile
-#  m2  length of prof ali  length of profile
-#  m3  length of prof ali  lenght of seq
-#  m4  length of merge     length of ali
-#  m5  length of merge     length of seq
-#  -----------------------------------------
-#
-#- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+=pod
+
+  Build the alignment merging information for coverting the original alignment
+  and the added sequence into the final alignment.
+
+  ( $m4, $m5 ) = merge_alignment_information( $m1, $m2, $m3 )
+
+  The inputs are:
+
+     $m1 = the gaps removed from the original alignment to make the
+               profile of "relevant" sequences,
+     $m2 = the gaps that clustal introduced into the profile, and
+     $m3 = the gaps that clustal introduced into the added sequence.
+
+  The outputs are:
+
+     $m4 = the locations to add new gaps to the original alignment, and
+     $m5 = the locations to add gaps to the new sequence.
+
+  ali  rel
+  pos  pos  seq  m1  m2  m3  m4  m5
+   1    1    1    1   1   1   1   1
+   2    2    2    1   1   1   1   1
+   3    3    3    1   1   1   1   1
+   4              0           1   0
+   5              0           1   0
+   6    4    4    1   1   1   1   1
+   7    5    5    1   1   1   1   1
+   8    6    6    1   1   1   1   1
+   9         7    0   0   1   1   1
+  10         8    0   0   1   1   1
+  11              0           1   0
+  12    7    9    1   1   1   1   1
+  13    8   10    1   1   1   1   1
+  14    9         1   1   0   1   0
+  15   10         1   1   0   1   0
+  16   11   11    1   1   1   1   1
+            12        0   1   0   1
+            13        0   1   0   1
+  17   12   14    1   1   1   1   1
+  18   13   15    1   1   1   1   1
+
+
+  -----------------------------------------
+      length              number of 1s
+  -----------------------------------------
+  m1  length of ali       length of profile
+  m2  length of prof ali  length of profile
+  m3  length of prof ali  lenght of seq
+  m4  length of merge     length of ali
+  m5  length of merge     length of seq
+  -----------------------------------------
+
+=cut
 sub merge_alignment_information
 {
     my ( $m1, $m2, $m3 ) = @_;
@@ -987,21 +994,22 @@ sub merge_alignment_information
 }
 
 
-#===============================================================================
-#  Insert a new sequence into an alignment without altering the relative
-#  alignment of the existing sequences.  The alignment is based on a profile
-#  of those sequences that are not significantly less similar than the most
-#  similar sequence.
-#
-#    \@align = add_to_alignment_v2a( $seq, \@ali, \%options )
-#
-#  Options:
-#
-#     trim   => bool     # trim sequence start and end
-#     silent => bool     # no information messages
-#     stddev => float    # window of similarity to include in profile (D = 1.5)
-#
-#===============================================================================
+=pod
+
+  Insert a new sequence into an alignment without altering the relative
+  alignment of the existing sequences.  The alignment is based on a profile
+  of those sequences that are not significantly less similar than the most
+  similar sequence.
+
+    \@align = add_to_alignment_v2a( $seq, \@ali, \%options )
+
+  Options:
+
+     trim   => bool     # trim sequence start and end
+     silent => bool     # no information messages
+     stddev => float    # window of similarity to include in profile (D = 1.5)
+
+=cut
 
 sub add_to_alignment_v2a
 {
@@ -1120,15 +1128,16 @@ sub add_to_alignment_v2a
 }
 
 
-#-------------------------------------------------------------------------------
-#  Compare two otherwise identical alignments, finding columns of all gaps
-#  that have been added to the second that are not in the first.  Added
-#  columns are "\000" in output string (like columns to pack).  Other columns
-#  are "\377".
-#
-#      $added_gaps = added_gap_columns( \@alignment1, \@alignment2 )
-#
-#-------------------------------------------------------------------------------
+=pod
+
+  Compare two otherwise identical alignments, finding columns of all gaps
+  that have been added to the second that are not in the first.  Added
+  columns are "\000" in output string (like columns to pack).  Other columns
+  are "\377".
+
+      $added_gaps = added_gap_columns( \@alignment1, \@alignment2 )
+
+=cut
 sub added_gap_columns
 {
     return undef if ! ( $_[0] && ref( $_[0] ) eq 'ARRAY'
@@ -1149,13 +1158,14 @@ sub added_gap_columns
 }
 
 
-#-------------------------------------------------------------------------------
-#  Align a sequence or profile to an existing profile.
-#
-#     \@alignment = clustal_profile_alignment( \@seqs,  $seq )
-#     \@alignment = clustal_profile_alignment( \@seqs, \@seqs )
-#
-#-------------------------------------------------------------------------------
+=pod
+
+  Align a sequence or profile to an existing profile.
+
+     \@alignment = clustal_profile_alignment( \@seqs,  $seq )
+     \@alignment = clustal_profile_alignment( \@seqs, \@seqs )
+
+=cut
 sub clustal_profile_alignment
 {
     my ( $seqs1, $seqs2 ) = @_;
@@ -1191,27 +1201,28 @@ sub clustal_profile_alignment
     push @align, map { my ( $ori_id, $ori_def, $ori_seq ) = @{ $id_map{ $_->[0] } };
                        [ $ori_id, $ori_def, gjoseqlib::expand_sequence_by_mask( $ori_seq, $gap1 ) ]
                      }
-                 @aln1; 
+                 @aln1;
 
     my $gap2 = gjoseqlib::alignment_gap_mask( \@aln2 );
     push @align, map { my ( $ori_id, $ori_def, $ori_seq ) = @{ $id_map{ $_->[0] } };
                        [ $ori_id, $ori_def, gjoseqlib::expand_sequence_by_mask( $ori_seq, $gap2 ) ]
                      }
-                 @aln2; 
+                 @aln2;
 
     wantarray ? @align : \@align;
 }
 
 
-#-------------------------------------------------------------------------------
-#  Align a sequence or profile to an existing profile.
-#
-#     \@alignment = clustal_profile_alignment_0( \@seqs,  $seq )
-#     \@alignment = clustal_profile_alignment_0( \@seqs, \@seqs )
-#
-#  Assumes that ids and sequences are clustal friendly, so this is not really
-#  a function for the outside world; use clustal_profile_alignment() instead.
-#-------------------------------------------------------------------------------
+=pod
+
+  Align a sequence or profile to an existing profile.
+
+     \@alignment = clustal_profile_alignment_0( \@seqs,  $seq )
+     \@alignment = clustal_profile_alignment_0( \@seqs, \@seqs )
+
+  Assumes that ids and sequences are clustal friendly, so this is not really
+  a function for the outside world; use clustal_profile_alignment() instead.
+=cut
 sub clustal_profile_alignment_0
 {
     my ( $seqs1, $seqs2 ) = @_;
@@ -1238,8 +1249,7 @@ sub clustal_profile_alignment_0
                    '-maxdiv=0',
                    '-profile'
                  );
-    my $redirects = { stdout => '/dev/null' };
-    SeedAware::system_with_redirect( $clustalw, @params, $redirects );
+    SeedAware::run_redirected( $clustalw, @params );
 
     #  2010-09-08: clustalw profile align can columns of all gaps; so pack it
 
@@ -1251,11 +1261,11 @@ sub clustal_profile_alignment_0
 }
 
 
-#-------------------------------------------------------------------------------
-#
-#  remove dangling ends from $id
-#
-#-------------------------------------------------------------------------------
+=pod
+
+  remove dangling ends from $id
+
+=cut
 sub final_trim
 {
     my( $id, $ali ) = @_;
@@ -1319,8 +1329,7 @@ sub fract_identity
                    '-maxdiv=0',
                    '-align'
                  );
-    my $redirects = { stdout => '/dev/null' };
-    SeedAware::system_with_redirect( $clustalw, @params, $redirects );
+    SeedAware::run_redirected( $clustalw, @params );
 
     ( $s1, $s2 ) = map { $_->[2] } gjoseqlib::read_clustal_file( $outfile );  # just seqs
 
@@ -1356,15 +1365,16 @@ sub guess_seq_type
 }
 
 
-#===============================================================================
-#  Compare two sequences for fraction identity.
-#
-#     $fract_id = fraction_identity( $seq1, $seq2, $type );
-#     $fract_id = fraction_aa_identity( $seq1, $seq2 );
-#     $fract_id = fraction_nt_identity( $seq1, $seq2 );
-#
-#  $type is 'p' or 'n' (D = p)
-#===============================================================================
+=pod
+
+  Compare two sequences for fraction identity.
+
+     $fract_id = fraction_identity( $seq1, $seq2, $type );
+     $fract_id = fraction_aa_identity( $seq1, $seq2 );
+     $fract_id = fraction_nt_identity( $seq1, $seq2 );
+
+  $type is 'p' or 'n' (D = p)
+=cut
 sub fraction_identity
 {
     my $prot = ( $_[2] && ( $_[2] =~ m/^n/i ) ) ? 0 : 1;
@@ -1386,13 +1396,14 @@ sub fraction_nt_identity
 }
 
 
-#===============================================================================
-#  The logic used here to optimize identification of "same" column depends
-#  on the fact that only the second alignment ($y) has new columns, and they
-#  are all gaps.  Therefore any non-gap character in alignment $y indicates
-#  that it is not a column of added gaps (it must match).  After learning
-#  that alignment $y has a gap, then we only need test $x for a gap.
-#===============================================================================
+=pod
+
+  The logic used here to optimize identification of "same" column depends
+  on the fact that only the second alignment ($y) has new columns, and they
+  are all gaps.  Therefore any non-gap character in alignment $y indicates
+  that it is not a column of added gaps (it must match).  After learning
+  that alignment $y has a gap, then we only need test $x for a gap.
+=cut
 
 sub same_col
 {
@@ -1409,9 +1420,10 @@ sub same_col
 }
 
 
-#===============================================================================
-#  Trim sequences (needs to get updated to new tools and psiblast)
-#===============================================================================
+=pod
+
+  Trim sequences (needs to get updated to new tools and psiblast)
+=cut
 sub trim_with_blastall
 {
     my( $clnseq, $clnali, $type ) = @_;
@@ -1435,8 +1447,7 @@ sub trim_with_blastall
             and return undef;
 
     my @fmt_params = ( '-i', $blastfile, '-p', $is_prot );
-    my $fmt_redirects = { stderr => '/dev/null' };
-    SeedAware::system_with_redirect( $formatdb, @fmt_params, $fmt_redirects );
+    SeedAware::run_redirected( $formatdb, @fmt_params );
 
     my @params = ( '-p', $prog,
                    '-d', $blastfile,
@@ -1486,33 +1497,34 @@ sub remove
 }
 
 
-#===============================================================================
-#  Extract a representative set from an alignment
-#
-#     @alignment = representative_alignment( \@alignment, \%options );
-#    \@alignment = representative_alignment( \@alignment, \%options );
-#
-#  Options:
-#
-#     keep    =>   $id                    # keep this sequence unconditionally
-#     keep    =>  \@ids                   # keep these sequences unconditionally
-#     max_sim =>   $fract_ident           # maximum identity to retained sequences (D = 0.8)
-#     min_sim => [ $fract_ident,  @ids ]  # remove sequences more diverged than
-#     min_sim => [ $fract_ident, \@ids ]  # remove sequences more diverged than
-#                                         #     this identity to these refs
-#    nopack   =>   $bool                  # do not pack the resulting alignment
-#
-#  If the greatest identity is <= max_id, then it is a new similarity group.
-#  If the greatest identity is <= ext_id, then it is an extra rep of an
-#  existing group.
-#
-#                              new
-#                             group
-#   |        new group      |  rep  |  ignore  |
-#   |-----------------------|-------|----------|->  identity
-#   0                     max_id  ext_id       1
-#
-#===============================================================================
+=pod
+
+  Extract a representative set from an alignment
+
+     @alignment = representative_alignment( \@alignment, \%options );
+    \@alignment = representative_alignment( \@alignment, \%options );
+
+  Options:
+
+     keep    =>   $id                    # keep this sequence unconditionally
+     keep    =>  \@ids                   # keep these sequences unconditionally
+     max_sim =>   $fract_ident           # maximum identity to retained sequences (D = 0.8)
+     min_sim => [ $fract_ident,  @ids ]  # remove sequences more diverged than
+     min_sim => [ $fract_ident, \@ids ]  # remove sequences more diverged than
+                                         #     this identity to these refs
+    nopack   =>   $bool                  # do not pack the resulting alignment
+
+  If the greatest identity is <= max_id, then it is a new similarity group.
+  If the greatest identity is <= ext_id, then it is an extra rep of an
+  existing group.
+
+                              new
+                             group
+   |        new group      |  rep  |  ignore  |
+   |-----------------------|-------|----------|->  identity
+   0                     max_id  ext_id       1
+
+=cut
 
 sub representative_alignment
 {
@@ -1663,21 +1675,22 @@ sub representative_alignment
 
     @reps = grep { $is_rep{ $_->[0] } } @align;
     @reps = gjoseqlib::pack_alignment( \@reps ) unless $opts->{ nopack };
-    
+
     wantarray ? @reps : \@reps;
 }
 
 
-#===============================================================================
-#  Remove divergent sequences from an alignment
-#
-#     @alignment = filter_by_similarity( \@align, $min_sim, @id_def_seq );
-#    \@alignment = filter_by_similarity( \@align, $min_sim, @id_def_seq );
-#
-#     @alignment = filter_by_similarity( \@align, $min_sim, @ids );
-#    \@alignment = filter_by_similarity( \@align, $min_sim, @ids );
-#
-#===============================================================================
+=pod
+
+  Remove divergent sequences from an alignment
+
+     @alignment = filter_by_similarity( \@align, $min_sim, @id_def_seq );
+    \@alignment = filter_by_similarity( \@align, $min_sim, @id_def_seq );
+
+     @alignment = filter_by_similarity( \@align, $min_sim, @ids );
+    \@alignment = filter_by_similarity( \@align, $min_sim, @ids );
+
+=cut
 
 sub filter_by_similarity
 {
@@ -1716,26 +1729,27 @@ sub filter_by_similarity
 }
 
 
-#-------------------------------------------------------------------------------
-#  Find the consensus sequence for an alignment.
-#
-#       $sequence = consensus_sequence( \@align, $options )
-#       $sequence = consensus_sequence( \@seq,   $options )
-#       $sequence = consensus_sequence( \@seqR,  $options )
-#
-#  The first form takes a reference to an array of sequence triples, while
-#  the second form takes a reference to an array of sequences, and the
-#  third form takes a reference to an array of sequence references.
-#
-#  Options:
-#
-#    dna      => $bool   # Find a DNA consensus (D = guess)
-#    gap_ok   => $bool   # Allow gaps in the consensus (D = no gap residues)
-#    min_freq => $fract  # Minimum occurrence frequency of residue (D = >0)
-#    protein  => $bool   # Find a protein consensus (D = guess)
-#    rna      => $bool   # Find an RNA consensus (D = guess)
-#
-#-------------------------------------------------------------------------------
+=pod
+
+  Find the consensus sequence for an alignment.
+
+       $sequence = consensus_sequence( \@align, $options )
+       $sequence = consensus_sequence( \@seq,   $options )
+       $sequence = consensus_sequence( \@seqR,  $options )
+
+  The first form takes a reference to an array of sequence triples, while
+  the second form takes a reference to an array of sequences, and the
+  third form takes a reference to an array of sequence references.
+
+  Options:
+
+    dna      => $bool   # Find a DNA consensus (D = guess)
+    gap_ok   => $bool   # Allow gaps in the consensus (D = no gap residues)
+    min_freq => $fract  # Minimum occurrence frequency of residue (D = >0)
+    protein  => $bool   # Find a protein consensus (D = guess)
+    rna      => $bool   # Find an RNA consensus (D = guess)
+
+=cut
 sub consensus_sequence
 {
     my ( $align, $opts ) = @_;
@@ -1759,23 +1773,24 @@ sub consensus_sequence
 }
 
 
-#-------------------------------------------------------------------------------
-#  Find the consensus sequence for an amino acid sequence alignment.
-#
-#       $sequence = consensus_sequence_aa( \@align, $options )
-#       $sequence = consensus_sequence_aa( \@seq,   $options )
-#       $sequence = consensus_sequence_aa( \@seqR,  $options )
-#
-#  The first form takes a reference to an array of sequence triples, while
-#  the second form takes a reference to an array of sequences, and the
-#  third form takes a reference to an array of sequence references.
-#
-#  Options:
-#
-#    gap_ok   => $bool   # Allow gaps in the consensus (D = no gap residues)
-#    min_freq => $fract  # Minimum occurrence frequency of residue (D = >0)
-#
-#-------------------------------------------------------------------------------
+=pod
+
+  Find the consensus sequence for an amino acid sequence alignment.
+
+       $sequence = consensus_sequence_aa( \@align, $options )
+       $sequence = consensus_sequence_aa( \@seq,   $options )
+       $sequence = consensus_sequence_aa( \@seqR,  $options )
+
+  The first form takes a reference to an array of sequence triples, while
+  the second form takes a reference to an array of sequences, and the
+  third form takes a reference to an array of sequence references.
+
+  Options:
+
+    gap_ok   => $bool   # Allow gaps in the consensus (D = no gap residues)
+    min_freq => $fract  # Minimum occurrence frequency of residue (D = >0)
+
+=cut
 sub consensus_sequence_aa
 {
     my ( $align, $opts ) = @_;
@@ -1852,24 +1867,25 @@ sub consensus_sequence_aa
 }
 
 
-#-------------------------------------------------------------------------------
-#  Find the consensus sequence for a nucleotide sequence alignment.
-#
-#       $sequence = consensus_sequence_nt( \@align, $options )
-#       $sequence = consensus_sequence_nt( \@seq,   $options )
-#       $sequence = consensus_sequence_nt( \@seqR,  $options )
-#
-#  The first form takes a reference to an array of sequence triples, while
-#  the second form takes a reference to an array of sequences, and the
-#  third form takes a reference to an array of sequence references.
-#
-#  Options:
-#
-#    gap_ok   => $bool   # Allow gaps in the consensus (D = no gap residues)
-#    min_freq => $fract  #  Minimum occurrence frequency of residue (D = >0)
-#    rna      => $bool   #  Output U instead of T.
-#
-#-------------------------------------------------------------------------------
+=pod
+
+  Find the consensus sequence for a nucleotide sequence alignment.
+
+       $sequence = consensus_sequence_nt( \@align, $options )
+       $sequence = consensus_sequence_nt( \@seq,   $options )
+       $sequence = consensus_sequence_nt( \@seqR,  $options )
+
+  The first form takes a reference to an array of sequence triples, while
+  the second form takes a reference to an array of sequences, and the
+  third form takes a reference to an array of sequence references.
+
+  Options:
+
+    gap_ok   => $bool   # Allow gaps in the consensus (D = no gap residues)
+    min_freq => $fract  #  Minimum occurrence frequency of residue (D = >0)
+    rna      => $bool   #  Output U instead of T.
+
+=cut
 sub consensus_sequence_nt
 {
     my ( $align, $opts ) = @_;
@@ -1948,22 +1964,23 @@ sub consensus_sequence_nt
 }
 
 
-#-------------------------------------------------------------------------------
-#  Find the consensus amino acid residue at specified alignment column.
-#  For evaluating a whole alignment, this routine is more than 5x slower
-#  than consensus_sequence_aa().
-#
-#       $residue              = consensus_aa_in_column( \@align, $column, $gap_ok )
-#     ( $residue, $fraction ) = consensus_aa_in_column( \@align, $column, $gap_ok )
-#
-#       $residue              = consensus_aa_in_column( \@seqR, $column, $gap_ok )
-#     ( $residue, $fraction ) = consensus_aa_in_column( \@seqR, $column, $gap_ok )
-#
-#  The first form takes a reference to an array of sequence triples, while
-#  the second form takes a reference to an array of references to sequences.
-#  Column numbers are 1-based.
-#  $gap_ok indicates whether the consensus can be a gap.
-#-------------------------------------------------------------------------------
+=pod
+
+  Find the consensus amino acid residue at specified alignment column.
+  For evaluating a whole alignment, this routine is more than 5x slower
+  than consensus_sequence_aa().
+
+       $residue              = consensus_aa_in_column( \@align, $column, $gap_ok )
+     ( $residue, $fraction ) = consensus_aa_in_column( \@align, $column, $gap_ok )
+
+       $residue              = consensus_aa_in_column( \@seqR, $column, $gap_ok )
+     ( $residue, $fraction ) = consensus_aa_in_column( \@seqR, $column, $gap_ok )
+
+  The first form takes a reference to an array of sequence triples, while
+  the second form takes a reference to an array of references to sequences.
+  Column numbers are 1-based.
+  $gap_ok indicates whether the consensus can be a gap.
+=cut
 sub consensus_aa_in_column
 {
     my ( $align, $column, $gap_ok ) = @_;
@@ -2015,22 +2032,23 @@ sub consensus_aa_in_column
 }
 
 
-#-------------------------------------------------------------------------------
-#  Find the consensus nucleotide residue at specified alignment column.
-#  For evaluating a whole alignment, this routine is much slower than
-#  consensus_sequence_nt().
-#
-#       $residue              = consensus_nt_in_column( \@align, $column )
-#     ( $residue, $fraction ) = consensus_nt_in_column( \@align, $column )
-#
-#       $residue              = consensus_nt_in_column( \@seqR, $column )
-#     ( $residue, $fraction ) = consensus_nt_in_column( \@seqR, $column )
-#
-#  The first form takes a reference to an array of sequence triples, while
-#  the second form takes a reference to an array of references to sequences.
-#  Column numbers are 1-based.
-#
-#-------------------------------------------------------------------------------
+=pod
+
+  Find the consensus nucleotide residue at specified alignment column.
+  For evaluating a whole alignment, this routine is much slower than
+  consensus_sequence_nt().
+
+       $residue              = consensus_nt_in_column( \@align, $column )
+     ( $residue, $fraction ) = consensus_nt_in_column( \@align, $column )
+
+       $residue              = consensus_nt_in_column( \@seqR, $column )
+     ( $residue, $fraction ) = consensus_nt_in_column( \@seqR, $column )
+
+  The first form takes a reference to an array of sequence triples, while
+  the second form takes a reference to an array of references to sequences.
+  Column numbers are 1-based.
+
+=cut
 sub consensus_nt_in_column
 {
     my ( $align, $column ) = @_;
@@ -2079,11 +2097,12 @@ sub consensus_nt_in_column
 }
 
 
-#===============================================================================
-#  Do a bootstrap sample of columns from an alignment:
-#
-#    \@alignment = bootstrap_sample( \@alignment );
-#===============================================================================
+=pod
+
+  Do a bootstrap sample of columns from an alignment:
+
+    \@alignment = bootstrap_sample( \@alignment );
+=cut
 
 sub bootstrap_sample
 {

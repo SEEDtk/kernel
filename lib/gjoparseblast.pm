@@ -3,9 +3,10 @@ package gjoparseblast;
 # This is a SAS component
 #
 
-#===============================================================================
-#  2013-07-09  Fixed to handle blast+
-#===============================================================================
+=pod
+
+  2013-07-09  Fixed to handle blast+
+=cut
 #  This is a set of functions for reading blast output from a file, a pipe or
 #  an array reference (D = \*STDIN), and providing various perl interfaces.
 #
@@ -24,28 +25,28 @@ package gjoparseblast;
 #  The 'self' option enables returning matches with query_id eq subject_id.
 #  These are normally discarded (matching the behavior of ratonalize_blast).
 #
-#===============================================================================
-#
-#  Structured collection of all blast output:
-#
-#     @output = structured_blast_output( $input, $self )
-#    \@output = structured_blast_output( $input, $self )
-#
-#     Output is clustered heirarchically by query, by subject and by hsp.  The
-#     highest level is query records:
-#
-#     [ qid, qdef, qlen, [ [ sid, sdef, slen, [ hsp_data, hsp_data, ... ] ],
-#                          [ sid, sdef, slen, [ hsp_data, hsp_data, ... ] ],
-#                          ...
-#                        ]
-#     ]
-#
-#     hsp_data:
-#
-#     [ scr, exp, p_n, pval, nmat, nid, nsim, ngap, dir, q1, q2, qseq, s1, s2, sseq ]
-#        0    1    2    3     4     5    6     7     8   9   10   11   12  13   14
-#
-#-------------------------------------------------------------------------------
+=pod
+
+  Structured collection of all blast output:
+
+     @output = structured_blast_output( $input, $self )
+    \@output = structured_blast_output( $input, $self )
+
+     Output is clustered heirarchically by query, by subject and by hsp.  The
+     highest level is query records:
+
+     [ qid, qdef, qlen, [ [ sid, sdef, slen, [ hsp_data, hsp_data, ... ] ],
+                          [ sid, sdef, slen, [ hsp_data, hsp_data, ... ] ],
+                          ...
+                        ]
+     ]
+
+     hsp_data:
+
+     [ scr, exp, p_n, pval, nmat, nid, nsim, ngap, dir, q1, q2, qseq, s1, s2, sseq ]
+        0    1    2    3     4     5    6     7     8   9   10   11   12  13   14
+
+=cut
 #
 #  Flattened collection of all blast output, one record per HSP:
 #
@@ -57,26 +58,26 @@ package gjoparseblast;
 #     [ qid qdef qlen sid sdef slen scr e_val p_n p_val n_mat n_id n_pos n_gap dir q1 q2 qseq s1 s2 sseq ]
 #        0   1    2    3   4    5    6    7    8    9    10    11   12    13   14  15 16  17  18 19  20
 #
-#-------------------------------------------------------------------------------
-#
-#  Collection of all blast output in the record types of rationalize_blast
-#  (Query=, > and HSP):
-#
-#      @records = blast_record_list( $input, $self )
-#     \@records = blast_record_list( $input, $self )
-#
-#     There are 3 record types:  'Query=', '>' and 'HSP', with fields:
-#
-#     [ 'Query='  query_id  query_def  query_len ]
-#          0         1          2          3
-#
-#     [   '>'     sbjct_id  sbjct_def  sbjct_len ] 
-#          0         1          2          3
-#
-#     [ 'HSP' scr exp p_n p_val n_mat n_id n_sim n_gap dir q1 q2 qseq s1 s2 sseq ]
-#         0    1   2   3    4     5    6     7     8    9  10 11  12  13 14  15
-#
-#-------------------------------------------------------------------------------
+=pod
+
+  Collection of all blast output in the record types of rationalize_blast
+  (Query=, > and HSP):
+
+      @records = blast_record_list( $input, $self )
+     \@records = blast_record_list( $input, $self )
+
+     There are 3 record types:  'Query=', '>' and 'HSP', with fields:
+
+     [ 'Query='  query_id  query_def  query_len ]
+          0         1          2          3
+
+     [   '>'     sbjct_id  sbjct_def  sbjct_len ] 
+          0         1          2          3
+
+     [ 'HSP' scr exp p_n p_val n_mat n_id n_sim n_gap dir q1 q2 qseq s1 s2 sseq ]
+         0    1   2   3    4     5    6     7     8    9  10 11  12  13 14  15
+
+=cut
 #
 #  Blast output one query at a time:
 #
@@ -84,19 +85,19 @@ package gjoparseblast;
 #
 #     Query record structure is defined above (see structured_blast_output)
 #
-#-------------------------------------------------------------------------------
-#
-#  Blast output one subject sequence at a time:
-#
-#     $subject_results = next_blast_subject( $input, $self )
-#
-#     Output fields are:
-#
-#     [ qid, qdef, qlen, sid, sdef, slen, [ hsp_data, hsp_data, ... ] ]
-#
-#     hsp_data is defined above (see structured_blast_output)
-#
-#-------------------------------------------------------------------------------
+=pod
+
+  Blast output one subject sequence at a time:
+
+     $subject_results = next_blast_subject( $input, $self )
+
+     Output fields are:
+
+     [ qid, qdef, qlen, sid, sdef, slen, [ hsp_data, hsp_data, ... ] ]
+
+     hsp_data is defined above (see structured_blast_output)
+
+=cut
 #
 #  Blast output one HSP at a time:
 #
@@ -104,15 +105,15 @@ package gjoparseblast;
 #
 #     HSP record fields are defined above (see blast_hsp_list)
 #
-#-------------------------------------------------------------------------------
-#
-#  Blast output one record (Query=, > and HSP) at a time:
-#
-#     $record = next_blast_record( $input, $self )
-#
-#     Record types and fields are defined above (see blast_record_list)
-#
-#===============================================================================
+=pod
+
+  Blast output one record (Query=, > and HSP) at a time:
+
+     $record = next_blast_record( $input, $self )
+
+     Record types and fields are defined above (see blast_record_list)
+
+=cut
 #
 #   The following code fragment would read blast output from STDIN, one
 #   HSP at a time, process that HSP and move on.  It is the extreme form
@@ -124,44 +125,44 @@ package gjoparseblast;
 #          # Process the HSP
 #       }
 #
-#-------------------------------------------------------------------------------
-#
-#   The following code fragment would launch blastall in a forked process,
-#   read blast output one subject at a time, process those HSPs and move on.
-#
-#       my( $prog, $query, $db ) = @_;
-#
-#       #  This tedious approach allows file names with blanks and tabs, not to
-#       #  mention newlines (sorry, but it was too much to resist):
-#
-#       my @command = ('blastall', '-p', $prog, '-d', $db, '-i', $query, '-e', '1e-5');
-#
-#       #  Of course we could (ab)use perl to make it more (or less) opaque:
-#       #
-#       #    my @command = qw( blastall -p prog -d db -i query -e 1e-5 );
-#       #    @command[2,6,4] = @_;
-#
-#       my $bfh;
-#       my $pid = open( $bfh, '-|' );
-#       if ( $pid == 0 )
-#       {
-#           exec( @command );
-#           die "'" . join(" ", @command) . "' failed: $!\n";
-#       }
-#
-#       my $subj_matches;
-#       while ( defined( $subj_matches = next_blast_subject( $bfh ) )
-#       {
-#           my ( $qid, $qdef, $qlen, $sid, $sdef, $slen, $hsps ) = @$subj_matches;
-#           foreach ( sort { $b->[5]/$b->[4] <=> $a->[5]/$a->[4] } @$hsps )
-#           {
-#               # Process the HSPs, sorted by percent identity
-#           }
-#       }
-#
-#       close $bfh;
-#
-#===============================================================================
+=pod
+
+   The following code fragment would launch blastall in a forked process,
+   read blast output one subject at a time, process those HSPs and move on.
+
+       my( $prog, $query, $db ) = @_;
+
+       #  This tedious approach allows file names with blanks and tabs, not to
+       #  mention newlines (sorry, but it was too much to resist):
+
+       my @command = ('blastall', '-p', $prog, '-d', $db, '-i', $query, '-e', '1e-5');
+
+       #  Of course we could (ab)use perl to make it more (or less) opaque:
+       #
+       #    my @command = qw( blastall -p prog -d db -i query -e 1e-5 );
+       #    @command[2,6,4] = @_;
+
+       my $bfh;
+       my $pid = open( $bfh, '-|' );
+       if ( $pid == 0 )
+       {
+           exec( @command );
+           die "'" . join(" ", @command) . "' failed: $!\n";
+       }
+
+       my $subj_matches;
+       while ( defined( $subj_matches = next_blast_subject( $bfh ) )
+       {
+           my ( $qid, $qdef, $qlen, $sid, $sdef, $slen, $hsps ) = @$subj_matches;
+           foreach ( sort { $b->[5]/$b->[4] <=> $a->[5]/$a->[4] } @$hsps )
+           {
+               # Process the HSPs, sorted by percent identity
+           }
+       }
+
+       close $bfh;
+
+=cut
 
 use strict;
 
@@ -180,37 +181,38 @@ our @EXPORT = qw(
         );
 
 
-#===============================================================================
-#  Collect BLAST program output into parsed records.  This version returns
-#  the entire output in one list, hence care should be taken with multiple
-#  query searches.  The record types correspond to those returned by the
-#  ratonalize_blast script.
-#
-#      @records = blast_record_list( $input, $self )
-#
-#  or
-#
-#     \@records = blast_record_list( $input, $self )
-#
-#
-#     $input An input file or pipe handle, or array ref.  If it is undef,
-#            \*STDIN will be used.
-#
-#     $self  normally matches of a query to itself are discarded.  This can be
-#            overriden by setting $self to true.
-#
-#  There are 3 output record types:  'Query=', '>' and 'HSP'.  Their fields are:
-#
-#     [ 'Query='  query_id  query_def  query_len ]
-#          0         1          2          3
-#
-#     [   '>'     sbjct_id  sbjct_def  sbjct_len ] 
-#          0         1          2          3
-#
-#     [ 'HSP' scr exp p_n p_val n_mat n_id n_sim n_gap dir q1 q2 qseq s1 s2 sseq ]
-#         0    1   2   3    4     5    6     7     8    9  10 11  12  13 14  15
-#
-#===============================================================================
+=pod
+
+  Collect BLAST program output into parsed records.  This version returns
+  the entire output in one list, hence care should be taken with multiple
+  query searches.  The record types correspond to those returned by the
+  ratonalize_blast script.
+
+      @records = blast_record_list( $input, $self )
+
+  or
+
+     \@records = blast_record_list( $input, $self )
+
+
+     $input An input file or pipe handle, or array ref.  If it is undef,
+            \*STDIN will be used.
+
+     $self  normally matches of a query to itself are discarded.  This can be
+            overriden by setting $self to true.
+
+  There are 3 output record types:  'Query=', '>' and 'HSP'.  Their fields are:
+
+     [ 'Query='  query_id  query_def  query_len ]
+          0         1          2          3
+
+     [   '>'     sbjct_id  sbjct_def  sbjct_len ] 
+          0         1          2          3
+
+     [ 'HSP' scr exp p_n p_val n_mat n_id n_sim n_gap dir q1 q2 qseq s1 s2 sseq ]
+         0    1   2   3    4     5    6     7     8    9  10 11  12  13 14  15
+
+=cut
 
 sub blast_record_list
 {
@@ -223,30 +225,31 @@ sub blast_record_list
 }
 
 
-#===============================================================================
-#  Collect BLAST program output into parsed records.  This version returns
-#  the entire output in one list, hence care should be taken with multiple
-#  query searches:
-#
-#      @hsps = blast_hsp_list( $input, $self )
-#
-#  or
-#
-#     \@hsps = blast_hsp_list( $input, $self )
-#
-#     $input An input file or pipe handle, or array ref.  If it is undef,
-#            \*STDIN will be used.
-#
-#     $self  normally matches of a query to itself are discarded.  This can be
-#            overriden by setting $self to true.
-#
-#  There is one record per HSP, and all output records are stand alone, having
-#  the query and subject sequence data:
-#
-# qid qdef qlen sid sdef slen scr e_val p_n p_val n_mat n_id n_pos n_gap dir q1 q2 qseq s1 s2 sseq
-#  0   1    2    3   4    5    6    7    8    9    10    11   12    13   14  15 16  17  18 19  20
-#
-#===============================================================================
+=pod
+
+  Collect BLAST program output into parsed records.  This version returns
+  the entire output in one list, hence care should be taken with multiple
+  query searches:
+
+      @hsps = blast_hsp_list( $input, $self )
+
+  or
+
+     \@hsps = blast_hsp_list( $input, $self )
+
+     $input An input file or pipe handle, or array ref.  If it is undef,
+            \*STDIN will be used.
+
+     $self  normally matches of a query to itself are discarded.  This can be
+            overriden by setting $self to true.
+
+  There is one record per HSP, and all output records are stand alone, having
+  the query and subject sequence data:
+
+ qid qdef qlen sid sdef slen scr e_val p_n p_val n_mat n_id n_pos n_gap dir q1 q2 qseq s1 s2 sseq
+  0   1    2    3   4    5    6    7    8    9    10    11   12    13   14  15 16  17  18 19  20
+
+=cut
 
 sub blast_hsp_list
 {
@@ -259,44 +262,45 @@ sub blast_hsp_list
 }
 
 
-#===============================================================================
-#  Collect BLAST program output into perl structures.  This returns
-#  the entire output in one list, hence care should be taken with multiple
-#  query searches:
-#
-#      @output = structured_blast_output( $input, $self )
-#
-#  or
-#
-#     \@output = structured_blast_output( $input, $self )
-#
-#     $input An input file or pipe handle, or array ref.  If it is undef,
-#            \*STDIN will be used.
-#
-#     $self  normally matches of a query to itself are discarded.  This can be
-#            overriden by setting $self to true.
-#
-#  Output is clustered heirarchically:
-#
-#    ( [ qid, qdef, qlen, [ [ sid, sdef, slen, [ hsp_data, hsp_data, ... ] ],
-#                           [ sid, sdef, slen, [ hsp_data, hsp_data, ... ] ],
-#                           ...
-#                         ]
-#      ],
-#      [ qid, qdef, qlen, [ [ sid, sdef, slen, [ hsp_data, hsp_data, ... ] ],
-#                           [ sid, sdef, slen, [ hsp_data, hsp_data, ... ] ],
-#                           ...
-#                         ]
-#      ],
-#      ...
-#    )
-#
-#  hsp_data = [ scr, exp, p_n, pval, nmat, nid, nsim, ngap, dir, q1, q2, qseq, s1, s2, sseq ]
-#                0    1    2    3     4     5    6     7     8   9   10   11   12  13   14
-#
-#  Each query will be reported even if it does not have hits.
-#
-#===============================================================================
+=pod
+
+  Collect BLAST program output into perl structures.  This returns
+  the entire output in one list, hence care should be taken with multiple
+  query searches:
+
+      @output = structured_blast_output( $input, $self )
+
+  or
+
+     \@output = structured_blast_output( $input, $self )
+
+     $input An input file or pipe handle, or array ref.  If it is undef,
+            \*STDIN will be used.
+
+     $self  normally matches of a query to itself are discarded.  This can be
+            overriden by setting $self to true.
+
+  Output is clustered heirarchically:
+
+    ( [ qid, qdef, qlen, [ [ sid, sdef, slen, [ hsp_data, hsp_data, ... ] ],
+                           [ sid, sdef, slen, [ hsp_data, hsp_data, ... ] ],
+                           ...
+                         ]
+      ],
+      [ qid, qdef, qlen, [ [ sid, sdef, slen, [ hsp_data, hsp_data, ... ] ],
+                           [ sid, sdef, slen, [ hsp_data, hsp_data, ... ] ],
+                           ...
+                         ]
+      ],
+      ...
+    )
+
+  hsp_data = [ scr, exp, p_n, pval, nmat, nid, nsim, ngap, dir, q1, q2, qseq, s1, s2, sseq ]
+                0    1    2    3     4     5    6     7     8   9   10   11   12  13   14
+
+  Each query will be reported even if it does not have hits.
+
+=cut
 
 sub structured_blast_output
 {
@@ -331,32 +335,33 @@ sub structured_blast_output
 }
 
 
-#===============================================================================
-#  Collect BLAST program output into perl structures.  This returns
-#  the output for one query sequence:
-#
-#     $query_results = next_blast_query( $input, $self )
-#
-#     $input An input file or pipe handle, or array ref.  If it is undef,
-#            \*STDIN will be used.
-#
-#     $self  normally matches of a query to itself are discarded.  This can be
-#            overriden by setting $self to true.
-#
-#  Output structure:
-#
-#    [ qid, qdef, qlen, [ [ sid, sdef, slen, [ hsp_data, hsp_data, ... ] ],
-#                         [ sid, sdef, slen, [ hsp_data, hsp_data, ... ] ],
-#                         ...
-#                       ]
-#    ]
-#
-#  hsp_data = [ scr, exp, p_n, pval, nmat, nid, nsim, ngap, dir, q1, q2, qseq, s1, s2, sseq ]
-#                0    1    2    3     4     5    6     7     8   9   10   11   12  13   14
-#
-#  Each query will be reported even if it does not have hits.
-#
-#===============================================================================
+=pod
+
+  Collect BLAST program output into perl structures.  This returns
+  the output for one query sequence:
+
+     $query_results = next_blast_query( $input, $self )
+
+     $input An input file or pipe handle, or array ref.  If it is undef,
+            \*STDIN will be used.
+
+     $self  normally matches of a query to itself are discarded.  This can be
+            overriden by setting $self to true.
+
+  Output structure:
+
+    [ qid, qdef, qlen, [ [ sid, sdef, slen, [ hsp_data, hsp_data, ... ] ],
+                         [ sid, sdef, slen, [ hsp_data, hsp_data, ... ] ],
+                         ...
+                       ]
+    ]
+
+  hsp_data = [ scr, exp, p_n, pval, nmat, nid, nsim, ngap, dir, q1, q2, qseq, s1, s2, sseq ]
+                0    1    2    3     4     5    6     7     8   9   10   11   12  13   14
+
+  Each query will be reported even if it does not have hits.
+
+=cut
 
 {
 my %query_info = ();
@@ -409,26 +414,27 @@ sub next_blast_query
 }
 
 
-#===============================================================================
-#  Collect BLAST program output into perl structures.  This returns
-#  the output for one subject sequence:
-#
-#     $subject_results = next_blast_subject( $input, $self )
-#
-#     $input An input file or pipe handle, or array ref.  If it is undef,
-#            \*STDIN will be used.
-#
-#     $self  normally matches of a query to itself are discarded.  This can be
-#            overriden by setting $self to true.
-#
-#  Output structure:
-#
-#    [ qid, qdef, qlen, sid, sdef, slen, [ hsp_data, hsp_data, ... ] ]
-#
-#  hsp_data = [ scr, exp, p_n, pval, nmat, nid, nsim, ngap, dir, q1, q2, qseq, s1, s2, sseq ]
-#                0    1    2    3     4     5    6     7     8   9   10   11   12  13   14
-#
-#===============================================================================
+=pod
+
+  Collect BLAST program output into perl structures.  This returns
+  the output for one subject sequence:
+
+     $subject_results = next_blast_subject( $input, $self )
+
+     $input An input file or pipe handle, or array ref.  If it is undef,
+            \*STDIN will be used.
+
+     $self  normally matches of a query to itself are discarded.  This can be
+            overriden by setting $self to true.
+
+  Output structure:
+
+    [ qid, qdef, qlen, sid, sdef, slen, [ hsp_data, hsp_data, ... ] ]
+
+  hsp_data = [ scr, exp, p_n, pval, nmat, nid, nsim, ngap, dir, q1, q2, qseq, s1, s2, sseq ]
+                0    1    2    3     4     5    6     7     8   9   10   11   12  13   14
+
+=cut
 
 {
 my %q_and_s_info = ();
@@ -484,24 +490,25 @@ sub next_blast_subject
 }
 
 
-#===============================================================================
-#  Collect BLAST program output into parsed records.  This version returns
-#  the output one HSP at a time, hence is the memory light version:
-#
-#     $hsp = next_blast_hsp( $input, $self )
-#
-#     $input An input file or pipe handle, or array ref.  If it is undef,
-#            \*STDIN will be used.
-#
-#     $self  normally matches of a query to itself are discarded.  This can be
-#            overriden by setting $self to true.
-#
-#  Output record fields are:
-#
-# qid qdef qlen sid sdef slen scr e_val p_n p_val n_mat n_id n_pos n_gap dir q1 q2 qseq s1 s2 sseq
-#  0   1    2    3   4    5    6    7    8    9    10    11   12    13   14  15 16  17  18 19  20
-#
-#===============================================================================
+=pod
+
+  Collect BLAST program output into parsed records.  This version returns
+  the output one HSP at a time, hence is the memory light version:
+
+     $hsp = next_blast_hsp( $input, $self )
+
+     $input An input file or pipe handle, or array ref.  If it is undef,
+            \*STDIN will be used.
+
+     $self  normally matches of a query to itself are discarded.  This can be
+            overriden by setting $self to true.
+
+  Output record fields are:
+
+ qid qdef qlen sid sdef slen scr e_val p_n p_val n_mat n_id n_pos n_gap dir q1 q2 qseq s1 s2 sseq
+  0   1    2    3   4    5    6    7    8    9    10    11   12    13   14  15 16  17  18 19  20
+
+=cut
 
 {
 my %q_and_s_info = ();  #  Saving query and subject info between calls
@@ -539,32 +546,33 @@ sub next_blast_hsp
 }
 
 
-#===============================================================================
-#  Collect BLAST program output into parsed records.  Each call returns one
-#  record.  Record types correspond to those of the rationalize_blast script.
-#  This can be used to progressively read blast output from a file or pipe,
-#  without putting it all in memory.
-#
-#     $record = next_blast_record( $input, $self )
-#
-#     $input An input file or pipe handle, or array ref.  If it is undef,
-#            \*STDIN will be used.
-#
-#     $self  Normally matches of a query to itself are discarded.  This can be
-#            overriden by setting $self to true.
-#
-#  There are 3 output record types:  'Query=', '>' and 'HSP'.  Their fields are:
-#
-#     [ 'Query='  query_id  query_def  query_len ]
-#          0         1          2          3
-#
-#     [ '>'       sbjct_id  sbjct_def  sbjct_len ]
-#         0        1          2          3
-#
-#     [ 'HSP' scr exp p_n p_val n_mat n_id n_sim n_gap dir q1 q2 qseq s1 s2 sseq ]
-#         0    1   2   3    4     5    6     7     8    9  10 11  12  13 14  15
-#
-#===============================================================================
+=pod
+
+  Collect BLAST program output into parsed records.  Each call returns one
+  record.  Record types correspond to those of the rationalize_blast script.
+  This can be used to progressively read blast output from a file or pipe,
+  without putting it all in memory.
+
+     $record = next_blast_record( $input, $self )
+
+     $input An input file or pipe handle, or array ref.  If it is undef,
+            \*STDIN will be used.
+
+     $self  Normally matches of a query to itself are discarded.  This can be
+            overriden by setting $self to true.
+
+  There are 3 output record types:  'Query=', '>' and 'HSP'.  Their fields are:
+
+     [ 'Query='  query_id  query_def  query_len ]
+          0         1          2          3
+
+     [ '>'       sbjct_id  sbjct_def  sbjct_len ]
+         0        1          2          3
+
+     [ 'HSP' scr exp p_n p_val n_mat n_id n_sim n_gap dir q1 q2 qseq s1 s2 sseq ]
+         0    1   2   3    4     5    6     7     8    9  10 11  12  13 14  15
+
+=cut
 
 {
 my %blast_state = ();
@@ -874,9 +882,10 @@ sub next_blast_record
 }  #  End of bare block with state information
 
 
-#===============================================================================
-#  Useful functions:
-#===============================================================================
+=pod
+
+  Useful functions:
+=cut
 
 #  This now keeps an index on each array reference.  It is critical that the
 #  same array not be used twice, as it does not know to reset the counter.
