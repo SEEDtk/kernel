@@ -17,8 +17,6 @@
 
 package BlastInterface;
 
-# This is a SAS component.
-
 use Carp;
 use Data::Dumper;
 
@@ -33,141 +31,454 @@ use SeedAware;
 This library contains methods for calling  C<blastp>,
 C<blastn>, C<blastx>, C<tblastn>. C<psiblast>, and C<rpsblast>.
 
+=head3 blast
+
+    @matches = blast( $query, $db, $blast_prog, \%options )
+    \@matches = blast( $query, $db, $blast_prog, \%options )
+
+The first two arguments supply the query and db data.  These can be supplied
+in any of several forms:
+
+=over 4
+
+=item 1
+
+filename
+
+=item 2
+
+existing blast database name (for db only)
+
+=item 3
+
+open filehandle
+
+=item 4
+
+sequence triple (i.e., [id, def, seq])
+
+=item 5
+
+list of sequence triples
+
+=item 6
+
+undef or '' (read from STDIN)
+
+=back
+
+The third argument is the blast tool (blastp, blastn, blastx, tblastn, psiblast or rpsblast)
+
+The fourth argument is an options hash. The available options have been
+expanded to better match those of the new blast+ set of programs.
+
+=over 4
+
+=item *
+
+For binary flag values: F = no = 0; and T = yes = 1.
+
+=item *
+
+For query strand values: 1 = plus, 2 = minus and 3 = both.
+
+=back
+
+The options are as follows.
+
+=over 4
+
+=item asciiPSSM
+
+name of output file to store the ASCII version of PSSM
+
+=item blastall
+
+attempt to use blastall program
+
+=item blastplus
+
+attempt to use blast+ series of programs
+
+=item caseFilter
+
+ignore lowercase query residues in scoring (T/F) [Default = F]
+
+=item db_gen_code
+
+genetic code for DB sequences [Default = 1]
+
+=item dbCode
+
+genetic code for DB sequences [Default = 1]
+
+=item dbGenCode
+
+genetic code for DB sequences [Default = 1]
+
+=item dbLen
+
+effective length of DB for computing E-values
+
+=item dbsize
+
+effective length of DB for computing E-values
+
+=item dbSize
+
+effective length of DB for computing E-values
+
+=item dust
+
+define blastn filtering (yes, no or filter parameters)
+
+=item evalue
+
+maximum E-value [Default = 0.01]
+
+=item excludeSelf
+
+suppress reporting matches of ID to itself (Default = 0)
+
+=item filtering_db
+
+database of sequences to filter from query (blastn)
+
+=item filteringDB
+
+database of sequences to filter from query (blastn)
+
+=item gapextend
+
+cost (>0) for extending a gap
+
+=item gapExtend
+
+cost (>0) for extending a gap
+
+=item gapopen
+
+cost (>0) for opening a gap
+
+=item gapOpen
+
+cost (>0) for opening a gap
+
+=item ignore_msa_master
+
+ignore the master sequence when psiblast creates PSSM (Default = 0)
+
+=item ignoreMaster
+
+ignore the master sequence when psiblast creates PSSM (Default = 0)
+
+=item in_msa
+
+multiple sequence alignment to be start psiblast; can be filename or list of sequence triples
+
+=item in_pssm
+
+input checkpoint file for psiblast
+
+=item includeSelf
+
+force reporting of matches of ID to itself (Default = 1)
+
+=item inclusion_ethresh
+
+e-value inclusion threshold for pairwise alignments in psiblast (Default = 0.002)
+
+=item inclusionEvalue
+
+e-value inclusion threshold for pairwise alignments in psiblast (Default = 0.002)
+
+=item inMSA
+
+multiple sequence alignment to be start psiblast; can be filename or list of sequence triples
+
+=item inPHI
+
+filename containing pattern to search in psiblast
+
+=item inPSSM
+
+input checkpoint file for psiblast
+
+=item iterations
+
+number of psiblast iterations
+
+=item lcase_masking
+
+ignore lowercase query residues in scoring (T/F) [Default = F]
+
+=item lcaseMasking
+
+ignore lowercase query residues in scoring (T/F) [Default = F]
+
+=item lcFilter
+
+low complexity query sequence filter setting (T/F) [Default = T]
+
+=item matrix
+
+amino acid comparison matrix [Default = BLOSUM62]
+
+=item max_intron_length
+
+maximum intron length in joining translated alignments
+
+=item maxE
+
+maximum E-value [Default = 0.01]
+
+=item maxHSP
+
+maximum number of returned HSPs (before filtering)
+
+=item maxIntronLength
+
+maximum intron length in joining translated alignments
+
+=item minCovQ
+
+minimum fraction of query covered by match
+
+=item minCovS
+
+minimum fraction of the DB sequence covered by the match
+
+=item minIden
+
+fraction (0 to 1) that is a minimum required identity
+
+=item minNBScr
+
+minimum normalized bit-score (bit-score per alignment position)
+
+=item minPos
+
+fraction of aligned residues with positive score
+
+=item minScr
+
+minimum required bit-score
+
+=item msa_master_id
+
+ID of the sequence in in MSA for psiblast to use as a master
+
+=item msa_master_idx
+
+1-based index of the sequence in MSA for psiblast to use as a master
+
+=item nucIdenScr
+
+score (>0) for identical nucleotides [Default = 1]
+
+=item nucMisScr
+
+score (<0) for non-identical nucleotides [Default = -1]
+
+=item num_alignments
+
+maximum number of returned HSPs (before filtering)
+
+=item num_iterations
+
+number of psiblast iterations
+
+=item num_threads
+
+number of threads that can be run in parallel
+
+=item numAlignments
+
+maximum number of returned HSPs (before filtering)
+
+=item numThreads
+
+number of threads that can be run in parallel
+
+=item out_ascii_pssm
+
+name of output file to store the ASCII version of PSSM
+
+=item out_pssm
+
+name of output file to store PSSM
+
+=item outForm
+
+'sim' => return Sim objects [Default]; 'hsp' => return HSPs (as defined in gjoparseblast.pm)
+
+=item outPSSM
+
+name of output file to store PSSM
+
+=item penalty
+
+score (<0) for non-identical nucleotides [Default = -1]
+
+=item perc_identity
+
+minimum percent identity for blastn
+
+=item percIdentity
+
+minimum percent identity for blastn
+
+=item phi_pattern
+
+filename containing pattern to search in psiblast
+
+=item pseudocount
+
+pseudo-count value used when constructing PSSM in psiblast
+
+=item pseudoCount
+
+pseudo-count value used when constructing PSSM in psiblast
+
+=item query_genetic_code
+
+genetic code for query sequence [Default = 1]
+
+=item query_loc
+
+range of residues in the query to search (begin-end)
+
+=item queryCode
+
+genetic code for query sequence [Default = 1]
+
+=item queryGeneticCode
+
+genetic code for query sequence [Default = 1]
+
+=item queryID
+
+ID of the sequence in in MSA for psiblast to use as a master
+
+=item queryIndex
+
+1-based index of the sequence in MSA for psiblast to use as a master
+
+=item queryLoc
+
+range of residues in the query to search (begin-end)
+
+=item reward
+
+score (>0) for identical nucleotides [Default = 1]
+
+=item save_dir
+
+Boolean that causes the scratch directory to be retained (good for debugging)
+
+=item searchsp
+
+product of effective query and DB lengths for computing E-values
+
+=item searchSp
+
+product of effective query and DB lengths for computing E-values
+
+=item seg
+
+define protein sequence filtering (yes, no or filter parameters)
+
+=item soft_masking
+
+only use masking to filter initial hits, not final matches
+
+=item softMasking
+
+only use masking to filter initial hits, not final matches
+
+=item strand
+
+query strand(s) to search: 1 (or plus), 2 (or minus), 3 (or both) [Default = both]
+
+=item threads
+
+number of threads that can be run in parallel
+
+=item threshold
+
+minimum score included in word lookup table
+
+=item tmp_dir
+
+$tmpD   # use $tmpD as the scratch directory
+
+=item ungapped
+
+do not produce gapped blastn alignments
+
+=item use_sw_tback
+
+do final blastp alignment with Smith-Waterman algorithm
+
+=item warnings
+
+do not suppress warnings in stderr
+
+=item word_size
+
+word size used for initiating matches
+
+=item wordSize
+
+word size used for initiating matches
+
+=item wordSz
+
+word size used for initiating matches
+
+=item xdrop_final
+
+score drop permitted in final gapped alignment
+
+=item xdrop_gap
+
+score drop permitted in initial gapped alignment
+
+=item xdrop_ungap
+
+score drop permitted in initial ungapped alignment
+
+=item xDropFinal
+
+score drop permitted in final gapped alignment
+
+=item xDropGap
+
+score drop permitted in initial gapped alignment
+
+=item xDropUngap
+
+score drop permitted in initial ungapped alignment
+
+=back
+
+The following program-specific interfaces are also provided:
+
+      @matches =   blastn( $query, $db, \%options )
+     \@matches =   blastn( $query, $db, \%options )
+      @matches =   blastp( $query, $db, \%options )
+     \@matches =   blastp( $query, $db, \%options )
+      @matches =   blastx( $query, $db, \%options )
+     \@matches =   blastx( $query, $db, \%options )
+      @matches =  tblastn( $query, $db, \%options )
+     \@matches =  tblastn( $query, $db, \%options )
+      @matches = psiblast( $query, $db, \%options )
+     \@matches = psiblast( $query, $db, \%options )
+      @matches = rpsblast( $query, $db, \%options )
+     \@matches = rpsblast( $query, $db, \%options )
+
 =cut
 
-#-------------------------------------------------------------------------------
-#
-#    @matches = blast( $query, $db, $blast_prog, \%options )
-#    \@matches = blast( $query, $db, $blast_prog, \%options )
-#
-#  The first two arguments supply the query and db data.  These can be supplied
-#  in any of several forms:
-#
-#      filename
-#      existing blast database name (for db only)
-#      open filehandle
-#      sequence triple (i.e., [id, def, seq])
-#      list of sequence triples
-#      undef or '' -> read from STDIN
-#
-#  The third argument is the blast tool (blastp, blastn, blastx, tblastn, psiblast or rpsblast)
-#
-#  The fourth argument is an options hash. The available options have been
-#  expanded to better match those of the new blast+ set of programs.
-#
-#     For binary flag values: F = no = 0; and T = yes = 1.
-#     For query strand values: 1 = plus, 2 = minus and 3 = both.
-#
-#      asciiPSSM          => name of output file to store the ASCII version of PSSM
-#      blastall           => attempt to use blastall program
-#      blastplus          => attempt to use blast+ series of programs
-#      caseFilter         => ignore lowercase query residues in scoring (T/F) [D = F]
-#      db_gen_code        => genetic code for DB sequences [D = 1]
-#      dbCode             => genetic code for DB sequences [D = 1]
-#      dbGenCode          => genetic code for DB sequences [D = 1]
-#      dbLen              => effective length of DB for computing E-values
-#      dbsize             => effective length of DB for computing E-values
-#      dbSize             => effective length of DB for computing E-values
-#      dust               => define blastn filtering (yes, no or filter parameters)
-#      evalue             => maximum E-value [D = 0.01]
-#      excludeSelf        => suppress reporting matches of ID to itself (D = 0)
-#      filtering_db       => database of sequences to filter from query (blastn)
-#      filteringDB        => database of sequences to filter from query (blastn)
-#      gapextend          => cost (>0) for extending a gap
-#      gapExtend          => cost (>0) for extending a gap
-#      gapopen            => cost (>0) for opening a gap
-#      gapOpen            => cost (>0) for opening a gap
-#      ignore_msa_master  => ignore the master sequence when psiblast creates PSSM (D = 0)
-#      ignoreMaster       => ignore the master sequence when psiblast creates PSSM (D = 0)
-#      in_msa             => multiple sequence alignment to be start psiblast; can be filename or list of sequence triples
-#      in_pssm            => input checkpoint file for psiblast
-#      includeSelf        => force reporting of matches of ID to itself (D = 1)
-#      inclusion_ethresh  => e-value inclusion threshold for pairwise alignments in psiblast (D = 0.002)
-#      inclusionEvalue    => e-value inclusion threshold for pairwise alignments in psiblast (D = 0.002)
-#      inMSA              => multiple sequence alignment to be start psiblast; can be filename or list of sequence triples
-#      inPHI              => filename containing pattern to search in psiblast
-#      inPSSM             => input checkpoint file for psiblast
-#      iterations         => number of psiblast iterations
-#      lcase_masking      => ignore lowercase query residues in scoring (T/F) [D = F]
-#      lcaseMasking       => ignore lowercase query residues in scoring (T/F) [D = F]
-#      lcFilter           => low complexity query sequence filter setting (T/F) [D = T]
-#      matrix             => amino acid comparison matrix [D = BLOSUM62]
-#      max_intron_length  => maximum intron length in joining translated alignments
-#      maxE               => maximum E-value [D = 0.01]
-#      maxHSP             => maximum number of returned HSPs (before filtering)
-#      maxIntronLength    => maximum intron length in joining translated alignments
-#      minCovQ            => minimum fraction of query covered by match
-#      minCovS            => minimum fraction of the DB sequence covered by the match
-#      minIden            => fraction (0 to 1) that is a minimum required identity
-#      minNBScr           => minimum normalized bit-score (bit-score per alignment position)
-#      minPos             => fraction of aligned residues with positive score
-#      minScr             => minimum required bit-score
-#      msa_master_id      => ID of the sequence in in MSA for psiblast to use as a master
-#      msa_master_idx     => 1-based index of the sequence in MSA for psiblast to use as a master
-#      nucIdenScr         => score (>0) for identical nucleotides [D = 1]
-#      nucMisScr          => score (<0) for non-identical nucleotides [D = -1]
-#      num_alignments     => maximum number of returned HSPs (before filtering)
-#      num_iterations     => number of psiblast iterations
-#      num_threads        => number of threads that can be run in parallel
-#      numAlignments      => maximum number of returned HSPs (before filtering)
-#      numThreads         => number of threads that can be run in parallel
-#      out_ascii_pssm     => name of output file to store the ASCII version of PSSM
-#      out_pssm           => name of output file to store PSSM
-#      outForm            => 'sim' => return Sim objects [D]; 'hsp' => return HSPs (as defined in gjoparseblast.pm)
-#      outPSSM            => name of output file to store PSSM
-#      penalty            => score (<0) for non-identical nucleotides [D = -1]
-#      perc_identity      => minimum percent identity for blastn
-#      percIdentity       => minimum percent identity for blastn
-#      phi_pattern        => filename containing pattern to search in psiblast
-#      pseudocount        => pseudo-count value used when constructing PSSM in psiblast
-#      pseudoCount        => pseudo-count value used when constructing PSSM in psiblast
-#      query_genetic_code => genetic code for query sequence [D = 1]
-#      query_loc          => range of residues in the query to search (begin-end)
-#      queryCode          => genetic code for query sequence [D = 1]
-#      queryGeneticCode   => genetic code for query sequence [D = 1]
-#      queryID            => ID of the sequence in in MSA for psiblast to use as a master
-#      queryIndex         => 1-based index of the sequence in MSA for psiblast to use as a master
-#      queryLoc           => range of residues in the query to search (begin-end)
-#      reward             => score (>0) for identical nucleotides [D = 1]
-#      save_dir           => Boolean that causes the scratch directory to be retained (good for debugging)
-#      searchsp           => product of effective query and DB lengths for computing E-values
-#      searchSp           => product of effective query and DB lengths for computing E-values
-#      seg                => define protein sequence filtering (yes, no or filter parameters)
-#      soft_masking       => only use masking to filter initial hits, not final matches
-#      softMasking        => only use masking to filter initial hits, not final matches
-#      strand             => query strand(s) to search: 1 (or plus), 2 (or minus), 3 (or both) [D = both]
-#      threads            => number of threads that can be run in parallel
-#      threshold          => minimum score included in word lookup table
-#      tmp_dir            => $tmpD   # use $tmpD as the scratch directory
-#      ungapped           => do not produce gapped blastn alignments
-#      use_sw_tback       => do final blastp alignment with Smith-Waterman algorithm
-#      warnings           => do not suppress warnings in stderr
-#      word_size          => word size used for initiating matches
-#      wordSize           => word size used for initiating matches
-#      wordSz             => word size used for initiating matches
-#      xdrop_final        => score drop permitted in final gapped alignment
-#      xdrop_gap          => score drop permitted in initial gapped alignment
-#      xdrop_ungap        => score drop permitted in initial ungapped alignment
-#      xDropFinal         => score drop permitted in final gapped alignment
-#      xDropGap           => score drop permitted in initial gapped alignment
-#      xDropUngap         => score drop permitted in initial ungapped alignment
-#
-#  The following program-specific interfaces are also provided:
-#
-#      @matches =   blastn( $query, $db, \%options )
-#     \@matches =   blastn( $query, $db, \%options )
-#      @matches =   blastp( $query, $db, \%options )
-#     \@matches =   blastp( $query, $db, \%options )
-#      @matches =   blastx( $query, $db, \%options )
-#     \@matches =   blastx( $query, $db, \%options )
-#      @matches =  tblastn( $query, $db, \%options )
-#     \@matches =  tblastn( $query, $db, \%options )
-#      @matches = psiblast( $query, $db, \%options )
-#     \@matches = psiblast( $query, $db, \%options )
-#      @matches = rpsblast( $query, $db, \%options )
-#     \@matches = rpsblast( $query, $db, \%options )
-#
-#-------------------------------------------------------------------------------
 sub blast
 {
     my( $query, $db, $blast_prog, $parms ) = @_;
@@ -246,29 +557,41 @@ sub psiblast  { &blast( $_[0], $_[1],  'psiblast', $_[2] ) }
 sub rpsblast  { &blast( $_[0], $_[1],  'rpsblast', $_[2] ) }
 
 
-#-------------------------------------------------------------------------------
-#  Convert a multiple sequence alignment into a PSSM file suitable for the
-#  -in_pssm parameter of psiblast, or the input file list of build_rps_db.
-#  (Note: the psiblast -in_msa option takes the name of a fasta alignment
-#  file, not a pssm file.)
-#
-#      $db_name = alignment_to_pssm(  $align_file, \%options )
-#      $db_name = alignment_to_pssm( \@alignment,  \%options )
-#      $db_name = alignment_to_pssm( \*ALIGN_FH,   \%options )
-#
-#  The first argument supplies the MSA to be converted. It can be a list of
-#  sequence triple, a file name, or an open file handle.
-#
-#  General options:
-#
-#    out_pssm =>  $file   #  output PSSM filename or handle (D = STDOUT)
-#    outPSSM  =>  $file   #  output PSSM filename or handle (D = STDOUT)
-#    title    =>  $title  #  title of the PSSM (D = "untitled_$i")
-#
-#  In addition, alignment_to_pssm takes all of the options of psiblast_in_msa
-#  (see below)
-#
-#-------------------------------------------------------------------------------
+=head3 alignment_to_pssm
+
+Convert a multiple sequence alignment into a PSSM file suitable for the
+-in_pssm parameter of psiblast, or the input file list of build_rps_db.
+(Note: the psiblast -in_msa option takes the name of a fasta alignment
+file, not a pssm file.)
+
+      $db_name = alignment_to_pssm(  $align_file, \%options )
+      $db_name = alignment_to_pssm( \@alignment,  \%options )
+      $db_name = alignment_to_pssm( \*ALIGN_FH,   \%options )
+
+The first argument supplies the MSA to be converted. It can be a list of
+sequence triple, a file name, or an open file handle.
+
+General options:
+
+=over 4
+
+=item out_pssm => $file
+
+output PSSM filename or handle (Default = STDOUT)
+
+=item outPSSM => $file
+
+output PSSM filename or handle (Default = STDOUT)
+
+=item title => $title
+
+title of the PSSM (Default = "untitled_$i")
+
+=back
+
+In addition, alignment_to_pssm takes all of the options of L</psiblast_in_msa>
+
+=cut
 
 #  Keep a counter for untitled PSSMs, so that they get unique names.
 
@@ -346,75 +669,111 @@ sub alignment_to_pssm
 }
 
 
-#-------------------------------------------------------------------------------
-#  Fix a multiple sequence alignment to be appropriate for a psiblast
-#  -in_msa file.
-#
-#      ( $msa_name, \%opts, $rm_msa ) = psiblast_in_msa(  $align_file, \%opts )
-#      ( $msa_name, \%opts, $rm_msa ) = psiblast_in_msa( \@alignment,  \%opts )
-#      ( $msa_name, \%opts, $rm_msa ) = psiblast_in_msa( \*ALIGN_FH,   \%opts )
-#
-#  The scalar context form below should generally not be used because the output
-#  options hash supplied in list context many include important modifications
-#  to those supplied by the user.
-#
-#        $msa_name                    = psiblast_in_msa(  $align_file, \%opts )
-#        $msa_name                    = psiblast_in_msa( \@alignment,  \%opts )
-#        $msa_name                    = psiblast_in_msa( \*ALIGN_FH,   \%opts )
-#
-#  The first argument supplies the MSA to be fixed. It can be a list of
-#  sequence triples, a file name, or an open file handle. Note that the
-#  output options might be modified relative to that input (it is a copy;
-#  the user-supplied options hash will not be modified). The value of
-#  $rm_msa will be 1 if the msa is written to a new (temporary) file.
-#
-#  General options:
-#
-#    tmp_dir => $dir            #  directory for output file
-#
-#  Sequence filtering options:
-#
-#    keep    => \@ids           #  ids of sequences to keep in the MSA, regardless
-#                               #      of similarity filtering.
-#    max_sim =>  $fract         #  maximum identity of sequences in profile; i.e., build
-#                               #      the PSSM from a representative set (D = no_limit).
-#                               #      This can take a significant amount of time.
-#    min_sim =>  $min_sim_spec  #  exclude sequences with less than the specified identity
-#                               #      to all specified sequences (D = no_limit).
-#
-#  The minimum similarity specification is one of:
-#
-#    $min_sim_spec = [ $min_ident,  @ref_ids ]
-#    $min_sim_spec = [ $min_ident, \@ref_ids ]
-#
-#
-#  Master sequence options:
-#
-#    ignore_msa_master => $bool   #  do not include the master sequence in the PSSM (D = 0)
-#    ignoreMaster      => $bool   #  do not include the master sequence in the PSSM (D = 0)
-#    msa_master_id     => $id     #  ID of the sequence to use as a master (D is first in align)
-#    msa_master_idx    => $int    #  1-based index of the sequence to use as a master (D = 1)
-#    pseudo_master     => $bool   #  add a master sequence covering all columns in the MSA (D = 0)
-#    pseudoMaster      => $bool   #  add a master sequence covering all columns in the MSA (D = 0)
-#
-#  Master sequence notes:
-#
-#    A psiblast PSSM is a query for a database search. The search output
-#    alignments are shown against the "msa_master" sequence, which defaults
-#    to the first sequence in the alignment supplied. The PSSM only includes
-#    alignment columns that are in the master sequence, so the reported
-#    match statistics (E-value, identity, positives, and gaps) and the
-#    alignment are all evaluated relative to the master sequence. For this
-#    reason, we provide a 'pseudo_master' option that adds a master sequence
-#    that is the plurality residue type in every column of the alignment.
-#    Thus, PSSM and the output alignments will reflect all columns in the
-#    original alignment, but the query sequence shown is unlikely to
-#    correspond to any of the input sequences. If this option is chosen,
-#    ignore_msa_master is set to true, so that the consensus is not included
-#    in the calculation of the PSSM. Any msa_master_id or msa_master_idx option
-#    value will be ignored.
-#
-#-------------------------------------------------------------------------------
+=head3 psiblast_in_msa
+
+Fix a multiple sequence alignment to be appropriate for a psiblast
+-in_msa file.
+
+      ( $msa_name, \%opts, $rm_msa ) = psiblast_in_msa(  $align_file, \%opts )
+      ( $msa_name, \%opts, $rm_msa ) = psiblast_in_msa( \@alignment,  \%opts )
+      ( $msa_name, \%opts, $rm_msa ) = psiblast_in_msa( \*ALIGN_FH,   \%opts )
+
+The scalar context form below should generally not be used because the output
+options hash supplied in list context many include important modifications
+to those supplied by the user.
+
+        $msa_name                    = psiblast_in_msa(  $align_file, \%opts )
+        $msa_name                    = psiblast_in_msa( \@alignment,  \%opts )
+        $msa_name                    = psiblast_in_msa( \*ALIGN_FH,   \%opts )
+
+The first argument supplies the MSA to be fixed. It can be a list of
+sequence triples, a file name, or an open file handle. Note that the
+output options might be modified relative to that input (it is a copy;
+the user-supplied options hash will not be modified). The value of
+$rm_msa will be 1 if the msa is written to a new (temporary) file.
+
+General options:
+
+=over 4
+
+=item tmp_dir => $dir
+
+directory for output file
+
+=back
+
+Sequence filtering options:
+
+=over 4
+
+=item keep => \@ids
+
+ids of sequences to keep in the MSA, regardless of similarity filtering.
+
+=item max_sim => $fract
+
+ maximum identity of sequences in profile; i.e., build the PSSM from a representative set (Default = no_limit).
+This can take a significant amount of time.
+
+=item min_sim => $min_sim_spec
+
+exclude sequences with less than the specified identity to all specified sequences (Default = no_limit).
+The minimum similarity specification is one of:
+
+    $min_sim_spec = [ $min_ident,  @ref_ids ]
+    $min_sim_spec = [ $min_ident, \@ref_ids ]
+
+=back
+
+Master sequence options:
+
+=over 4
+
+=item ignore_msa_master => $bool
+
+do not include the master sequence in the PSSM (Default = 0)
+
+=item ignoreMaster => $bool
+
+do not include the master sequence in the PSSM (Default = 0)
+
+=item msa_master_id => $id
+
+ID of the sequence to use as a master (Default is first in align)
+
+=item msa_master_idx => $int
+
+1-based index of the sequence to use as a master (Default = 1)
+
+=item pseudo_master => $bool
+
+add a master sequence covering all columns in the MSA (Default = 0)
+
+=item pseudoMaster => $bool
+
+add a master sequence covering all columns in the MSA (Default = 0)
+
+=back
+
+=head4 Master sequence notes
+
+A psiblast PSSM is a query for a database search. The search output
+alignments are shown against the "msa_master" sequence, which defaults
+to the first sequence in the alignment supplied. The PSSM only includes
+alignment columns that are in the master sequence, so the reported
+match statistics (E-value, identity, positives, and gaps) and the
+alignment are all evaluated relative to the master sequence. For this
+reason, we provide a 'pseudo_master' option that adds a master sequence
+that is the plurality residue type in every column of the alignment.
+Thus, PSSM and the output alignments will reflect all columns in the
+original alignment, but the query sequence shown is unlikely to
+correspond to any of the input sequences. If this option is chosen,
+ignore_msa_master is set to true, so that the consensus is not included
+in the calculation of the PSSM. Any msa_master_id or msa_master_idx option
+value will be ignored.
+
+=cut
+
 sub psiblast_in_msa
 {
     my ( $align, $opts ) = @_;
@@ -565,25 +924,30 @@ sub psiblast_in_msa
 }
 
 
-#-------------------------------------------------------------------------------
-#  Build an RPS database from a list of alignments and/or alignment files
-#
-#      $db_file = build_rps_db( \@aligns, \%options )
-#
-#  The first argument supplies the list of alignments and/or alignment files.
-#
-#  Three forms of alignments are supported:
-#
-#       [ [ 'alignment-id', 'optional title', [ @seqs1 ] ], ... ]
-#       [ [ 'alignment-id', 'optional title', 'align1.fa' ], ... ];
-#       [ 'align1.pssm', ... ];
-#
-#
-#  Options:
-#
-#      title => DB title
-#
-#-------------------------------------------------------------------------------
+=head3 build_rps_db
+
+Build an RPS database from a list of alignments and/or alignment files
+
+      $db_file = build_rps_db( \@aligns, \%options )
+
+The first argument supplies the list of alignments and/or alignment files.
+
+Three forms of alignments are supported:
+
+       [ [ 'alignment-id', 'optional title', [ @seqs1 ] ], ... ]
+       [ [ 'alignment-id', 'optional title', 'align1.fa' ], ... ];
+       [ 'align1.pssm', ... ];
+
+
+Options:
+
+=over 4
+
+=item title => DB title
+
+=back
+
+=cut
 
 sub build_rps_db
 {
@@ -643,6 +1007,12 @@ sub build_rps_db
     return $db;
 }
 
+
+=head3 verify_pssm
+
+    my $pssm = verify_pssm($align, \%title_to_pssm, $opts);
+
+=cut
 
 sub verify_pssm
 {
@@ -725,12 +1095,14 @@ sub verify_pssm
 }
 
 
-#- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-#  Read the title from a PSSM file.
-#
-#    $title = pssm_title( $pssm_file, \%opts )
-#
-#- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+=head3 pssm_title
+
+Read the title from a PSSM file.
+
+    $title = pssm_title( $pssm_file, \%opts )
+
+=cut
+
 sub pssm_title
 {
     my ( $pssm, $opts ) = @_;
@@ -753,25 +1125,32 @@ sub pssm_title
 }
 
 
-#-------------------------------------------------------------------------------
-#  Do psiblast against tranlated genomic DNA. Most of this can be done by
-#  psiblast( $profile, $db, \%options ).
-#
-#   $records = psi_tblastn(  $prof_file,  $nt_file, \%options )
-#   $records = psi_tblastn(  $prof_file, \@nt_seq,  \%options )
-#   $records = psi_tblastn( \@prof_seq,   $nt_file, \%options )
-#   $records = psi_tblastn( \@prof_seq,  \@nt_seq,  \%options )
-#
-#  Required:
-#
-#     $prof_file or \@prof_seq
-#     $nt_file   or \@nt_seq
-#
-#  Options unique to psi_tblastn:
-#
-#     aa_db  =>  $trans_file    # put translated db here
-#
-#-------------------------------------------------------------------------------
+=head3 psi_tblastn
+
+Do psiblast against tranlated genomic DNA. Most of this can be done by
+psiblast( $profile, $db, \%options ).
+
+   $records = psi_tblastn(  $prof_file,  $nt_file, \%options )
+   $records = psi_tblastn(  $prof_file, \@nt_seq,  \%options )
+   $records = psi_tblastn( \@prof_seq,   $nt_file, \%options )
+   $records = psi_tblastn( \@prof_seq,  \@nt_seq,  \%options )
+
+Required:
+
+     $prof_file or \@prof_seq
+     $nt_file   or \@nt_seq
+
+Options unique to psi_tblastn:
+
+=over 4
+
+=item aa_db => $trans_file
+
+put translated db here
+
+=back
+
+=cut
 
 sub psi_tblastn
 {
@@ -870,15 +1249,18 @@ sub psi_tblastn
 }
 
 
-#- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-#  When search is versus six frame translation, there is a need to adjust
-#  the frame and location information in the hsp back to the DNA coordinates.
-#
-#     adjust_hsp( $hsp, $frame, $begin )
-#
-#   6   7    8    9    10  11   12   13  14 15 16  17  18 19  20
-#  scr Eval nseg Eval naln nid npos ngap fr q1 q2 qseq s1 s2 sseq
-#- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+=head3 adjust_hsp
+
+When search is versus six frame translation, there is a need to adjust
+the frame and location information in the hsp back to the DNA coordinates.
+
+     adjust_hsp( $hsp, $frame, $begin )
+
+   6   7    8    9    10  11   12   13  14 15 16  17  18 19  20
+  scr Eval nseg Eval naln nid npos ngap fr q1 q2 qseq s1 s2 sseq
+
+=cut
+
 sub adjust_hsp
 {
     my ( $hsp, $fr, $b ) = @_;
@@ -896,19 +1278,22 @@ sub adjust_hsp
 }
 
 
-#- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-#  Do a six frame translation for use by psi_tblastn.  These modifications of
-#  the identifiers and definitions are essential to the interpretation of
-#  the blast results.  The program 'translate_fasta_6' produces the same
-#  output format, and is much faster.
-#
-#   @translations = six_translations( $nucleotide_entry )
-#
-#  The ids are modified by adding ".frame" (+1, +2, +3, -1, -2, -3).
-#  The definition is modified by adding " begin-end/of_length".
-#  NCBI reverse strand translation frames count from the end of the
-#  sequence (i.e., the beginning of the complement of the strand).
-#- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+=head3 six_translations
+
+Do a six frame translation for use by psi_tblastn.  These modifications of
+the identifiers and definitions are essential to the interpretation of
+the blast results.  The program 'translate_fasta_6' produces the same
+output format, and is much faster.
+
+   @translations = six_translations( $nucleotide_entry )
+
+The ids are modified by adding ".frame" (+1, +2, +3, -1, -2, -3).
+The definition is modified by adding " begin-end/of_length".
+NCBI reverse strand translation frames count from the end of the
+sequence (i.e., the beginning of the complement of the strand).
+
+=cut
+
 sub six_translations
 {
     my ( $id, $def, $seq ) = map { defined($_) ? $_ : '' } @{ $_[0] };
@@ -935,14 +1320,17 @@ sub six_translations
 }
 
 
-#-------------------------------------------------------------------------------
-#  Determine whether a user-supplied parameter will result in reading from STDIN
-#
-#      $bool = is_stdin( $source )
-#
-#  For our purposes, undef, '', *STDIN and \*STDIN are all STDIN.
-#  There might be more.
-#-------------------------------------------------------------------------------
+=head3 is_stdin
+
+Determine whether a user-supplied parameter will result in reading from STDIN
+
+      $bool = is_stdin( $source )
+
+For our purposes, undef, '', *STDIN and \*STDIN are all STDIN.
+There might be more.
+
+=cut
+
 sub is_stdin
 {
     return ( ! defined $_[0] )
@@ -952,17 +1340,20 @@ sub is_stdin
 }
 
 
-#-------------------------------------------------------------------------------
-#  Process the query source request, returning the name of a fasta file
-#  with the data.
-#
-#      $filename = get_query( $query_request, $tempD, \%options )
-#
-#  Options: none are currently used
-#
-#  If the data are already in a file, that file name is returned. Otherwise
-#  the data are read into a file in the directory $tempD.
-#-------------------------------------------------------------------------------
+=head3 get_query
+
+Process the query source request, returning the name of a fasta file
+with the data.
+
+      $filename = get_query( $query_request, $tempD, \%options )
+
+Options: none are currently used
+
+If the data are already in a file, that file name is returned. Otherwise
+the data are read into a file in the directory $tempD.
+
+=cut
+
 sub get_query
 {
     my( $query, $tempD, $parms ) = @_;
@@ -972,19 +1363,22 @@ sub get_query
 }
 
 
-#-------------------------------------------------------------------------------
-#  Process the database source request, returning the name of a formatted
-#  blast database with the data.
-#
-#      $dbname = get_db( $db_request, $blast_prog, $tempD )
-#
-#  Options: none are currently used
-#
-#  If the data are already in a database, that name is returned. If the
-#  data are in a file that is in writable directory, the database is built
-#  there and the name is returned. Otherwise the data are read into a file
-#  in the directory $tempD and the database is built there.
-#-------------------------------------------------------------------------------
+=head3 get_db
+
+Process the database source request, returning the name of a formatted
+blast database with the data.
+
+      $dbname = get_db( $db_request, $blast_prog, $tempD )
+
+Options: none are currently used
+
+If the data are already in a database, that name is returned. If the
+data are in a file that is in writable directory, the database is built
+there and the name is returned. Otherwise the data are read into a file
+in the directory $tempD and the database is built there.
+
+=cut
+
 sub get_db
 {
     my( $db, $blast_prog, $tempD, $parms ) = @_;
@@ -1009,16 +1403,19 @@ sub get_db
 }
 
 
-#-------------------------------------------------------------------------------
-#  Return a fasta file name for data supplied in any of the supported formats.
-#
-#      $file_name = valid_fasta( $seq_source, $temp_file )
-#
-#  If supplied with a filename, return that. Otherwise determine the nature of
-#  the data, write it to $tmp_file, and return that name.
-#
-#  In psiblast, query might be a pssm file, an alignment file, or an alignment.
-#-------------------------------------------------------------------------------
+=head3 valid_fasta
+
+Return a fasta file name for data supplied in any of the supported formats.
+
+      $file_name = valid_fasta( $seq_source, $temp_file )
+
+If supplied with a filename, return that. Otherwise determine the nature of
+the data, write it to $tmp_file, and return that name.
+
+In psiblast, query might be a pssm file, an alignment file, or an alignment.
+
+=cut
+
 sub valid_fasta
 {
     my( $seq_src, $tmp_file ) = @_;
@@ -1084,21 +1481,32 @@ sub valid_fasta
 }
 
 
-#-------------------------------------------------------------------------------
-#  Determine whether a formatted blast database exists, and (when the source
-#  sequence file exists) that the database is up-to-date. This function is
-#  broken out of verify_db to support checking for databases without a
-#  sequence file.
-#
-#      $okay = check_db( $db, $seq_type )
-#      $okay = check_db( $db )                 # assumes seq_type is protein
-#
-#  Parameters:
-#
-#      $db       - file path to the data, or root name for an existing database
-#      $seq_type - begins with 'P' for protein data [D], or 'N' for nucleotide
-#
-#-------------------------------------------------------------------------------
+=head3 check_db
+
+Determine whether a formatted blast database exists, and (when the source
+sequence file exists) that the database is up-to-date. This function is
+broken out of verify_db to support checking for databases without a
+sequence file.
+
+      $okay = check_db( $db, $seq_type )
+      $okay = check_db( $db )                 # assumes seq_type is protein
+
+Parameters:
+
+=over 4
+
+=item $db
+
+file path to the data, or root name for an existing database
+
+=item $seq_type
+
+begins with 'P' for protein data [D], or 'N' for nucleotide
+
+=back
+
+=cut
+
 sub check_db
 {
     my ( $db, $seq_type ) = @_;
@@ -1115,32 +1523,52 @@ sub check_db
 }
 
 
-#-------------------------------------------------------------------------------
-#  Verify that a formatted blast database exists and is up-to-date, otherwise
-#  create it. Return the db name, or empty string upon failure.
-#
-#      $db = verify_db( $db                               )  # Protein assumed
-#      $db = verify_db( $db,                    \%options )  # Protein assumed
-#      $db = verify_db( $db, $seq_type                    )  # Use specified type
-#      $db = verify_db( $db, $seq_type,         \%options )  # Use specified type
-#      $db = verify_db( $db, $seq_type, $tempD            )  # Move to tempD, if necessary
-#      $db = verify_db( $db, $seq_type, $tempD, \%options )  # Move to tempD, if necessary
-#
-#  Parameters:
-#
-#      $db       - file path to the data, or root name for an existing database
-#      $seq_type - begins with 'P' or 'p' for protein data, or with 'N' or 'n'
-#                  for nucleotide [Default = P]
-#      $tempD    - if the db directory is unwritable, build the database here
-#
-#  Options:
-#
-#      tmp_dir => $tempD   # the temporary directory of the database
-#
-#  If the datafile is readable, but is in a directory that is not writable, we
-#  copy it to $tempD or $options->{tmp_dir} and try to build the blast database
-#  there. If these are not available, it is built in SeedAware::
-#-------------------------------------------------------------------------------
+=head3 verify_db
+
+Verify that a formatted blast database exists and is up-to-date, otherwise
+create it. Return the db name, or empty string upon failure.
+
+      $db = verify_db( $db                               )  # Protein assumed
+      $db = verify_db( $db,                    \%options )  # Protein assumed
+      $db = verify_db( $db, $seq_type                    )  # Use specified type
+      $db = verify_db( $db, $seq_type,         \%options )  # Use specified type
+      $db = verify_db( $db, $seq_type, $tempD            )  # Move to tempD, if necessary
+      $db = verify_db( $db, $seq_type, $tempD, \%options )  # Move to tempD, if necessary
+
+Parameters:
+
+=over 4
+
+=item $db
+
+file path to the data, or root name for an existing database
+
+=item $seq_type
+
+begins with 'P' or 'p' for protein data, or with 'N' or 'n' for nucleotide [Default = P]
+
+=item $tempD
+
+if the db directory is unwritable, build the database here
+
+=back
+
+Options:
+
+=over 4
+
+=item tmp_dir => $tempD
+
+the temporary directory of the database
+
+=back
+
+If the datafile is readable, but is in a directory that is not writable, we
+copy it to $tempD or $options->{tmp_dir} and try to build the blast database
+there. If these are not available, it is built in L<SeedAware>.
+
+=cut
+
 sub verify_db
 {
     #  Allow a hash at the end of the parameters
@@ -1230,25 +1658,28 @@ sub verify_db
 }
 
 
-#-------------------------------------------------------------------------------
-#  Given that we can end up with a temporary blast database, provide a method
-#  to remove it.
-#
-#      remove_blast_db_dir( $db )
-#
-#  Typical usage would be:
-#
-#      my @out;
-#      my $db = BlastInterface::verify_db( $file, ... );
-#      if ( $db )
-#      {
-#          @out = BlastInterface::blast( $query, $db, 'blastp', ... );
-#          BlastInterface::remove_blast_db_dir( $db ) if $db ne $file;
-#      }
-#
-#  We need to be stringent. The database must be named db, in a directory
-#  tmp_blast_db_..., and which contains only files db and db\..+ .
-#-------------------------------------------------------------------------------
+=head3 remove_blast_db_dir
+
+Given that we can end up with a temporary blast database, provide a method
+to remove it.
+
+      remove_blast_db_dir( $db )
+
+Typical usage would be:
+
+      my @out;
+      my $db = BlastInterface::verify_db( $file, ... );
+      if ( $db )
+      {
+          @out = BlastInterface::blast( $query, $db, 'blastp', ... );
+          BlastInterface::remove_blast_db_dir( $db ) if $db ne $file;
+      }
+
+We need to be stringent. The database must be named db, in a directory
+tmp_blast_db_..., and which contains only files db and db\..+ .
+
+=cut
+
 sub remove_blast_db_dir
 {
     my ( $db ) = @_;
@@ -1264,12 +1695,14 @@ sub remove_blast_db_dir
 }
 
 
-#-------------------------------------------------------------------------------
-#  Run blastall, and deal with the results.
-#
-#      $bool = run_blast( $queryF, $dbF, $blast_prog, \%options )
-#
-#-------------------------------------------------------------------------------
+=head3 run_blast
+
+  Run a blast program and deal with the results.
+
+      $bool = run_blast( $queryF, $dbF, $blast_prog, \%options )
+
+=cut
+
 sub run_blast
 {
     my( $queryF, $dbF, $blast_prog, $parms ) = @_;
@@ -1317,19 +1750,21 @@ sub run_blast
 }
 
 
-#-------------------------------------------------------------------------------
-#  Determine which blast hsp records pass the user-supplied, and default
-#  criteria.
-#
-#      $bool = keep_hsp( \@hsp, \%options )
-#
-#
-#  Data records from next_blast_hsp() are of the form:
-#
-#     [ qid qdef qlen sid sdef slen scr e_val p_n p_val n_mat n_id n_pos n_gap dir q1 q2 qseq s1 s2 sseq ]
-#        0   1    2    3   4    5    6    7    8    9    10    11   12    13   14  15 16  17  18 19  20
-#
-#-------------------------------------------------------------------------------
+=head3 keep_hsp
+
+Determine which blast hsp records pass the user-supplied, and default
+criteria.
+
+      $bool = keep_hsp( \@hsp, \%options )
+
+
+Data records from next_blast_hsp() are of the form:
+
+     [ qid qdef qlen sid sdef slen scr e_val p_n p_val n_mat n_id n_pos n_gap dir q1 q2 qseq s1 s2 sseq ]
+        0   1    2    3   4    5    6    7    8    9    10    11   12    13   14  15 16  17  18 19  20
+
+=cut
+
 sub keep_hsp
 {
     my( $hsp, $parms ) = @_;
@@ -1346,12 +1781,14 @@ sub keep_hsp
 }
 
 
-#-------------------------------------------------------------------------------
-#  We currently can return a blast hsp, as defined above, or a Sim object
-#
-#      $hsp_or_sim = format_hsp( \@hsp, $blast_prog, \%options )
-#
-#-------------------------------------------------------------------------------
+=head3 format_hsp
+
+We currently can return a blast hsp, as defined above, or a Sim object
+
+      $hsp_or_sim = format_hsp( \@hsp, $blast_prog, \%options )
+
+=cut
+
 sub format_hsp
 {
     my( $hsp, $blast_prog, $parms ) = @_;
@@ -1364,13 +1801,15 @@ sub format_hsp
 }
 
 
-#-------------------------------------------------------------------------------
-#  Build the appropriate blastall command for a system or pipe invocation
-#
-#      @cmd_and_args = form_blast_command( $queryF, $dbF, $blast_prog, \%options )
-#     \@cmd_and_args = form_blast_command( $queryF, $dbF, $blast_prog, \%options )
-#
-#-------------------------------------------------------------------------------
+=head3 form_blast_command
+
+Build the appropriate blastall command for a system or pipe invocation
+
+      @cmd_and_args = form_blast_command( $queryF, $dbF, $blast_prog, \%options )
+     \@cmd_and_args = form_blast_command( $queryF, $dbF, $blast_prog, \%options )
+
+=cut
+
 sub form_blast_command
 {
     my( $queryF, $dbF, $blast_prog, $parms ) = @_;
@@ -1564,19 +2003,37 @@ sub strand3
 }
 
 
-#-------------------------------------------------------------------------------
-#
-#   write_pseudoclustal( $align, \%opts )
-#
-#   Options:
-#
-#        file  =>  $filename  #  supply a file name to open and write
-#        file  => \*FH        #  supply an open file handle (D = STDOUT)
-#        line  =>  $linelen   #  residues per line (D = 60)
-#        lower =>  $bool      #  all lower case sequence
-#        upper =>  $bool      #  all upper case sequence
-#
-#-------------------------------------------------------------------------------
+=head3 write_pseudoclustal
+
+   write_pseudoclustal( $align, \%opts )
+
+Options:
+
+=over 4
+
+=item file => $filename
+
+supply a file name to open and write
+
+=item file => \*FH
+
+supply an open file handle (Default = STDOUT)
+
+=item line => $linelen
+
+residues per line (Default = 60)
+
+=item lower => $bool
+
+all lower case sequence
+
+=item upper => $bool
+
+all upper case sequence
+
+=back
+
+=cut
 
 sub write_pseudoclustal
 {
@@ -1613,16 +2070,16 @@ sub write_pseudoclustal
 }
 
 
-#-------------------------------------------------------------------------------
-#
-#    @seqs = read_pseudoclustal( )              #  D = STDIN
-#   \@seqs = read_pseudoclustal( )              #  D = STDIN
-#    @seqs = read_pseudoclustal(  $file_name )
-#   \@seqs = read_pseudoclustal(  $file_name )
-#    @seqs = read_pseudoclustal( \*FH )
-#   \@seqs = read_pseudoclustal( \*FH )
-#
-#-------------------------------------------------------------------------------
+=head3 read_pseudoclustal
+
+    @seqs = read_pseudoclustal( )              #  Default = STDIN
+   \@seqs = read_pseudoclustal( )              #  Default = STDIN
+    @seqs = read_pseudoclustal(  $file_name )
+   \@seqs = read_pseudoclustal(  $file_name )
+    @seqs = read_pseudoclustal( \*FH )
+   \@seqs = read_pseudoclustal( \*FH )
+
+=cut
 
 sub read_pseudoclustal
 {
@@ -1648,14 +2105,25 @@ sub read_pseudoclustal
 }
 
 
-#-------------------------------------------------------------------------------
-#  The profile 'query' sequence:
-#
-#     1. Minimum terminal gaps
-#     2. Longest sequence passing above
-#
-#    $prof_rep = representative_for_profile( $align )
-#-------------------------------------------------------------------------------
+=head3 representative_for_profile
+
+The profile 'query' sequence:
+
+=over 4
+
+=item 1
+
+Minimum terminal gaps
+
+=item 2
+
+Longest sequence passing above
+
+=back
+
+    $prof_rep = representative_for_profile( $align )
+
+=cut
 sub representative_for_profile
 {
     my ( $align ) = @_;
@@ -1678,9 +2146,10 @@ sub representative_for_profile
 }
 
 
-#-------------------------------------------------------------------------------
-#  Support for rewriting blast output as text
-#-------------------------------------------------------------------------------
+##
+##
+##  Support for rewriting blast output as text
+##
 
 my %aa_num = ( R  =>  1,
                K  =>  2,
@@ -1938,14 +2407,15 @@ sub hsps_to_text
 }
 
 
-#-------------------------------------------------------------------------------
-#  Get an input file handle, and boolean on whether to close or not:
-#
-#  ( \*FH, $close ) = input_file_handle(  $filename );
-#  ( \*FH, $close ) = input_file_handle( \*FH );
-#  ( \*FH, $close ) = input_file_handle( );                   # D = STDIN
-#
-#-------------------------------------------------------------------------------
+=head3 input_file_handle
+
+Get an input file handle, and boolean on whether to close or not:
+
+  ( \*FH, $close ) = input_file_handle(  $filename );
+  ( \*FH, $close ) = input_file_handle( \*FH );
+  ( \*FH, $close ) = input_file_handle( );                   # Default = STDIN
+
+=cut
 
 sub input_file_handle
 {
@@ -1979,14 +2449,15 @@ sub input_file_handle
 }
 
 
-#-------------------------------------------------------------------------------
-#  Get an output file handle, and boolean on whether to close or not:
-#
-#  ( \*FH, $close ) = output_file_handle(  $filename );
-#  ( \*FH, $close ) = output_file_handle( \*FH );
-#  ( \*FH, $close ) = output_file_handle( );                   # D = STDOUT
-#
-#-------------------------------------------------------------------------------
+=head3 output_file_handle
+
+Get an output file handle, and boolean on whether to close or not:
+
+  ( \*FH, $close ) = output_file_handle(  $filename );
+  ( \*FH, $close ) = output_file_handle( \*FH );
+  ( \*FH, $close ) = output_file_handle( );                   # Default = STDOUT
+
+=cut
 
 sub output_file_handle
 {
