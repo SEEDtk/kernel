@@ -492,7 +492,7 @@ sub blast
 
     #  Have temporary directory ready in case we need it
 
-    my( $tempD, $save_temp ) = &SeedAware::temporary_directory($parms);
+    my( $tempD, $save_temp ) = &gjo::SeedAware::temporary_directory($parms);
     $parms->{tmp_dir}        = $tempD;
 
     #  These are the file names that will be handed to blastall
@@ -606,15 +606,15 @@ sub alignment_to_pssm
 
     my $subject = [ 'subject', '', 'MKLYNLKDHNEQVSFAQAVTQGLGKNQGLFFPHDLPEFSLTEIDEMLKLDFVTRSAKILS' ];
 
-    my ( $fh, $subjectF ) = SeedAware::open_tmp_file( 'alignment_to_pssm_subject', 'fasta' );
+    my ( $fh, $subjectF ) = gjo::SeedAware::open_tmp_file( 'alignment_to_pssm_subject', 'fasta' );
     gjoseqlib::write_fasta( $fh, $subject );
     close( $fh );
 
     my $pssm0F;
-    ( $fh, $pssm0F ) = SeedAware::open_tmp_file( 'alignment_to_pssm', 'pssm0' );
+    ( $fh, $pssm0F ) = gjo::SeedAware::open_tmp_file( 'alignment_to_pssm', 'pssm0' );
     close( $fh );
 
-    my $prog = SeedAware::executable_for( 'psiblast' )
+    my $prog = gjo::SeedAware::executable_for( 'psiblast' )
         or warn "BlastInterface::alignment_to_pssm: psiblast program not found.\n"
             and return undef;
 
@@ -627,7 +627,7 @@ sub alignment_to_pssm
     push @args, -msa_master_idx    => $msa_master_idx  if $msa_master_idx > 1;
     push @args, -ignore_msa_master => ()               if $opts2->{ ignore_master };
 
-    my $rc = SeedAware::run_redirect( $prog, @args);
+    my $rc = gjo::SeedAware::run_redirect( $prog, @args);
     if ( $rc != 0 )
     {
         my $cmd = join( ' ', $prog, @args );
@@ -910,7 +910,7 @@ sub psiblast_in_msa
         {
             my $fh;
             my @dir = $opts->{ tmp_dir } ? ( $opts->{ tmp_dir } ) : ();
-            ( $fh, $alignF ) = SeedAware::open_tmp_file( 'psiblast_in_msa', 'fasta', @dir );
+            ( $fh, $alignF ) = gjo::SeedAware::open_tmp_file( 'psiblast_in_msa', 'fasta', @dir );
             gjoseqlib::write_fasta( $fh, \@align );
             close( $fh );
         }
@@ -988,7 +988,7 @@ sub build_rps_db
     my $title = $opts->{ title } || 'Untitled RPS DB';
     my @args = ( -i => $db, -t => $title );
 
-    my $prog = SeedAware::executable_for( $prog_name );
+    my $prog = gjo::SeedAware::executable_for( $prog_name );
 
     if ( ! $prog )
     {
@@ -996,7 +996,7 @@ sub build_rps_db
         return '';
     }
 
-    my $rc = SeedAware::run_redirect( $prog, @args );
+    my $rc = gjo::SeedAware::run_redirect( $prog, @args );
     if ( $rc != 0 )
     {
         my $cmd = join( ' ', $prog, @args );
@@ -1059,7 +1059,7 @@ sub verify_pssm
              || ( ! ref( $data ) && -s $data )
            )
         {
-            my ( $fh, $path_name ) = SeedAware::open_tmp_file( "verify_pssm", "pssm" );
+            my ( $fh, $path_name ) = gjo::SeedAware::open_tmp_file( "verify_pssm", "pssm" );
 
             my %parms = %$opts;
             $parms{ title } = $title;
@@ -1177,7 +1177,7 @@ sub psi_tblastn
             }
             else
             {
-                ( $dbfh, $aa_db ) = SeedAware::open_tmp_file( "psi_tblastn_db", '' );
+                ( $dbfh, $aa_db ) = gjo::SeedAware::open_tmp_file( "psi_tblastn_db", '' );
                 $opts->{ aa_db }  = $aa_db;
             }
             $dbfh or print STDERR 'Could not open $dbfile.'
@@ -1191,7 +1191,7 @@ sub psi_tblastn
         elsif ( -f $nt_db && -s $nt_db )
         {
             my $dbfh;
-            ( $dbfh, $aa_db ) = SeedAware::open_tmp_file( "psi_tblastn_db", '' );
+            ( $dbfh, $aa_db ) = gjo::SeedAware::open_tmp_file( "psi_tblastn_db", '' );
             close( $dbfh );   # Tacky, but it avoids the warning
 
             my $redir = { 'stdin'  => $nt_db,
@@ -1200,7 +1200,7 @@ sub psi_tblastn
             my $gencode = $opts->{ dbCode }
                        || $opts->{ dbGenCode }
                        || $opts->{ db_gen_code };
-            SeedAware::system_with_redirect( 'translate_fasta_6',
+            gjo::SeedAware::system_with_redirect( 'translate_fasta_6',
                                              $gencode ? ( -g => $gencode ) : (),
                                              $redir
                                            );
@@ -1465,7 +1465,7 @@ sub valid_fasta
 
         elsif ((! $seq_src) || (ref($seq_src) eq 'GLOB') || (ref($seq_src) eq 'SCALAR'))
         {
-            $data = &gjoseqlib::read_fasta($seq_src);
+            $data = &gjo::seqlib::read_fasta($seq_src);
         }
 
         #  If we got data, write it to the file
@@ -1473,7 +1473,7 @@ sub valid_fasta
         if ($data && (@$data > 0))
         {
             $out_file = $tmp_file;
-            &gjoseqlib::write_fasta( $out_file, $data );
+            &gjo::seqlib::write_fasta( $out_file, $data );
         }
     }
 
@@ -1565,7 +1565,7 @@ the temporary directory of the database
 
 If the datafile is readable, but is in a directory that is not writable, we
 copy it to $tempD or $options->{tmp_dir} and try to build the blast database
-there. If these are not available, it is built in L<SeedAware>.
+there. If these are not available, it is built in L<gjo::SeedAware>.
 
 =cut
 
@@ -1600,7 +1600,7 @@ sub verify_db
             : ( $db =~ m#^(.*[/\\])[^/\\]+$# ) ? $1 : '.';
     if ( ! -w $dir )
     {
-        $tempD ||= $opts->{ tmp_dir } || SeedAware::tmp_file_name( 'tmp_blast_db' );
+        $tempD ||= $opts->{ tmp_dir } || gjo::SeedAware::tmp_file_name( 'tmp_blast_db' );
 
         mkdir $tempD if $tempD && ! -d $tempD && ! -e $tempD;
         if ( ! $tempD || ! -d $tempD || ! -w $tempD )
@@ -1632,10 +1632,10 @@ sub verify_db
 
     #  Find formatdb appropriate for the excecution environemnt.
 
-    my $prog = SeedAware::executable_for( 'formatdb' );
+    my $prog = gjo::SeedAware::executable_for( 'formatdb' );
     if ( ! $prog )
     {
-        $prog = SeedAware::executable_for( 'makeblastdb' );
+        $prog = gjo::SeedAware::executable_for( 'makeblastdb' );
         if (! $prog) {
             warn "BlastInterface::verify_db: makeblastdb program not found.\n";
             return '';
@@ -1646,7 +1646,7 @@ sub verify_db
 
     #  Run formatdb, redirecting the annoying messages about unusual residues.
 
-    my $rc = SeedAware::run_redirected( $prog, @args );
+    my $rc = gjo::SeedAware::run_redirected( $prog, @args );
     if ( $rc != 0 )
     {
         my $cmd = join( ' ', $prog, @args );
@@ -1723,7 +1723,7 @@ sub run_blast
     }
     my $fh;
     $redir{stdout} = \$fh;
-    my $rc = &SeedAware::run_redirected( @$cmd, \%redir );
+    my $rc = &gjo::SeedAware::run_redirected( @$cmd, \%redir );
     if ($rc) {
         return wantarray ? () : [];
     }
@@ -1738,7 +1738,7 @@ sub run_blast
     # my $blastall = $cmd->[0] =~ /blastall$/;
     my @input = split /\n/, $fh;
     my @output;
-    while ( my $hsp = &gjoparseblast::next_blast_hsp( \@input, $includeSelf ) )
+    while ( my $hsp = &gjo::parseblast::next_blast_hsp( \@input, $includeSelf ) )
     {
         if ( &keep_hsp( $hsp, $parms ) )
         {
@@ -1819,7 +1819,7 @@ sub form_blast_command
     $queryF && $dbF && $blast_prog && $prog_ok{ $blast_prog }
         or return wantarray ? () : [];
 
-    my $prog = SeedAware::executable_for( $blast_prog );
+    my $prog = gjo::SeedAware::executable_for( $blast_prog );
 
     $prog
         or return wantarray ? () : [];

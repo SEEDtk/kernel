@@ -95,14 +95,13 @@ sub get_blast_cutoffs
                     }
                 }
                 my @output =
-                  &BlastInterface::blast( \@seq_tuples, \@seq_tuples, 'blastp',
+                  &gjo::BlastInterface::blast( \@seq_tuples, \@seq_tuples, 'blastp',
                     { outForm => 'sim' } );
 
                 my %best;
                 if ( @output < 3 )
                 {
-                    print STDERR &Dumper( \@output, "$func has too few sims",\@seq_tuples );
-                    die "BAD SIMS";
+                    print STDERR &Dumper( \@output, "$func has too few sims",\@seq_tuples ); 
                 }
                 else
                 {
@@ -189,7 +188,7 @@ sub length_stats_by_family
                         print STDERR "no translation for $peg\n";
                     }
                 }
-                my ( $mean, $stddev ) = &gjostat::mean_stddev(@lengths);
+                my ( $mean, $stddev ) = &gjo::stat::mean_stddev(@lengths);
                 $len_stats->{$func} = [ $mean, $stddev ];
                 print STDERR "set mean=$mean stddev=$stddev for $func\n";
             }
