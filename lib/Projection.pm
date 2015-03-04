@@ -2,6 +2,7 @@ package Projection;
 
 use gjostat;
 use BlastInterface;
+
 use Data::Dumper;
 
 sub relevant_projection_data
@@ -61,20 +62,30 @@ use Sim;
 sub get_blast_cutoffs
 {
     my ($state) = @_;
+    print STDERR "computing blast cutoffs\n";
 
-    my $func_to_pegs  = $state->{func_to_pegs};
-    my @funcs         = keys(%$func_to_pegs);
+    my $func_to_pegs = $state->{func_to_pegs};
+    my @funcs        = keys(%$func_to_pegs);
+
+    # @funcs = ("Urease gamma subunit (EC 3.5.1.5)");
     my $seqs          = $state->{seqs};
     my $blast_cutoffs = {};
-    foreach my $func (@funcs)
+    foreach my $func ( sort @funcs )
     {
+        print STDERR "processing function $func\n";
         my $pegH = $func_to_pegs->{$func};
         if ($pegH)
         {
             my @pegs = keys(%$pegH);
             print STDERR join( ",", @pegs ), "\n";
-            if ( @pegs >= 3 )    # require 3 pegs for stats
+            if ( @pegs < 3 )    # require 3 pegs for stats
             {
+                print STDERR "$func only has ",scalar @pegs," pegs\n";
+            }
+            else
+                    
+            {
+                print STDERR "func=$func has enough pegs\n";
                 my @seq_tuples;
                 foreach my $peg (@pegs)
                 {
@@ -87,30 +98,61 @@ sub get_blast_cutoffs
                 my @output =
                   &BlastInterface::blast( \@seq_tuples, \@seq_tuples, 'blastp',
                     { outForm => 'sim' } );
+                    
                 my %best;
-                foreach my $sim (@output)
+                if ( @output < 3 )
                 {
-                    my $id1 = $sim->id1;
-                    my $id2 = $sim->id2;
-                    my $sc  = $sim->psc;
-                    if ( $id1 ne $id2 )
+                    print STDERR &Dumper( \@output, "$func has too few sims",\@seq_tuples );
+                    die "BAD SIMS";
+                }
+                else
+                {
+                    foreach my $sim (@output)
                     {
-                        if (   ( !defined( $best{$id1} ) )
-                            || ( $best{$id1} > $sc ) )
+
+                        # print STDERR &Dumper($sim);
+
+                        my $id1 = $sim->id1;
+                        my $id2 = $sim->id2;
+                        my $sc  = $sim->psc;
+
+                        # print STDERR "$id1 $id2 $sc\n";
+                        if ( $id1 ne $id2 )
                         {
-                            $best{$id1} = $sc;
+                            if (   ( !defined( $best{$id1} ) )
+                                || ( $best{$id1} > $sc ) )
+                            {
+                                $best{$id1} = $sc;
+                            }
                         }
                     }
-                }
-                my $worst = 1.0;
-                foreach my $id ( keys(%best) )
-                {
-                    if ( $best{$id} > $worst )
+                    my $worst = 0;
+                    foreach my $id ( keys(%best) )
                     {
-                        $worst = $best{$id};
+
+                      # print STDERR "processing $id best=$best{$id}  $worst\n";
+                        if ( $best{$id} > $worst )
+                        {
+                            $worst = $best{$id};
+
+                            # print STDERR "func=$func id=$id worst=$worst\n";
+                        }
+                        else
+                        {
+
+                            # print STDERR "skipping id=$id $best{$id}\n";
+                        }
                     }
+                    if ( $worst == 0 )
+                    {
+                        print STDERR "$func ha no constraints\n";
+                    }
+                    else
+                    {
+                        print STDERR "$worst: $func\n";
+                    }
+                    $blast_cutoffs->{$func} = [ $worst, \@seq_tuples ];
                 }
-                $blast_cutoffs->{$func} = [ $worst, \@seq_tuples ];
             }
         }
     }
