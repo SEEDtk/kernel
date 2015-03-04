@@ -1,4 +1,4 @@
-package gjoparseblast;
+package gjo::parseblast;
 
 # This is a SAS component
 #
@@ -71,7 +71,7 @@ package gjoparseblast;
      [ 'Query='  query_id  query_def  query_len ]
           0         1          2          3
 
-     [   '>'     sbjct_id  sbjct_def  sbjct_len ] 
+     [   '>'     sbjct_id  sbjct_def  sbjct_len ]
           0         1          2          3
 
      [ 'HSP' scr exp p_n p_val n_mat n_id n_sim n_gap dir q1 q2 qseq s1 s2 sseq ]
@@ -206,7 +206,7 @@ our @EXPORT = qw(
      [ 'Query='  query_id  query_def  query_len ]
           0         1          2          3
 
-     [   '>'     sbjct_id  sbjct_def  sbjct_len ] 
+     [   '>'     sbjct_id  sbjct_def  sbjct_len ]
           0         1          2          3
 
      [ 'HSP' scr exp p_n p_val n_mat n_id n_sim n_gap dir q1 q2 qseq s1 s2 sseq ]
@@ -708,7 +708,7 @@ sub next_blast_record
                 #  Length marks end of subject sequence description
 
                 if ( /^ +Length = ([1-9][\d,]*)/ || /^Length=([1-9][\d,]*)$/ )
-                {  
+                {
                     $slen = $1;
                     $slen =~ s/,//g;
                     if ( $self || ( $sid ne $qid ) )

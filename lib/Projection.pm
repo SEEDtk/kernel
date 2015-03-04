@@ -1,7 +1,7 @@
 package Projection;
 
-use gjostat;
-use BlastInterface;
+use gjo::stat;
+use gjo::BlastInterface;
 use Data::Dumper;
 
 sub relevant_projection_data
@@ -19,15 +19,15 @@ sub relevant_projection_data
     $state->{roles} = \%to_role_id;
 
     @tuples = $shrub->GetAll(
-        "Subsystem2Row SubsystemRow Row2Cell Cell2Feature Feature 
-                               Feature2Protein Protein AND 
-                               Feature Feature2Function Function AND 
+        "Subsystem2Row SubsystemRow Row2Cell Cell2Feature Feature
+                               Feature2Protein Protein AND
+                               Feature Feature2Function Function AND
                                Feature Feature2Contig",
-        "(Subsystem2Row(from-link) = ?) AND 
+        "(Subsystem2Row(from-link) = ?) AND
                                (Feature2Function(security) = ?)",
         [ $subsystem_id, 2 ],
-        "SubsystemRow(variant-code) Cell2Feature(to-link) 
-                               Function(description) Protein(sequence) Feature2Contig(to-link) 
+        "SubsystemRow(variant-code) Cell2Feature(to-link)
+                               Function(description) Protein(sequence) Feature2Contig(to-link)
                                Feature2Contig(begin) Feature2Contig(dir)"
     );
 

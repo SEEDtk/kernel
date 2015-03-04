@@ -15,16 +15,16 @@
 # http://www.theseed.org/LICENSE.TXT.
 #
 
-package BlastInterface;
+package gjo::BlastInterface;
 
 use Carp;
 use Data::Dumper;
 
 use strict;
-use gjoalignment;
-use gjoseqlib;
-use gjoparseblast;
-use SeedAware;
+use gjo::alignment;
+use gjo::seqlib;
+use gjo::parseblast;
+use gjo::SeedAware;
 
 =head1 BLAST Interface Module
 

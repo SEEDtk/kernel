@@ -16,7 +16,7 @@
 # http://www.theseed.org/LICENSE.TXT.
 #
 
-package gjoalignment;
+package gjo::alignment;
 
 =pod
 
@@ -100,8 +100,8 @@ package gjoalignment;
 =cut
 
 use strict;
-use gjoseqlib;
-use SeedAware;
+use gjo::seqlib;
+use gjo::SeedAware;
 use File::Copy;
 use Carp;                       # Used for diagnostics
 eval { require Data::Dumper };  # Not present on all systems

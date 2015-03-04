@@ -17,17 +17,17 @@
 #
 
 use strict;
+use JSON::XS;
 use warnings;
 use FIG_Config;
 use Shrub;
 use ScriptUtils;
-use JSON::XS;
 use Projection;
 use Data::Dumper;
 
 =head1 project solid instances of subsystems to new genomes
 
-    project_solid_roles -s Subsystem-id < GenomesFile [ options ] 
+    project_solid_roles -s Subsystem-id < GenomesFile [ options ]
 
 project to solid instances of a subsystem in new genomes.
 
@@ -79,7 +79,7 @@ my $parms = &Projection::read_encoded_object("$dataD/solid.projection.parameters
 my @tuples = $shrub->GetAll("Subsystem2Role Role Role2Function Function Function2Feature Feature Feature2Contig",
                          "(Subsystem2Role(from-link) = ?) AND (Function2Feature(security) = $privilege)",
                          [$subsystem_id,$privilege],
-			 "Subsystem2role(to-link) Function2Feature(to-link) Function(description)
+             "Subsystem2role(to-link) Function2Feature(to-link) Function(description)
                           Feature2Contig(to-link) Feature2Contig(begin) Feature2Contig(dir)");
 my %relevant;
 foreach $_ (@tuples)
@@ -96,13 +96,13 @@ foreach my $g (@genomes)
     my $projection = &Projection::project_subsys_to_genome($shrub,$g,$subsystem_id,$state,$parms);
     if (my $vc = $projection->{vc})
     {
-	print join("\t",($subsystem_id,$g,$vc)),"\n";
-	my $calls = $projection->{calls};
+    print join("\t",($subsystem_id,$g,$vc)),"\n";
+    my $calls = $projection->{calls};
         foreach my $call (@$calls)
-	{
-	    my($peg,$role,$func) = @$call;
-	    print "\t",join("\t",($peg,$role,$func)),"\n";
-	}
-	print "//\n";
+    {
+        my($peg,$role,$func) = @$call;
+        print "\t",join("\t",($peg,$role,$func)),"\n";
+    }
+    print "//\n";
     }
 }

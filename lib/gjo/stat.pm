@@ -1,4 +1,4 @@
-package gjostat;
+package gjo::stat;
 
 # This is a SAS component.
 
@@ -263,7 +263,7 @@ sub chi_square
     my $i = 0;
     foreach $e ( map { $scale * $_ } @$expect )
     {
-        $o = $obs->[ $i++ ]; 
+        $o = $obs->[ $i++ ];
         if ( $e > 0 )
         {
             $o -= $e;

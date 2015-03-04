@@ -17,16 +17,16 @@
 #
 
 use strict;
+use JSON::XS;
 use warnings;
 use Shrub;
 use ScriptUtils;
-use JSON::XS;
 use Projection;
 use Data::Dumper;
 
 =head1 compute properties of solid roles to be used in projections
 
-    properties_of_solid_roles -s Subsystem-id < GenomesFile [ options ] 
+    properties_of_solid_roles -s Subsystem-id < GenomesFile [ options ]
 
 compute the properties of roles in a Subsystem using
 
