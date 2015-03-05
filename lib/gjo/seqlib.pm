@@ -1,210 +1,212 @@
 package gjo::seqlib;
 
-# This is a SAS component.
+=head1 Sequence-IO Utilities
 
-#  A sequence entry is ( $id, $def, $seq )
-#  A list of entries is a list of references
+A sequence entry is ( $id, $def, $seq )
+A list of entries is a list of references
+
+Efficient reading of an entire file of sequences:
+
+  @seq_entries = read_fasta( )                     # STDIN
+  @seq_entries = read_fasta( \*FILEHANDLE )
+  @seq_entries = read_fasta(  $filename )
+
+Reading sequences one at a time to conserve memory.  Calls to different
+files can be intermixed.
+
+  @entry = read_next_fasta_seq( \*FILEHANDLE )
+ \@entry = read_next_fasta_seq( \*FILEHANDLE )
+  @entry = read_next_fasta_seq(  $filename )
+ \@entry = read_next_fasta_seq(  $filename )
+  @entry = read_next_fasta_seq()                   # STDIN
+ \@entry = read_next_fasta_seq()                   # STDIN
+
+Legacy interface:
+
+  @seq_entries = read_fasta_seqs( \*FILEHANDLE )   # Original form
+
+Reading clustal alignment.
+
+  @seq_entries = read_clustal( )                   # STDIN
+  @seq_entries = read_clustal( \*FILEHANDLE )
+  @seq_entries = read_clustal(  $filename )
+
+Legacy interface:
+
+  @seq_entries = read_clustal_file(  $filename )
+
+  $seq_ind   = index_seq_list( @seq_entries );   # hash from ids to entries
+  @seq_entry = seq_entry_by_id( \%seq_index, $seq_id );
+  $seq_desc  = seq_desc_by_id(  \%seq_index, $seq_id );
+  $seq       = seq_data_by_id(  \%seq_index, $seq_id );
+
+  ( $id, $def ) = parse_fasta_title( $title )
+  ( $id, $def ) = split_fasta_title( $title )
+  @id_def_org   = nr_def_as_id_def_org( $nr_seq_title )
+  @id_def_org   = split_id_def_org( @seq_titles );
+
+Write a fasta format file from sequences.
+
+  write_fasta(                @seq_entry_list ); # STDOUT
+  write_fasta(               \@seq_entry_list ); # STDOUT
+  write_fasta( \*FILEHANDLE,  @seq_entry_list );
+  write_fasta( \*FILEHANDLE, \@seq_entry_list );
+  write_fasta(  $filename,    @seq_entry_list );
+  write_fasta(  $filename,   \@seq_entry_list );
+
+  print_alignment_as_fasta(                @seq_entry_list ); # STDOUT
+  print_alignment_as_fasta(               \@seq_entry_list ); # STDOUT
+  print_alignment_as_fasta( \*FILEHANDLE,  @seq_entry_list );
+  print_alignment_as_fasta( \*FILEHANDLE, \@seq_entry_list );
+  print_alignment_as_fasta(  $filename,    @seq_entry_list );
+  print_alignment_as_fasta(  $filename,   \@seq_entry_list );
+
+Legacy interface:
+
+  print_seq_list_as_fasta( \*FILEHANDLE, @seq_entry_list );  # Original form
+
+Interface that it really meant for internal use to write the next sequence
+to an open file:
+
+  print_seq_as_fasta( \*FILEHANDLE, $id, $desc, $seq );
+  print_seq_as_fasta(               $id, $desc, $seq );
+  print_seq_as_fasta( \*FILEHANDLE, $id,        $seq );
+  print_seq_as_fasta(               $id,        $seq );
+
+Write PHYLIP alignment.  Names might be altered to fit 10 character limit:
+
+  print_alignment_as_phylip(                @seq_entry_list ); # STDOUT
+  print_alignment_as_phylip(               \@seq_entry_list ); # STDOUT
+  print_alignment_as_phylip( \*FILEHANDLE,  @seq_entry_list );
+  print_alignment_as_phylip( \*FILEHANDLE, \@seq_entry_list );
+  print_alignment_as_phylip(  $filename,    @seq_entry_list );
+  print_alignment_as_phylip(  $filename,   \@seq_entry_list );
+
+Write basic NEXUS alignment for PAUP.
+
+  print_alignment_as_nexus(               [ \%label_hash, ]  @seq_entry_list );
+  print_alignment_as_nexus(               [ \%label_hash, ] \@seq_entry_list );
+  print_alignment_as_nexus( \*FILEHANDLE, [ \%label_hash, ]  @seq_entry_list );
+  print_alignment_as_nexus( \*FILEHANDLE, [ \%label_hash, ] \@seq_entry_list );
+  print_alignment_as_nexus(  $filename,   [ \%label_hash, ]  @seq_entry_list );
+  print_alignment_as_nexus(  $filename,   [ \%label_hash, ] \@seq_entry_list );
+
+  print_gb_locus( \*FILEHANDLE, $locus, $def, $accession, $seq );
+
+Remove extra columns of alignment gaps from an alignment:
+
+   @packed_seqs = pack_alignment(  @seqs )
+   @packed_seqs = pack_alignment( \@seqs )
+  \@packed_seqs = pack_alignment(  @seqs )
+  \@packed_seqs = pack_alignment( \@seqs )
+
+Pack mask for an alignment (gap = 0x00, others are 0xFF)
+
+   $mask = alignment_gap_mask(  @seqs )
+   $mask = alignment_gap_mask( \@seqs )
+
+Pack a sequence alignment according to a mask:
+
+   @packed = pack_alignment_by_mask( $mask,  @align )
+   @packed = pack_alignment_by_mask( $mask, \@align )
+  \@packed = pack_alignment_by_mask( $mask,  @align )
+  \@packed = pack_alignment_by_mask( $mask, \@align )
+
+Expand sequence by a mask, adding indel at "\000" or '-' in mask:
+
+   $expanded = expand_sequence_by_mask( $seq, $mask )
+
+Remove all alignment gaps from sequences (modify a copy):
+
+   @packed_seqs = pack_sequences(  @seqs )  #  Works for one sequence, too
+   @packed_seqs = pack_sequences( \@seqs )
+  \@packed_seqs = pack_sequences(  @seqs )
+  \@packed_seqs = pack_sequences( \@seqs )
+
+Basic sequence manipulation functions:
+
+  @entry  = subseq_DNA_entry( @seq_entry, $from, $to [, $fix_id] )
+  @entry  = subseq_RNA_entry( @seq_entry, $from, $to [, $fix_id] )
+  $DNAseq = DNA_subseq(  $seq, $from, $to )
+  $DNAseq = DNA_subseq( \$seq, $from, $to )
+  $RNAseq = RNA_subseq(  $seq, $from, $to )
+  $RNAseq = RNA_subseq( \$seq, $from, $to )
+  @entry  = complement_DNA_entry( @seq_entry [, $fix_id] )
+  @entry  = complement_RNA_entry( @seq_entry [, $fix_id] )
+  $DNAseq = complement_DNA_seq( $NA_seq )
+  $RNAseq = complement_RNA_seq( $NA_seq )
+  $DNAseq = to_DNA_seq( $NA_seq )
+  $RNAseq = to_RNA_seq( $NA_seq )
+  $seq    = pack_seq( $sequence )        # modifies a copy
+  $seq    = clean_ae_sequence( $seq )
+
+  $aa_seq = aa_subseq( $seq, $from, $to )
+
+  $aa = translate_seq( $nt, $met_start )
+  $aa = translate_seq( $nt )
+  $aa = translate_codon( $triplet );
+
+User-supplied genetic code.  The supplied code needs to be complete in
+RNA and/or DNA, and upper and/or lower case.  The program guesses based
+on lysine and phenylalanine codons.
 #
-#  Efficient reading of an entire file of sequences:
-#
-#  @seq_entries = read_fasta( )                     # STDIN
-#  @seq_entries = read_fasta( \*FILEHANDLE )
-#  @seq_entries = read_fasta(  $filename )
-#
-#  Reading sequences one at a time to conserve memory.  Calls to different
-#  files can be intermixed.
-#
-#  @entry = read_next_fasta_seq( \*FILEHANDLE )
-# \@entry = read_next_fasta_seq( \*FILEHANDLE )
-#  @entry = read_next_fasta_seq(  $filename )
-# \@entry = read_next_fasta_seq(  $filename )
-#  @entry = read_next_fasta_seq()                   # STDIN
-# \@entry = read_next_fasta_seq()                   # STDIN
-#
-#  Legacy interface:
-#  @seq_entries = read_fasta_seqs( \*FILEHANDLE )   # Original form
-#
-#  Reading clustal alignment.
-#
-#  @seq_entries = read_clustal( )                   # STDIN
-#  @seq_entries = read_clustal( \*FILEHANDLE )
-#  @seq_entries = read_clustal(  $filename )
-#
-#  Legacy interface:
-#  @seq_entries = read_clustal_file(  $filename )
-#
-#  $seq_ind   = index_seq_list( @seq_entries );   # hash from ids to entries
-#  @seq_entry = seq_entry_by_id( \%seq_index, $seq_id );
-#  $seq_desc  = seq_desc_by_id(  \%seq_index, $seq_id );
-#  $seq       = seq_data_by_id(  \%seq_index, $seq_id );
-#
-#  ( $id, $def ) = parse_fasta_title( $title )
-#  ( $id, $def ) = split_fasta_title( $title )
-#  @id_def_org   = nr_def_as_id_def_org( $nr_seq_title )
-#  @id_def_org   = split_id_def_org( @seq_titles );
-#
-#  Write a fasta format file from sequences.
-#
-#  write_fasta(                @seq_entry_list ); # STDOUT
-#  write_fasta(               \@seq_entry_list ); # STDOUT
-#  write_fasta( \*FILEHANDLE,  @seq_entry_list );
-#  write_fasta( \*FILEHANDLE, \@seq_entry_list );
-#  write_fasta(  $filename,    @seq_entry_list );
-#  write_fasta(  $filename,   \@seq_entry_list );
-#
-#  print_alignment_as_fasta(                @seq_entry_list ); # STDOUT
-#  print_alignment_as_fasta(               \@seq_entry_list ); # STDOUT
-#  print_alignment_as_fasta( \*FILEHANDLE,  @seq_entry_list );
-#  print_alignment_as_fasta( \*FILEHANDLE, \@seq_entry_list );
-#  print_alignment_as_fasta(  $filename,    @seq_entry_list );
-#  print_alignment_as_fasta(  $filename,   \@seq_entry_list );
-#
-#  Legacy interface:
-#  print_seq_list_as_fasta( \*FILEHANDLE, @seq_entry_list );  # Original form
-#
-#  Interface that it really meant for internal use to write the next sequence
-#  to an open file:
-#
-#  print_seq_as_fasta( \*FILEHANDLE, $id, $desc, $seq );
-#  print_seq_as_fasta(               $id, $desc, $seq );
-#  print_seq_as_fasta( \*FILEHANDLE, $id,        $seq );
-#  print_seq_as_fasta(               $id,        $seq );
-#
-#  Write PHYLIP alignment.  Names might be altered to fit 10 character limit:
-#
-#  print_alignment_as_phylip(                @seq_entry_list ); # STDOUT
-#  print_alignment_as_phylip(               \@seq_entry_list ); # STDOUT
-#  print_alignment_as_phylip( \*FILEHANDLE,  @seq_entry_list );
-#  print_alignment_as_phylip( \*FILEHANDLE, \@seq_entry_list );
-#  print_alignment_as_phylip(  $filename,    @seq_entry_list );
-#  print_alignment_as_phylip(  $filename,   \@seq_entry_list );
-#
-#  Write basic NEXUS alignment for PAUP.
-#
-#  print_alignment_as_nexus(               [ \%label_hash, ]  @seq_entry_list );
-#  print_alignment_as_nexus(               [ \%label_hash, ] \@seq_entry_list );
-#  print_alignment_as_nexus( \*FILEHANDLE, [ \%label_hash, ]  @seq_entry_list );
-#  print_alignment_as_nexus( \*FILEHANDLE, [ \%label_hash, ] \@seq_entry_list );
-#  print_alignment_as_nexus(  $filename,   [ \%label_hash, ]  @seq_entry_list );
-#  print_alignment_as_nexus(  $filename,   [ \%label_hash, ] \@seq_entry_list );
-#
-#  print_gb_locus( \*FILEHANDLE, $locus, $def, $accession, $seq );
-#
-#  Remove extra columns of alignment gaps from an alignment:
-#
-#   @packed_seqs = pack_alignment(  @seqs )
-#   @packed_seqs = pack_alignment( \@seqs )
-#  \@packed_seqs = pack_alignment(  @seqs )
-#  \@packed_seqs = pack_alignment( \@seqs )
-#
-#  Pack mask for an alignment (gap = 0x00, others are 0xFF)
-#
-#   $mask = alignment_gap_mask(  @seqs )
-#   $mask = alignment_gap_mask( \@seqs )
-#
-#  Pack a sequence alignment according to a mask:
-#
-#   @packed = pack_alignment_by_mask( $mask,  @align )
-#   @packed = pack_alignment_by_mask( $mask, \@align )
-#  \@packed = pack_alignment_by_mask( $mask,  @align )
-#  \@packed = pack_alignment_by_mask( $mask, \@align )
-#
-#  Expand sequence by a mask, adding indel at "\000" or '-' in mask:
-#
-#   $expanded = expand_sequence_by_mask( $seq, $mask )
-#
-#  Remove all alignment gaps from sequences (modify a copy):
-#
-#   @packed_seqs = pack_sequences(  @seqs )  #  Works for one sequence, too
-#   @packed_seqs = pack_sequences( \@seqs )
-#  \@packed_seqs = pack_sequences(  @seqs )
-#  \@packed_seqs = pack_sequences( \@seqs )
-#
-# Basic sequence manipulation functions:
-#
-#  @entry  = subseq_DNA_entry( @seq_entry, $from, $to [, $fix_id] )
-#  @entry  = subseq_RNA_entry( @seq_entry, $from, $to [, $fix_id] )
-#  $DNAseq = DNA_subseq(  $seq, $from, $to )
-#  $DNAseq = DNA_subseq( \$seq, $from, $to )
-#  $RNAseq = RNA_subseq(  $seq, $from, $to )
-#  $RNAseq = RNA_subseq( \$seq, $from, $to )
-#  @entry  = complement_DNA_entry( @seq_entry [, $fix_id] )
-#  @entry  = complement_RNA_entry( @seq_entry [, $fix_id] )
-#  $DNAseq = complement_DNA_seq( $NA_seq )
-#  $RNAseq = complement_RNA_seq( $NA_seq )
-#  $DNAseq = to_DNA_seq( $NA_seq )
-#  $RNAseq = to_RNA_seq( $NA_seq )
-#  $seq    = pack_seq( $sequence )        # modifies a copy
-#  $seq    = clean_ae_sequence( $seq )
-#
-#  $aa_seq = aa_subseq( $seq, $from, $to )
-#
-#  $aa = translate_seq( $nt, $met_start )
-#  $aa = translate_seq( $nt )
-#  $aa = translate_codon( $triplet );
-#
-#  User-supplied genetic code.  The supplied code needs to be complete in
-#  RNA and/or DNA, and upper and/or lower case.  The program guesses based
-#  on lysine and phenylalanine codons.
-#
-#  $aa = translate_seq_with_user_code( $nt, $gen_code_hash, $met_start )
-#  $aa = translate_seq_with_user_code( $nt, $gen_code_hash )
-#
-#  Locations (= oriented intervals) are ( id, start, end )
-#  Intervals are ( id, left, right )
-#
-#  @intervals = read_intervals( \*FILEHANDLE )
-#  @intervals = read_oriented_intervals( \*FILEHANDLE )
-#  @intervals = standardize_intervals( @interval_refs ) # (id, left, right)
-#  @joined    = join_intervals( @interval_refs )
-#  @intervals = locations_2_intervals( @locations )
-#  $interval  = locations_2_intervals( $location  )
-#  @reversed  = reverse_intervals( @interval_refs )      # (id, end, start)
-#
-#  Convert GenBank locations to SEED locations
-#
-#  @seed_locs = gb_location_2_seed( $contig, @gb_locs )
-#
-#  Read quality scores from a fasta-like file:
-#
-#  @seq_entries = read_qual( )               #  STDIN
-# \@seq_entries = read_qual( )               #  STDIN
-#  @seq_entries = read_qual( \*FILEHANDLE )
-# \@seq_entries = read_qual( \*FILEHANDLE )
-#  @seq_entries = read_qual(  $filename )
-# \@seq_entries = read_qual(  $filename )
-#
-#  Evaluate alignments:
-#
-#  $fraction_diff = fraction_nt_diff( $seq1, $seq2, \%options )
-#  $fraction_diff = fraction_nt_diff( $seq1, $seq2 )
-#  $fraction_diff = fraction_nt_diff( $seq1, $seq2, $gap_weight )
-#  $fraction_diff = fraction_nt_diff( $seq1, $seq2, $gap_open, $gap_extend )
-#
-#  ( $npos, $nid, $ndif, $ngap, $nopen, $tgap, $topen ) = interpret_nt_align( $seq1, $seq2 )
-#  ( $npos, $nid, $ndif, $ngap, $nopen, $tgap, $topen ) = interpret_aa_align( $seq1, $seq2 )
-#
-#  @sims = oligomer_similarity( $seq1, $seq2, \%opts )
-#
-#  Guess type of a sequence:
-#
-#  $type = guess_seq_type(  $sequence )
-#  $bool = is_dna(  $sequence )   # not RNA or prot
-#  $bool = is_rna(  $sequence )   # not DNA or prot
-#  $bool = is_na(  $sequence )    # nucleic acid, not prot
-#  $bool = is_prot(  $sequence )  # not DNA or RNA
-#
-#  $sequence can be a sequence string, a reference to a sequence string,
-#      or a [$id, $def, $seq] triple.
-#  $type will be keyword 'DNA', 'RNA' or 'protein', or undef in case of error.
-#
-#  Verify the structure of an [ id, desc, sequence ] triple and
-#  the structure of an array of sequence triples:
-#
-#  $bool = is_sequence_triple( $triple )
-#  $bool = is_array_of_sequence_triples( \@triples )
-#
-=pod
+  $aa = translate_seq_with_user_code( $nt, $gen_code_hash, $met_start )
+  $aa = translate_seq_with_user_code( $nt, $gen_code_hash )
+
+Locations (= oriented intervals) are ( id, start, end ).
+Intervals are ( id, left, right ).
+
+  @intervals = read_intervals( \*FILEHANDLE )
+  @intervals = read_oriented_intervals( \*FILEHANDLE )
+  @intervals = standardize_intervals( @interval_refs ) # (id, left, right)
+  @joined    = join_intervals( @interval_refs )
+  @intervals = locations_2_intervals( @locations )
+  $interval  = locations_2_intervals( $location  )
+  @reversed  = reverse_intervals( @interval_refs )      # (id, end, start)
+
+Convert GenBank locations to SEED locations
+
+  @seed_locs = gb_location_2_seed( $contig, @gb_locs )
+
+Read quality scores from a fasta-like file:
+
+  @seq_entries = read_qual( )               #  STDIN
+ \@seq_entries = read_qual( )               #  STDIN
+  @seq_entries = read_qual( \*FILEHANDLE )
+ \@seq_entries = read_qual( \*FILEHANDLE )
+  @seq_entries = read_qual(  $filename )
+ \@seq_entries = read_qual(  $filename )
+
+Evaluate alignments:
+
+  $fraction_diff = fraction_nt_diff( $seq1, $seq2, \%options )
+  $fraction_diff = fraction_nt_diff( $seq1, $seq2 )
+  $fraction_diff = fraction_nt_diff( $seq1, $seq2, $gap_weight )
+  $fraction_diff = fraction_nt_diff( $seq1, $seq2, $gap_open, $gap_extend )
+
+  ( $npos, $nid, $ndif, $ngap, $nopen, $tgap, $topen ) = interpret_nt_align( $seq1, $seq2 )
+  ( $npos, $nid, $ndif, $ngap, $nopen, $tgap, $topen ) = interpret_aa_align( $seq1, $seq2 )
+
+  @sims = oligomer_similarity( $seq1, $seq2, \%opts )
+
+Guess type of a sequence:
+
+  $type = guess_seq_type(  $sequence )
+  $bool = is_dna(  $sequence )   # not RNA or prot
+  $bool = is_rna(  $sequence )   # not DNA or prot
+  $bool = is_na(  $sequence )    # nucleic acid, not prot
+  $bool = is_prot(  $sequence )  # not DNA or RNA
+
+$sequence can be a sequence string, a reference to a sequence string,
+or a [$id, $def, $seq] triple.
+$type will be keyword 'DNA', 'RNA' or 'protein', or undef in case of error.
+
+Verify the structure of an [ id, desc, sequence ] triple and
+the structure of an array of sequence triples:
+
+  $bool = is_sequence_triple( $triple )
+  $bool = is_array_of_sequence_triples( \@triples )
+
 
 =cut
 
@@ -722,13 +724,13 @@ sub split_id_def_org_2
         else
         {
             carp "Logic error in split_id_def_org_2()";
-            return /^(\S+)\s+(\S.*)$/ ? [ $1, $2, '' ] : [ $_, '', '' ];
+            return m/^(\S+)\s+(\S.*)$/ ? [ $1, $2, '' ] : [ $_, '', '' ];
         }
     }
 
     #  Fall through means that we failed to balance organism brackets
 
-    /^(\S+)\s+(\S.*)$/ ? [ $1, $2, '' ] : [ $_, '', '' ];
+    m/^(\S+)\s+(\S.*)$/ ? [ $1, $2, '' ] : [ $_, '', '' ];
 }
 
 =pod

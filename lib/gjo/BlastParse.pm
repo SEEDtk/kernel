@@ -359,12 +359,14 @@ sub next_hsp {
         # We have an HSP. Pop off the type indicator.
         shift @$retVal;
         # Add the query and subject.
-        $retVal = [@{$self->{query}}[2,3,4], @{$self->{subject}}[2,3,4], @$retVal];
+        $retVal = [@{$self->{query}}[1,2,3], @{$self->{subject}}[1,2,3], @$retVal];
     }
     # Return the HSP record.
     return $retVal;
 }
 
+## TODO BlastParse all_queries [Q, [S, [H, H ...]], [S, [H, H, ...]], ...], ...
+## TODO BlastParse all_subjects [Q, S, [H, H, ...]], ...
 
 =head2 Internal Utility Methods
 
@@ -436,7 +438,7 @@ sub _processSequenceRecord {
     # Look for the length.
     my $length;
     my $line = $self->_nextline;
-    while ($line && ! defined $length) {
+    while (defined $line && ! defined $length) {
         if ($line =~ /^(?:\s+Length = |Length=)([1-9][\d,]*)$/) {
             # Here we've found the length. Note we have to get rid of the commas.
             $length = $1;
@@ -497,27 +499,23 @@ sub _processHSP {
     # Declare the return variable.
     my @retVal = qw(HSP);
     # The various numbers go in here.
-    my ($score, $eval, $pn, $pval, $mlen, $ident, $positive, $gap, $frame);
+    my ($eval, $pn, $pval, $mlen, $ident, $positive, $gap, $frame);
     # Parse the incoming data line.
-    unless ($data =~ /(\S+)\s+Expect/)  {
-        # Here we have an invalid score line.
-        confess("Invalid HSP score line--> $data");
-    }
-    # Save the score.
-    $score = $1;
-    unless ($data =~ /Expect(?:\((\d+)\))? =\s+([^\s,]+)/) {
+    my ($score, $remainder) = split " ", $data, 2;
+    # Parse the e-value.
+    unless ($remainder =~ /Expect(?:\((\d+)\))? =\s+([^\s,]+)/) {
         confess("Invalid Expect syntax--> $data");
     } else {
         $eval = $2;
         if ($1) {
             $pn = $1;
-        } elsif ($data =~ /P\((\d+)\)/) {
+        } elsif ($remainder =~ /P\((\d+)\)/) {
             $pn = $1;
         } else {
             $pn = 1;
         }
     }
-    if ($data =~ /P(?:\(\d+\))? += +(\S+)$/) {
+    if ($remainder =~ /P(?:\(\d+\))? += +(\S+)$/) {
         $pval = $1;
     } else {
         $pval = $eval;
@@ -553,13 +551,13 @@ sub _processHSP {
             # Get the hash for the sequence in question.
             my $alignH = $aligns{$1};
             # Extract the start offset, sequence letters, and end offset.
-            my ($start, $seq, $end) = ($1, $2, $3);
+            my ($start, $seq, $end) = ($2, $3, $4);
             # Store the start offset if it is our first time.
-            $alignH->{i1} //= $2;
+            $alignH->{i1} //= $start;
             # Append the sequence.
-            push @{$alignH->{seq}}, $seq;
+            push @{$alignH->{seqs}}, $seq;
             # Store the end offset. The last end offset wins.
-            $alignH->{i2} = $4;
+            $alignH->{i2} = $end;
         }
         # Get the next line.
         $line = $self->_next_hsp_line;
@@ -588,7 +586,7 @@ operation, but it will not be returned to the caller.
 
 =cut
 
-sub _next_hsp_line; {
+sub _next_hsp_line {
     # Get the parameters.
     my ($self) = @_;
     # Declare the return variable.

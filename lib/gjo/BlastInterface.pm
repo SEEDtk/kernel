@@ -23,7 +23,7 @@ use Data::Dumper;
 use strict;
 use gjo::alignment;
 use gjo::seqlib;
-use gjo::parseblast;
+use gjo::BlastParse;
 use gjo::SeedAware;
 
 =head1 BLAST Interface Module
@@ -506,7 +506,7 @@ sub blast
 
     #  Okay, let's work through the user-supplied data
 
-    my %valid_tool = map { $_ => 1 } qw( blastn blastp blastx tblastn psiblast rpsblast );
+    my %valid_tool = map { $_ => 1 } qw( blastn blastp blastx tblastn tblastx psiblast rpsblast );
     if ( ! $valid_tool{ lc $blast_prog } )
     {
         warn "BlastInterface::blast: invalid blast program '$blast_prog'.\n";
@@ -1738,7 +1738,8 @@ sub run_blast
     # my $blastall = $cmd->[0] =~ /blastall$/;
     my @input = split /\n/, $fh;
     my @output;
-    while ( my $hsp = &gjo::parseblast::next_blast_hsp( \@input, $includeSelf ) )
+    my $parser = gjo::BlastParse->new(\@input, self => $includeSelf );
+    while ( my $hsp = $parser->next_hsp )
     {
         if ( &keep_hsp( $hsp, $parms ) )
         {
@@ -1853,6 +1854,10 @@ sub form_blast_command
     my $nucMisScr        = $parms->{ nucMisScr }        || $parms->{ penalty };
     my $gapOpen          = $parms->{ gapOpen }          || $parms->{ gapopen };
     my $gapExtend        = $parms->{ gapExtend }        || $parms->{ gapextend };
+    if ($blast_prog eq 'blastn' ) {
+        $gapOpen //= 2;
+        $gapExtend //= 2;
+    }
     my $threshold        = $parms->{ threshold };
     my $xDropFinal       = $parms->{ xDropFinal }       || $parms->{ xdrop_final };
     my $xDropGap         = $parms->{ xDropGap }         || $parms->{ xdrop_gap };
