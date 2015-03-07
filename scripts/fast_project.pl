@@ -25,7 +25,7 @@ use Projection;
 use Data::Dumper;
 use ERDB;
 use gjo::BlastInterface;
-use gjoseqlib;
+use gjo::seqlib;
 use Sim;
 
 =head1 project reference genome to a close strain
@@ -70,5 +70,5 @@ my $genomeD = $opt->genome;
 
 my @ref_tuples = &gjoseqlib::read_fasta("$refD/contigs");
 my @g_tuples   = &gjoseqlib::read_fasta("$genomeD/contigs");
-my @blast_out = &gjo::BlastInterface::blast( \@genome_tuples, \@ref_tuples, 'blastn',
+my @blast_out = &gjo::BlastInterface::blast( \@g_tuples, \@ref_tuples, 'blastn',
                     { outForm => 'sim' } );
