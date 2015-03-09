@@ -101,7 +101,7 @@ sub get_blast_cutoffs
                 my %best;
                 if ( @output < 3 )
                 {
-                    print STDERR &Dumper( \@output, "$func has too few sims",\@seq_tuples ); 
+                    print STDERR &Dumper( \@output, "$func has too few sims",\@seq_tuples );
                 }
                 else
                 {
@@ -379,7 +379,7 @@ sub ok_sims
     my $seq = &seq_of_peg( $shrub, $peg );
     my @sims = &BlastInterface::blast( [ $peg, '', $seq ],
         $seq_tuples, 'blastp', { outForm => 'sim' } );
-    if ( ( $sim = $sims->[0] ) && ( $sim->psc < $worst ) ) { return 1 }
+    if ( ( $sim = $sims[0] ) && ( $sim->psc < $worst ) ) { return 1 }
     return 0;
 }
 
