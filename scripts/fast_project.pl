@@ -70,7 +70,7 @@ my @ref_tuples = &gjo::seqlib::read_fasta("$refD/contigs");
 my @g_tuples   = &gjo::seqlib::read_fasta("$genomeD/contigs");
 
 my $map = &build_mapping( \@ref_tuples, \@g_tuples );
-&nuild_features( $map, $refD, $genomeD );
+&build_features( $map, $refD, $genomeD );
 
 sub build_mapping
 {
@@ -112,7 +112,6 @@ sub build_g_hash
 
     foreach my $kmer ( keys(%seen) )
     {
-        delete $g_hash->{$kmer};
         delete $g_hash->{$kmer};
     }
     return $g_hash;
@@ -191,9 +190,8 @@ sub fill_between
             [
                 $contig_g_1,
                 $strand_g_1,
-                ( $strand_g_1 eq '+' )
-                ? ( $pos_g_1, $pos_g_2 - 1 )
-                : ( $pos_g_1, $pos_g_2 + 1 )
+                ( $strand_g_1 eq '+' ) ? ( $pos_g_1, $pos_g_2 - 1 ) : ( $pos_g_1, $pos_g_2 + 1 ),
+	        $g_seqs
             ]
         )
       )
@@ -218,4 +216,41 @@ sub fill_between
 
 sub same
 {
+    my($gap1,$gap2) = @_;
+    my($c1,$b1,$e1,$seqs1) = @$gap1;
+    my($c2,$b2,$e2,$seqs2) = @$gap2;
+
+    my $seq1 = &seq_of($c1,$b1,$e1,$seqs1);
+    my $seq2 = &seq_of($c2,$b2,$e2,$seqs2);
+    if (length($seq1) < 20)
+    {
+	return 1;
+    }
+    else
+    {
+	my $iden = 0;
+	my $len = length($seq1);
+	for (my $i=0; ($i < $len); $i++)
+	{
+	    if (substr($seq1,$i,1) eq substr($seq2,$i,1))
+	    {
+		$iden++;
+	    }
+	}
+	return (($iden/$len) >= 0.8);
+    }
+}
+
+sub seq_of {
+    my($c,$b,$e,$seqs) = @_;
+
+    my $seq = $seqs->{$c};
+    if ($b <= $e)
+    {
+	return uc substr($seq,$b,($e-$b)+1);
+    }
+    else
+    {
+	return uc &rev_comp(substr($seq,$e,($b-$e)+1));
+    }
 }
