@@ -56,8 +56,6 @@ sub relevant_projection_data
     return $state;
 }
 
-use Sim;
-
 sub get_blast_cutoffs
 {
     my ($state) = @_;
@@ -79,7 +77,7 @@ sub get_blast_cutoffs
             print STDERR join( ",", @pegs ), "\n";
             if ( @pegs < 3 )    # require 3 pegs for stats
             {
-                print STDERR "$func only has ",scalar @pegs," pegs\n";
+                print STDERR "$func only has ", scalar @pegs, " pegs\n";
             }
             else
 
@@ -95,13 +93,14 @@ sub get_blast_cutoffs
                     }
                 }
                 my @output =
-                  &gjo::BlastInterface::blast( \@seq_tuples, \@seq_tuples, 'blastp',
-                    { outForm => 'sim' } );
+                  &gjo::BlastInterface::blast( \@seq_tuples, \@seq_tuples,
+                    'blastp', { outForm => 'sim' } );
 
                 my %best;
                 if ( @output < 3 )
                 {
-                    print STDERR &Dumper( \@output, "$func has too few sims",\@seq_tuples ); 
+                    print STDERR &Dumper( \@output, "$func has too few sims",
+                        \@seq_tuples );
                 }
                 else
                 {
@@ -247,11 +246,19 @@ sub vc_requirements
                     if ( $role_name && ( $role_id = $roles->{$role_name} ) )
                     {
                         $occ_of_role{$role_id}++;
+                        print STDERR "$g has $role_name\n";
                     }
                 }
             }
-            my $pattern = &to_pattern( \%occ_of_role );
-            $vc_patterns{$pattern} = [ $vc, $g ];
+            if ( keys(%occ_of_role) < 1 )
+            {
+                print STDERR "Genome $g has vc $vc, but no active roles\n";
+            }
+            else
+            {
+                my $pattern = &to_pattern( \%occ_of_role );
+                $vc_patterns{$pattern} = [ $vc, $g ];
+            }
         }
     }
     return \%vc_patterns;
@@ -321,16 +328,60 @@ sub project_subsys_to_genome
         }
     }
     my $pattern    = &to_pattern( \%roles );
-    my $poss       = $parms->{vc_patterns}->{$pattern};
     my $projection = {};
-    if ($poss)
+    if ($pattern)
     {
-        my ( $vc, $solid_genome ) = @$poss;
-        $projection->{vc}              = $vc;
-        $projection->{calls}           = $calls;
-        $projection->{template_genome} = $solid_genome;
+        # print STDERR "pattern=$pattern\n";
+        my $poss = &possible_vc( $parms->{vc_patterns}, $pattern );
+        if ($poss)
+        {
+            my ( $vc, $solid_genome ) = @$poss;
+            $projection->{vc}              = $vc;
+            $projection->{calls}           = $calls;
+            $projection->{template_genome} = $solid_genome;
+        }
     }
     return $projection;
+}
+
+sub possible_vc
+{
+    my ( $patterns, $pattern ) = @_;
+
+    my @master_patterns = keys(%$patterns);
+    my $sofar;
+    my $best_pattern;
+
+    foreach $master_pattern (@master_patterns)
+    {
+        if ( my $sz_master = &subset( $pattern, $master_pattern ) )
+        {
+            if ( ( !$sofar ) || ( $sofar > $sz_master ) )
+            {
+                $sofar        = $sz_master;
+                $best_pattern = $master_pattern;
+            }
+        }
+    }
+    return $best_pattern ? $patterns->{$best_pattern} : undef;
+}
+
+# if set2 is a subset of set1, return size of set1; else undef
+sub subset
+{
+    my ( $set1, $set2 ) = @_;
+
+    my $i;
+    my @set2 = split( /,/, $set2 );
+    for ( $i = 0 ; ( $i < @set2 ) && ( index( $set1,$set2[$i] ) >= 0 ) ; $i++ )
+    {
+    }
+    if ( $i == @set2 )
+    {
+        my $cnt = $set1 =~ tr/,/,/;
+        return $cnt + 1;
+    }
+    return undef;
 }
 
 sub good_peg
@@ -362,6 +413,8 @@ sub ok_length
     if ( $stddev < 10 ) { $stddev = 10 }
     if ( abs( ( $len - $mean ) / $stddev ) > 3 )
     {
+        print STDERR
+          "$peg failed length test: len=$len  mean=$mean stddev=$stddev\n";
         return 0;
     }    # z-score is too high or too low
 
@@ -373,13 +426,19 @@ sub ok_sims
     my ( $shrub, $peg, $func, $parms ) = @_;
 
     my $blast_parms = $parms->{blast_parms}->{$func};
-    if ( !$blast_parms ) { return 0 }
+    if ( !$blast_parms ) { return 1 }
     my ( $worst, $seq_tuples ) = @{$blast_parms};
 
     my $seq = &seq_of_peg( $shrub, $peg );
-    my @sims = &BlastInterface::blast( [ $peg, '', $seq ],
+    my @sims = &gjo::BlastInterface::blast( [ $peg, '', $seq ],
         $seq_tuples, 'blastp', { outForm => 'sim' } );
-    if ( ( $sim = $sims->[0] ) && ( $sim->psc < $worst ) ) { return 1 }
+    while ( ( $sim = shift @sims ) && ( $sim->id2 eq $peg ) ) { }
+
+    # print STDERR &Dumper($sim,$sim->[10],$sim->psc);
+    if ( defined($sim) && ( $sim->psc <= $worst ) )
+    {
+        return 1;
+    }
     return 0;
 }
 
@@ -390,7 +449,7 @@ sub seq_of_peg
 
     my @tuples = $shrub->GetAll(
         "Feature2Protein Protein",
-        "Feature2Protein(to-link) = ?",
+        "Feature2Protein(from-link) = ?",
         [$peg], "Protein(sequence)"
     );
     return ( @tuples > 0 ) ? $tuples[0]->[0] : undef;

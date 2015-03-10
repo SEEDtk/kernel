@@ -24,6 +24,7 @@ use Shrub;
 use ScriptUtils;
 use Projection;
 use Data::Dumper;
+use ERDB;
 
 =head1 project solid instances of subsystems to new genomes
 
@@ -55,16 +56,17 @@ Names the directory that retains state for the projections of the subsystem.
 
 # Get the command-line parameters.
 my $opt = ScriptUtils::Opts(
-    '', Shrub::script_options(),
+    '',
+    Shrub::script_options(),
     ScriptUtils::ih_options(),
-    [ 'subsystem|s=s','ID of the subsystem to process'],
-    [ 'privilege|p=i','Privilege level of function and role names'],
-    [ 'dataD|d=s','Data Directory for Subsystem Projection']
+    [ 'subsystem|s=s', 'ID of the subsystem to process' ],
+    [ 'privilege|p=i', 'Privilege level of function and role names' ],
+    [ 'dataD|d=s',     'Data Directory for Subsystem Projection' ]
 );
 my $subsystem_id = $opt->subsystem;
 my $dataD        = $opt->datad;
 my $privilege    = $opt->privilege;
-if (! $privilege) { $privilege = 2 }
+if ( !$privilege ) { $privilege = 2 }
 
 # Connect to the database.
 my $shrub = Shrub->new_for_script($opt);
@@ -74,35 +76,40 @@ my $ih = ScriptUtils::IH( $opt->input );
 my @genomes = map { ( $_ =~ /(\d+\.\d+)/ ) ? $1 : () } <$ih>;
 close($ih);
 
-my $parms = &Projection::read_encoded_object("$dataD/solid.projection.parameters");
+my $parms = &Projection::read_encoded_object("$dataD/solid.projection.parms");
 
-my @tuples = $shrub->GetAll("Subsystem2Role Role Role2Function Function Function2Feature Feature Feature2Contig",
-                         "(Subsystem2Role(from-link) = ?) AND (Function2Feature(security) = $privilege)",
-                         [$subsystem_id,$privilege],
-             "Subsystem2role(to-link) Function2Feature(to-link) Function(description)
-                          Feature2Contig(to-link) Feature2Contig(begin) Feature2Contig(dir)");
+my @tuples = $shrub->GetAll(
+"Subsystem2Role Role Role2Function Function Function2Feature Feature Feature2Contig",
+    "(Subsystem2Role(from-link) = ?) AND (Function2Feature(security) = ?)",
+    [ $subsystem_id, $privilege ],
+    "Subsystem2Role(to-link) Function2Feature(to-link) Function(description)
+                          Feature2Contig(to-link) Feature2Contig(begin) Feature2Contig(dir)"
+);
 my %relevant;
 foreach $_ (@tuples)
 {
-    my($role,$peg,$func,$contig,$beg,$strand) = @$_;
+    my ( $role, $peg, $func, $contig, $beg, $strand ) = @$_;
     my $g = &SeedUtils::genome_of($peg);
-    $relevant{$g}->{$peg} = [$role,$func,[$contig,$beg,$strand]];
+    $relevant{$g}->{$peg} = [ $role, $func, [ $contig, $beg, $strand ] ];
 }
 
-my $state = { (relevant => \%relevant) };
+my $state = { ( relevant => \%relevant ) };
 
 foreach my $g (@genomes)
 {
-    my $projection = &Projection::project_subsys_to_genome($shrub,$g,$subsystem_id,$state,$parms);
-    if (my $vc = $projection->{vc})
+    my $projection =
+      &Projection::project_subsys_to_genome( $shrub, $g, $subsystem_id, $state,
+        $parms );
+    if ( my $vc = $projection->{vc} )
     {
-    print join("\t",($subsystem_id,$g,$vc)),"\n";
-    my $calls = $projection->{calls};
+        print join( "\t", ( $subsystem_id, $g, $vc ) ), "\n";
+        my $calls = $projection->{calls};
+        #print STDERR &Dumper($calls);
         foreach my $call (@$calls)
-    {
-        my($peg,$role,$func) = @$call;
-        print "\t",join("\t",($peg,$role,$func)),"\n";
-    }
-    print "//\n";
+        {
+            my ( $peg, $role, $func ) = @$call;
+            print "\t", join( "\t", ( $peg, $role, $func ) ), "\n";
+        }
+        print "//\n";
     }
 }
