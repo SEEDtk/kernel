@@ -53,7 +53,7 @@ my %small_set = map { ($_ => 1) } @genomes;
 my @to_call = grep { ! $small_set{$_} } &get_genomes_from_database($shrub);
 
 
-open(PROJ,"| perl project_solid_roles.pl -s $subsystem_id -d $dataD/projections.1")
+open(PROJ,"| perl project_solid_roles.pl -s $subsystem_id -d $dataD/solid.projection.parms.1 >$dataD/projections.1")
     || die "failed projection 1";
 foreach my $g (@to_call)
 {
@@ -79,7 +79,7 @@ foreach my $g (@full_set)
 }
 close(GETPROP);
 
-open(PROJ,"| perl project_solid_roles.pl -s $subsystem_id -d $dataD/projections.2")
+open(PROJ,"| perl project_solid_roles.pl -s $subsystem_id -d $dataD/solid.projection.parms.2 >$dataD/projections.2")
     || die "failed projection 2";
 foreach my $g (@to_call)
 {
