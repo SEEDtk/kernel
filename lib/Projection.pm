@@ -295,7 +295,7 @@ sub read_encoded_object
     my ($encoded_file) = @_;
 
     open( OBJ, "<$encoded_file" )
-      || die "encoded_file could not be opened";
+      || die "encoded_file $encoded_file could not be opened: $!";
 
     my $obj;
     my $json = JSON::XS->new;
