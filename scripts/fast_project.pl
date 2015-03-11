@@ -21,6 +21,9 @@ use warnings;
 use FIG_Config;
 use Data::Dumper;
 use SeedUtils;
+use Shrub;
+use ScriptUtils;
+use gjo::seqlib;
 
 =head1 project reference genome to a close strain
 
@@ -78,14 +81,14 @@ sub build_mapping
 
     my $g_hash = &build_g_hash( $g_contigs, $k );
     my $pins = &build_pins( $r_contigs, $k, $g_hash );
-    my $map = &fill_pins( $pins, \@ref_tuples, \@g_tuples );
+    my @map = &fill_pins( $pins, \@ref_tuples, \@g_tuples );
 
-    return $map;
+    return \@map;
 }
 
 sub build_g_hash
 {
-    my ( $g_contigs, $k );
+    my ( $g_contigs, $k ) = @_;
 
     my $g_hash = {};
     my %seen;
@@ -96,7 +99,7 @@ sub build_g_hash
         for ( my $i = 0 ; ( $i <= $last ) ; $i++ )
         {
             my $kmer = uc substr( $seq, $i, $k );
-            if ( $kmer !~ /^[ACGT]/ )
+            if ( $kmer !~ /[^ACGT]/ )
             {
                 my $comp = &rev_comp($kmer);
                 if ( $g_hash->{$kmer} )
@@ -129,7 +132,7 @@ sub build_pins
         for ( my $i = 0 ; ( $i <= $last ) ; $i++ )
         {
             my $kmer = uc substr( $seq, $i, $k );
-            if ( $kmer !~ /^[ACGT]/ )
+            if ( $kmer !~ /[^ACGT]/ )
             {
                 my $g_pos = $g_hash->{$kmer};
                 if ($g_pos)
@@ -153,7 +156,7 @@ sub fill_pins
     my @filled;
     for ( my $i = 0 ; ( $i < @$pins ) ; $i++ )
     {
-        if ( $i == @{$pins} )
+        if ( $i ==  (@$pins - 1)) 
         {
             push( @filled, $pins->[$i] );
         }
@@ -290,7 +293,7 @@ sub build_features {
 	{
 	    foreach my $f_line (`cat $refD/Features/$type/tbl`)
 	    {
-		if (($_ =~ /^(\S+)\t(\S)_(\S+)_(\S+)\t/) && (! $deleted_features{$1}))
+		if (($f_line =~ /^(\S+)\t(\S)_(\S+)_(\S+)\t/) && (! $deleted_features{$1}))
 		{
 		    my($fid,$r_contig,$r_beg,$r_end) = ($1,$2,$3,$4);
 		    if ((my $g_locB = $refH{$r_contig . $r_beg}) &&
