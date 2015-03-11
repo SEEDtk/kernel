@@ -70,7 +70,7 @@ my @ref_tuples = &gjo::seqlib::read_fasta("$refD/contigs");
 my @g_tuples   = &gjo::seqlib::read_fasta("$genomeD/contigs");
 
 my $map = &build_mapping( \@ref_tuples, \@g_tuples );
-&build_features( $map, $refD, $genomeD );
+&build_features( $map, $refD, $genomeD, \@g_tuples );
 
 sub build_mapping
 {
@@ -253,4 +253,69 @@ sub seq_of {
     {
 	return uc &rev_comp(substr($seq,$e,($b-$e)+1));
     }
+}
+
+sub build_features {
+    my( $map, $refD, $genomeD, $g_tuples ) = @_;
+
+    my %g_seqs   = map { ( $_->[0] => $_->[2] ) } @$g_tuples;
+
+    my %refH;
+    foreach my $pin ( @$map )
+    {
+	my($ref_loc,$g_loc) = @$pin;
+	my($r_contig,$r_strand,$r_pos) = @$ref_loc;
+	$refH{$r_contig . ",$r_pos"} = $g_loc;
+    }
+
+    mkdir("$genomeD/Features",0777);
+    opendir(FEATURES,"$refD/Features") || die "could not open $refD/Features";
+    my @types = grep { $_ !~ /^\./ } readdir(FEATURES);
+    closedir(FEATURES);
+
+    mkdir("$genomeD/Features",0777);
+    foreach my $type (@types)
+    {
+	my $dir = "$genomeD/Features/$type";
+
+	my %deleted_features;
+	if (-s "$refD/Features/$type/deleted.features")
+	{
+	    %deleted_features = map { ($_ =~ /^(\S+)/) ? ($1 => 1) : () } `cat $refD/Features/$type/deleted.features`;
+	}
+
+	if (mkdir($dir,0777) && 
+	    open(TBL,">$dir/tbl") &&
+	    open(FASTA,">$dir/fasta"))
+	{
+	    foreach my $f_line (`cat $refD/Features/$type/tbl`)
+	    {
+		if (($_ =~ /^(\S+)\t(\S)_(\S+)_(\S+)\t/) && (! $deleted_features{$1}))
+		{
+		    my($fid,$r_contig,$r_beg,$r_end) = ($1,$2,$3,$4);
+		    if ((my $g_locB = $refH{$r_contig . $r_beg}) &&
+			(my $g_locE = $refH{$r_contig . $r_end}))
+		    {
+			my($g_contig1,$g_strand1,$g_pos1) = @$g_locB;
+			my($g_contig2,$g_strand2,$g_pos2) = @$g_locE;
+			if (($g_contig1 eq $g_contig2) &&
+			    ($g_strand1 eq $g_strand2) &&
+			    (abs($g_pos1 - $g_pos2) == abs($r_beg - $r_end)))
+			{
+			    my $g_location = join("_",($g_contig1,$g_pos1,$g_pos2));
+			    print TBL "$fid\t$g_location\t\n";
+			    my $seq = &seq_of_feature($type,$g_contig1,$g_pos1,$g_pos2,\%g_seqs);
+			    print FASTA ">$fid $r_contig $r_beg $r_end\n$seq\n";
+			}
+		    }
+		}
+	    }
+	}
+	close(TBL);
+	close(FASTA);
+    }
+}
+
+sub seq_of_feature {
+    my($type,$g_contig,$g_beg,$g_end,$g_seqs) = @_;
 }
