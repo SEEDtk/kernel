@@ -19,6 +19,7 @@
 use strict;
 use JSON::XS;
 use warnings;
+use FIG_Config;
 use Shrub;
 use ScriptUtils;
 use Data::Dumper;
@@ -65,7 +66,7 @@ foreach my $called (`cat $dataD/projections.1`)
 {
     if ($called =~ /^\S+\t(\S+)/)
     {
-	push(@full_set,$1);
+    push(@full_set,$1);
     }
 }
 $/ = "\n";
