@@ -79,44 +79,45 @@ my $map = &build_mapping( \@ref_tuples, \@g_tuples );
 
 sub build_mapping {
 	my ( $r_contigs, $g_contigs ) = @_;
-
-	my $g_hash = &build_g_hash( $g_contigs, $k );
-	my $pins = &build_pins( $r_contigs, $k, $g_hash );
+        my $r_hash = &build_hash($r_contigs,$k);
+	my $g_hash = &build_hash( $g_contigs, $k );
+	my $pins = &build_pins( $r_contigs, $k, $g_hash,$r_hash );
 	my @map = &fill_pins( $pins, \@ref_tuples, \@g_tuples );
 
 	return \@map;
 }
 
-sub build_g_hash {
-	my ( $g_contigs, $k ) = @_;
 
-	my $g_hash = {};
+sub build_hash {
+	my ( $contigs, $k ) = @_;
+
+	my $hash = {};
 	my %seen;
-	foreach my $tuple (@$g_contigs) {
+	foreach my $tuple (@$contigs) {
 		my ( $contig_id, $comment, $seq ) = @$tuple;
 		my $last = length($seq) - $k;
 		for ( my $i = 0 ; ( $i <= $last ) ; $i++ ) {
 			my $kmer = uc substr( $seq, $i, $k );
 			if ( $kmer !~ /[^ACGT]/ ) {
 				my $comp = &rev_comp($kmer);
-				if ( $g_hash->{$kmer} ) {
+				if ( $hash->{$kmer} ) {
 					$seen{$kmer} = 1;
 					$seen{$comp} = 1;
 				}
-				$g_hash->{$kmer} = [ $contig_id, "+", $i ];
-				$g_hash->{$comp} = [ $contig_id, "-", $i + $k - 1 ];
+				$hash->{$kmer} = [ $contig_id, "+", $i ];
+				$hash->{$comp} = [ $contig_id, "-", $i + $k - 1 ];
 			}
 		}
 	}
 
 	foreach my $kmer ( keys(%seen) ) {
-		delete $g_hash->{$kmer};
+		delete $hash->{$kmer};
 	}
-	return $g_hash;
+	return $hash;
 }
 
 sub build_pins {
-	my ( $r_contigs, $k, $g_hash ) = @_;
+	my ( $r_contigs, $k, $g_hash,$r_hash ) = @_;
 
 	my @pins;
 	foreach my $tuple (@$r_contigs) {
@@ -127,7 +128,7 @@ sub build_pins {
 		my $i = 0;
 		while ( $i <= $last ) {
 			my $kmer = uc substr( $seq, $i, $k );
-			if ( $kmer !~ /[^ACGT]/ ) {
+			if (( $kmer !~ /[^ACGT]/ ) && $r_hash->{$kmer})
 				my $g_pos = $g_hash->{$kmer};
 				if ($g_pos) {
 					my ( $g_contig, $g_strand, $g_off ) = @$g_pos;
