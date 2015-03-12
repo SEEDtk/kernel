@@ -69,11 +69,13 @@ my $opt = ScriptUtils::Opts(
 my $refD    = $opt->reference;
 my $genomeD = $opt->genome;
 
+my $genetic_code = &get_genetic_code($genomeD);
+
 my @ref_tuples = &gjo::seqlib::read_fasta("$refD/contigs");
 my @g_tuples   = &gjo::seqlib::read_fasta("$genomeD/contigs");
 
 my $map = &build_mapping( \@ref_tuples, \@g_tuples );
-&build_features( $map, $refD, $genomeD, \@g_tuples );
+&build_features( $map, $refD, $genomeD, \@g_tuples, $genetic_code );
 
 sub build_mapping {
 	my ( $r_contigs, $g_contigs ) = @_;
@@ -257,7 +259,7 @@ sub seq_of {
 }
 
 sub build_features {
-	my ( $map, $refD, $genomeD, $g_tuples ) = @_;
+	my ( $map, $refD, $genomeD, $g_tuples, $genetic_code ) = @_;
 
 	my %g_seqs = map { ( $_->[0] => $_->[2] ) } @$g_tuples;
 
@@ -309,12 +311,15 @@ sub build_features {
 						{
 							my $g_location =
 							  join( "_", ( $g_contig1, $g_pos1, $g_pos2 ) );
-							print TBL "$fid\t$g_location\t\n";
 							my $seq = &seq_of_feature(
-								$type,   $g_contig1, $g_pos1,
+								$type,$genetic_code,   $g_contig1, $g_pos1,
 								$g_pos2, \%g_seqs
 							);
-							print FASTA ">$fid $r_contig $r_beg $r_end\n$seq\n";
+							if ($seq) 
+							{
+							    print TBL "$fid\t$g_location\t\n";
+							    print FASTA ">$fid $r_contig $r_beg $r_end\n$seq\n";
+							}
 						}
 					}
 				}
@@ -324,7 +329,32 @@ sub build_features {
 		close(FASTA);
 	}
 }
+sub get_genetic_code {
+    my($dir) = @_;
+
+    if ( ! -s "$dir/GENETIC_CODE") { return 11 }
+    my @tmp = `cat $dir/GENETIC_CODE`;
+    chomp $tmp[0];
+    return $tmp[0];
+}
 
 sub seq_of_feature {
-	my ( $type, $g_contig, $g_beg, $g_end, $g_seqs ) = @_;
+    my ( $type, $genetic_code, $g_contig, $g_beg, $g_end, $g_seqs ) = @_;
+    my $dna = &seq_of($g_contig,$g_beg,$g_end,$g_seqs);
+    if (($type ne "peg") && ($type ne "CDS"))
+    {
+	return $dna;
+    }
+    else
+    {
+	my $tran;
+	my $code = &SeedUtils::standard_genetic_code;
+	if ($genetic_code == 4)
+	{
+	    $code->{"TGA"} = "W";   # code 4 has TGA encoding tryptophan
+	}
+	my $tran = &SeedUtils::translate($dna,$code,1);
+	$tran =~ s/\*$//;
+	return ($tran =~ /\*/) ? undef : $tran;
+    }
 }
