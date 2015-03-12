@@ -79,9 +79,9 @@ my $map = &build_mapping( \@ref_tuples, \@g_tuples );
 
 sub build_mapping {
 	my ( $r_contigs, $g_contigs ) = @_;
-	print STDERR "Calling build_hash for reference\n";
+	#print STDERR "Calling build_hash for reference\n";
 	my $r_hash = &build_hash( $r_contigs, $k );
-	print STDERR "Calling build_hash for new\n";
+	#print STDERR "Calling build_hash for new\n";
 	my $g_hash = &build_hash( $g_contigs, $k );
 
 	my $pins = &build_pins( $r_contigs, $k, $g_hash, $r_hash );
@@ -116,7 +116,7 @@ sub build_hash {
 	foreach my $kmer ( keys(%seen) ) {
 		delete $hash->{$kmer};
 	}
-	print STDERR &Dumper( 'hash', $hash );
+	#print STDERR &Dumper( 'hash', $hash );
 	return $hash;
 }
 
@@ -173,7 +173,7 @@ sub build_pins {
 		     ( $a->[0]->[0] cmp $b->[0]->[0] )
 		  or ( $a->[0]->[2] <=> $b->[0]->[2] )
 	} @pins;
-	print STDERR &Dumper( [ '0-based pins', \@pins ] );
+	#print STDERR &Dumper( [ '0-based pins', \@pins ] );
 	return \@pins;
 }
 
@@ -187,7 +187,7 @@ sub remove_dups {
 		my $key = join( ",", @$keyL );
 		if ( $seen{$key} ) {
 			$bad{$i} = 1;
-			print STDERR "$key\n";
+			#print STDERR "$key\n";
 		}
 		$seen{$key} = 1;
 	}
@@ -312,7 +312,7 @@ sub build_features {
 		my ( $r_contig, $r_strand, $r_pos ) = @$ref_loc;
 		$refH{ $r_contig . ",$r_pos" } = $g_loc;
 	}
-	print STDERR "refH in build features", Dumper( \%refH );
+	#print STDERR "refH in build features", Dumper( \%refH );
 	mkdir( "$genomeD/Features", 0777 );
 	opendir( FEATURES, "$refD/Features" )
 	  || die "could not open $refD/Features";
@@ -354,11 +354,11 @@ sub build_features {
 						{
 							my $g_location = join( "_",
 								( $g_contig1, $g_pos1 + 1, $g_pos2 + 1 ) );
-							print STDERR "Adding $g_location\n";
+							#print STDERR "Adding $g_location\n";
 							my $seq =
 							  &seq_of_feature( $type, $genetic_code, $g_contig1,
 								$g_pos1, $g_pos2, \%g_seqs );
-							print STDERR $seq, "\n";
+							#print STDERR $seq, "\n";
 							if ($seq) {
 								print TBL "$fid\t$g_location\t\n";
 								$r_beg++;
