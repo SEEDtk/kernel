@@ -116,7 +116,7 @@ sub build_hash {
 	foreach my $kmer ( keys(%seen) ) {
 		delete $hash->{$kmer};
 	}
-	print STDERR &Dumper('hash',$hash);
+	print STDERR &Dumper( 'hash', $hash );
 	return $hash;
 }
 
@@ -163,43 +163,41 @@ sub build_pins {
 				else {
 					$i++;
 				}
-			} else { $i++}
+			}
+			else { $i++ }
 		}
 	}
-        @pins = &remove_dups(0,\@pins);
-	@pins = &remove_dups(1,\@pins);
+	@pins = &remove_dups( 0, \@pins );
+	@pins = &remove_dups( 1, \@pins );
 	@pins = sort {
 		     ( $a->[0]->[0] cmp $b->[0]->[0] )
 		  or ( $a->[0]->[2] <=> $b->[0]->[2] )
 	} @pins;
-	print STDERR &Dumper(['0-based pins', \@pins] );
+	print STDERR &Dumper( [ '0-based pins', \@pins ] );
 	return \@pins;
 }
 
 sub remove_dups {
-    my($which,$pins) = @_;
+	my ( $which, $pins ) = @_;
 
-    my %bad;
-    my %seen;
-    for (my $i=0; ($i < @$pins); $i++)
-    {
-	my $keyL = $pins->[$i]->[$which];
-        my $key  = join(",",@$keyL);
-	if ($seen{$key})
-	{
-	    $bad{$i} = 1;
-        }
-	$seen{$key} = 1;
-    }
-    my @new_pins;
-    for (my $i=0; ($i < @$pins); $i++)
-    {
-	if (! $bad{$i})
-	{
-	    push(@new_pins,$pins->[$i]);
+	my %bad;
+	my %seen;
+	for ( my $i = 0 ; ( $i < @$pins ) ; $i++ ) {
+		my $keyL = $pins->[$i]->[$which];
+		my $key = join( ",", @$keyL );
+		if ( $seen{$key} ) {
+			$bad{$i} = 1;
+			print STDERR "$key\n";
+		}
+		$seen{$key} = 1;
 	}
-    }
-    return @new_pins;
+	my @new_pins;
+	for ( my $i = 0 ; ( $i < @$pins ) ; $i++ ) {
+		if ( !$bad{$i} ) {
+			push( @new_pins, $pins->[$i] );
+		}
+	}
+	return @new_pins;
 }
 
 sub fill_pins {
