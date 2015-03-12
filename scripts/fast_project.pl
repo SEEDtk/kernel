@@ -120,7 +120,9 @@ sub build_hash {
 	return $hash;
 }
 
-# pins are 0-based 2-tuples
+# pins are 0-based 2-tuples.  It is an ugly fact that the simple pairing of unique
+# kmers can lead to a situation in which 1 character in the reference genome is paired
+# with more than one character in the new genome (and vice, versa).  We sort of handle that.
 sub build_pins {
 	my ( $r_contigs, $k, $g_hash, $r_hash ) = @_;
 
@@ -164,12 +166,40 @@ sub build_pins {
 			} else { $i++}
 		}
 	}
-	print STDERR &Dumper(['0-based pins', \@pins] );
+        @pins = &remove_dups(0,\@pins);
+	@pins = &remove_dups(1,\@pins);
 	@pins = sort {
 		     ( $a->[0]->[0] cmp $b->[0]->[0] )
 		  or ( $a->[0]->[2] <=> $b->[0]->[2] )
 	} @pins;
+	print STDERR &Dumper(['0-based pins', \@pins] );
 	return \@pins;
+}
+
+sub remove_dups {
+    my($which,$pins) = @_;
+
+    my %bad;
+    my %seen;
+    for (my $i=0; ($i < @$pins); $i++)
+    {
+	my $keyL = $pins->[$i]->[$which];
+        my $key  = join(",",@$keyL);
+	if ($seen{$key})
+	{
+	    $bad{$i} = 1;
+        }
+	$seen{$key} = 1;
+    }
+    my @new_pins;
+    for (my $i=0; ($i < @$pins); $i++)
+    {
+	if (! $bad{$i})
+	{
+	    push(@new_pins,$pins->[$i]);
+	}
+    }
+    return @new_pins;
 }
 
 sub fill_pins {
