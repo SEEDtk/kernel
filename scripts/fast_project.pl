@@ -56,7 +56,7 @@ a path to a skeletal SEED genome directory that must include
 
 =cut
 
-my $k = 30;    # kmers for generating map.  Chosen conservatively.
+my $k = 4;    # kmers for generating map.  Chosen conservatively.
 
 # Get the command-line parameters.
 my $opt = ScriptUtils::Opts(
@@ -122,7 +122,10 @@ sub build_pins {
 	foreach my $tuple (@$r_contigs) {
 		my ( $contig_id, $comment, $seq ) = @$tuple;
 		my $last = length($seq) - $k;
-		for ( my $i = 0 ; ( $i <= $last ) ; $i++ ) {
+
+		#for ( my $i = 0 ; ( $i <= $last ) ; $i++ ) {
+		my $i = 0;
+		while ( $i <= $last ) {
 			my $kmer = uc substr( $seq, $i, $k );
 			if ( $kmer !~ /[^ACGT]/ ) {
 				my $g_pos = $g_hash->{$kmer};
@@ -133,7 +136,7 @@ sub build_pins {
 							push(
 								@pins,
 								[
-									[ $contig_id, '+', $i + $j],
+									[ $contig_id, '+', $i + $j ],
 									[ $g_contig,  '+', $g_off + $j ]
 								]
 							);
@@ -143,17 +146,24 @@ sub build_pins {
 								@pins,
 								[
 									[ $contig_id, '+', $i + $j ],
-									[ $g_contig,  '-', $g_off - $j]
+									[ $g_contig,  '-', $g_off - $j ]
 								]
 							);
 						}
 					}
-
+					$i = $i + $k;
+				}
+				else {
+					$i++;
 				}
 			}
 		}
 	}
-	@pins = sort { ( $a->[0]->[0] cmp $b->[0]->[0] ) or ( $a->[0]->[2] <=> $b->[0]->[2] ) } @pins;
+	print STDERR &Dumper (\@pins);
+	@pins = sort {
+		     ( $a->[0]->[0] cmp $b->[0]->[0] )
+		  or ( $a->[0]->[2] <=> $b->[0]->[2] )
+	} @pins;
 	return \@pins;
 }
 
@@ -185,7 +195,7 @@ sub fill_between {
 	my ( $contig_r_1, $strand_r_1, $pos_r_1 ) = @$rp1;
 	my ( $contig_r_2, $strand_r_2, $pos_r_2 ) = @$rp2;
 	my ( $contig_g_1, $strand_g_1, $pos_g_1 ) = @$gp1;
-	my ( $contig_g_2, $strand_g_2, $pos_g_2  ) = @$gp2;
+	my ( $contig_g_2, $strand_g_2, $pos_g_2 ) = @$gp2;
 
 	my @expanded = ($pin1);
 	if (
@@ -269,14 +279,13 @@ sub build_features {
 		my ( $r_contig, $r_strand, $r_pos ) = @$ref_loc;
 		$refH{ $r_contig . ",$r_pos" } = $g_loc;
 	}
-
+    print STDERR Dumper (\%refH);
 	mkdir( "$genomeD/Features", 0777 );
 	opendir( FEATURES, "$refD/Features" )
 	  || die "could not open $refD/Features";
 	my @types = grep { $_ !~ /^\./ } readdir(FEATURES);
 	closedir(FEATURES);
 
-	mkdir( "$genomeD/Features", 0777 );
 	foreach my $type (@types) {
 		my $dir = "$genomeD/Features/$type";
 
@@ -286,18 +295,19 @@ sub build_features {
 			  map { ( $_ =~ /^(\S+)/ ) ? ( $1 => 1 ) : () }
 			  `cat $refD/Features/$type/deleted.features`;
 		}
-
-		if (   mkdir( $dir, 0777 )
-			&& open( TBL,   ">$dir/tbl" )
+		mkdir( $dir, 0777 );
+		if (   open( TBL, ">$dir/tbl" )
 			&& open( FASTA, ">$dir/fasta" ) )
 		{
 			foreach my $f_line (`cat $refD/Features/$type/tbl`) {
-				if (   ( $f_line =~ /^(\S+)\t(\S)_(\S+)_(\S+)\t/ )
+				print STDERR $f_line;
+				if (   ( $f_line =~ /^(\S+)\t(\S+)_(\S+)_(\S+)\t/ )
 					&& ( !$deleted_features{$1} ) )
 				{
-					my ( $fid, $r_contig, $r_beg, $r_end ) = ( $1, $2, $3, $4 );
-					if (   ( my $g_locB = $refH{ $r_contig . $r_beg } )
-						&& ( my $g_locE = $refH{ $r_contig . $r_end } ) )
+					my ( $fid, $r_contig, $r_beg, $r_end ) =
+					  ( $1, $2, $3 - 1, $4 - 1 );
+					if (   ( my $g_locB = $refH{ $r_contig . ",$r_beg" } )
+						&& ( my $g_locE = $refH{ $r_contig . ",$r_end" } ) )
 					{
 						my ( $g_contig1, $g_strand1, $g_pos1 ) = @$g_locB;
 						my ( $g_contig2, $g_strand2, $g_pos2 ) = @$g_locE;
@@ -309,16 +319,19 @@ sub build_features {
 								abs( $r_beg - $r_end ) )
 						  )
 						{
-							my $g_location =
-							  join( "_", ( $g_contig1, $g_pos1, $g_pos2 ) );
-							my $seq = &seq_of_feature(
-								$type,$genetic_code,   $g_contig1, $g_pos1,
-								$g_pos2, \%g_seqs
-							);
-							if ($seq) 
-							{
-							    print TBL "$fid\t$g_location\t\n";
-							    print FASTA ">$fid $r_contig $r_beg $r_end\n$seq\n";
+							my $g_location = join( "_",
+								( $g_contig1, $g_pos1 + 1, $g_pos2 + 1 ) );
+								print STDERR "Adding $g_location\n";
+							my $seq =
+							  &seq_of_feature( $type, $genetic_code, $g_contig1,
+								$g_pos1, $g_pos2, \%g_seqs );
+								print STDERR $seq,"\n";
+							if ($seq) {
+								print TBL "$fid\t$g_location\t\n";
+								$r_beg++;
+								$r_end++;
+								print FASTA
+								  ">$fid $r_contig $r_beg $r_end\n$seq\n";
 							}
 						}
 					}
@@ -329,32 +342,29 @@ sub build_features {
 		close(FASTA);
 	}
 }
-sub get_genetic_code {
-    my($dir) = @_;
 
-    if ( ! -s "$dir/GENETIC_CODE") { return 11 }
-    my @tmp = `cat $dir/GENETIC_CODE`;
-    chomp $tmp[0];
-    return $tmp[0];
+sub get_genetic_code {
+	my ($dir) = @_;
+
+	if ( !-s "$dir/GENETIC_CODE" ) { return 11 }
+	my @tmp = `cat $dir/GENETIC_CODE`;
+	chomp $tmp[0];
+	return $tmp[0];
 }
 
 sub seq_of_feature {
-    my ( $type, $genetic_code, $g_contig, $g_beg, $g_end, $g_seqs ) = @_;
-    my $dna = &seq_of($g_contig,$g_beg,$g_end,$g_seqs);
-    if (($type ne "peg") && ($type ne "CDS"))
-    {
-	return $dna;
-    }
-    else
-    {
-	my $tran;
-	my $code = &SeedUtils::standard_genetic_code;
-	if ($genetic_code == 4)
-	{
-	    $code->{"TGA"} = "W";   # code 4 has TGA encoding tryptophan
+	my ( $type, $genetic_code, $g_contig, $g_beg, $g_end, $g_seqs ) = @_;
+	my $dna = &seq_of( $g_contig, $g_beg, $g_end, $g_seqs );
+	if ( ( $type ne "peg" ) && ( $type ne "CDS" ) ) {
+		return $dna;
 	}
-	my $tran = &SeedUtils::translate($dna,$code,1);
-	$tran =~ s/\*$//;
-	return ($tran =~ /\*/) ? undef : $tran;
-    }
+	else {
+		my $code = &SeedUtils::standard_genetic_code;
+		if ( $genetic_code == 4 ) {
+			$code->{"TGA"} = "W";    # code 4 has TGA encoding tryptophan
+		}
+		my $tran = &SeedUtils::translate( $dna, $code, 1 );
+		$tran =~ s/\*$//;
+		return ( $tran =~ /\*/ ) ? undef : $tran;
+	}
 }
