@@ -79,14 +79,13 @@ my $map = &build_mapping( \@ref_tuples, \@g_tuples );
 
 sub build_mapping {
 	my ( $r_contigs, $g_contigs ) = @_;
-        my $r_hash = &build_hash($r_contigs,$k);
+	my $r_hash = &build_hash( $r_contigs, $k );
 	my $g_hash = &build_hash( $g_contigs, $k );
-	my $pins = &build_pins( $r_contigs, $k, $g_hash,$r_hash );
+	my $pins = &build_pins( $r_contigs, $k, $g_hash, $r_hash );
 	my @map = &fill_pins( $pins, \@ref_tuples, \@g_tuples );
 
 	return \@map;
 }
-
 
 sub build_hash {
 	my ( $contigs, $k ) = @_;
@@ -117,7 +116,7 @@ sub build_hash {
 }
 
 sub build_pins {
-	my ( $r_contigs, $k, $g_hash,$r_hash ) = @_;
+	my ( $r_contigs, $k, $g_hash, $r_hash ) = @_;
 
 	my @pins;
 	foreach my $tuple (@$r_contigs) {
@@ -128,7 +127,7 @@ sub build_pins {
 		my $i = 0;
 		while ( $i <= $last ) {
 			my $kmer = uc substr( $seq, $i, $k );
-			if (( $kmer !~ /[^ACGT]/ ) && $r_hash->{$kmer})
+			if ( ( $kmer !~ /[^ACGT]/ ) && $r_hash->{$kmer} ) {
 				my $g_pos = $g_hash->{$kmer};
 				if ($g_pos) {
 					my ( $g_contig, $g_strand, $g_off ) = @$g_pos;
@@ -157,10 +156,10 @@ sub build_pins {
 				else {
 					$i++;
 				}
-			}
+			} else { $i++}
 		}
 	}
-	print STDERR &Dumper (\@pins);
+	print STDERR &Dumper( \@pins );
 	@pins = sort {
 		     ( $a->[0]->[0] cmp $b->[0]->[0] )
 		  or ( $a->[0]->[2] <=> $b->[0]->[2] )
@@ -280,7 +279,7 @@ sub build_features {
 		my ( $r_contig, $r_strand, $r_pos ) = @$ref_loc;
 		$refH{ $r_contig . ",$r_pos" } = $g_loc;
 	}
-    print STDERR Dumper (\%refH);
+	print STDERR "refH in build features", Dumper( \%refH );
 	mkdir( "$genomeD/Features", 0777 );
 	opendir( FEATURES, "$refD/Features" )
 	  || die "could not open $refD/Features";
@@ -322,11 +321,11 @@ sub build_features {
 						{
 							my $g_location = join( "_",
 								( $g_contig1, $g_pos1 + 1, $g_pos2 + 1 ) );
-								print STDERR "Adding $g_location\n";
+							print STDERR "Adding $g_location\n";
 							my $seq =
 							  &seq_of_feature( $type, $genetic_code, $g_contig1,
 								$g_pos1, $g_pos2, \%g_seqs );
-								print STDERR $seq,"\n";
+							print STDERR $seq, "\n";
 							if ($seq) {
 								print TBL "$fid\t$g_location\t\n";
 								$r_beg++;
