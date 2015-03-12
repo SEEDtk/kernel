@@ -79,14 +79,18 @@ my $map = &build_mapping( \@ref_tuples, \@g_tuples );
 
 sub build_mapping {
 	my ( $r_contigs, $g_contigs ) = @_;
+	print STDERR "Calling build_hash for reference\n";
 	my $r_hash = &build_hash( $r_contigs, $k );
+	print STDERR "Calling build_hash for new\n";
 	my $g_hash = &build_hash( $g_contigs, $k );
+
 	my $pins = &build_pins( $r_contigs, $k, $g_hash, $r_hash );
 	my @map = &fill_pins( $pins, \@ref_tuples, \@g_tuples );
 
 	return \@map;
 }
 
+# a hash has a 0-base for each kmer (kmer is a key to a 0-based location)
 sub build_hash {
 	my ( $contigs, $k ) = @_;
 
@@ -112,9 +116,11 @@ sub build_hash {
 	foreach my $kmer ( keys(%seen) ) {
 		delete $hash->{$kmer};
 	}
+	print STDERR &Dumper('hash',$hash);
 	return $hash;
 }
 
+# pins are 0-based 2-tuples
 sub build_pins {
 	my ( $r_contigs, $k, $g_hash, $r_hash ) = @_;
 
@@ -123,7 +129,6 @@ sub build_pins {
 		my ( $contig_id, $comment, $seq ) = @$tuple;
 		my $last = length($seq) - $k;
 
-		#for ( my $i = 0 ; ( $i <= $last ) ; $i++ ) {
 		my $i = 0;
 		while ( $i <= $last ) {
 			my $kmer = uc substr( $seq, $i, $k );
@@ -159,7 +164,7 @@ sub build_pins {
 			} else { $i++}
 		}
 	}
-	print STDERR &Dumper( \@pins );
+	print STDERR &Dumper(['0-based pins', \@pins] );
 	@pins = sort {
 		     ( $a->[0]->[0] cmp $b->[0]->[0] )
 		  or ( $a->[0]->[2] <=> $b->[0]->[2] )
