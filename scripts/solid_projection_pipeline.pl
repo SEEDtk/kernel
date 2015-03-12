@@ -17,75 +17,52 @@
 #
 
 use strict;
-use JSON::XS;
 use warnings;
+use JSON::XS;
 use FIG_Config;
 use Shrub;
 use ScriptUtils;
 use Data::Dumper;
+use Projection;
 
 # Get the command-line parameters.
 my $opt = ScriptUtils::Opts(
     '', Shrub::script_options(),
     ScriptUtils::ih_options(),
-    [ 'subsystem|s=s','ID of the subsystem to process'],
-    [ 'dataD|d=s','Data Directory for Subsystem Projection']
+    [ 'subsystem|s=s','ID of the subsystem to process', { required => 1 }],
+    [ 'dataD|d=s','Data Directory for Subsystem Projection', { required => 1 }],
+    [ 'privilege=i', 'privilege level of roles', { default => Shrub::PRIV }]
 );
 my $subsystem_id = $opt->subsystem;
 my $dataD        = $opt->datad;
+my $privilege    = $opt->privilege;
 my $shrub        = Shrub->new_for_script($opt);
-$subsystem_id || die "missing subsystem id";
-$dataD        || die "missing Data directory";
 
 my $ih = ScriptUtils::IH($opt->input);
 my @genomes = map { ($_ =~ /(\d{3,10}\.\d+)/) ? $1 : () } <$ih>;
 my @full_set = @genomes;
 
-open(GETPROP,"| perl properties_of_solid_roles.pl -s $subsystem_id -d $dataD/solid.projection.parms.1")
-    || die "failed to run initial properies_of_solid_roles";
-foreach my $g (@genomes)
-{
-    print GETPROP $g,"\n";
-}
-close(GETPROP);
-
+# Compute the parameters for the projection.
+my $parms = Projection::compute_properties_of_solid_roles($shrub, $subsystem_id, \@genomes);
+# Save them to disk.
+Projection::write_encoded_object($parms, "$dataD/parms.1");
+# Get the remaining genomes in the database.
 my %small_set = map { ($_ => 1) } @genomes;
 my @to_call = grep { ! $small_set{$_} } &get_genomes_from_database($shrub);
+# Project the subsystem onto them.
+open(my $oh, ">$dataD/projections.1") || die "Could not open first projection file: $!";
+my @found = Projection::project_solid_roles($shrub, $subsystem_id, $privilege, $parms, \@to_call, $oh);
+close $oh; undef $oh;
+# Add the new genomes to our set to process.
+push @full_set, @found;
+# Compute a new set of parameters.
+my $parms2 = Projection::compute_properties_of_solid_roles($shrub, $subsystem_id, \@full_set);
+# Save the new parms to disk.
+Projection::write_encoded_object($parms2, "$dataD/parms.2");
+# Project the subsystem with the new parameters.
+open($oh, ">$dataD/projections.2") || die "Could not open second projection file: $!";
+Projection::project_solid_roles($shrub, $subsystem_id, $privilege, $parms2, \@to_call, $oh);
 
-
-open(PROJ,"| perl project_solid_roles.pl -s $subsystem_id -d $dataD/solid.projection.parms.1 >$dataD/projections.1")
-    || die "failed projection 1";
-foreach my $g (@to_call)
-{
-    print PROJ $g,"\n";
-}
-close(PROJ);
-
-$/ = "\n//\n";
-foreach my $called (`cat $dataD/projections.1`)
-{
-    if ($called =~ /^\S+\t(\S+)/)
-    {
-    push(@full_set,$1);
-    }
-}
-$/ = "\n";
-
-open(GETPROP,"| perl properties_of_solid_roles.pl -s $subsystem_id -d $dataD/solid.projection.parms.2")
-    || die "failed to run second properies_of_solid_roles";
-foreach my $g (@full_set)
-{
-    print GETPROP $g,"\n";
-}
-close(GETPROP);
-
-open(PROJ,"| perl project_solid_roles.pl -s $subsystem_id -d $dataD/solid.projection.parms.2 >$dataD/projections.2")
-    || die "failed projection 2";
-foreach my $g (@to_call)
-{
-    print PROJ $g,"\n";
-}
-close(PROJ);
 
 sub get_genomes_from_database {
     my($shrub) = @_;

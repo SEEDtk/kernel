@@ -52,19 +52,19 @@ full subsystem name.
 my $opt = ScriptUtils::Opts(
     '', Shrub::script_options(),
     ScriptUtils::ih_options(),
-    [ 'subsystem|s=s','ID of the subsystem to process'],
-    [ 'dataD|d=s','Data Directory for Subsystem Projection']
+    [ 'subsystem|s=s','ID of the subsystem to process', { required => 1}],
 );
+
 my $subsystem_id = $opt->subsystem;
-my $dataD        = $opt->datad;
 
 # Connect to the database.
 my $shrub = Shrub->new_for_script($opt);
-
 # Open the input file.
 my $ih = ScriptUtils::IH( $opt->input );
+# Read the genomes.
 my @genomes = map { ( $_ =~ /(\d+\.\d+)/ ) ? $1 : () } <$ih>;
 close($ih);
-
-my $state = &Projection::relevant_projection_data($subsystem_id,\@genomes,$shrub);
-&Projection::create_recognition_parameters($state,$dataD,$shrub);
+# Compute the properties.
+my $parms = Projection::compute_properties_of_solid_roles($shrub, $subsystem_id, \@genomes);
+# Write them to the standard output.
+Projection::write_encoded_object($parms, \*STDOUT);

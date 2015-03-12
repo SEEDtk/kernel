@@ -1,5 +1,7 @@
 package Projection;
 
+use strict;
+use warnings;
 use gjo::stat;
 use gjo::BlastInterface;
 use Data::Dumper;
@@ -17,15 +19,17 @@ sub relevant_projection_data
     );
     my %to_role_id = map { ( $_->[1] => $_->[0] ) } @tuples;
     $state->{roles} = \%to_role_id;
-
+    my $qs = join(", ", ('?') x scalar(@$genomes));
     @tuples = $shrub->GetAll(
         "Subsystem2Row SubsystemRow Row2Cell Cell2Feature Feature
                                Feature2Protein Protein AND
                                Feature Feature2Function Function AND
-                               Feature Feature2Contig",
+                               Feature Feature2Contig AND
+                               SubsystemRow Row2Genome",
         "(Subsystem2Row(from-link) = ?) AND
-                               (Feature2Function(security) = ?)",
-        [ $subsystem_id, 2 ],
+                               (Feature2Function(security) = ?) AND
+                               Row2Genome(to-link) IN ($qs)",
+        [ $subsystem_id, 2, @$genomes ],
         "SubsystemRow(variant-code) Cell2Feature(to-link)
                                Function(description) Protein(sequence) Feature2Contig(to-link)
                                Feature2Contig(begin) Feature2Contig(dir)"
@@ -142,7 +146,7 @@ sub get_blast_cutoffs
                     }
                     if ( $worst == 0 )
                     {
-                        print STDERR "$func ha no constraints\n";
+                        print STDERR "$func has no constraints\n";
                     }
                     else
                     {
@@ -206,18 +210,14 @@ sub length_stats_by_family
 
 sub create_recognition_parameters
 {
-    my ( $state, $dataD, $shrub ) = @_;
+    my ( $state, $shrub ) = @_;
 
     my $parms = {};
-    if ( !-d $dataD )
-    {
-        mkdir( $dataD, 0777 ) || die "could not make $dataD";
-    }
     $parms->{length_stats} = &length_stats_by_family($state);
     $parms->{blast_parms}  = &get_blast_cutoffs($state);
     $parms->{vc_patterns}  = &vc_requirements($state);
 
-    &write_encoded_object( $parms, "$dataD/solid.projection.parms" );
+    return $parms;
 }
 
 sub vc_requirements
@@ -281,13 +281,21 @@ sub to_pattern
 
 sub write_encoded_object
 {
-    my ( $obj, $file ) = @_;
+    my ( $obj, $oh ) = @_;
+    # If the user passes in a file, we open it here. Because it is opened in a local
+    # variable, it will be closed automatically when we go out of scope. An open handle
+    # passed in, however, will not be closed.
+    my $handle;
+    if (! ref $oh) {
+        open($handle, ">$oh") || die "Could not open output file $oh: $!";
+    } else {
+        $handle = $oh;
+    }
 
     my $json = JSON::XS->new;
     $json->pretty(1);
-    open( OBJ, ">$file" ) || die "could not open $file";
-    print OBJ $json->encode($obj);
-    close(OBJ);
+    print $handle $json->encode($obj);
+
 }
 
 sub read_encoded_object
@@ -352,7 +360,7 @@ sub possible_vc
     my $sofar;
     my $best_pattern;
 
-    foreach $master_pattern (@master_patterns)
+    foreach my $master_pattern (@master_patterns)
     {
         if ( my $sz_master = &subset( $pattern, $master_pattern ) )
         {
@@ -432,6 +440,7 @@ sub ok_sims
     my $seq = &seq_of_peg( $shrub, $peg );
     my @sims = &gjo::BlastInterface::blast( [ $peg, '', $seq ],
         $seq_tuples, 'blastp', { outForm => 'sim' } );
+    my $sim;
     while ( ( $sim = shift @sims ) && ( $sim->id2 eq $peg ) ) { }
 
     # print STDERR &Dumper($sim,$sim->[10],$sim->psc);
@@ -498,6 +507,57 @@ sub roles_in_peg_set
     }
 
     return %roles;
+}
+
+sub compute_properties_of_solid_roles {
+    my ($shrub, $subsystem_id, $genomes) = @_;
+
+    my $state = &Projection::relevant_projection_data($subsystem_id,$genomes,$shrub);
+    my $retVal = &Projection::create_recognition_parameters($state,$shrub);
+    return $retVal;
+}
+
+sub project_solid_roles {
+    my ($shrub, $subsystem_id, $privilege, $parms, $genomes, $oh) = @_;
+    my @retVal;
+    my @tuples = $shrub->GetAll(
+    "Subsystem2Role Role Role2Function Function Function2Feature Feature Feature2Contig",
+        "(Subsystem2Role(from-link) = ?) AND (Function2Feature(security) = ?)",
+        [ $subsystem_id, $privilege ],
+        "Subsystem2Role(to-link) Function2Feature(to-link) Function(description)
+                              Feature2Contig(to-link) Feature2Contig(begin) Feature2Contig(dir)"
+    );
+    my %relevant;
+    foreach $_ (@tuples)
+    {
+        my ( $role, $peg, $func, $contig, $beg, $strand ) = @$_;
+        my $g = &SeedUtils::genome_of($peg);
+        $relevant{$g}->{$peg} = [ $role, $func, [ $contig, $beg, $strand ] ];
+    }
+
+    my $state = { ( relevant => \%relevant ) };
+
+    foreach my $g (@$genomes)
+    {
+        my $projection =
+          &Projection::project_subsys_to_genome( $shrub, $g, $subsystem_id, $state,
+            $parms );
+        if ( my $vc = $projection->{vc} )
+        {
+            print $oh join( "\t", ( $subsystem_id, $g, $vc ) ), "\n";
+            my $calls = $projection->{calls};
+            #print STDERR &Dumper($calls);
+            foreach my $call (@$calls)
+            {
+                my ( $peg, $role, $func ) = @$call;
+                print $oh "\t", join( "\t", ( $peg, $role, $func ) ), "\n";
+            }
+            print $oh "//\n";
+            push @retVal, $g;
+        }
+    }
+    return @retVal;
+
 }
 
 1;
