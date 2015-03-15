@@ -79,12 +79,12 @@ sub get_blast_cutoffs
     foreach my $func ( sort @funcs )
     {
         my $funcName = "($func) $func_descriptions->{$func}";
-        print STDERR "processing function $funcName\n";
+        #print STDERR "processing function $funcName\n";
         my $pegH = $func_to_pegs->{$func};
         if ($pegH)
         {
             my @pegs = keys(%$pegH);
-            print STDERR join( ",", @pegs ), "\n";
+            #print STDERR join( ",", @pegs ), "\n";
             if ( @pegs < 3 )    # require 3 pegs for stats
             {
                 print STDERR "$funcName only has ", scalar @pegs, " pegs\n";
@@ -92,7 +92,7 @@ sub get_blast_cutoffs
             else
 
             {
-                print STDERR "func=$funcName has enough pegs\n";
+                #print STDERR "func=$funcName has enough pegs\n";
                 my @seq_tuples;
                 foreach my $peg (@pegs)
                 {
@@ -152,7 +152,7 @@ sub get_blast_cutoffs
                     }
                     if ( $worst == 0 )
                     {
-                        print STDERR "$funcName has no constraints\n";
+                        print STDERR "$funcName has no similarity constraints\n";
                     }
                     else
                     {
@@ -201,7 +201,7 @@ sub length_stats_by_family
                 }
                 my ( $mean, $stddev ) = &gjo::stat::mean_stddev(@lengths);
                 $len_stats->{$func} = [ $mean, $stddev ];
-                print STDERR "set mean=$mean stddev=$stddev for $funcName\n";
+                #print STDERR "set mean=$mean stddev=$stddev for $funcName\n";
             }
             else
             {
@@ -294,9 +294,12 @@ sub write_encoded_object
     # variable, it will be closed automatically when we go out of scope. An open handle
     # passed in, however, will not be closed.
     my $handle;
-    if (! ref $oh) {
-        open($handle, ">$oh") || die "Could not open output file $oh: $!";
-    } else {
+    if ( !ref $oh )
+    {
+        open( $handle, ">$oh" ) || die "Could not open output file $oh: $!";
+    }
+    else
+    {
         $handle = $oh;
     }
 
@@ -332,19 +335,24 @@ sub project_subsys_to_genome
     my $relevant_to_genome = $relevant->{$genome};
     my @pegs               = keys(%$relevant_to_genome);
 
+    my $projection = {};
     my %roles;
     my $calls = [];
     foreach my $peg (@pegs)
     {
         my ( $role, $func, $loc ) = @{ $relevant_to_genome->{$peg} };
-        if ( &good_peg( $shrub, $peg, $func, $loc, $parms ) )
+        my $rc = &bad_peg( $shrub, $peg, $func, $loc, $parms );
+        if ($rc)
+        {
+            $projection->{problematic_peg}->{$peg} = $rc;
+        }
+        else
         {
             $roles{$role}++;
             push( @$calls, [ $peg, $role, $func ] );
         }
     }
-    my $pattern    = &to_pattern( \%roles );
-    my $projection = {};
+    my $pattern = &to_pattern( \%roles );
     if ($pattern)
     {
         # print STDERR "pattern=$pattern\n";
@@ -364,7 +372,7 @@ sub possible_vc
 {
     my ( $patterns, $pattern ) = @_;
 
-    my @master_patterns = keys(%$patterns);
+    my @master_patterns = sort keys(%$patterns);
     my $sofar;
     my $best_pattern;
 
@@ -372,7 +380,7 @@ sub possible_vc
     {
         if ( my $sz_master = &subset( $pattern, $master_pattern ) )
         {
-            if ( ( !$sofar ) || ( $sofar > $sz_master ) )
+            if ( ( !$sofar ) || ( $sofar < $sz_master ) )
             {
                 $sofar        = $sz_master;
                 $best_pattern = $master_pattern;
@@ -382,33 +390,43 @@ sub possible_vc
     return $best_pattern ? $patterns->{$best_pattern} : undef;
 }
 
-# if set2 is a subset of set1, return size of set1; else undef
+# if set2 is a subset of set1, return size of set2; else undef
 sub subset
 {
     my ( $set1, $set2 ) = @_;
 
     my $i;
     my @set2 = split( /,/, $set2 );
-    for ( $i = 0 ; ( $i < @set2 ) && ( index( $set1,$set2[$i] ) >= 0 ) ; $i++ )
+    for ( $i = 0 ; ( $i < @set2 ) && ( index( $set1, $set2[$i] ) >= 0 ) ; $i++ )
     {
     }
     if ( $i == @set2 )
     {
-        my $cnt = $set1 =~ tr/,/,/;
+        my $cnt = $set2 =~ tr/,/,/;
         return $cnt + 1;
     }
     return undef;
 }
 
-sub good_peg
+sub bad_peg
 {
     my ( $shrub, $peg, $func, $loc, $parms ) = @_;
 
     my $ok = ( &ok_length( $shrub, $peg, $func, $parms ) && &ok_sims( $shrub, $peg, $func, $parms ) );
     return $ok;
+    my $rc;
+    if ( $rc = &bad_length( $shrub, $peg, $func, $parms ) )
+    {
+        return $rc;
+    }
+    elsif ( $rc = &bad_sims( $shrub, $peg, $func, $parms ) )
+    {
+        return $rc;
+    }
+    return undef;
 }
 
-sub ok_length
+sub bad_length
 {
     my ( $shrub, $peg, $func, $parms ) = @_;
 
@@ -417,29 +435,32 @@ sub ok_length
         print STDERR "$peg has no length stats\n";
         return 0;
     }
+    if ( !$tuple ) { return undef }
     my ( $mean, $stddev ) = @$tuple;
     my $len = length( &seq_of_peg( $shrub, $peg ) );
     if ( !$len ) {
         print STDERR "$peg has no protein sequence\n";
         return 0
     }
+    if ( !$len ) { return ['no_translation'] }
     if ( $stddev < 10 ) { $stddev = 10 }
     if ( abs( ( $len - $mean ) / $stddev ) > 3 )
     {
         print STDERR
           "$peg length is too extreme: len=$len  mean=$mean stddev=$stddev\n";
         return 0;
+        #print STDERR "$peg failed length test: len=$len  mean=$mean stddev=$stddev\n";
+        return [ 'bad_length', $len, $mean, $stddev ];
     }    # z-score is too high or too low
-
-    return 1;
+    return undef;
 }
 
-sub ok_sims
+sub bad_sims
 {
     my ( $shrub, $peg, $func, $parms ) = @_;
 
     my $blast_parms = $parms->{blast_parms}->{$func};
-    if ( !$blast_parms ) { return 1 }
+    if ( !$blast_parms ) { return undef }
     my ( $worst, $seq_tuples ) = @{$blast_parms};
 
     my $seq = &seq_of_peg( $shrub, $peg );
@@ -449,18 +470,19 @@ sub ok_sims
     while ( ( $sim = shift @sims ) && ( $sim->id2 eq $peg ) ) { }
 
     # print STDERR &Dumper($sim,$sim->[10],$sim->psc);
-    if ( ! defined($sim) ) {
-        print STDERR "$peg has no sim\n";
-        return 0;
-    }
-    if ( $sim->psc <= $worst )
+    if ( defined($sim) && ( $sim->psc <= $worst ) )
     {
-        return 1;
+        return undef;
     } else
     {
         print STDERR "$peg score of " . $sim->psc . " is greater than worst score $worst.\n";
         return 0;
     }
+
+    return
+      defined($sim)
+      ? [ 'weak_similarity', $sim->psc, $worst ]
+      : ['no_similarities'];
 }
 
 # returns sequence(translation) of a PEG
@@ -551,29 +573,47 @@ sub project_solid_roles {
 
     my $state = { ( relevant => \%relevant ) };
 
-    foreach my $g (@$genomes)
+    foreach my $g ( sort { $a <=> $b } @$genomes )
     {
         my $projection =
-          &Projection::project_subsys_to_genome( $shrub, $g, $subsystem_id, $state,
-            $parms );
-        if ( my $vc = $projection->{vc} )
+          &Projection::project_subsys_to_genome( $shrub, $g, $subsystem_id,
+            $state, $parms );
+        my $vc = $projection->{vc} ? $projection->{vc} : 'not-active';
+        print $oh join( "\t", ( $subsystem_id, $g, $vc ) ), "\n";
+        my $calls = $projection->{calls} || [];
+        # print STDERR &Dumper($calls);
+        foreach my $call ( sort { &SeedUtils::by_fig_id( $a->[0], $b->[0] ) }
+            @$calls )
         {
-            print $oh join( "\t", ( $subsystem_id, $g, $vc ) ), "\n";
-            my $calls = $projection->{calls};
-            #print STDERR &Dumper($calls);
-            my @sorted = sort { $sort{$a->[1]} <=> $sort{$b->[1]} } @$calls;
-            foreach my $call (@sorted)
-            {
-                my ( $peg, $role, $func ) = @$call;
-                my $funcName = $funHash{$func};
-                if (! $funcName) {
-                    my ($funcDesc) = $shrub->GetEntityValues(Function => $func, ['description']);
-                    $funcName = "($func) $funcDesc";
-                    $funHash{$func} = $funcName;
-                }
-                print $oh "\t", join( "\t", ( $peg, $role, $funcName ) ), "\n";
-            }
-            print $oh "//\n";
+            my ( $peg, $role, $func ) = @$call;
+            print $oh "\t", join( "\t", ( $peg, $role, $func ) ), "\n";
+        }
+        print $oh "----\n";
+        my $problems = $projection->{problematic};
+        foreach
+          my $peg ( sort { &SeedUtils::by_fig_id( $a, $b ) } keys(%$problems) )
+        {
+            print $oh @{ $problems->{$peg} }, "\n";
+        }
+        print $oh "//\n";
+        if ( $vc ne 'not-active' )
+        {
+#            print $oh join( "\t", ( $subsystem_id, $g, $vc ) ), "\n";
+#            my $calls = $projection->{calls};
+#            #print STDERR &Dumper($calls);
+#            my @sorted = sort { $sort{$a->[1]} <=> $sort{$b->[1]} } @$calls;
+#            foreach my $call (@sorted)
+#            {
+#                my ( $peg, $role, $func ) = @$call;
+#                my $funcName = $funHash{$func};
+#                if (! $funcName) {
+#                    my ($funcDesc) = $shrub->GetEntityValues(Function => $func, ['description']);
+#                    $funcName = "($func) $funcDesc";
+#                    $funHash{$func} = $funcName;
+#                }
+#                print $oh "\t", join( "\t", ( $peg, $role, $funcName ) ), "\n";
+#            }
+#            print $oh "//\n";
             push @retVal, $g;
         }
     }

@@ -56,7 +56,7 @@ a path to a skeletal SEED genome directory that must include
 
 =cut
 
-my $k = 30;    # kmers for generating map.  Chosen conservatively.
+my $k = 4;    # kmers for generating map.  Chosen conservatively.
 
 # Get the command-line parameters.
 my $opt = ScriptUtils::Opts(
@@ -69,60 +69,72 @@ my $opt = ScriptUtils::Opts(
 my $refD    = $opt->reference;
 my $genomeD = $opt->genome;
 
+my $genetic_code = &get_genetic_code($genomeD);
+
 my @ref_tuples = &gjo::seqlib::read_fasta("$refD/contigs");
 my @g_tuples   = &gjo::seqlib::read_fasta("$genomeD/contigs");
 
 my $map = &build_mapping( \@ref_tuples, \@g_tuples );
-&build_features( $map, $refD, $genomeD, \@g_tuples );
+&build_features( $map, $refD, $genomeD, \@g_tuples, $genetic_code );
 
 sub build_mapping {
 	my ( $r_contigs, $g_contigs ) = @_;
+	#print STDERR "Calling build_hash for reference\n";
+	my $r_hash = &build_hash( $r_contigs, $k );
+	#print STDERR "Calling build_hash for new\n";
+	my $g_hash = &build_hash( $g_contigs, $k );
 
-	my $g_hash = &build_g_hash( $g_contigs, $k );
-	my $pins = &build_pins( $r_contigs, $k, $g_hash );
+	my $pins = &build_pins( $r_contigs, $k, $g_hash, $r_hash );
 	my @map = &fill_pins( $pins, \@ref_tuples, \@g_tuples );
 
 	return \@map;
 }
 
-sub build_g_hash {
-	my ( $g_contigs, $k ) = @_;
+# a hash has a 0-base for each kmer (kmer is a key to a 0-based location)
+sub build_hash {
+	my ( $contigs, $k ) = @_;
 
-	my $g_hash = {};
+	my $hash = {};
 	my %seen;
-	foreach my $tuple (@$g_contigs) {
+	foreach my $tuple (@$contigs) {
 		my ( $contig_id, $comment, $seq ) = @$tuple;
 		my $last = length($seq) - $k;
 		for ( my $i = 0 ; ( $i <= $last ) ; $i++ ) {
 			my $kmer = uc substr( $seq, $i, $k );
 			if ( $kmer !~ /[^ACGT]/ ) {
 				my $comp = &rev_comp($kmer);
-				if ( $g_hash->{$kmer} ) {
+				if ( $hash->{$kmer} ) {
 					$seen{$kmer} = 1;
 					$seen{$comp} = 1;
 				}
-				$g_hash->{$kmer} = [ $contig_id, "+", $i ];
-				$g_hash->{$comp} = [ $contig_id, "-", $i + $k - 1 ];
+				$hash->{$kmer} = [ $contig_id, "+", $i ];
+				$hash->{$comp} = [ $contig_id, "-", $i + $k - 1 ];
 			}
 		}
 	}
 
 	foreach my $kmer ( keys(%seen) ) {
-		delete $g_hash->{$kmer};
+		delete $hash->{$kmer};
 	}
-	return $g_hash;
+	#print STDERR &Dumper( 'hash', $hash );
+	return $hash;
 }
 
+# pins are 0-based 2-tuples.  It is an ugly fact that the simple pairing of unique
+# kmers can lead to a situation in which 1 character in the reference genome is paired
+# with more than one character in the new genome (and vice, versa).  We sort of handle that.
 sub build_pins {
-	my ( $r_contigs, $k, $g_hash ) = @_;
+	my ( $r_contigs, $k, $g_hash, $r_hash ) = @_;
 
 	my @pins;
 	foreach my $tuple (@$r_contigs) {
 		my ( $contig_id, $comment, $seq ) = @$tuple;
 		my $last = length($seq) - $k;
-		for ( my $i = 0 ; ( $i <= $last ) ; $i++ ) {
+
+		my $i = 0;
+		while ( $i <= $last ) {
 			my $kmer = uc substr( $seq, $i, $k );
-			if ( $kmer !~ /[^ACGT]/ ) {
+			if ( ( $kmer !~ /[^ACGT]/ ) && $r_hash->{$kmer} ) {
 				my $g_pos = $g_hash->{$kmer};
 				if ($g_pos) {
 					my ( $g_contig, $g_strand, $g_off ) = @$g_pos;
@@ -131,7 +143,7 @@ sub build_pins {
 							push(
 								@pins,
 								[
-									[ $contig_id, '+', $i + $j],
+									[ $contig_id, '+', $i + $j ],
 									[ $g_contig,  '+', $g_off + $j ]
 								]
 							);
@@ -141,18 +153,51 @@ sub build_pins {
 								@pins,
 								[
 									[ $contig_id, '+', $i + $j ],
-									[ $g_contig,  '-', $g_off - $j]
+									[ $g_contig,  '-', $g_off - $j ]
 								]
 							);
 						}
 					}
-
+					$i = $i + $k;
+				}
+				else {
+					$i++;
 				}
 			}
+			else { $i++ }
 		}
 	}
-	@pins = sort { ( $a->[0]->[0] cmp $b->[0]->[0] ) or ( $a->[0]->[2] <=> $b->[0]->[2] ) } @pins;
+	@pins = &remove_dups( 0, \@pins );
+	@pins = &remove_dups( 1, \@pins );
+	@pins = sort {
+		     ( $a->[0]->[0] cmp $b->[0]->[0] )
+		  or ( $a->[0]->[2] <=> $b->[0]->[2] )
+	} @pins;
+	#print STDERR &Dumper( [ '0-based pins', \@pins ] );
 	return \@pins;
+}
+
+sub remove_dups {
+	my ( $which, $pins ) = @_;
+
+	my %bad;
+	my %seen;
+	for ( my $i = 0 ; ( $i < @$pins ) ; $i++ ) {
+		my $keyL = $pins->[$i]->[$which];
+		my $key = join( ",", @$keyL );
+		if ( $seen{$key} ) {
+			$bad{$i} = 1;
+			#print STDERR "$key\n";
+		}
+		$seen{$key} = 1;
+	}
+	my @new_pins;
+	for ( my $i = 0 ; ( $i < @$pins ) ; $i++ ) {
+		if ( !$bad{$i} ) {
+			push( @new_pins, $pins->[$i] );
+		}
+	}
+	return @new_pins;
 }
 
 sub fill_pins {
@@ -183,7 +228,7 @@ sub fill_between {
 	my ( $contig_r_1, $strand_r_1, $pos_r_1 ) = @$rp1;
 	my ( $contig_r_2, $strand_r_2, $pos_r_2 ) = @$rp2;
 	my ( $contig_g_1, $strand_g_1, $pos_g_1 ) = @$gp1;
-	my ( $contig_g_2, $strand_g_2, $pos_g_2  ) = @$gp2;
+	my ( $contig_g_2, $strand_g_2, $pos_g_2 ) = @$gp2;
 
 	my @expanded = ($pin1);
 	if (
@@ -257,7 +302,7 @@ sub seq_of {
 }
 
 sub build_features {
-	my ( $map, $refD, $genomeD, $g_tuples ) = @_;
+	my ( $map, $refD, $genomeD, $g_tuples, $genetic_code ) = @_;
 
 	my %g_seqs = map { ( $_->[0] => $_->[2] ) } @$g_tuples;
 
@@ -267,14 +312,13 @@ sub build_features {
 		my ( $r_contig, $r_strand, $r_pos ) = @$ref_loc;
 		$refH{ $r_contig . ",$r_pos" } = $g_loc;
 	}
-
+	#print STDERR "refH in build features", Dumper( \%refH );
 	mkdir( "$genomeD/Features", 0777 );
 	opendir( FEATURES, "$refD/Features" )
 	  || die "could not open $refD/Features";
 	my @types = grep { $_ !~ /^\./ } readdir(FEATURES);
 	closedir(FEATURES);
 
-	mkdir( "$genomeD/Features", 0777 );
 	foreach my $type (@types) {
 		my $dir = "$genomeD/Features/$type";
 
@@ -284,18 +328,19 @@ sub build_features {
 			  map { ( $_ =~ /^(\S+)/ ) ? ( $1 => 1 ) : () }
 			  `cat $refD/Features/$type/deleted.features`;
 		}
-
-		if (   mkdir( $dir, 0777 )
-			&& open( TBL,   ">$dir/tbl" )
+		mkdir( $dir, 0777 );
+		if (   open( TBL, ">$dir/tbl" )
 			&& open( FASTA, ">$dir/fasta" ) )
 		{
 			foreach my $f_line (`cat $refD/Features/$type/tbl`) {
-				if (   ( $f_line =~ /^(\S+)\t(\S)_(\S+)_(\S+)\t/ )
+				print STDERR $f_line;
+				if (   ( $f_line =~ /^(\S+)\t(\S+)_(\S+)_(\S+)\t/ )
 					&& ( !$deleted_features{$1} ) )
 				{
-					my ( $fid, $r_contig, $r_beg, $r_end ) = ( $1, $2, $3, $4 );
-					if (   ( my $g_locB = $refH{ $r_contig . $r_beg } )
-						&& ( my $g_locE = $refH{ $r_contig . $r_end } ) )
+					my ( $fid, $r_contig, $r_beg, $r_end ) =
+					  ( $1, $2, $3 - 1, $4 - 1 );
+					if (   ( my $g_locB = $refH{ $r_contig . ",$r_beg" } )
+						&& ( my $g_locE = $refH{ $r_contig . ",$r_end" } ) )
 					{
 						my ( $g_contig1, $g_strand1, $g_pos1 ) = @$g_locB;
 						my ( $g_contig2, $g_strand2, $g_pos2 ) = @$g_locE;
@@ -307,14 +352,20 @@ sub build_features {
 								abs( $r_beg - $r_end ) )
 						  )
 						{
-							my $g_location =
-							  join( "_", ( $g_contig1, $g_pos1, $g_pos2 ) );
-							print TBL "$fid\t$g_location\t\n";
-							my $seq = &seq_of_feature(
-								$type,   $g_contig1, $g_pos1,
-								$g_pos2, \%g_seqs
-							);
-							print FASTA ">$fid $r_contig $r_beg $r_end\n$seq\n";
+							my $g_location = join( "_",
+								( $g_contig1, $g_pos1 + 1, $g_pos2 + 1 ) );
+							#print STDERR "Adding $g_location\n";
+							my $seq =
+							  &seq_of_feature( $type, $genetic_code, $g_contig1,
+								$g_pos1, $g_pos2, \%g_seqs );
+							#print STDERR $seq, "\n";
+							if ($seq) {
+								print TBL "$fid\t$g_location\t\n";
+								$r_beg++;
+								$r_end++;
+								print FASTA
+								  ">$fid $r_contig $r_beg $r_end\n$seq\n";
+							}
 						}
 					}
 				}
@@ -325,6 +376,28 @@ sub build_features {
 	}
 }
 
+sub get_genetic_code {
+	my ($dir) = @_;
+
+	if ( !-s "$dir/GENETIC_CODE" ) { return 11 }
+	my @tmp = `cat $dir/GENETIC_CODE`;
+	chomp $tmp[0];
+	return $tmp[0];
+}
+
 sub seq_of_feature {
-	my ( $type, $g_contig, $g_beg, $g_end, $g_seqs ) = @_;
+	my ( $type, $genetic_code, $g_contig, $g_beg, $g_end, $g_seqs ) = @_;
+	my $dna = &seq_of( $g_contig, $g_beg, $g_end, $g_seqs );
+	if ( ( $type ne "peg" ) && ( $type ne "CDS" ) ) {
+		return $dna;
+	}
+	else {
+		my $code = &SeedUtils::standard_genetic_code;
+		if ( $genetic_code == 4 ) {
+			$code->{"TGA"} = "W";    # code 4 has TGA encoding tryptophan
+		}
+		my $tran = &SeedUtils::translate( $dna, $code, 1 );
+		$tran =~ s/\*$//;
+		return ( $tran =~ /\*/ ) ? undef : $tran;
+	}
 }
