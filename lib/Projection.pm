@@ -67,7 +67,7 @@ sub relevant_projection_data
 sub get_blast_cutoffs
 {
     my ($state) = @_;
-    print STDERR "computing blast cutoffs\n";
+    #print STDERR "computing blast cutoffs\n";
 
     my $func_to_pegs = $state->{func_to_pegs};
     my $func_descriptions = $state->{func_map};
@@ -254,7 +254,7 @@ sub vc_requirements
                     if ($role_name = $roles->{$role_id} )
                     {
                         $occ_of_role{$role_id}++;
-                        print STDERR "$g has $role_name\n";
+                        #print STDERR "$g has $role_name\n";
                     }
                 }
             }
@@ -290,9 +290,10 @@ sub to_pattern
 sub write_encoded_object
 {
     my ( $obj, $oh ) = @_;
-    # If the user passes in a file, we open it here. Because it is opened in a local
-    # variable, it will be closed automatically when we go out of scope. An open handle
-    # passed in, however, will not be closed.
+
+# If the user passes in a file, we open it here. Because it is opened in a local
+# variable, it will be closed automatically when we go out of scope. An open handle
+# passed in, however, will not be closed.
     my $handle;
     if ( !ref $oh )
     {
@@ -355,8 +356,10 @@ sub project_subsys_to_genome
     my $pattern = &to_pattern( \%roles );
     if ($pattern)
     {
+
         # print STDERR "pattern=$pattern\n";
         my $poss = &possible_vc( $parms->{vc_patterns}, $pattern );
+
         if ($poss)
         {
             my ( $vc, $solid_genome ) = @$poss;
@@ -411,9 +414,6 @@ sub subset
 sub bad_peg
 {
     my ( $shrub, $peg, $func, $loc, $parms ) = @_;
-
-    my $ok = ( &ok_length( $shrub, $peg, $func, $parms ) && &ok_sims( $shrub, $peg, $func, $parms ) );
-    return $ok;
     my $rc;
     if ( $rc = &bad_length( $shrub, $peg, $func, $parms ) )
     {
@@ -431,24 +431,13 @@ sub bad_length
     my ( $shrub, $peg, $func, $parms ) = @_;
 
     my $tuple = $parms->{length_stats}->{$func};
-    if ( !$tuple ) {
-        print STDERR "$peg has no length stats\n";
-        return 0;
-    }
     if ( !$tuple ) { return undef }
     my ( $mean, $stddev ) = @$tuple;
     my $len = length( &seq_of_peg( $shrub, $peg ) );
-    if ( !$len ) {
-        print STDERR "$peg has no protein sequence\n";
-        return 0
-    }
     if ( !$len ) { return ['no_translation'] }
     if ( $stddev < 10 ) { $stddev = 10 }
     if ( abs( ( $len - $mean ) / $stddev ) > 3 )
     {
-        print STDERR
-          "$peg length is too extreme: len=$len  mean=$mean stddev=$stddev\n";
-        return 0;
         #print STDERR "$peg failed length test: len=$len  mean=$mean stddev=$stddev\n";
         return [ 'bad_length', $len, $mean, $stddev ];
     }    # z-score is too high or too low
@@ -473,12 +462,7 @@ sub bad_sims
     if ( defined($sim) && ( $sim->psc <= $worst ) )
     {
         return undef;
-    } else
-    {
-        print STDERR "$peg score of " . $sim->psc . " is greater than worst score $worst.\n";
-        return 0;
     }
-
     return
       defined($sim)
       ? [ 'weak_similarity', $sim->psc, $worst ]
@@ -543,16 +527,19 @@ sub roles_in_peg_set
     return %roles;
 }
 
-sub compute_properties_of_solid_roles {
-    my ($shrub, $subsystem_id, $genomes) = @_;
+sub compute_properties_of_solid_roles
+{
+    my ( $shrub, $subsystem_id, $genomes ) = @_;
 
-    my $state = &Projection::relevant_projection_data($subsystem_id,$genomes,$shrub);
-    my $retVal = &Projection::create_recognition_parameters($state,$shrub);
+    my $state =
+      &Projection::relevant_projection_data( $subsystem_id, $genomes, $shrub );
+    my $retVal = &Projection::create_recognition_parameters( $state, $shrub );
     return $retVal;
 }
 
-sub project_solid_roles {
-    my ($shrub, $subsystem_id, $privilege, $parms, $genomes, $oh) = @_;
+sub project_solid_roles
+{
+    my ( $shrub, $subsystem_id, $privilege, $genomes, $parms, $oh ) = @_;
     my @retVal;
     my @tuples = $shrub->GetAll(
     "Subsystem2Role Role2Function Function2Feature Feature2Contig",
@@ -598,27 +585,10 @@ sub project_solid_roles {
         print $oh "//\n";
         if ( $vc ne 'not-active' )
         {
-#            print $oh join( "\t", ( $subsystem_id, $g, $vc ) ), "\n";
-#            my $calls = $projection->{calls};
-#            #print STDERR &Dumper($calls);
-#            my @sorted = sort { $sort{$a->[1]} <=> $sort{$b->[1]} } @$calls;
-#            foreach my $call (@sorted)
-#            {
-#                my ( $peg, $role, $func ) = @$call;
-#                my $funcName = $funHash{$func};
-#                if (! $funcName) {
-#                    my ($funcDesc) = $shrub->GetEntityValues(Function => $func, ['description']);
-#                    $funcName = "($func) $funcDesc";
-#                    $funHash{$func} = $funcName;
-#                }
-#                print $oh "\t", join( "\t", ( $peg, $role, $funcName ) ), "\n";
-#            }
-#            print $oh "//\n";
             push @retVal, $g;
         }
     }
     return @retVal;
-
 }
 
 1;
