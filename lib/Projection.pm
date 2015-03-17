@@ -192,7 +192,7 @@ sub length_stats_by_family
                     }
                 }
                 my ( $mean, $stddev ) = &gjo::stat::mean_stddev(@lengths);
-                $len_stats->{$func} = [ $mean, $stddev ];
+                $len_stats->{$func} = [ int($mean), sprintf("%0.3f",$stddev) ];
                 #print STDERR "set mean=$mean stddev=$stddev for $func\n";
             }
             else
@@ -336,7 +336,8 @@ sub project_subsys_to_genome
         my $rc = &bad_peg( $shrub, $peg, $func, $loc, $parms );
         if ($rc)
         {
-            $projection->{problematic_peg}->{$peg} = $rc;
+            $projection->{problematic_pegs}->{$peg} = $rc;
+	    push(@$rc,$func);
         }
         else
         {
@@ -353,7 +354,7 @@ sub project_subsys_to_genome
          
         if ($poss)
         {
-            my ( $vc, $solid_genome ) = @$poss;
+            my ( $vc, $solid_genome )      = @$poss;
             $projection->{vc}              = $vc;
             $projection->{calls}           = $calls;
             $projection->{template_genome} = $solid_genome;
@@ -473,6 +474,13 @@ sub seq_of_peg
     return ( @tuples > 0 ) ? $tuples[0]->[0] : undef;
 }
 
+sub all_proks {
+    my($shrub) = @_;
+    my @tuples = $shrub->GetAll( "Genome", "Genome(prokaryotic) = 1", [], "id" );
+    my @genomes = map { $_->[0] } @tuples;
+    return @genomes;
+}
+
 # returns a list of PEGs that occur within a window centered on a PEG.
 # The PEG itself is returned in the list.
 sub context_of_peg
@@ -555,7 +563,9 @@ sub project_solid_roles
           &Projection::project_subsys_to_genome( $shrub, $g, $subsystem_id,
             $state, $parms );
         my $vc = $projection->{vc} ? $projection->{vc} : 'not-active';
-        print $oh join( "\t", ( $subsystem_id, $g, $vc ) ), "\n";
+        my $template_genome = $projection->{template_genome} || '';
+
+        print $oh join( "\t", ( $subsystem_id, $g, $vc, $template_genome ) ), "\n";
         my $calls = $projection->{calls} || [];
         # print STDERR &Dumper($calls);
         foreach my $call ( sort { &SeedUtils::by_fig_id( $a->[0], $b->[0] ) }
@@ -565,11 +575,11 @@ sub project_solid_roles
             print $oh "\t", join( "\t", ( $peg, $role, $func ) ), "\n";
         }
         print $oh "----\n";
-        my $problems = $projection->{problematic};
+        my $problems = $projection->{problematic_pegs};
         foreach
           my $peg ( sort { &SeedUtils::by_fig_id( $a, $b ) } keys(%$problems) )
         {
-            print $oh @{ $problems->{$peg} }, "\n";
+            print $oh join("\t",($peg,@{ $problems->{$peg} })), "\n";
         }
         print $oh "//\n";
         if ( $vc ne 'not-active' )

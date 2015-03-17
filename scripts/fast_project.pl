@@ -333,7 +333,7 @@ sub build_features {
 			&& open( FASTA, ">$dir/fasta" ) )
 		{
 			foreach my $f_line (`cat $refD/Features/$type/tbl`) {
-				print STDERR $f_line;
+				#print STDERR $f_line;
 				if (   ( $f_line =~ /^(\S+)\t(\S+)_(\S+)_(\S+)\t/ )
 					&& ( !$deleted_features{$1} ) )
 				{
