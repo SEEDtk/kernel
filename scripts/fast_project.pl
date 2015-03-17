@@ -56,7 +56,7 @@ a path to a skeletal SEED genome directory that must include
 
 =cut
 
-my $k = 4;    # kmers for generating map.  Chosen conservatively.
+my $k = 30;    # kmers for generating map.  Chosen conservatively.
 
 # Get the command-line parameters.
 my $opt = ScriptUtils::Opts(
@@ -238,10 +238,11 @@ sub fill_between {
 		&& ( ( $pos_r_2 - $pos_r_1 ) == abs( $pos_g_2 - $pos_g_1 ) )
 		&& ( ( $pos_r_2 - $pos_r_1 ) > 1 )
 		&& &same(
-			[ $contig_r_1, '+', $pos_r_1, $pos_r_2 - 1, $ref_seqs ],
+			[ $contig_r_1, , $pos_r_1, $pos_r_2 - 1, $ref_seqs ],
+			#[ $contig_r_1, '+', $pos_r_1, $pos_r_2 - 1, $ref_seqs ],
 			[
 				$contig_g_1,
-				$strand_g_1,
+				#$strand_g_1,
 				( $strand_g_1 eq '+' )
 				? ( $pos_g_1, $pos_g_2 - 1 )
 				: ( $pos_g_1, $pos_g_2 + 1 ),
