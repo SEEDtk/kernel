@@ -38,7 +38,6 @@ sub relevant_projection_data
     my %func_to_pegs;
     my %peg2loc;
     my %funcMap;
-    my %func_roles;
 
     foreach my $tuple (@tuples)
     {
@@ -51,16 +50,12 @@ sub relevant_projection_data
         $func_to_pegs{$funID}->{$peg} = 1;
         $peg2loc{$peg}                   = [ $contig, $begin, $strand ];
     }
-    for my $funID (keys %funcMap) {
-        $func_roles{$funID} = [ $shrub->GetFlat('Function2Role', 'Function2Role(from-link) = ?', [$funID], 'to-link') ];
-    }
     $state->{by_vc}        = \%by_vc;
     $state->{seqs}         = \%seqs;
     $state->{to_func}      = \%to_func;
     $state->{func_to_pegs} = \%func_to_pegs;
     $state->{peg2loc}      = \%peg2loc;
     $state->{func_map}     = \%funcMap;
-    $state->{func_roles}   = \%func_roles;
     return $state;
 }
 
@@ -234,7 +229,6 @@ sub vc_requirements
     my $by_vc   = $state->{by_vc};
     my $roles   = $state->{roles};
     my $to_func = $state->{to_func};
-    my $froles  = $state->{func_roles};
     my %vc_patterns;
     foreach my $vc ( keys(%$by_vc) )
     {
@@ -247,8 +241,8 @@ sub vc_requirements
             foreach my $peg (@pegs)
             {
                 my $func          = $to_func->{$peg};
-                my $roles_of_func = $froles->{$func};
-                foreach my $role_id (@$roles_of_func)
+                my @roles_of_func = split(/[;\@\/]/, $func);
+                foreach my $role_id (@roles_of_func)
                 {
                     my $role_name;
                     if ($role_name = $roles->{$role_id} )
