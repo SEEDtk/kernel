@@ -31,7 +31,7 @@ or process data from a tab-delimited input file. If the input is from a tab-deli
 input file, the output file will consist of the result columns tacked on to the
 end of each input row.
 
-The L<ERDB/GetAll> command is used to perform the query processing, and the
+The L<ERDBtk/GetAll> command is used to perform the query processing, and the
 documentation there should be consulted for more details.
 
 Essentially, to navigate the database you must specify a I<path> through the entities and
@@ -41,7 +41,7 @@ constraint, and a list of I<fields> to be returned.
 =head2 Parameters
 
 The positional parameters are the names of the fields to be returned in order.
-The field names should be specified in L<ERDB/Standard Field Name Format>.
+The field names should be specified in L<ERDBtk/Standard Field Name Format>.
 
 The command-line options are those found in L<Shrub/script_options>
 and L<ScriptUtils/ih_options> plus the following.
@@ -57,7 +57,7 @@ you will have to enclose it in quotes.
 =item constraint
 
 A query constraint, in the form of an SQL WHERE clause (without the word
-C<WHERE>). The database field names must be specified in L<ERDB/Standard Field Name Format>,
+C<WHERE>). The database field names must be specified in L<ERDBtk/Standard Field Name Format>,
 and you can specify parameterizations using question marks. The question marks
 will be replaced by the values of the I<value> option, in order.
 

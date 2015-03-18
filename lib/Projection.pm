@@ -490,7 +490,7 @@ sub context_of_peg
     die 'context_of_peg Not yet implemented.'
 }
 
-# Returns the roles of a PEG.  These are all roles from the ERDB,
+# Returns the roles of a PEG.  These are all roles from the ERDBtk,
 # so if the PEG has extra roles (e.g., a domain with unknown function),
 # you may get a reduced set compared with what you would get by just
 # splitting the function.  You get back a list of 2-tuples: [id,description]
