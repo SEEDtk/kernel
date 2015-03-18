@@ -49,7 +49,7 @@ my @tuples = $shrub->GetAll("Genome","",[],"Genome(id) Genome(name)");
 foreach my $tuple (@tuples)
 {
     my($g,$gs) = @$tuple;
-    my $contig_file = &locate_contigs($schrub,$g);
+    my $contig_file = &locate_contigs($shrub,$g);
     my @hits = map { (($_ =~ /^(\d+), (\S+)/) && ($1 >= $min_hits)) ? [$1,$2] : () }
                `perl get_closest_coreSEED_genomes.pl < $contig_file`;
     if (@hits == 0)
@@ -58,7 +58,7 @@ foreach my $tuple (@tuples)
     }
     else
     {
-	print join("\t",($hits[0]->[0],$hits[0]->[1]\t$g,$gs)),"\n";
+	print join("\t",($hits[0]->[0],$hits[0]->[1],$g,$gs)),"\n";
 	foreach my $hit (@hits)
 	{
 	    print join("\t",@$hit),"\n";
