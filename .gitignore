@@ -2,3 +2,4 @@
 /scripts/Test_*.pl
 *~
 *#
+.DS_Store

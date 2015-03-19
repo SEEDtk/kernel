@@ -21,7 +21,6 @@ use warnings;
 use FIG_Config;
 use Data::Dumper;
 use SeedUtils;
-use Shrub;
 use ScriptUtils;
 use gjo::seqlib;
 
@@ -61,8 +60,6 @@ my $k = 30;    # kmers for generating map.  Chosen conservatively.
 # Get the command-line parameters.
 my $opt = ScriptUtils::Opts(
 	'',
-	Shrub::script_options(),
-	ScriptUtils::ih_options(),
 	[ 'reference|r=s', 'Path to Reference Genome Directory' ],
 	[ 'genome|g=s',    'Path to a skeletal genome directory' ]
 );

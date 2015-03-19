@@ -63,7 +63,7 @@ my $opt = ScriptUtils::Opts(
     [ 'encodedF|e=s',     'parameter file for Subsystem Projection' ]
 );
 my $subsystem_id = $opt->subsystem;
-my $eFile        = $opt->encodedF;
+my $eFile        = $opt->encodedf;
 my $privilege    = $opt->privilege;
 
 # Connect to the database.

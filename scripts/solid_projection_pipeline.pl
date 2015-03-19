@@ -51,7 +51,7 @@ my %small_set = map { ($_ => 1) } @genomes;
 my @to_call = grep { ! $small_set{$_} } &get_genomes_from_database($shrub);
 # Project the subsystem onto them.
 open(my $oh, ">$dataD/projections.1") || die "Could not open first projection file: $!";
-my @found = Projection::project_solid_roles($shrub, $subsystem_id, $privilege, $parms, \@to_call, $oh);
+my @found = Projection::project_solid_roles($shrub, $subsystem_id, $privilege, \@to_call, $parms, $oh);
 close $oh; undef $oh;
 # Add the new genomes to our set to process.
 push @full_set, @found;
@@ -61,7 +61,7 @@ my $parms2 = Projection::compute_properties_of_solid_roles($shrub, $subsystem_id
 Projection::write_encoded_object($parms2, "$dataD/parms.2");
 # Project the subsystem with the new parameters.
 open($oh, ">$dataD/projections.2") || die "Could not open second projection file: $!";
-Projection::project_solid_roles($shrub, $subsystem_id, $privilege, $parms2, \@to_call, $oh);
+Projection::project_solid_roles($shrub, $subsystem_id, $privilege, \@to_call, $parms2, $oh);
 
 
 sub get_genomes_from_database {
