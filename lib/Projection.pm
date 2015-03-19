@@ -12,14 +12,10 @@ sub relevant_projection_data
 
     my $state = { subsystem => $subsystem_id };
     $state->{genomes} = $genomes;
-    my @tuples = $shrub->GetAll(
-        "Subsystem2Role Role",
-        "Subsystem2Role(from-link) = ?",
-        [$subsystem_id], "Role(id) Role(description)"
-    );
-    my %to_role_id = map { ( $_->[1] => $_->[0] ) } @tuples;
-    $state->{roles} = \%to_role_id;
-    my $qs = join( ", ", ('?') x scalar(@$genomes) );
+    my @tuples = $shrub->Subsystem2Role($subsystem_id);
+    my %to_role_name = map { $_->[0] => $_->[1] } @tuples;
+    $state->{roles} = \%to_role_name;
+    my $qs = join(", ", ('?') x scalar(@$genomes));
     @tuples = $shrub->GetAll(
         "Subsystem2Row SubsystemRow Row2Cell Cell2Feature Feature
                                Feature2Protein Protein AND
@@ -31,7 +27,7 @@ sub relevant_projection_data
                                Row2Genome(to-link) IN ($qs)",
         [ $subsystem_id, 2, @$genomes ],
         "SubsystemRow(variant-code) Cell2Feature(to-link)
-                               Function(description) Protein(sequence) Feature2Contig(to-link)
+                               Function(id) Function(description) Protein(sequence) Feature2Contig(to-link)
                                Feature2Contig(begin) Feature2Contig(dir)"
     );
 
@@ -41,15 +37,17 @@ sub relevant_projection_data
     my %to_func;
     my %func_to_pegs;
     my %peg2loc;
+    my %funcMap;
 
     foreach my $tuple (@tuples)
     {
-        my ( $vc, $peg, $function, $seq, $contig, $begin, $strand ) = @$tuple;
+        my ( $vc, $peg, $funID, $function, $seq, $contig, $begin, $strand ) = @$tuple;
         $seqs{$peg} = $seq;
         my $genome = &SeedUtils::genome_of($peg);
         $by_vc{$vc}->{$genome}->{$peg}++;
-        $to_func{$peg}                   = $function;
-        $func_to_pegs{$function}->{$peg} = 1;
+        $funcMap{$funID} = $function;
+        $to_func{$peg}                   = $funID;
+        $func_to_pegs{$funID}->{$peg} = 1;
         $peg2loc{$peg}                   = [ $contig, $begin, $strand ];
     }
     $state->{by_vc}        = \%by_vc;
@@ -57,6 +55,7 @@ sub relevant_projection_data
     $state->{to_func}      = \%to_func;
     $state->{func_to_pegs} = \%func_to_pegs;
     $state->{peg2loc}      = \%peg2loc;
+    $state->{func_map}     = \%funcMap;
     return $state;
 }
 
@@ -66,6 +65,7 @@ sub get_blast_cutoffs
     #print STDERR "computing blast cutoffs\n";
 
     my $func_to_pegs = $state->{func_to_pegs};
+    my $func_descriptions = $state->{func_map};
     my @funcs        = keys(%$func_to_pegs);
 
     # @funcs = ("Urease gamma subunit (EC 3.5.1.5)");
@@ -73,7 +73,8 @@ sub get_blast_cutoffs
     my $blast_cutoffs = {};
     foreach my $func ( sort @funcs )
     {
-        #print STDERR "processing function $func\n";
+        my $funcName = "($func) $func_descriptions->{$func}";
+        #print STDERR "processing function $funcName\n";
         my $pegH = $func_to_pegs->{$func};
         if ($pegH)
         {
@@ -81,12 +82,12 @@ sub get_blast_cutoffs
             #print STDERR join( ",", @pegs ), "\n";
             if ( @pegs < 3 )    # require 3 pegs for stats
             {
-                print STDERR "$func only has ", scalar @pegs, " pegs\n";
+                print STDERR "$funcName only has ", scalar @pegs, " pegs\n";
             }
             else
 
             {
-                #print STDERR "func=$func has enough pegs\n";
+                #print STDERR "func=$funcName has enough pegs\n";
                 my @seq_tuples;
                 foreach my $peg (@pegs)
                 {
@@ -103,7 +104,7 @@ sub get_blast_cutoffs
                 my %best;
                 if ( @output < 3 )
                 {
-                    print STDERR &Dumper( \@output, "$func has too few sims",
+                    print STDERR &Dumper( \@output, "$funcName has too few sims",
                         \@seq_tuples );
                 }
                 else
@@ -146,11 +147,11 @@ sub get_blast_cutoffs
                     }
                     if ( $worst == 0 )
                     {
-                        print STDERR "$func has no similarity constraints\n";
+                        print STDERR "$funcName has no similarity constraints\n";
                     }
                     else
                     {
-                        #print STDERR "$worst: $func\n";
+                        print STDERR "$worst: $funcName\n";
                     }
                     $blast_cutoffs->{$func} = [ $worst, \@seq_tuples ];
                 }
@@ -168,8 +169,10 @@ sub length_stats_by_family
     my $func_to_pegs = $state->{func_to_pegs};
     my @funcs        = keys(%$func_to_pegs);
     my $seqs         = $state->{seqs};
+    my $func_descriptions = $state->{func_map};
     foreach my $func (@funcs)
     {
+        my $funcName = "($func) $func_descriptions->{$func}";
         my @lengths;
         my $pegH = $func_to_pegs->{$func};
         if ($pegH)
@@ -192,17 +195,18 @@ sub length_stats_by_family
                     }
                 }
                 my ( $mean, $stddev ) = &gjo::stat::mean_stddev(@lengths);
+
                 $len_stats->{$func} = [ int($mean), sprintf("%0.3f",$stddev) ];
-                #print STDERR "set mean=$mean stddev=$stddev for $func\n";
+                #print STDERR "set mean=$mean stddev=$stddev for $funcName\n";
             }
             else
             {
-                print STDERR "too few pegs for function $func\n";
+                print STDERR "too few pegs for function $funcName\n";
             }
         }
         else
         {
-            print STDERR "no pegs for $func\n";
+            print STDERR "no pegs for $funcName\n";
         }
     }
     return $len_stats;
@@ -223,7 +227,6 @@ sub create_recognition_parameters
 sub vc_requirements
 {
     my ($state) = @_;
-
     my $by_vc   = $state->{by_vc};
     my $roles   = $state->{roles};
     my $to_func = $state->{to_func};
@@ -239,11 +242,11 @@ sub vc_requirements
             foreach my $peg (@pegs)
             {
                 my $func          = $to_func->{$peg};
-                my @roles_of_func = &SeedUtils::roles_of_function($func);
-                foreach my $role_name (@roles_of_func)
+                my @roles_of_func = split(/[;\@\/]/, $func);
+                foreach my $role_id (@roles_of_func)
                 {
-                    my $role_id;
-                    if ( $role_name && ( $role_id = $roles->{$role_name} ) )
+                    my $role_name;
+                    if ($role_name = $roles->{$role_id} )
                     {
                         $occ_of_role{$role_id}++;
                         #print STDERR "$g has $role_name\n";
@@ -323,6 +326,7 @@ sub read_encoded_object
 sub project_subsys_to_genome
 {
     my ( $shrub, $genome, $subsystem_id, $state, $parms ) = @_;
+    print STDERR "Projecting to genome $genome.\n";
     my $relevant           = $state->{relevant};
     my $relevant_to_genome = $relevant->{$genome};
     my @pegs               = keys(%$relevant_to_genome);
@@ -351,7 +355,7 @@ sub project_subsys_to_genome
 
         # print STDERR "pattern=$pattern\n";
         my $poss = &possible_vc( $parms->{vc_patterns}, $pattern );
-         
+
         if ($poss)
         {
             my ( $vc, $solid_genome )      = @$poss;
@@ -486,10 +490,10 @@ sub all_proks {
 sub context_of_peg
 {
     my ( $shrub, $peg, $window ) = @_;
-
+    die 'context_of_peg Not yet implemented.'
 }
 
-# Returns the roles of a PEG.  These are all roles from the ERDB,
+# Returns the roles of a PEG.  These are all roles from the ERDBtk,
 # so if the PEG has extra roles (e.g., a domain with unknown function),
 # you may get a reduced set compared with what you would get by just
 # splitting the function.  You get back a list of 2-tuples: [id,description]
@@ -499,7 +503,7 @@ sub roles_of_peg
 
     my $roles_of_peg = [];
     my @tuples       = $shrub->GetAll(
-        "Feature2Function Function Function2Role Role",
+        "Feature2Function Function2Role Role",
 "(Feature2Function(from-link) = ?) and (Feature2Function(security) = ?)",
         [ $peg, $privilege ],
         "Function2Role(to-link) Role(description)"
@@ -541,17 +545,19 @@ sub project_solid_roles
     my ( $shrub, $subsystem_id, $privilege, $genomes, $parms, $oh ) = @_;
     my @retVal;
     my @tuples = $shrub->GetAll(
-"Subsystem2Role Role Role2Function Function Function2Feature Feature Feature2Contig",
+    "Subsystem2Role Role2Function Function2Feature Feature2Contig",
         "(Subsystem2Role(from-link) = ?) AND (Function2Feature(security) = ?)",
         [ $subsystem_id, $privilege ],
-        "Subsystem2Role(to-link) Function2Feature(to-link) Function(description)
+        "Subsystem2Role(to-link) Subsystem2Role(ordinal) Function2Feature(to-link) Function2Feature(from-link)
                               Feature2Contig(to-link) Feature2Contig(begin) Feature2Contig(dir)"
     );
-    my %relevant;
-    foreach $_ (@tuples)
+    my %funHash;
+    my (%relevant, %sort);
+    foreach my $tuple (@tuples)
     {
-        my ( $role, $peg, $func, $contig, $beg, $strand ) = @$_;
+        my ( $role, $pos, $peg, $func, $contig, $beg, $strand ) = @$tuple;
         my $g = &SeedUtils::genome_of($peg);
+        $sort{$role} = $pos;
         $relevant{$g}->{$peg} = [ $role, $func, [ $contig, $beg, $strand ] ];
     }
 
