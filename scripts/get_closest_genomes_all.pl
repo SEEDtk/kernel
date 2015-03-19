@@ -21,10 +21,15 @@ use warnings;
 use Shrub;
 use ScriptUtils;
 use Data::Dumper;
+use FIG_Config;
+use ClosestCoreSEED;
+use gjo::seqlib;
+
+my $k = 10;
 
 =head1 Test the ability of get_closest_coreSEED_genomes.pl
 
-    test_get_closest_genomes.pl > best.picks.from.coreSEED
+    get_closest_genomes_all.pl > best.picks.from.coreSEED
 
 =head2 Parameters
 
@@ -48,12 +53,18 @@ my $min_hits = 100;  ### minimum number of kmer hits
 my @tuples = $shrub->GetAll("Genome","",[],"Genome(id) Genome(name) Genome(contig-file)");
 my $dnaRepo = $shrub->DNArepo();
 
+my @functions = <DATA>;
+chomp @functions;
+my $kmer_hash = &ClosestCoreSEED::load_kmers( \@functions, $shrub, $k );
+
 foreach my $tuple (@tuples)
 {
     my($g,$gs,$cf) = @$tuple;
     my $contig_file = "$dnaRepo/$cf";
-    my @hits = map { (($_ =~ /^(\d+), (\S+)/) && ($1 >= $min_hits)) ? [$1,$2] : () }
-               `perl get_closest_coreSEED_genomes.pl < $contig_file`;
+    my @contigs = &read_fasta($contig_file);
+    my $response = &ClosestCoreSEED::process_contigs(\@contigs,$kmer_hash,$k);
+    my @out = split(/\n/,$response);
+    my @hits = map { (($_ =~ /^(\d+), (\S+)/) && ($1 >= $min_hits)) ? [$1,$2] : () } @out;
     if (@hits == 0)
     {
 	print STDERR join("\t",('could not be placed',$g,$gs)),"\n";
@@ -69,10 +80,16 @@ foreach my $tuple (@tuples)
     }
 }
 
-sub locate_contigs {
-    my($schrub,$genome) = @_;
-
-    return "a genome file";
-}
-
-
+__DATA__
+Phenylalanyl-tRNA synthetase alpha chain (EC 6.1.1.20)
+Phenylalanyl-tRNA synthetase beta chain (EC 6.1.1.20)
+Preprotein translocase secY subunit (TC 3.A.5.1.1)
+GTP-binding and nucleic acid-binding protein YchF
+Translation initiation factor 2
+Signal recognition particle, subunit Ffh SRP54 (TC 3.A.5.1.1)
+Histidyl-tRNA synthetase (EC 6.1.1.21)
+Methionyl-tRNA synthetase (EC 6.1.1.10)
+Isoleucyl-tRNA synthetase (EC 6.1.1.5)
+Valyl-tRNA synthetase (EC 6.1.1.9)
+Seryl-tRNA synthetase (EC 6.1.1.11)
+Alanyl-tRNA synthetase (EC 6.1.1.7)
