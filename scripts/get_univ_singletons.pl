@@ -17,17 +17,17 @@
 #
 
 use strict;
+use JSON::XS;
 use warnings;
 use Shrub;
 use ScriptUtils;
 use Data::Dumper;
 
-=head1 Test the ability of get_closest_coreSEED_genomes.pl
+=head1 Get Roles that are universal and occur as singletons in prokaryotic genomes
 
-    test_get_closest_genomes.pl > best.picks.from.coreSEED
+    get_univ_singletons [ options ] > RolesAndCounts
 
 =head2 Parameters
-
 
 The command-line options are those found in L<Shrub/script_options> and
 L<ScriptUtils/ih_options> plus the following.
@@ -43,36 +43,35 @@ my $ih = ScriptUtils::IH( $opt->input );
 # Connect to the database.
 my $shrub = Shrub->new_for_script($opt);
 
-my $min_hits = 100;  ### minimum number of kmer hits
+my @tuples = $shrub->GetAll("Function Function2Feature Feature",
+			    "Function2Feature(security) = ?",[2],
+			    "Function(description) Function2Feature(to-link)");
 
-my @tuples = $shrub->GetAll("Genome","",[],"Genome(id) Genome(name) Genome(contig-file)");
-my $dnaRepo = $shrub->DNArepo();
-
+my %funcH;
 foreach my $tuple (@tuples)
 {
-    my($g,$gs,$cf) = @$tuple;
-    my $contig_file = "$dnaRepo/$cf";
-    my @hits = map { (($_ =~ /^(\d+), (\S+)/) && ($1 >= $min_hits)) ? [$1,$2] : () }
-               `perl get_closest_coreSEED_genomes.pl < $contig_file`;
-    if (@hits == 0)
+    my($func,$fid) = @$tuple;
+    if (! &SeedUtils::hypo($func))
     {
-	print STDERR join("\t",('could not be placed',$g,$gs)),"\n";
-    }
-    else
-    {
-	print join("\t",($hits[0]->[0],$hits[0]->[1],$g,$gs)),"\n";
-	foreach my $hit (@hits)
+	if ($fid =~ /^fig\|(\d+\.\d+)\.peg\./)
 	{
-	    print join("\t",@$hit),"\n";
+	    $funcH{$func}->{$1}++;
 	}
-	print "//\n";
     }
 }
-
-sub locate_contigs {
-    my($schrub,$genome) = @_;
-
-    return "a genome file";
+my %counts;
+foreach my $func (keys(%funcH))
+{
+    my $genomesH = $funcH{$func};
+    my @genomes = keys(%$genomesH);
+    foreach my $g (keys(%$genomesH))
+    {
+	if ($genomesH->{$g} == 1) { $counts{$func}++ }
+    }
 }
-
-
+	
+my @best = sort { $counts{$b} <=> $counts{$a} } keys(%counts);
+foreach $_ (@best)
+{
+    print join("\t",($counts{$_},$_)),"\n";
+}
