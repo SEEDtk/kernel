@@ -48,7 +48,7 @@ my $ih = ScriptUtils::IH( $opt->input );
 # Connect to the database.
 my $shrub = Shrub->new_for_script($opt);
 
-my $min_hits = 100;  ### minimum number of kmer hits
+my $min_hits = 1000;  ### minimum number of kmer hits
 
 my @tuples = $shrub->GetAll("Genome","",[],"Genome(id) Genome(name) Genome(contig-file)");
 my $dnaRepo = $shrub->DNArepo();
