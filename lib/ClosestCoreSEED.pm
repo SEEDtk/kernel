@@ -64,8 +64,25 @@ sub add_hits1
     my $last = length($seq) - ( 3 * $k );
     for ( $i = 0 ; ( $i <= $last ) ; $i++ )
     {
-        my $dna = substr( $seq, $i, $k * 3 );
-        my $prot = &SeedUtils::translate( $dna, $code, 0 );
+########################
+	my $last1 = ($k-1) * 3;
+	my $prot = 'x' x $k;
+	my $j;
+	for ($j=0; ($j <= $last1); $j += 3)
+	{
+	    my $dna = uc substr($seq,$i+$j,3);
+	    my $aa = $code->{$dna};
+	    if (! $aa) { $aa = 'x' }
+	    substr($prot,$j/3,1) = $aa;
+	}
+#
+# I tried to speed things up by replacing the following two lines
+# with the above.  Not much help.
+#
+#        my $dna = substr( $seq, $i, $k * 3 );
+#        my $prot = &SeedUtils::translate( $dna, $code, 0 );
+########################
+
         my $occ = $kmer_hash->{$prot};
         if ($occ)
         {
