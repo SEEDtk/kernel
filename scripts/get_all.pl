@@ -42,6 +42,7 @@ constraint, and a list of I<fields> to be returned.
 
 The positional parameters are the names of the fields to be returned in order.
 The field names should be specified in L<ERDBtk/Standard Field Name Format>.
+If none are specified, the default fields for the first entity will be used.
 
 The command-line options are those found in L<Shrub/script_options>
 and L<ScriptUtils/ih_options> plus the following.
@@ -149,8 +150,20 @@ my $count = $opt->count;
 # Get the list of output field names.
 my @fields = @ARGV;
 if (! scalar(@fields)) {
-    die "No output fields specified.\n";
+    # We need to specify default fields. Get the first object in the path.
+    my ($primary) = split " ", $path, 2;
+    # Find the object's descriptor.
+    my $entityThing = $shrub->FindEntity($primary);
+    if (! $entityThing) {
+        # Here we have a relationship. Use from-link and to-link.
+        push @fields, qw(from-link to-link);
+    } else {
+        # Here we have an entity. Use its default fields.
+        push @fields, $entityThing->{default};
+    }
 }
+# Join the fields together with spaces in case the user was confused and quoted them.
+my $fields = join(" ", @fields);
 # Get the first line of input. If we have no input, this is an empty string.
 my $line = (defined $ih ? <$ih> : "\n");
 # Loop until we run out of input.
@@ -170,7 +183,7 @@ while (defined $line) {
         }
     }
     # Query the database.
-    my @rows = $shrub->GetAll($path, $constraint, \@parms, \@fields, $count);
+    my @rows = $shrub->GetAll($path, $constraint, \@parms, $fields, $count);
     # Output the results.
     for my $row (@rows) {
         print join("\t", @cols, @$row) . "\n";
