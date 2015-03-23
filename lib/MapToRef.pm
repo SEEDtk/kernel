@@ -312,13 +312,13 @@ sub build_features {
         if ( -s "$refD/Features/$type/deleted.features" ) {
             %deleted_features =
               map { ( $_ =~ /^(\S+)/ ) ? ( $1 => 1 ) : () }
-              `cat $refD/Features/$type/deleted.features`;
+              SeedUtils::file_read("$refD/Features/$type/deleted.features");
         }
         mkdir( $dir, 0777 );
         if (   open( TBL, ">$dir/tbl" )
             && open( FASTA, ">$dir/fasta" ) )
         {
-            foreach my $f_line (`cat $refD/Features/$type/tbl`) {
+            foreach my $f_line (SeedUtils::file_read("$refD/Features/$type/tbl")) {
 
                 #print STDERR $f_line;
                 if (   ( $f_line =~ /^(\S+)\t(\S+)_(\S+)_(\S+)\t/ )
@@ -369,9 +369,10 @@ sub get_genetic_code {
     my ($dir) = @_;
 
     if ( !-s "$dir/GENETIC_CODE" ) { return 11 }
-    my @tmp = `cat $dir/GENETIC_CODE`;
-    chomp $tmp[0];
-    return $tmp[0];
+    open(my $ih, "<$dir/GENETIC_CODE") || die "Could not open genetic code file in $dir: $!";
+    my $tmp = <$ih>;
+    chomp $tmp;
+    return $tmp;
 }
 
 sub seq_of_feature {
@@ -389,4 +390,5 @@ sub seq_of_feature {
         return ( $tran =~ /\*/ ) ? undef : $tran;
     }
 }
+
 1;

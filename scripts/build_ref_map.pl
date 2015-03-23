@@ -66,7 +66,7 @@ my $genomeD = $opt->genome;
 my $k       = $opt->kmersize;
 
 
-#my $genetic_code = &get_genetic_code($genomeD);
+my $genetic_code = &MapToRef::get_genetic_code($genomeD);
 
 my @ref_tuples = &gjo::seqlib::read_fasta("$refD/contigs");
 my @g_tuples   = &gjo::seqlib::read_fasta("$genomeD/contigs");
@@ -87,11 +87,3 @@ if (open (GTUP, ">$genomeD/gtuples" ) && open( MAP, ">$genomeD/map.json" ) && op
         die "Could not open $genomeD/map.json or $genomeD/ref_dir\n";
 }
 
-sub get_genetic_code {
-	my ($dir) = @_;
-
-	if ( !-s "$dir/GENETIC_CODE" ) { return 11 }
-	my @tmp = `cat $dir/GENETIC_CODE`;
-	chomp $tmp[0];
-	return $tmp[0];
-}

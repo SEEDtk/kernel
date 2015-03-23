@@ -74,7 +74,7 @@ if (open($in_fh,  "<", "$genomeD/ref_dir")) {
     die "Cannot open $genomeD/ref_dir";
 }
 
-my $genetic_code = &get_genetic_code($genomeD);
+my $genetic_code = &MapToRef::get_genetic_code($genomeD);
 
 my $map;
 if (open($in_fh, "<", "$genomeD/map.json")) {
@@ -95,8 +95,8 @@ if (0) {
 }
 my @g_tuples;
 if (open($in_fh, "<", "$genomeD/gtuples")) {
-    local $/; 
-    undef $/; 
+    local $/;
+    undef $/;
     my $g_txt = <$in_fh>;
     @g_tuples = $json->decode($g_txt);
     close($in_fh);
@@ -107,11 +107,3 @@ if (open($in_fh, "<", "$genomeD/gtuples")) {
 &MapToRef::build_features( $map, $refD, $genomeD, \@g_tuples, $genetic_code );
 
 
-sub get_genetic_code {
-	my ($dir) = @_;
-
-	if ( !-s "$dir/GENETIC_CODE" ) { return 11 }
-	my @tmp = `cat $dir/GENETIC_CODE`;
-	chomp $tmp[0];
-	return $tmp[0];
-}
