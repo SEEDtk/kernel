@@ -114,7 +114,7 @@ sub build_pins {
     my @pins;
     foreach my $tuple (@$r_contigs) {
         my ( $contig_id, $comment, $seq ) = @$tuple;
-        my $last = length($seq) - $k;
+        my $last = length($seq) - $k + 1;
         my $found = 0;
         my $i = 0;
         while ( $i <= $last ) {

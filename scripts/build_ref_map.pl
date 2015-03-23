@@ -54,16 +54,17 @@ a path to a skeletal SEED genome directory that must include
 
 =cut
 
-my $k = 30;    # kmers for generating map.  Chosen conservatively.
-
 # Get the command-line parameters.
 my $opt = ScriptUtils::Opts(
 	'',
 	[ 'reference|r=s', 'Path to Reference Genome Directory' ],
-	[ 'genome|g=s',    'Path to a skeletal genome directory' ]
+	[ 'genome|g=s',    'Path to a skeletal genome directory' ],
+        [ 'kmersize|k=i',  'Number of base pairs per kmer', { default => 30 }]
 );
 my $refD    = $opt->reference;
 my $genomeD = $opt->genome;
+my $k       = $opt->kmersize;
+
 
 #my $genetic_code = &get_genetic_code($genomeD);
 
