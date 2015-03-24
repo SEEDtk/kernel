@@ -24,7 +24,7 @@ use FIG_Config;
 use Data::Dumper;
 use SeedUtils;
 use ScriptUtils;
-use gjo::seqlib;
+use gjoseqlib;
 
 =head1 project reference genome to a close strain
 
@@ -287,7 +287,8 @@ sub seq_of {
 }
 
 sub build_features {
-    my ( $map, $refD, $genomeD, $g_tuples, $genetic_code ) = @_;
+    my ( $map, $g_tuples, $features, $genetic_code ) = @_;
+    #my ( $map, $refD, $genomeD, $g_tuples, $genetic_code ) = @_;
 
     my %g_seqs = map { ( $_->[0] => $_->[2] ) } @$g_tuples;
 
@@ -298,70 +299,35 @@ sub build_features {
         $refH{ $r_contig . ",$r_pos" } = $g_loc;
     }
 
-    #print STDERR "refH in build features", Dumper( \%refH );
-    mkdir( "$genomeD/Features", 0777 );
-    opendir( FEATURES, "$refD/Features" )
-      || die "could not open $refD/Features";
-    my @types = grep { $_ !~ /^\./ } readdir(FEATURES);
-    closedir(FEATURES);
+    my @new_features;
 
-    foreach my $type (@types) {
-        my $dir = "$genomeD/Features/$type";
+    foreach my $tuple (@$features) {
+        my ($fid, $type, $loc, $assign) = @$tuple;
+        
+        if ($loc =~ /^(\S+):(\d+)([+-])(\d+)/) {
+            my ($r_contig, $r_beg, $r_strand, $r_len) = ($1, $2, $3, $4);
+            my $r_end = ($r_strand eq '+') ? $r_beg+($r_len-1) : $r_beg-($r_len-1);    
 
-        my %deleted_features;
-        if ( -s "$refD/Features/$type/deleted.features" ) {
-            %deleted_features =
-              map { ( $_ =~ /^(\S+)/ ) ? ( $1 => 1 ) : () }
-              SeedUtils::file_read("$refD/Features/$type/deleted.features");
-        }
-        mkdir( $dir, 0777 );
-        if (   open( TBL, ">$dir/tbl" )
-            && open( FASTA, ">$dir/fasta" ) )
-        {
-            foreach my $f_line (SeedUtils::file_read("$refD/Features/$type/tbl")) {
+            if (   ( my $g_locB = $refH{ $r_contig . ",$r_beg" } )
+                && ( my $g_locE = $refH{ $r_contig . ",$r_end" } ) ) {
 
-                #print STDERR $f_line;
-                if (   ( $f_line =~ /^(\S+)\t(\S+)_(\S+)_(\S+)\t/ )
-                    && ( !$deleted_features{$1} ) )
-                {
-                    my ( $fid, $r_contig, $r_beg, $r_end ) =
-                      ( $1, $2, $3 - 1, $4 - 1 );
-                    if (   ( my $g_locB = $refH{ $r_contig . ",$r_beg" } )
-                        && ( my $g_locE = $refH{ $r_contig . ",$r_end" } ) )
-                    {
-                        my ( $g_contig1, $g_strand1, $g_pos1 ) = @$g_locB;
-                        my ( $g_contig2, $g_strand2, $g_pos2 ) = @$g_locE;
-                        if (
-                               ( $g_contig1 eq $g_contig2 )
-                            && ( $g_strand1 eq $g_strand2 )
-                            && (
-                                abs( $g_pos1 - $g_pos2 ) ==
-                                abs( $r_beg - $r_end ) )
-                          )
-                        {
-                            my $g_location = join( "_",
-                                ( $g_contig1, $g_pos1 + 1, $g_pos2 + 1 ) );
+                my ( $g_contig1, $g_strand1, $g_pos1 ) = @$g_locB;
+                my ( $g_contig2, $g_strand2, $g_pos2 ) = @$g_locE;
+                if ( ( $g_contig1 eq $g_contig2 ) && ( $g_strand1 eq $g_strand2 ) 
+                        && ( abs( $g_pos1 - $g_pos2 ) == abs( $r_beg - $r_end ) )) {
 
-                            #print STDERR "Adding $g_location\n";
-                            my $seq =
-                              &seq_of_feature( $type, $genetic_code, $g_contig1,
-                                $g_pos1, $g_pos2, \%g_seqs );
+                    my $g_len = abs( $r_end - $r_beg) + 1;
+                    my $g_strand = ($r_end > $r_beg) ? '+' : '-';
+                    my $g_location = "$g_contig1:" . $g_pos1+1 . $g_strand . $g_len;
 
-                            #print STDERR $seq, "\n";
-                            if ($seq) {
-                                print TBL "$fid\t$g_location\t\n";
-                                $r_beg++;
-                                $r_end++;
-                                print FASTA
-                                  ">$fid $r_contig $r_beg $r_end\n$seq\n";
-                            }
-                        }
+                    my $seq = &seq_of_feature( $type, $genetic_code, $g_contig1, $g_pos1, $g_pos2, \%g_seqs );
+
+                    if ($seq) {
+                        push @new_features, [$type, $g_location, $assign, $fid, $seq];
                     }
                 }
             }
         }
-        close(TBL);
-        close(FASTA);
     }
 }
 
@@ -386,8 +352,11 @@ sub seq_of_feature {
             $code->{"TGA"} = "W";    # code 4 has TGA encoding tryptophan
         }
         my $tran = &SeedUtils::translate( $dna, $code, 1 );
-        $tran =~ s/\*$//;
-        return ( $tran =~ /\*/ ) ? undef : $tran;
+        if ($tran =~ s/\*$// && $tran =~ /^M/) {
+         	return ( $tran =~ /\*/ ) ? undef : $tran;
+        } else {
+        	return undef;
+        }	
     }
 }
 

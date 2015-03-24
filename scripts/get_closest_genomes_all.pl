@@ -24,7 +24,7 @@ use ScriptUtils;
 use Data::Dumper;
 use FIG_Config;
 use ClosestCoreSEED;
-use gjo::seqlib;
+use gjoseqlib;
 
 my $k = 10;
 

@@ -22,7 +22,7 @@ use FIG_Config;
 use Data::Dumper;
 use SeedUtils;
 use ScriptUtils;
-use gjo::seqlib;
+use gjoseqlib;
 use MapToRef;
 
 =head1 project reference genome to a close strain
