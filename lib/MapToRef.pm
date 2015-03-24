@@ -78,21 +78,24 @@ sub build_mapping {
 sub build_hash {
     my ( $contigs, $k ) = @_;
 
+    my $k1 = int($k * 1.5);
     my $hash = {};
     my %seen;
     foreach my $tuple (@$contigs) {
         my ( $contig_id, $comment, $seq ) = @$tuple;
-        my $last = length($seq) - $k;
+        my $last = length($seq) - $k1;
         for ( my $i = 0 ; ( $i <= $last ) ; $i++ ) {
-            my $kmer = uc substr( $seq, $i, $k );
+            my $kmer1 = uc substr( $seq, $i, $k1 );
+            my $kmer = extract_kmer($kmer1);
             if ( $kmer !~ /[^ACGT]/ ) {
-                my $comp = &rev_comp($kmer);
+                my $comp = &rev_comp($kmer1);
+                my $kmer2 = extract_kmer($comp);
                 if ( $hash->{$kmer} ) {
                     $seen{$kmer} = 1;
-                    $seen{$comp} = 1;
+                    $seen{$kmer2} = 1;
                 }
                 $hash->{$kmer} = [ $contig_id, "+", $i ];
-                $hash->{$comp} = [ $contig_id, "-", $i + $k - 1 ];
+                $hash->{$kmer2} = [ $contig_id, "-", $i + $k1 - 1 ];
             }
         }
     }
@@ -105,6 +108,18 @@ sub build_hash {
     return $hash;
 }
 
+sub extract_kmer {
+    my ($seq) = @_;
+    my $len = length $seq;
+
+    my @out;
+
+    for (my $i = 0; $i <  $len; $i+=3) {
+        push (@out, substr($seq, $i, 2));
+    }
+    return join('', @out);
+
+}
 # pins are 0-based 2-tuples.  It is an ugly fact that the simple pairing of unique
 # kmers can lead to a situation in which 1 character in the reference genome is paired
 # with more than one character in the new genome (and vice, versa).  We sort of handle that.

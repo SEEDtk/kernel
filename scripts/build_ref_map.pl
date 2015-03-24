@@ -64,6 +64,7 @@ my $opt = ScriptUtils::Opts(
 my $refD    = $opt->reference;
 my $genomeD = $opt->genome;
 my $k       = $opt->kmersize;
+if ($k % 2 != 0 ) {die "K must be multiple of 2";} 
 
 
 my $genetic_code = &MapToRef::get_genetic_code($genomeD);
