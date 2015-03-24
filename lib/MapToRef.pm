@@ -280,9 +280,9 @@ sub seq_of {
 
     my $seq = $seqs->{$c};
     if ( $b <= $e ) {
-        return uc substr( $seq, $b, ( $e - $b ) + 1 );
+        return uc substr( $seq, $b - 1, ( $e - $b ) + 1 );
     } else {
-        return uc &rev_comp( substr( $seq, $e, ( $b - $e ) + 1 ) );
+        return uc &rev_comp( substr( $seq, $e - 1, ( $b - $e ) + 1 ) );
     }
 }
 
@@ -303,32 +303,33 @@ sub build_features {
 
     foreach my $tuple (@$features) {
         my ($fid, $type, $loc, $assign) = @$tuple;
-        
-        if ($loc =~ /^(\S+):(\d+)([+-])(\d+)/) {
-            my ($r_contig, $r_beg, $r_strand, $r_len) = ($1, $2, $3, $4);
-            my $r_end = ($r_strand eq '+') ? $r_beg+($r_len-1) : $r_beg-($r_len-1);    
+        print "Feature = $fid of $type at " . join(",",@$loc) . "\n"; ## TODO trace
+        my ($r_contig, $r_beg, $r_strand, $r_len) = @$loc;
+        my $r_end = ($r_strand eq '+') ? $r_beg+($r_len-1) : $r_beg-($r_len-1);
+        print "Loc ends at $r_end\n"; ## TODO trace
+        if (   ( my $g_locB = $refH{ $r_contig . ",$r_beg" } )
+            && ( my $g_locE = $refH{ $r_contig . ",$r_end" } ) ) {
 
-            if (   ( my $g_locB = $refH{ $r_contig . ",$r_beg" } )
-                && ( my $g_locE = $refH{ $r_contig . ",$r_end" } ) ) {
+            my ( $g_contig1, $g_strand1, $g_pos1 ) = @$g_locB;
+            my ( $g_contig2, $g_strand2, $g_pos2 ) = @$g_locE;
+            print "gpos1 = $g_pos1, gpos2 = $g_pos2, rbeg = $r_beg, rend = $r_end\n"; ##TODO trace
+            if ( ( $g_contig1 eq $g_contig2 ) && ( $g_strand1 eq $g_strand2 )
+                    && ( abs( $g_pos1 - $g_pos2 ) == abs( $r_beg - $r_end ) )) {
 
-                my ( $g_contig1, $g_strand1, $g_pos1 ) = @$g_locB;
-                my ( $g_contig2, $g_strand2, $g_pos2 ) = @$g_locE;
-                if ( ( $g_contig1 eq $g_contig2 ) && ( $g_strand1 eq $g_strand2 ) 
-                        && ( abs( $g_pos1 - $g_pos2 ) == abs( $r_beg - $r_end ) )) {
+                my $g_len = abs( $r_end - $r_beg) + 1;
+                my $g_strand = ($r_end > $r_beg) ? '+' : '-';
+                my $g_location = "$g_contig1:" . ($g_pos1+1) . $g_strand . $g_len;
+                print "Checking sequence.\n"; ## TODO trace
+                my $seq = &seq_of_feature( $type, $genetic_code, $g_contig1, $g_pos1, $g_pos2, \%g_seqs );
 
-                    my $g_len = abs( $r_end - $r_beg) + 1;
-                    my $g_strand = ($r_end > $r_beg) ? '+' : '-';
-                    my $g_location = "$g_contig1:" . $g_pos1+1 . $g_strand . $g_len;
-
-                    my $seq = &seq_of_feature( $type, $genetic_code, $g_contig1, $g_pos1, $g_pos2, \%g_seqs );
-
-                    if ($seq) {
-                        push @new_features, [$type, $g_location, $assign, $fid, $seq];
-                    }
+                if ($seq) {
+                    push @new_features, [$type, $g_location, $assign, $fid, $seq];
+                    print "New feature $type at $g_location from $fid.\n"; ## TODO trace
                 }
             }
         }
     }
+    return \@new_features;
 }
 
 sub get_genetic_code {
@@ -352,11 +353,13 @@ sub seq_of_feature {
             $code->{"TGA"} = "W";    # code 4 has TGA encoding tryptophan
         }
         my $tran = &SeedUtils::translate( $dna, $code, 1 );
+        print "$tran\n"; ## TODO trace
+        die "die on purpose"; ## TODO trace
         if ($tran =~ s/\*$// && $tran =~ /^M/) {
          	return ( $tran =~ /\*/ ) ? undef : $tran;
         } else {
         	return undef;
-        }	
+        }
     }
 }
 

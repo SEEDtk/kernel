@@ -23,6 +23,7 @@ use Data::Dumper;
 use SeedUtils;
 use ScriptUtils;
 use MapToRef;
+use GenomeTypeObject;
 
 =head1 project reference genome to a close strain
 
@@ -59,23 +60,27 @@ my $opt = ScriptUtils::Opts(
 	[ 'kmersize|k=i',  'Number of base pairs per kmer', { default => 30 }]
 );
 my $ih       = ScriptUtils::IH($opt->input);
-my $g_gto    = &GenomeTypeObject::create_from_file($ih);
+my $g_gto    = GenomeTypeObject->create_from_file($ih);
 
 my $refId    = $opt->reference;
 use LWP::Simple;
 
 my $ref_text = &LWP::Simple::get("http://core.theseed.org/FIG/genome_object.cgi?genome=$refId");
-my $ref_gto  = JSON::XS->new;
-$ref_gto->decode($ref_text);
-bless($ref_gto,'GenomeTypeObject');
+my $json  = JSON::XS->new;
+my $ref_gto = $json->decode($ref_text);
+$ref_gto = GenomeTypeObject->initialize($ref_gto);
 
 my $k        = $opt->kmersize;
 
 my $genetic_code = $g_gto->{genetic_code};
 
-my @ref_tuples = map { [$_->{contig_id},'',$_->{dna}] } @{$ref_gto->contigs};
-my @g_tuples   = map { [$_->{contig_id},'',$_->{dna}] } @{$g_gto->contigs};
+my @ref_tuples = map { [$_->{id},'',$_->{dna}] } $ref_gto->contigs;
+my @g_tuples   = map { [$_->{id},'',$_->{dna}] } $g_gto->contigs;
 
 my $map = &MapToRef::build_mapping($k, \@ref_tuples, \@g_tuples );
-&MapToRef::build_features( $map, my $refD, my $genomeD, \@g_tuples, $genetic_code );
+my @ref_features =  map { my $loc = $_->{location};
+                            (@$loc == 1) ? [$_->{id}, $_->{type}, $loc->[0], $_->{function} ] : () }
+                        $ref_gto->features;
 
+my $gFeatures = &MapToRef::build_features($map, \@g_tuples, \@ref_features, $genetic_code);
+print Dumper($gFeatures);
