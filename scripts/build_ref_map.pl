@@ -68,8 +68,8 @@ my $k       = $opt->kmersize;
 
 my $genetic_code = &MapToRef::get_genetic_code($genomeD);
 
-my @ref_tuples = &gjo::seqlib::read_fasta("$refD/contigs");
-my @g_tuples   = &gjo::seqlib::read_fasta("$genomeD/contigs");
+my @ref_tuples = &gjoseqlib::read_fasta("$refD/contigs");
+my @g_tuples   = &gjoseqlib::read_fasta("$genomeD/contigs");
 
 my $map = &MapToRef::build_mapping( $k, \@ref_tuples, \@g_tuples );
 

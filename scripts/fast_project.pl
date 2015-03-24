@@ -22,7 +22,7 @@ use FIG_Config;
 use Data::Dumper;
 use SeedUtils;
 use ScriptUtils;
-use gjo::seqlib;
+use gjoseqlib;
 use MapToRef;
 
 =head1 project reference genome to a close strain
@@ -70,8 +70,8 @@ my $k       = $opt->kmersize;
 
 my $genetic_code = &MapToRef::get_genetic_code($genomeD);
 
-my @ref_tuples = &gjo::seqlib::read_fasta("$refD/contigs");
-my @g_tuples   = &gjo::seqlib::read_fasta("$genomeD/contigs");
+my @ref_tuples = &gjoseqlib::read_fasta("$refD/contigs");
+my @g_tuples   = &gjoseqlib::read_fasta("$genomeD/contigs");
 
 my $map = &MapToRef::build_mapping($k, \@ref_tuples, \@g_tuples );
 &MapToRef::build_features( $map, $refD, $genomeD, \@g_tuples, $genetic_code );
