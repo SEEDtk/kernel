@@ -22,14 +22,13 @@ use FIG_Config;
 use Data::Dumper;
 use SeedUtils;
 use ScriptUtils;
-use gjoseqlib;
 use MapToRef;
 
 =head1 project reference genome to a close strain
 
-    fast_project -r RererenceGenomeDir -g SkeletalGenomeDir [ options ]
+    fast_project_ref_to_GTO -r RererenceGenomeId [-k kmer-sz] < gto [ options ]
 
-project a reference genome to call features
+project a reference genome to call features in a new genome (the gto)
 
 
 =head2 Parameters
@@ -41,18 +40,13 @@ L<ScriptUtils/ih_options> plus the following.
 
 =over 4
 
-=item -r ReferenceGenomeDir
+=item -r ReferenceGenomeId
 
-a path to a SEED genome directory for the reference genome
-
-=item -g SkeletalGenomeDir
-
-a path to a skeletal SEED genome directory that must include
-
-    contigs
-    GENETIC_CODE (if not 11)
+a path to a SEED genome for the reference genome
 
 =back
+
+the gto must include the genome ID and the genetic code
 
 =cut
 
@@ -60,19 +54,28 @@ a path to a skeletal SEED genome directory that must include
 # Get the command-line parameters.
 my $opt = ScriptUtils::Opts(
 	'',
-	[ 'reference|r=s', 'Path to Reference Genome Directory' ],
-	[ 'genome|g=s',    'Path to a skeletal genome directory' ],
+          ScriptUtils::ih_options(),
+	[ 'reference|r=s', 'Id of the Reference Genome' ],
 	[ 'kmersize|k=i',  'Number of base pairs per kmer', { default => 30 }]
 );
-my $refD    = $opt->reference;
-my $genomeD = $opt->genome;
-my $k       = $opt->kmersize;
+my $ih       = ScriptUtils::IH($opt->input);
+my $g_gto    = &GenomeTypeObject::create_from_file($ih);
 
-my $genetic_code = &MapToRef::get_genetic_code($genomeD);
+my $refId    = $opt->reference;
+use LWP::Simple;
 
-my @ref_tuples = &gjoseqlib::read_fasta("$refD/contigs");
-my @g_tuples   = &gjoseqlib::read_fasta("$genomeD/contigs");
+my $ref_text = &LWP::Simple::get("http://core.theseed.org/FIG/genome_object.cgi?genome=$refId");
+my $ref_gto  = JSON::XS->new;
+$ref_gto->decode($ref_text);
+bless($ref_gto,'GenomeTypeObject');
+
+my $k        = $opt->kmersize;
+
+my $genetic_code = $g_gto->{genetic_code};
+
+my @ref_tuples = map { [$_->{contig_id},'',$_->{dna}] } @{$ref_gto->contigs};
+my @g_tuples   = map { [$_->{contig_id},'',$_->{dna}] } @{$g_gto->contigs};
 
 my $map = &MapToRef::build_mapping($k, \@ref_tuples, \@g_tuples );
-&MapToRef::build_features( $map, $refD, $genomeD, \@g_tuples, $genetic_code );
+&MapToRef::build_features( $map, my $refD, my $genomeD, \@g_tuples, $genetic_code );
 

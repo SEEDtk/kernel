@@ -281,6 +281,7 @@ sub to_pattern
 }
 
 #########
+use JSON::XS;
 
 sub write_encoded_object
 {
