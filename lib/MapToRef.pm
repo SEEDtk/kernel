@@ -85,17 +85,16 @@ sub build_hash {
         my ( $contig_id, $comment, $seq ) = @$tuple;
         my $last = length($seq) - $k1;
         for ( my $i = 0 ; ( $i <= $last ) ; $i++ ) {
-            my $kmer1 = uc substr( $seq, $i, $k1 );
-            my $kmer = extract_kmer($kmer1);
-            if ( $kmer !~ /[^ACGT]/ ) {
-                my $comp = &rev_comp($kmer1);
-                my $kmer2 = extract_kmer($comp);
+            my $kmer = get_kmer(\$seq, $i, $k);
+            if ( $kmer ) {
+                my $kmer2 = get_kmer(\$seq, $i, $k, 1);
                 if ( $hash->{$kmer} ) {
                     $seen{$kmer} = 1;
                     $seen{$kmer2} = 1;
+                } else {
+                    $hash->{$kmer} = [ $contig_id, "+", $i ];
+                    $hash->{$kmer2} = [ $contig_id, "-", $i + $k1 - 1 ];
                 }
-                $hash->{$kmer} = [ $contig_id, "+", $i ];
-                $hash->{$kmer2} = [ $contig_id, "-", $i + $k1 - 1 ];
             }
         }
     }
@@ -108,18 +107,26 @@ sub build_hash {
     return $hash;
 }
 
-sub extract_kmer {
-    my ($seq) = @_;
-    my $len = length $seq;
-
-    my @out;
-
-    for (my $i = 0; $i <  $len; $i+=3) {
-        push (@out, substr($seq, $i, 2));
+# Get a kmer at the current position of the sequence. We accept as input a reference to the sequence string (usually
+# a contig), a position, the desired kmer length, and a flag indicatign whether or not we want the reverse complement.
+# We will return a string consisting of the first two characters of each triplet in the sequence.
+sub get_kmer {
+    my ($seqR, $pos, $k, $rev) = @_;
+    # Get the length we must extract to find a kmer of the desired length.
+    my $k1 = int($k * 1.5);
+    my $seq = uc substr($$seqR, $pos, $k1);
+    my $retVal;
+    if ($seq =~ /^[AGCT]+$/) {
+        if ($rev) {
+            $seq = SeedUtils::rev_comp($seq);
+        }
+        # Get the first two of every three characters.
+        $retVal = join('', $seq =~ m/(..).?/g);
     }
-    return join('', @out);
-
+    return $retVal;
 }
+
+
 # pins are 0-based 2-tuples.  It is an ugly fact that the simple pairing of unique
 # kmers can lead to a situation in which 1 character in the reference genome is paired
 # with more than one character in the new genome (and vice, versa).  We sort of handle that.
@@ -129,12 +136,13 @@ sub build_pins {
     my @pins;
     foreach my $tuple (@$r_contigs) {
         my ( $contig_id, $comment, $seq ) = @$tuple;
-        my $last = length($seq) - $k + 1;
+        my $k1 = 1.5 * $k;
+        my $last = length($seq) - $k1 + 1;
         my $found = 0;
         my $i = 0;
         while ( $i <= $last ) {
-            my $kmer = uc substr( $seq, $i, $k );
-            if ( ( $kmer !~ /[^ACGT]/ ) && $r_hash->{$kmer} ) {
+            my $kmer = get_kmer(\$seq, $i, $k);
+            if ( $kmer && $r_hash->{$kmer} ) {
                 my $g_pos = $g_hash->{$kmer};
                 if ($g_pos) {
                     my ( $g_contig, $g_strand, $g_off ) = @$g_pos;
@@ -318,28 +326,23 @@ sub build_features {
 
     foreach my $tuple (@$features) {
         my ($fid, $type, $loc, $assign) = @$tuple;
-        print "Feature = $fid of $type at " . join(",",@$loc) . "\n"; ## TODO trace
         my ($r_contig, $r_beg, $r_strand, $r_len) = @$loc;
         my $r_end = ($r_strand eq '+') ? $r_beg+($r_len-1) : $r_beg-($r_len-1);
-        print "Loc ends at $r_end\n"; ## TODO trace
         if (   ( my $g_locB = $refH{ $r_contig . ",$r_beg" } )
             && ( my $g_locE = $refH{ $r_contig . ",$r_end" } ) ) {
 
             my ( $g_contig1, $g_strand1, $g_pos1 ) = @$g_locB;
             my ( $g_contig2, $g_strand2, $g_pos2 ) = @$g_locE;
-            print "gpos1 = $g_pos1, gpos2 = $g_pos2, rbeg = $r_beg, rend = $r_end\n"; ##TODO trace
             if ( ( $g_contig1 eq $g_contig2 ) && ( $g_strand1 eq $g_strand2 )
                     && ( abs( $g_pos1 - $g_pos2 ) == abs( $r_beg - $r_end ) )) {
 
                 my $g_len = abs( $r_end - $r_beg) + 1;
                 my $g_strand = ($r_end > $r_beg) ? '+' : '-';
-                my $g_location = "$g_contig1:" . ($g_pos1+1) . $g_strand . $g_len;
-                print "Checking sequence.\n"; ## TODO trace
+                my $g_location = [$g_contig1, ($g_pos1+1), $g_strand, $g_len];
                 my $seq = &seq_of_feature( $type, $genetic_code, $g_contig1, $g_pos1, $g_pos2, \%g_seqs );
 
                 if ($seq) {
                     push @new_features, [$type, $g_location, $assign, $fid, $seq];
-                    print "New feature $type at $g_location from $fid.\n"; ## TODO trace
                 }
             }
         }
@@ -368,8 +371,6 @@ sub seq_of_feature {
             $code->{"TGA"} = "W";    # code 4 has TGA encoding tryptophan
         }
         my $tran = &SeedUtils::translate( $dna, $code, 1 );
-        print "$tran\n"; ## TODO trace
-        die "die on purpose"; ## TODO trace
         if ($tran =~ s/\*$// && $tran =~ /^M/) {
          	return ( $tran =~ /\*/ ) ? undef : $tran;
         } else {
