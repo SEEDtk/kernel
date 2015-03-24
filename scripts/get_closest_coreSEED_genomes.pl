@@ -21,7 +21,7 @@ use warnings;
 use Shrub;
 use ScriptUtils;
 use Data::Dumper;
-use gjo::seqlib;
+use gjoseqlib;
 use ClosestCoreSEED;
 
 =head1 Get closest genomes in coreSEED
