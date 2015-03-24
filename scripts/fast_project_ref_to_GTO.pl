@@ -74,9 +74,9 @@ my $k        = $opt->kmersize;
 
 my $genetic_code = $g_gto->{genetic_code};
 
-my @ref_tuples = @{$ref_gto->contigs};
-my @g_tuples   = @{$g_gto->contigs};
+my @ref_tuples = map { [$_->{contig_id},'',$_->{dna}] } @{$ref_gto->contigs};
+my @g_tuples   = map { [$_->{contig_id},'',$_->{dna}] } @{$g_gto->contigs};
 
 my $map = &MapToRef::build_mapping($k, \@ref_tuples, \@g_tuples );
-&MapToRef::build_features( $map, $refD, $genomeD, \@g_tuples, $genetic_code );
+&MapToRef::build_features( $map, my $refD, my $genomeD, \@g_tuples, $genetic_code );
 
