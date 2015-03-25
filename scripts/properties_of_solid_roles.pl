@@ -67,4 +67,4 @@ close($ih);
 # Compute the properties.
 my $parms = Projection::compute_properties_of_solid_roles($shrub, $subsystem_id, \@genomes);
 # Write them to the standard output.
-Projection::write_encoded_object($parms, \*STDOUT);
+SeedUtils::write_encoded_object($parms, \*STDOUT);

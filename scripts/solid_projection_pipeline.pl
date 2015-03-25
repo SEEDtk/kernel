@@ -45,7 +45,7 @@ my @full_set = @genomes;
 # Compute the parameters for the projection.
 my $parms = Projection::compute_properties_of_solid_roles($shrub, $subsystem_id, \@genomes);
 # Save them to disk.
-Projection::write_encoded_object($parms, "$dataD/parms.1");
+SeedUtils::write_encoded_object($parms, "$dataD/parms.1");
 # Get the remaining genomes in the database.
 my %small_set = map { ($_ => 1) } @genomes;
 my @to_call = grep { ! $small_set{$_} } &get_genomes_from_database($shrub);
@@ -58,7 +58,7 @@ push @full_set, @found;
 # Compute a new set of parameters.
 my $parms2 = Projection::compute_properties_of_solid_roles($shrub, $subsystem_id, \@full_set);
 # Save the new parms to disk.
-Projection::write_encoded_object($parms2, "$dataD/parms.2");
+SeedUtils::write_encoded_object($parms2, "$dataD/parms.2");
 # Project the subsystem with the new parameters.
 open($oh, ">$dataD/projections.2") || die "Could not open second projection file: $!";
 Projection::project_solid_roles($shrub, $subsystem_id, $privilege, \@to_call, $parms2, $oh);

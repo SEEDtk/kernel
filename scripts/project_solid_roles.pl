@@ -74,6 +74,6 @@ my $ih = ScriptUtils::IH( $opt->input );
 my @genomes = map { ( $_ =~ /(\d+\.\d+)/ ) ? $1 : () } <$ih>;
 close($ih);
 
-my $parms = &Projection::read_encoded_object($eFile);
+my $parms = &SeedUtils::read_encoded_object($eFile);
 
 Projection::project_solid_roles($shrub, $subsystem_id, $privilege, \@genomes, $parms, \*STDOUT);
