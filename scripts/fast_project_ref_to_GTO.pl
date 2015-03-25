@@ -86,8 +86,9 @@ my @ref_features =  map { my $loc = $_->{location};
 
 my $gFeatures = &MapToRef::build_features($map, \@g_tuples, \@ref_features, $genetic_code);
 # Add the features to the output genome.
-my $count = add_features_to_gto($g_gto, $gFeatures, $opt);
+my ($count,$num_pegs) = add_features_to_gto($g_gto, $gFeatures, $opt);
 print STDERR "$count features added to genome.\n";
+print STDERR "$num_pegs pegs added to genome.\n";
 $g_gto->destroy_to_file(\*STDOUT);
 
 
@@ -127,6 +128,7 @@ sub add_features_to_gto {
     my ($gto, $newFeatures, $opt) = @_;
     # This will be the return count.
     my $retVal = 0;
+    my $num_pegs = 0;
     # Only proceed if we have features.
     if ($newFeatures && @$newFeatures) {
         # Compute the annotator.
@@ -171,6 +173,7 @@ sub add_features_to_gto {
             # If this is a peg, add the protein translation.
             if ($type eq 'peg' || $type eq 'CDS') {
                 $featureH{-protein_translation} = $seq;
+		$num_pegs++;
             }
             # Add the feature to the genome.
             $gto->add_feature(\%featureH);
@@ -179,7 +182,7 @@ sub add_features_to_gto {
         }
     }
     # Return the count of features added.
-    return $retVal;
+    return ($retVal,$num_pegs);
 }
 
 
