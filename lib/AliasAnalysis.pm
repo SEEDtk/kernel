@@ -7,7 +7,7 @@
 package AliasAnalysis;
 
     use strict;
-    use Tracer;
+    use StringUtils;
     use base qw(Exporter);
     use vars qw(@EXPORT);
     @EXPORT = qw(AliasCheck);
