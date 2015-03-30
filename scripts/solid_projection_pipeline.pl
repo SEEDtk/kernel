@@ -25,6 +25,15 @@ use ScriptUtils;
 use Data::Dumper;
 use Projection;
 
+=head1 Project Subsystems Onto Genomes
+
+    solid_projection_pipeline [options] --subsystem=<sub_id> --dataD=<output directory> < genome_list
+
+Look at the features used by a subsystem in a particular set of genomes, and use the information
+to project the subsystem onto as many other genomes as possible.
+
+=cut
+
 # Get the command-line parameters.
 my $opt = ScriptUtils::Opts(
     '', Shrub::script_options(),
