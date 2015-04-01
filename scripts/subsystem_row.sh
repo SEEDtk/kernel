@@ -1,0 +1,1 @@
+get_all -p "Genome SubsystemRow Row2Subsystem AND SubsystemRow SubsystemCell Cell2Feature" -c "Genome(id) = ? AND Row2Subsystem(to-link) = ?" -v $1 -v $2 "SubsystemRow(variant-code)" "SubsystemCell(id)" "Cell2Feature(to-link)"
