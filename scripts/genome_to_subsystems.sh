@@ -1,0 +1,1 @@
+get_all -p "Genome2Row SubsystemRow Subsystem" -c " Genome2Row(from-link) = ? " -v $1 "Genome2Row(from-link)" "SubsystemRow(variant-code)" "Subsystem(id)" "Subsystem(name)"
