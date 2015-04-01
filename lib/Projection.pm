@@ -300,7 +300,7 @@ sub project_subsys_to_genome
         if ($rc)
         {
             $projection->{problematic_pegs}->{$peg} = $rc;
-	    push(@$rc,$func);
+            push(@$rc,$func);
         }
         else
         {
@@ -554,5 +554,66 @@ sub project_solid_roles
     }
     return @retVal;
 }
+
+=head3 choose_genomes
+
+    my @genomes = Projection::choose_genomes($shrub, $subsystem_id);
+
+Search the database for genomes that are solid instances of the specified
+subsystem. A genome is a solid instance if it has an active variant (not
+C<0> or C<-1>) and all of its cells have only a single peg.
+
+=over 4
+
+=item shrub
+
+The L<Shrub> object for accessing the database.
+
+=item subsystem_id
+
+ID of the subsytem whose genomes are desired.
+
+=item RETURN
+
+Returns a list of genome IDs.
+
+=back
+
+=cut
+
+sub choose_genomes {
+    # Get the parameters.
+    my ($shrub, $subsystem_id) = @_;
+    # Declare the return variable.
+    my @retVal;
+    # Get the subsystem spreadsheet. For each cell, we want to know the genome ID and the number
+    # of pegs. We filter out inactive variants.
+    my @tuples = $shrub->GetAll("Subsystem2Row SubsystemRow Row2Cell Cell2Feature AND SubsystemRow Row2Genome",
+                              'Subsystem2Row(from-link) = ? AND SubsystemRow(needs-curation) = ?',
+                              [$subsystem_id,'0'], [qw(Row2Genome(to-link)
+                              Row2Cell(to-link) Cell2Feature(to-link))]);
+    # This hash will count the number of occurrences of each subsystem cell in the list. A cell that
+    # occurs more than once indicates that the genome is not solid.
+    my %cells;
+    # This hash will count the number of bad cells for each genome.
+    my %genomes;
+    # Loop through the tuples.
+    for my $tuples (@tuples) {
+        my ($genome, $cell, $peg) = @$tuples;
+        # Ensure every genome is represented in the hash.
+        if (! exists $genomes{$genome}) {
+            $genomes{$genome} = 0;
+        }
+        # Count this cell.
+        if (++$cells{$cell} > 1) {
+            $genomes{$genome}++;
+        }
+    }
+    # Return the genomes with no bad cells.
+    @retVal = grep { ! $genomes{$_} } keys %genomes;
+    # Return the result.
+    return @retVal;
+}
+
 
 1;
