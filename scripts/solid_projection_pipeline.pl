@@ -139,8 +139,6 @@ rather than being read from the input.
 
 =cut
 
-##TODO add an option to generate the input list of genomes.
-
 # Get the command-line parameters.
 my $opt = ScriptUtils::Opts(
     '',
