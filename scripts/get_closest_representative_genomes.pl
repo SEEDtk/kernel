@@ -24,12 +24,14 @@ use Data::Dumper;
 use gjoseqlib;
 use ClosestCoreSEED;
 
-=head1 Get closest genomes in coreSEED
+=head1 Get closest genomes from a calibration set
 
-    get_closest_coreSEED_genomes [ options ] < requests
+    get_closest_representative_genomes -g GenomesToCalibrate [ options ] < requests
 
-guts of a server that processes requests for closest coreSEED genomes
-to new genomes.
+guts of a server that processes requests for closest representative genomes
+to new genomes.  The pool of representative (calibration) genomes comes
+from a file controlled by the -g parameter.  Each line must begin with a 
+genome ID.
 
 The input will be requests of the form:
     
@@ -46,22 +48,28 @@ The input will be requests of the form:
 The command-line options are those found in L<Shrub/script_options> and
 L<ScriptUtils/ih_options> plus the following.
 
+-g RepresentativeGenomesFile
+
 =cut
 
 my $k = 10;
 
 # Get the command-line parameters.
 my $opt =
-  ScriptUtils::Opts( '', Shrub::script_options(), ScriptUtils::ih_options(),
-    [] );
+  ScriptUtils::Opts( '', 
+                     Shrub::script_options(), ScriptUtils::ih_options(),
+                        [ 'calibrationgenomes|g=s', 'file of calibration genomes' ]
+    );
 my $ih = ScriptUtils::IH( $opt->input );
+my $genomes = $opt->calibrationgenomes;
 
+my %genomeH = map { ($_ =~ /^(\d+\.\d+)/) ? ($1 => 1) : () } `cat $genomes`;
 # Connect to the database.
 my $shrub = Shrub->new_for_script($opt);
 
 my @functions = <DATA>;
 chomp @functions;
-my $kmer_hash = &ClosestCoreSEED::load_kmers( \@functions, $shrub, $k );
+my $kmer_hash = &ClosestCoreSEED::load_kmers( \@functions, $shrub, $k, \%genomeH );
 while ( my $contigs = &read_contigs )
 {
     my $response = &ClosestCoreSEED::process_contigs($contigs,$kmer_hash,$k);
