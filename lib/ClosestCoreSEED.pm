@@ -7,7 +7,7 @@ use SeedUtils;
 
 sub load_kmers
 {
-    my ( $functions, $shrub, $k ) = @_;
+    my ( $functions, $shrub, $k, $genomeH ) = @_;
     my $kmer_hash = {};
     foreach my $function (@$functions)
     {
@@ -21,6 +21,7 @@ sub load_kmers
         {
             my ( $peg, $translation ) = @$tuple;
             my $g    = &SeedUtils::genome_of($peg);
+            next if (! $genomeH->{$g});
             my $last = length($translation) - $k;
             for ( my $i = 0 ; ( $i <= $last ) ; $i++ )
             {

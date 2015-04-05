@@ -21,34 +21,37 @@ use warnings;
 use Shrub;
 use ScriptUtils;
 use Data::Dumper;
-use gjoseqlib;
+use FIG_Config;
 use ClosestCoreSEED;
+use gjoseqlib;
 
-=head1 Get closest genomes in coreSEED
+my $k = 10;
 
-    get_closest_coreSEED_genomes [ options ] < requests
+=head1 Test the ability of get_closest_coreSEED_genomes.pl
 
-guts of a server that processes requests for closest coreSEED genomes
-to new genomes.
-
-The input will be requests of the form:
-    
-    contigs-in-fasta 
-    //
-    next-set-of-contigs-in-fasta
-    //
-    .
-    .
-    .
+    get_closest_genomes_ec.pl > best.picks.from.coreSEED
 
 =head2 Parameters
+
 
 The command-line options are those found in L<Shrub/script_options> and
 L<ScriptUtils/ih_options> plus the following.
 
 =cut
 
-my $k = 10;
+my $data = "/Users/rossoverbeek/Proj/SEEDtk/Data/EcoliGenomes";
+opendir(CONTIGS,$data) || die "BAD";
+my @files = grep { $_ !~ /^\./ } readdir(CONTIGS);
+closedir(CONTIGS);
+my %names = map { ($_ =~ /^([^\t]*)\t(\d+\.\d+)/) ? ($2 => $1) : () } 
+            `cat /Users/rossoverbeek/Proj/SEEDtk/Data/ecoli.genomes`;
+foreach $_ (`cat /Users/rossoverbeek/Proj/SEEDtk/Data/coreSEED.genomes`)
+{
+    if ($_ =~ /^(\d+\.\d+)\t(\S.*\S)/)
+    {
+	$names{$1} = $2;
+    }
+}
 
 # Get the command-line parameters.
 my $opt =
@@ -59,41 +62,38 @@ my $ih = ScriptUtils::IH( $opt->input );
 # Connect to the database.
 my $shrub = Shrub->new_for_script($opt);
 
+my $min_hits = 5000;  ### minimum number of kmer hits
+
+my $dnaRepo = $shrub->DNArepo();
+
 my @functions = <DATA>;
 chomp @functions;
 my $kmer_hash = &ClosestCoreSEED::load_kmers( \@functions, $shrub, $k );
-while ( my $contigs = &read_contigs )
+
+foreach my $g (@files)
 {
-    my $response = &ClosestCoreSEED::process_contigs($contigs,$kmer_hash,$k);
-    print $response, "\n//\n";
+    my $contig_file = "$data/$g";
+    my @contigs = &read_fasta($contig_file);
+    my $response = &ClosestCoreSEED::process_contigs(\@contigs,$kmer_hash,$k);
+    my @out = split(/\n/,$response);
+    my @hits = map { (($_ =~ /^(\d+), (\S+)/) && ($1 >= $min_hits)) ? [$1,$2] : () } @out;
+    if (@hits == 0)
+    {
+	print STDERR join("\t",('could not be placed',$g,$names{$g})),"\n";
+    }
+    else
+    {
+	my $gs = $names{$g};
+	print join("\t",($hits[0]->[0],$hits[0]->[1],$g,$gs)),"\n";
+	foreach my $hit (@hits)
+	{
+	    if ($_ = $names{$hit->[1]}) { push(@$hit,$_) }
+	    print join("\t",@$hit),"\n";
+	}
+	print "//\n";
+    }
 }
 
-sub read_contigs
-{
-    my $contigs = [];
-    $/ = "\n//\n";
-    my $req = <$ih>;
-    if ($req)
-    {
-        chomp $req;
-        my @entries = split( /\n\>\s*/, $req );
-        foreach my $entry (@entries)
-        {
-            if ( $entry =~ /^(>\s*)?(\S+)[^\n]*\n(.*)/s )
-            {
-                my ( $id, $seq ) = ( $2, $3 );
-                $seq =~ s/\s+//gs;
-                push( @$contigs, [ $id, '', $seq ] );
-            }
-        }
-    }
-    $/ = "\n";
-    if (@$contigs)
-    {
-        return $contigs;
-    }
-    return undef;
-}
 __DATA__
 Phenylalanyl-tRNA synthetase alpha chain (EC 6.1.1.20)
 Phenylalanyl-tRNA synthetase beta chain (EC 6.1.1.20)
