@@ -146,7 +146,7 @@ The command-line options are those found in L<Shrub/script_options> plus the fol
 
 The ID of a subsystem to process. This parameter can be specified multiple times to specify
 multiple subsystems. Specify C<core> to process all core subsystems, C<all> to process all
-subsystems in the database.
+subsystems in the database. The default is C<core>.
 
 =item missing
 
@@ -165,7 +165,7 @@ Privilege level to use for the annotations on the non-core genomes. The default 
 my $opt = ScriptUtils::Opts('outputDirectory', Shrub::script_options(),
         ['subsystem|s=s@', 'ID of subsystem to process, "all" for all, or "core" for all core subsystems', { default => 'core' }],
         ['missing|m', 'process only new subsystems'],
-        ['privilege|p', 'priviliege level for second-pass annotations', { default => Shrub::PUBLIC }],
+        ['privilege|p=i', 'priviliege level for second-pass annotations', { default => Shrub::PUBLIC }],
         );
 # Verify the output directory.
 my ($outDir) = @ARGV;
@@ -178,7 +178,7 @@ if (! $outDir) {
     File::Copy::Recursive::pathmk($outDir);
 }
 # Connect to the database.
-my $shrub = Shrub::new_for_script($opt);
+my $shrub = Shrub->new_for_script($opt);
 # Get the list of subsystems to process.
 my %subs;
 for my $subSpec (@{$opt->subsystem}) {
@@ -224,7 +224,7 @@ for my $sub (sort keys %subs) {
             print scalar(keys %solids) . " solid genomes found for $sub.\n";
             open(my $oh, ">$dataD/genomes.tbl") || die "Could not open genome output file for $sub: $!";
             for my $solid (sort keys %solids) {
-                print $oh join("\t", $solid, $genomes{$solid}{1}) . "\n";
+                print $oh join("\t", $solid, $genomes{$solid}[1]) . "\n";
             }
         }
     }
