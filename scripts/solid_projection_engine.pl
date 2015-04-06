@@ -163,7 +163,7 @@ Privilege level to use for the annotations on the non-core genomes. The default 
 
 # Get the command-line parameters.
 my $opt = ScriptUtils::Opts('outputDirectory', Shrub::script_options(),
-        ['subsystem|s=s@', 'ID of subsystem to process, "all" for all, or "core" for all core subsystems', { default => 'core' }],
+        ['subsystem|s=s@', 'ID of subsystem to process, "all" for all, or "core" for all core subsystems', { default => ['core'] }],
         ['missing|m', 'process only new subsystems'],
         ['privilege|p=i', 'priviliege level for second-pass annotations', { default => Shrub::PUBLIC }],
         );
