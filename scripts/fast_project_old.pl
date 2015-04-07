@@ -18,17 +18,18 @@
 
 use strict;
 use warnings;
-use MapToRef;
+use FIG_Config;
 use Data::Dumper;
 use SeedUtils;
 use ScriptUtils;
-use JSON::XS;
+use gjoseqlib;
+use MapToRef;
 
 =head1 project reference genome to a close strain
 
-    project_from_map SkeletalGenomeDir [ options ]
+    fast_project -r RererenceGenomeDir -g SkeletalGenomeDir [ options ]
 
-project a reference genome to call features
+Project a reference genome to call features
 
 
 =head2 Parameters
@@ -40,70 +41,38 @@ L<ScriptUtils/ih_options> plus the following.
 
 =over 4
 
+=item -r ReferenceGenomeDir
+
+a path to a SEED genome directory for the reference genome
+
 =item -g SkeletalGenomeDir
 
 a path to a skeletal SEED genome directory that must include
 
-    map.json from a previous build_ref_map run
+    contigs
+    GENETIC_CODE (if not 11)
 
 =back
 
 =cut
 
-my $k = 30;    # kmers for generating map.  Chosen conservatively.
 
 # Get the command-line parameters.
 my $opt = ScriptUtils::Opts(
-	'',
-	[ 'genome|g=s',    'Path to a skeletal genome directory' ]
+        '',
+        [ 'reference|r=s', 'Path to Reference Genome Directory' ],
+        [ 'genome|g=s',    'Path to a skeletal genome directory' ],
+        [ 'kmersize|k=i',  'Number of base pairs per kmer', { default => 30 }]
 );
+my $refD    = $opt->reference;
 my $genomeD = $opt->genome;
-
-my $json = JSON::XS->new;
-my $in_fh;
-
-my $refD;
-
-if (open($in_fh,  "<", "$genomeD/ref_dir")) {
-    local $/;
-    undef $/;
-    $refD = <$in_fh>;
-    chop $refD;
-    close ($in_fh);
-} else {
-    die "Cannot open $genomeD/ref_dir";
-}
+my $k       = $opt->kmersize;
 
 my $genetic_code = &MapToRef::get_genetic_code($genomeD);
 
-my $map;
-if (open($in_fh, "<", "$genomeD/map.json")) {
-    local $/;
-    undef $/;
-    my $map_txt = <$in_fh>;
-    $map = $json->decode($map_txt);
-    close ($in_fh);
-} else {
-    die "Cannot open $genomeD/map.json";
-}
+my @ref_tuples = &gjoseqlib::read_fasta("$refD/contigs");
+my @g_tuples   = &gjoseqlib::read_fasta("$genomeD/contigs");
 
-if (0) {
-        foreach my $m (@$map) {
-            my @tmp = (@{$m->[0]}, @{$m->[1]});
-            print join("\t", @tmp), "\n";
-        }
-}
-my @g_tuples;
-if (open($in_fh, "<", "$genomeD/gtuples")) {
-    local $/;
-    undef $/;
-    my $g_txt = <$in_fh>;
-    @g_tuples = $json->decode($g_txt);
-    close($in_fh);
-} else {
-        die "Cannot open $genomeD/gtuples";
-}
-
+my $map = &MapToRef::build_mapping($k, \@ref_tuples, \@g_tuples );
 &MapToRef::build_features( $map, $refD, $genomeD, \@g_tuples, $genetic_code );
-
 

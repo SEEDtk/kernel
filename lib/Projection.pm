@@ -151,7 +151,7 @@ sub get_blast_cutoffs
                     }
                     else
                     {
-                        print STDERR "$worst: $funcName\n";
+                        print "$worst: $funcName\n";
                     }
                     $blast_cutoffs->{$func} = [ $worst, \@seq_tuples ];
                 }
@@ -285,7 +285,7 @@ sub to_pattern
 sub project_subsys_to_genome
 {
     my ( $shrub, $genome, $subsystem_id, $state, $parms ) = @_;
-    print STDERR "Projecting to genome $genome.\n";
+    print "Projecting to genome $genome.\n";
     my $relevant           = $state->{relevant};
     my $relevant_to_genome = $relevant->{$genome};
     my @pegs               = keys(%$relevant_to_genome);
@@ -452,7 +452,7 @@ sub context_of_peg
     die 'context_of_peg Not yet implemented.'
 }
 
-# Returns the roles of a PEG.  These are all roles from the ERDBtk,
+# Returns the roles of a PEG.  These are all roles from the ERDB,
 # so if the PEG has extra roles (e.g., a domain with unknown function),
 # you may get a reduced set compared with what you would get by just
 # splitting the function.  You get back a list of 2-tuples: [id,description]
