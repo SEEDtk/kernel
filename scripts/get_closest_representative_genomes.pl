@@ -22,7 +22,7 @@ use Shrub;
 use ScriptUtils;
 use Data::Dumper;
 use gjoseqlib;
-use ClosestCoreSEED;
+use ClosestReps;
 
 =head1 Get closest genomes from a calibration set
 
@@ -69,10 +69,10 @@ my $shrub = Shrub->new_for_script($opt);
 
 my @functions = <DATA>;
 chomp @functions;
-my $kmer_hash = &ClosestCoreSEED::load_kmers( \@functions, $shrub, $k, \%genomeH );
+my $kmer_hash = &ClosestReps::load_kmers( \@functions, $shrub, $k, \%genomeH );
 while ( my $contigs = &read_contigs )
 {
-    my $response = &ClosestCoreSEED::process_contigs($contigs,$kmer_hash,$k);
+    my $response = &ClosestReps::process_contigs($contigs,$kmer_hash,$k);
     print $response, "\n//\n";
 }
 

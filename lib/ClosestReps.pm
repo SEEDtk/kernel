@@ -1,4 +1,4 @@
-package ClosestCoreSEED;
+package ClosestReps;
 
 use strict;
 use warnings;
@@ -7,26 +7,27 @@ use SeedUtils;
 
 sub load_kmers
 {
-    my ( $functions, $shrub, $k, $genomeH ) = @_;
+    my ( $roles, $g_to_gs, $k, $shrub ) = @_;
+
     my $kmer_hash = {};
-    foreach my $function (@$functions)
+    foreach my $g (sort keys(%$g_to_gs))
     {
-        my @tuples = $shrub->GetAll(
-            "Function Function2Feature Feature Feature2Protein Protein",
-            "(Function(description) = ?) AND (Function2Feature(security) = ?)",
-            [ $function, 2 ],
-            "Feature(id) Protein(sequence)"
-        );
-        foreach my $tuple (@tuples)
+        my ($functions,$translations) = &Shrub::get_funcs_and_trans($shrub,$g,2);
+        foreach my $peg (sort keys(%$translations))
         {
-            my ( $peg, $translation ) = @$tuple;
-            my $g    = &SeedUtils::genome_of($peg);
-            next if (! $genomeH->{$g});
-            my $last = length($translation) - $k;
-            for ( my $i = 0 ; ( $i <= $last ) ; $i++ )
+            if ($g_to_gs->{&SeedUtils::genome_of($peg)})
             {
-                my $kmer = uc substr( $translation, $i, $k );
-                push( @{ $kmer_hash->{$kmer} }, $g );
+                my $f = $functions->{$peg};
+                my $translation = $translations->{$peg};
+                if ($f && $translation && $roles->{$f})
+                {
+                    my $last = length($translation) - $k;
+                    for ( my $i = 0 ; ( $i <= $last ) ; $i++ )
+                    {
+                        my $kmer = uc substr( $translation, $i, $k );
+                        push( @{ $kmer_hash->{$kmer} }, $g );
+                    }
+                }
             }
         }
     }

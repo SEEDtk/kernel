@@ -18,68 +18,34 @@
 
 use strict;
 use warnings;
-use FIG_Config;
+use Data::Dumper;
+use JSON::XS;
 use Shrub;
 use ScriptUtils;
-use Data::Dumper;
-use FIG_Config;
 use ClosestReps;
-use gjoseqlib;
 
 my $k = 10;
 
-=head1 Test the ability of get_closest_coreSEED_genomes.pl
-
-    get_closest_genomes_all.pl > best.picks.from.coreSEED
-
-=head2 Parameters
-
-
-The command-line options are those found in L<Shrub/script_options> and
-L<ScriptUtils/ih_options> plus the following.
-
-=cut
-
 # Get the command-line parameters.
 my $opt =
-  ScriptUtils::Opts( '', Shrub::script_options(), ScriptUtils::ih_options(),
-    [] );
+  ScriptUtils::Opts( '', 
+                     Shrub::script_options(), ScriptUtils::ih_options(),
+                        []
+    );
 my $ih = ScriptUtils::IH( $opt->input );
-
-# Connect to the database.
 my $shrub = Shrub->new_for_script($opt);
 
-my $min_hits = 1000;  ### minimum number of kmer hits
+my %g_to_gs = map { ($_->[0] => $_->[1]) }
+              map { chomp; [split(/\t/,$_)] }
+              <$ih>;
 
-my @tuples = $shrub->GetAll("Genome","",[],"Genome(id) Genome(name) Genome(contig-file)");
-my $dnaRepo = $shrub->DNArepo();
+my @roles = <DATA>;
+chomp @roles;
+my %roles = map { ($_ => 1) } @roles;
+my $kmer_hash = &Closest_reps::load_kmers( \%roles, \%g_to_gs, $k, $shrub );
+my $close_ref_data = { kmers => $kmer_hash, genomes => \%g_to_gs };
+&SeedUtils::write_encoded_object($close_ref_data,\*STDOUT);
 
-my @functions = <DATA>;
-chomp @functions;
-my $kmer_hash = &ClosestReps::load_kmers( \@functions, $shrub, $k );
-
-foreach my $tuple (@tuples)
-{
-    my($g,$gs,$cf) = @$tuple;
-    my $contig_file = "$dnaRepo/$cf";
-    my @contigs = &read_fasta($contig_file);
-    my $response = &ClosestReps::process_contigs(\@contigs,$kmer_hash,$k);
-    my @out = split(/\n/,$response);
-    my @hits = map { (($_ =~ /^(\d+), (\S+)/) && ($1 >= $min_hits)) ? [$1,$2] : () } @out;
-    if (@hits == 0)
-    {
-	print STDERR join("\t",('could not be placed',$g,$gs)),"\n";
-    }
-    else
-    {
-	print join("\t",($hits[0]->[0],$hits[0]->[1],$g,$gs)),"\n";
-	foreach my $hit (@hits)
-	{
-	    print join("\t",@$hit),"\n";
-	}
-	print "//\n";
-    }
-}
 
 __DATA__
 Phenylalanyl-tRNA synthetase alpha chain (EC 6.1.1.20)
