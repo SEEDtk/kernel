@@ -84,7 +84,7 @@ if ($opt->closedata) {
 }
 while ( my $contigs = &read_contigs )
 {
-    my $response = &ClosestReps::process_contigs($contigs,$kmer_hash,$k);
+    my $response = &ClosestReps::process_contigs($contigs,$kmer_hash,$k, $genomeH);
     print $response, "\n//\n";
 }
 

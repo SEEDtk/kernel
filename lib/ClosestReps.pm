@@ -33,12 +33,12 @@ sub load_kmers
 }
 
 sub process_contigs {
-    my($contigs,$kmer_hash,$k) = @_;
+    my($contigs,$kmer_hash,$k, $gh) = @_;
 
     my %hits;
     &add_hits( $contigs, $kmer_hash, $k, \%hits );
     print STDERR "Processing response.\n";
-    my $response = &response( \%hits );
+    my $response = &response( \%hits, $gh );
     return $response;
 }
 
@@ -102,13 +102,13 @@ sub add_hits1
 
 sub response
 {
-    my ($hits) = @_;
+    my ($hits, $gh) = @_;
 
     my @poss =
       grep { $hits->{$_} >= 5 }
       sort { $hits->{$b} <=> $hits->{$a} } keys(%$hits);
     if ( @poss == 0 ) { return 'none' }
-    return join( "\n", map { "$hits->{$_}, $_" } @poss);
+    return join( "\n", map { "$hits->{$_}\t$_\t$gh->{$_}" } @poss);
 }
 
 1;
