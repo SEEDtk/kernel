@@ -23,6 +23,8 @@ use ScriptUtils;
 use Data::Dumper;
 use gjoseqlib;
 use ClosestReps;
+use File::Slurp;
+use SeedUtils;
 
 =head1 Get closest genomes from a calibration set
 
@@ -30,12 +32,12 @@ use ClosestReps;
 
 guts of a server that processes requests for closest representative genomes
 to new genomes.  The pool of representative (calibration) genomes comes
-from a file controlled by the -g parameter.  Each line must begin with a 
+from a file controlled by the -g parameter.  Each line must begin with a
 genome ID.
 
 The input will be requests of the form:
-    
-    contigs-in-fasta 
+
+    contigs-in-fasta
     //
     next-set-of-contigs-in-fasta
     //
@@ -54,22 +56,32 @@ L<ScriptUtils/ih_options> plus the following.
 
 my $k = 10;
 
+
 # Get the command-line parameters.
 my $opt =
-  ScriptUtils::Opts( '', 
+  ScriptUtils::Opts( '',
                      Shrub::script_options(), ScriptUtils::ih_options(),
-                        [ 'calibrationgenomes|g=s', 'file of calibration genomes' ]
+                        [ 'calibrationgenomes|g=s', 'file of calibration genomes' ],
+                        [ 'closeData|d=s', 'JSON file of kmers for representative genomes']
     );
 my $ih = ScriptUtils::IH( $opt->input );
-my $genomes = $opt->calibrationgenomes;
+my ($genomeH, $kmer_hash);
+if ($opt->closedata) {
+    my $closeData = SeedUtils::read_encoded_object($opt->closedata);
+    $kmer_hash = $closeData->{kmers};
+    $genomeH = $closeData->{genomes};
+} elsif ($opt->calibrationgenomes) {
+    my $genomes = $opt->calibrationgenomes;
+    $genomeH = { map { ($_ =~ /^(\d+\.\d+)/) ? ($1 => 1) : () } File::Slurp::read_file($genomes) };
+    # Connect to the database.
+    my $shrub = Shrub->new_for_script($opt);
 
-my %genomeH = map { ($_ =~ /^(\d+\.\d+)/) ? ($1 => 1) : () } `cat $genomes`;
-# Connect to the database.
-my $shrub = Shrub->new_for_script($opt);
-
-my @functions = <DATA>;
-chomp @functions;
-my $kmer_hash = &ClosestReps::load_kmers( \@functions, $shrub, $k, \%genomeH );
+    my @functions = <DATA>;
+    chomp @functions;
+    $kmer_hash = &ClosestReps::load_kmers( \@functions,  $genomeH, $k,  $shrub);
+} else {
+    die "Must specify either a list of calibration genomes or a closeData json file.";
+}
 while ( my $contigs = &read_contigs )
 {
     my $response = &ClosestReps::process_contigs($contigs,$kmer_hash,$k);
@@ -103,15 +115,15 @@ sub read_contigs
     return undef;
 }
 __DATA__
-Phenylalanyl-tRNA synthetase alpha chain (EC 6.1.1.20)
-Phenylalanyl-tRNA synthetase beta chain (EC 6.1.1.20)
-Preprotein translocase secY subunit (TC 3.A.5.1.1)
-GTP-binding and nucleic acid-binding protein YchF
-Translation initiation factor 2
-Signal recognition particle, subunit Ffh SRP54 (TC 3.A.5.1.1)
-Histidyl-tRNA synthetase (EC 6.1.1.21)
-Methionyl-tRNA synthetase (EC 6.1.1.10)
-Isoleucyl-tRNA synthetase (EC 6.1.1.5)
-Valyl-tRNA synthetase (EC 6.1.1.9)
-Seryl-tRNA synthetase (EC 6.1.1.11)
-Alanyl-tRNA synthetase (EC 6.1.1.7)
+GtpBindNuclAcidBind
+PhenTrnaSyntAlph
+PhenTrnaSyntBeta
+PrepTranSecySubu
+TranInitFact2n1
+HistTrnaSynt
+SignRecoPartSubu
+MethTrnaSynt
+IsolTrnaSynt
+SeryTrnaSynt
+ValyTrnaSynt
+AlanTrnaSynt
