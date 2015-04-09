@@ -50,8 +50,8 @@ use ClosestReps;
 my $opt =
   ScriptUtils::Opts( '',
                      Shrub::script_options(), ScriptUtils::ih_options(),
-                        ['kmer_size|k', 'protein kmer size', { default => 10 }],
-                        ['maxG', 'maximum number of genomes that can reasonably occur for a kmer', { default => 10 }],
+                        ['kmer_size|k=i', 'protein kmer size', { default => 10 }],
+                        ['maxG=i', 'maximum number of genomes that can reasonably occur for a kmer', { default => 10 }],
     );
 my $ih = ScriptUtils::IH( $opt->input );
 my $shrub = Shrub->new_for_script($opt);
