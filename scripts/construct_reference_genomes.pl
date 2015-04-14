@@ -11,7 +11,7 @@ my $opt =
                         [ 'contigs|c=s', 'file of sample contigs', { required => 1 } ],
 		        ['minhits|m=i','minimum number of hits per ref',{ default => 400}],
                         [ 'refD|r=s', 
-			  'Constructed Directory Reflecting Refernce Genome', { required => 1 }]
+			  'Constructed Directory Reflecting Refernce Genomes', { required => 1 }]
     );
 my $ih = ScriptUtils::IH( $opt->input );
 
