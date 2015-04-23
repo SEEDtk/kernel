@@ -4,18 +4,20 @@ use SeedUtils;
 use ScriptUtils;
 use Shrub;
 use File::Slurp;
+use BasicLocation;
 
 # usage: initial_estimate -r reference.counts -d ReferenceDir > initial.estimate
 my $opt =
   ScriptUtils::Opts( '',
-                     Shrub::script_options(), ScriptUtils::ih_options(),
+                     Shrub::script_options(),
                         [ 'refcounts|c=s', 'kmer reference counts', { required => 1 } ],
                         [ 'minlen|l=i', 'minimum length for blast match to count', { default => 500 } ],
                         [ 'maxpsc|p=f', 'maximum pscore for blast match to count', { default => 1.0e-100 } ],
                         [ 'minsim|s=f', 'minimum % identity for condensing', { default => 0.8 } ],
                         [ 'savevecs|v=s', 'File used to save sim vecs (dot products)', { } ],
                         [ 'refD|r=s',
-                          'Constructed Directory Reflecting Reference Genomes', { required => 1 }]
+                          'Constructed Directory Reflecting Reference Genomes', { required => 1 }],
+                        [ 'covgRatio|cr=s', 'maximum acceptable coverage ratio for condensing', { default => 1.2 }],
     );
 
 my $ref_counts = $opt->refcounts;
@@ -24,6 +26,7 @@ my $save_vecsF = $opt->savevecs;
 my $max_psc    = $opt->maxpsc;
 my $min_len    = $opt->minlen;
 my $min_sim    = $opt->minsim;
+my $covg_constraint = $opt->covgratio;
 
 my %univ_roles = map { chomp; ($_ => 1) } <DATA>;
 opendir(REFD,$refD) || die "Could not access $refD";
@@ -43,7 +46,7 @@ my $normalized_contig_vecs = &compute_ref_vecs(\@refs,$contig_similarities_to_re
 my @similarities           = &similarities_between_contig_vecs($normalized_contig_vecs,$save_vecsF);
 
 my @contigs    = sort keys(%$normalized_contig_vecs);
-my $final_sets = &cluster_contigs(\@contigs,\@similarities,$univ_in_contigs,$min_sim);
+my $final_sets = &cluster_contigs(\@contigs,\@similarities,$univ_in_contigs,$min_sim, $covg_constraint);
 &output_final_sets($final_sets,\%ref_names,\@refs,$normalized_contig_vecs);
 
 sub output_final_sets {
@@ -98,22 +101,23 @@ sub display_contig {
 }
 
 sub cluster_contigs {
-    my($contigs,$similarities,$univ_in_contigs,$min_sim) = @_;
+    my($contigs,$similarities,$univ_in_contigs,$min_sim, $covg_constraint) = @_;
 
     my($sets,$contig_to_set) = &initial_sets($contigs,$univ_in_contigs);
-    my $final_sets           = &condense_sets($sets,$contig_to_set,$similarities,$min_sim);
+    my $final_sets           = &condense_sets($sets,$contig_to_set,$similarities,$min_sim, $covg_constraint);
     return $final_sets;
 }
 
 sub condense_sets {
-    my($sets,$contig_to_set,$similarities,$min_sim) = @_;
+    my($sets,$contig_to_set,$similarities,$min_sim, $covg_constraint) = @_;
 
     foreach my $sim (@$similarities)
     {
         my($sc,$contig1,$contig2) = @$sim;
         my $set1 = $contig_to_set->{$contig1};
         my $set2 = $contig_to_set->{$contig2};
-        if ($set1 && $set2 && ($set1 != $set2) && ($sc >= $min_sim) && &univ_ok($sets->{$set1}->[1],$sets->{$set2}->[1]))
+        if ($set1 && $set2 && ($set1 != $set2) && ($sc >= $min_sim) && &univ_ok($sets->{$set1}->[1],$sets->{$set2}->[1])
+            && &covg_ok($sets->{$set1}[2], $sets->{$set2}[2], $covg_constraint))
         {
             my $contigs_to_move = $sets->{$set2}->[0];
             foreach my $contig_in_set2 (@$contigs_to_move)
@@ -129,10 +133,28 @@ sub condense_sets {
                 my $v = $sets->{$set2}->[1]->{$role};
                 $sets->{$set1}->[1]->{$role} += $v;
             }
+            # Compute the new coverage (covg1 * len1 + covg2 * len2) / (len1 + len2)
+            $sets->{$set1}[2] = ($sets->{$set1}[2] * $sets->{$set1}[3] + $sets->{$set2}[2] * $sets->{$set2}[3]) /
+                    ($sets->{$set1}[3] + $sets->{$set2}[3]);
+            $sets->{$set1}[3] += $sets->{$set2}[3];
+
             delete $sets->{$set2};
         }
     }
     return $sets;
+}
+
+sub covg_ok {
+    my ($covg1, $covg2, $covg_constraint) = @_;
+    my $retVal;
+    if ($covg1 > $covg2) {
+        $retVal = ($covg1 <= $covg_constraint * $covg2);
+    } elsif ($covg1 < $covg2) {
+        $retVal = ($covg2 <= $covg_constraint * $covg1);
+    } else {
+        $retVal = 1;
+    }
+    return $retVal;
 }
 
 sub univ_ok {
@@ -168,8 +190,13 @@ sub initial_sets {
         {
             $univ = {};
         }
-
-          $sets->{$nxt_set}         = [[$contig],$univ];
+        my ($covg, $length);
+        if ($contig =~ /length_(\d+)_cov_([\d\.]+)_/) {
+            ($length, $covg) = ($1, $2);
+        } else {
+            die "Invalid contig ID $contig.";
+        }
+        $sets->{$nxt_set}         = [[$contig], $univ, $covg, $length];
         $contig_to_set->{$contig} = $nxt_set;
         $nxt_set++;
     }
@@ -182,7 +209,7 @@ sub similarities_between_contig_vecs {
 
     if ($save_vecsF && (-s $save_vecsF))
     {
-        return sort { $b->[0] <=> $a->[0] } map { chop; [split(/\t/,$_)] } File::Slurp::read_file($save_vecsF, 'chomp' => 1);
+        return sort { $b->[0] <=> $a->[0] } map { [split(/\t/,$_)] } File::Slurp::read_file($save_vecsF, 'chomp' => 1);
     }
     else
     {
@@ -371,9 +398,9 @@ sub locations_of_univ_roles_in_refs {
         {
             if ($univ_roles->{$f->{function}})
             {
-                my $loc = $f->{location};
-                my $contig   = $loc->[0]->[0];
-                my $midpt    = int(($loc->[0]->[1] + $loc->[-1]->[2]) /2);
+                my @locs = map { BasicLocation->new($_) } @{$f->{location}};
+                my $contig   = $locs[0]->Contig;
+                my $midpt    = int(($locs[0]->Left + $locs[-1]->Right) /2);
                 push(@{$univ_in_ref->{$r}->{$contig}},[$midpt,$f->{function}]);
             }
         }

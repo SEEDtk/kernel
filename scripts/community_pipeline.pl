@@ -76,7 +76,9 @@ intermediate files created here will be reused if they already exist.
 =item sample
 
 Name of a FASTA file containing the community sample to be analyzed. If a copy already exists in
-the directory given by the C<--data> parameter, this parameter will be ignored.
+the directory given by the C<--data> parameter, this parameter will be ignored. The contig IDs
+must be in the standard format for metagenomic assembly:
+C<NODE_>I<id>C<_length_>I<contig_length>C<_cov_>I<coverage>C<_ID_>I<id2>.
 
 =item samplename
 
@@ -200,7 +202,8 @@ my $opt =
                         [ 'sample|c=s','community DNA sample in fasta format', { } ],
                         [ 'samplename|n=s','environmental Sample Name', { required => 1 } ],
                         [ 'minkhits|k=i','minimum number hits to be a reference', { default => 400 } ],
-                        [ 'refsf|r=s','File of potential reference genomes', { } ]
+                        [ 'refsf|r=s','File of potential reference genomes', { } ],
+                        [ 'covgRatio|cr=s', 'maximum acceptable coverage ratio for condensing', { default => 1.2 }],
     );
 
 my $dataD      = $opt->data;
@@ -211,6 +214,7 @@ my $min_hits   = $opt->minkhits;
 my $max_psc    = $opt->maxpsc;
 my $min_len    = $opt->minlen;
 my $min_sim    = $opt->minsim;
+my $cr         = $opt->covgratio;
 
 
 if (! -d $dataD) { mkdir($dataD,0777) || die "could not make $dataD" }
@@ -240,5 +244,5 @@ if (! -d "$dataS/RefD")
     &SeedUtils::run("construct_reference_genomes -c $dataS/sample.fa -m $min_hits -r $dataS/RefD < $dataS/ref.counts");
 }
 my $norm = $opt->normalize ? '-n' : '';
-&SeedUtils::run("initial_estimate -r $dataS/RefD -c $dataS/ref.counts -l $min_len -p $max_psc -s $min_sim $norm -v $dataS/saved.sim.vecs > $dataS/bins");
+&SeedUtils::run("initial_estimate -r $dataS/RefD -c $dataS/ref.counts -l $min_len -p $max_psc -s $min_sim $norm -v $dataS/saved.sim.vecs --cr $cr > $dataS/bins");
 &SeedUtils::run("summarize_bins < $dataS/bins > $dataS/bins.summary");
