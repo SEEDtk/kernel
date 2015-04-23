@@ -41,11 +41,31 @@ There are no positional parameters. The following command-line options are suppo
 
 =item minlen
 
+The minimun length of a blast match necessary to consider that we have a correspondence between a
+reference genome subsequence and a community sample contig subsequence. The default is C<500>. A
+larger value will cause more conservative results.
+
 =item maxpsc
 
-=item minsum
+The maximum permissible p-score (Poisson distribution rating) for a blast match to be acceptable.
+This score is an indication of the degree to which a match may be random change. The default is
+C<1e-100>. A lower value will cause more conservative results.
+
+=item minsim
+
+The minimum similarity percentage for two community sample contigs to be considered for membership in
+the same bin.  This value is computed as a dot product of vectors. In the default situation, the
+vector coordinates run from 0 to 100, so a virtually perfect match would have a value of 10000.
+If the C<--normalize> parameter is specified, the vector lengths are always 1, so a perfect match
+would have a value of 1. The default is C<7000>. A larger value will cause more conservative
+results. If C<--normalize> is specified, then this parameter MUST be overridden or there will be
+no results.
 
 =item normalize
+
+If specified, the similarity vectors will be normalized to a unit length. This will place greater
+reliance on relative scale of matching rather than absolute percentages when partitioning contigs
+into bins.
 
 =item data
 
@@ -122,11 +142,51 @@ The BLAST output from comparing the genome's contigs to the contigs in the commu
 
 =back
 
+=item saved.sim.vecs
 
+A tab-delimited file of similarity vectors. If present, the vectors will not be recomputed. Each record in the file
+contains (0) a similarity score, (1) the ID of a source contig in the input sample, (2) the ID of a second contig in
+the input sample.
+
+=item bins
+
+A file describing in detail the partitions (bins) into which the contigs have been separated by the analysis
+process. Each bin is described by a section terminated by a double-slash line (C<//>). First, the contigs from
+the community sample that were assigned to the bin are listed. Each contig listing consists of
+
+=over 8
+
+=item 1
+
+The contig ID, on a line by itself.
+
+=item 2
+
+One or more reference genome lines, sorted by the best match first. Each line contains (0) the similarity percentage
+score between the reference genome and the contig, (1) the reference genome ID, and (2) the reference genome name.
+
+=item 3
+
+A blank line.
 
 =back
 
-##TODO output description
+After the contig section is a listing of universal roles found in the bin. For each universal role, there is a single
+tab-delimited line consisting of the number of times the role was found followed by the role text.
+
+=item bins.summary
+
+The final output file. This file is divided into sections by bin, each section terminated by a double-slash line (C<//>).
+For each bin, the file contains a summary of the universal role population followed by a summary of the reference genome
+indications and a contig size count. These sections are separated by a blank line followed by a line of 8 hyphens (C<-------->).
+The summary of universal role populations contains one line per role, tab-delimited, with each line containing
+(0) a count of the number of occurrences of the role and (1) the role description. The summary of the reference genome
+indications contains one line per genome, tab-delimited, with each line containing (0) the number of times the
+reference genome was the closest match to a contig, (1) the total length of the contigs matched by the reference genome,
+and (2) the name of the reference genome. The contig size count consists of the text C<total size of contigs>, an
+equal sign (C<=>), and the total number of base pairs in all the contigs belonging to the bin.
+
+=back
 
 =cut
 

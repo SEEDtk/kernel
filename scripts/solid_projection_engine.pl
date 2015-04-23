@@ -172,8 +172,6 @@ subsequent projection onto the non-core genomes.
 
 =cut
 
-##TODO process new parameters-- badVariants and coreOnly
-
 # Get the command-line parameters.
 my $opt = ScriptUtils::Opts('outputDirectory', Shrub::script_options(),
         ['subsystem|s=s@', 'ID of subsystem to process, "all" for all, or "core" for all core subsystems', { default => ['core'] }],
