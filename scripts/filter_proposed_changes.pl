@@ -97,7 +97,7 @@ being text that describes why the peg is considered problematic.
 my $opt = ScriptUtils::Opts(
     '',
     Shrub::script_options(),
-    [ 'current|c=s', 'A table of current subsystem memberships', { required => 1 } ],
+    [ 'current|c=s', 'A table of current subsystem memberships' ],
     [ 'projections|p=s', 'A pipeline report of proposed projections', { required => 1 } ]
 );
 my $currentF     = $opt->current;
@@ -109,14 +109,23 @@ my $stats        = $loader->stats;
 my %subNames = map { $_->[0] => $_->[1] } $shrub->GetAll('Subsystem', '', [], 'id name');
 # Read the table of current memberships.
 my %memberH;
-my $mh = $loader->OpenFile(membership => $currentF);
-while (! eof $mh) {
-    my $line = $loader->GetLine(membership => $mh);
-    my ($name, $g, $vc) = @$line;
-    $name = $loader->NormalizedName($name);
-    $memberH{$name}{$g} = $vc;
+if ($currentF) {
+    my $mh = $loader->OpenFile(membership => $currentF);
+    while (! eof $mh) {
+        my $line = $loader->GetLine(membership => $mh);
+        my ($name, $g, $vc) = @$line;
+        $name = $loader->NormalizedName($name);
+        $memberH{$name}{$g} = $vc;
+    }
+    close $mh;
+} else {
+    my @tuples = $shrub->GetAll('Genome2Row SubsystemRow Subsystem', '', [], 'Subsystem(name) Genome2Row(from-link) SubsystemRow(variant-code)');
+    for my $tuple (@tuples) {
+        my ($name, $g, $vc) = @$tuple;
+        $memberH{$name}{$g} = $vc;
+    }
 }
-close $mh;
+
 opendir(my $dh, $projRoot) || die "Could not open projections directory: $!";
 my @projDirs = grep { -f "$projRoot/$_/core.proj.tbl" } readdir $dh;
 closedir $dh;

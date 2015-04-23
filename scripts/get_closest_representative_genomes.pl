@@ -26,9 +26,9 @@ use ClosestReps;
 use File::Slurp;
 use SeedUtils;
 
-=head1 Get closest genomes from a calibration set
+=head1 Get closest genomes from a Set of Representatives
 
-    get_closest_representative_genomes -g GenomesToCalibrate [ options ] < requests
+    get_closest_representative_genomes -g RepresentativeSet [ options ] < requests
 
 guts of a server that processes requests for closest representative genomes
 to new genomes.  The pool of representative (calibration) genomes comes
@@ -61,7 +61,7 @@ my $k = 10;
 my $opt =
   ScriptUtils::Opts( '',
                      Shrub::script_options(), ScriptUtils::ih_options(),
-                        [ 'calibrationgenomes|g=s', 'file of calibration genomes' ],
+                        [ 'repgenomes|g=s', 'file of representative genomes' ],
                         [ 'closeData|d=s', 'JSON file of kmers for representative genomes']
     );
 my $ih = ScriptUtils::IH( $opt->input );
@@ -70,8 +70,8 @@ if ($opt->closedata) {
     my $closeData = SeedUtils::read_encoded_object($opt->closedata);
     $kmer_hash = $closeData->{kmers};
     $genomeH = $closeData->{genomes};
-} elsif ($opt->calibrationgenomes) {
-    my $genomes = $opt->calibrationgenomes;
+} elsif ($opt->repgenomes) {
+    my $genomes = $opt->repgenomes;
     $genomeH = { map { ($_ =~ /^(\d+\.\d+)/) ? ($1 => 1) : () } File::Slurp::read_file($genomes) };
     # Connect to the database.
     my $shrub = Shrub->new_for_script($opt);

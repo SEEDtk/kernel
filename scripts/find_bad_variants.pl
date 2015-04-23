@@ -28,8 +28,11 @@ use Stats;
 
     find_bad_variants [ options ]
 
-Loop through the subsystems, looking for subsystem rows than contain fewer cells than all other rows. If all of the
-rows for a variant are among these small-cell rows, then we predict that something is wrong with the variant.
+This script creates the bad-variants list for L<solid_projection_pipeline.pl>. The main class of bad variant is
+one with suspiciously few roles. To find such variants, the script loops through the subsystems, looking for
+subsystem rows than contain fewer cells than all other rows. If all of the rows for a variant are among these
+small-cell rows, then we predict that something is wrong with the variant. An additional option includes variants
+with suspicious names, such as C<dirty> or C<missing>, or names that end in C<.x>.
 
 =head2 Parameters
 
@@ -48,21 +51,43 @@ number of rows indicated in this parameter. If no rows outside the set have the 
 we consider the row problematic. A value of C<1> here (the default) means we only consider a row problematic
 if it has fewer filled cells than all other rows.
 
+=item variantsOnly
+
+If specified, the bad variants will be listed, one per line. Otherwise, the output will include a list of the
+identified genomes.
+
+=item suspicious
+
+If specified, variants with suspicious variant codes will also be listed.
+
 =back
 
+=head2 Output
+
+The output is to the standard output, and is a single tab-delimited file. There are two types of records.
+A I<variant record> represents a suspicious variant, and consists of three columns, (0) the subsystem ID,
+(1) the subsystem name, and (2) the variant code. Following each variant record is one or more I<genome records>
+listing the genomes that have subsystem rows in the variant. Each variant record begins with an empty column,
+followed by (1) the genome ID and (2) the genome name.
+
 =cut
+
 
 my $startTime = time;
 # Get the command-line parameters.
 my $opt = ScriptUtils::Opts('',
                 Shrub::script_options(),
-                ['maxbadrows|m=i', 'maximum number of subsystem rows to consider as problematic', { default => 1 }]
+                ['maxbadrows|m=i', 'maximum number of subsystem rows to consider as problematic', { default => 1 }],
+                ['variantsOnly', 'only list the variants, not the genomes within'],
+                ['suspicious', 'list variants with suspicious variant codes']
         );
 # Connect to the database.
 my $shrub = Shrub->new_for_script($opt);
 my $stats = Stats->new();
-# Get the max-bad-rows parameter.
+# Get the command-line parameters.
 my $max_bad_rows = $opt->maxbadrows;
+my $variantsOnly = $opt->variantsonly;
+my $suspicious = $opt->suspicious;
 # Loop through the subsystems.
 my %subs = map { $_->[0] => $_->[1] } $shrub->GetAll('Subsystem', '', [], 'id name');
 my $totSS = scalar keys %subs;
@@ -80,6 +105,8 @@ for my $ss (sort keys %subs) {
     my %rowVC;
     # This hash will list the rows for each variant code.
     my %vcRow;
+    # This hash will list the variant codes output as bad.
+    my %vcOut;
     # This hash will contain the genome names and IDs for each row.
     my %rowGenome;
     # Loop through the row data.
@@ -131,12 +158,23 @@ for my $ss (sort keys %subs) {
             if ($vcGood) {
                 $stats->Add(problemVariantPassed => 1);
             } else {
-                print "$subs{$ss}\t$vc\n";
+                $vcOut{$vc} = 1;
                 $stats->Add(problemVariantFound => 1);
-                # Assemble the genome data for this variant code.
-                my @genomes = map { $rowGenome{$_} } keys %{$vcRow{$vc}};
-                for my $genome (@genomes) {
-                    print join("\t", "", @$genome) . "\n";
+                PrintVariant($ss, $vc, \%rowGenome, $vcRow{$vc});
+            }
+        }
+    }
+    # Here we process suspicious variants that weren't found by the above
+    # search.
+    if ($suspicious) {
+        for my $vc (keys %vcRow) {
+            # Only proceed if we haven't put this code out before.
+            if (! $vcOut{$vc}) {
+                $stats->Add(variantChecked => 1);
+                # Check for funny variant codes.
+                if ($vc =~ /\.x$/i || $vc eq 'dirty' || $vc eq 'missing') {
+                    $stats->Add(variantSuspicious => 1);
+                    PrintVariant($ss, $vc, \%rowGenome, $vcRow{$vc});
                 }
             }
         }
@@ -144,3 +182,16 @@ for my $ss (sort keys %subs) {
 }
 $stats->Add(totalTime => (time - $startTime));
 print STDERR "All done:\n" . $stats->Show();
+
+
+sub PrintVariant {
+    my ($ss, $vc, $rowGenome, $vcRow) = @_;
+    print "$ss\t$subs{$ss}\t$vc\n";
+    if (! $variantsOnly) {
+        # Assemble the genome data for this variant code.
+        my @genomes = map { $rowGenome->{$_} } keys %$vcRow;
+        for my $genome (@genomes) {
+            print join("\t", "", @$genome) . "\n";
+        }
+    }
+}

@@ -157,6 +157,17 @@ The default is to replace the output files in any existing output directory.
 
 Privilege level to use for the annotations on the non-core genomes. The default is C<0> (public).
 
+=item badVariants
+
+If specified, the name of a tab-delimited file containing the variants that should not be
+included when projecting. Each record of the file specifies a single variant, and consists
+of (0) the subsystem ID, and (1) the variant code.
+
+=item coreOnly
+
+If specified, the subsystems will be projected onto the core genomes, but there will be no
+subsequent projection onto the non-core genomes.
+
 =back
 
 =cut
@@ -166,6 +177,8 @@ my $opt = ScriptUtils::Opts('outputDirectory', Shrub::script_options(),
         ['subsystem|s=s@', 'ID of subsystem to process, "all" for all, or "core" for all core subsystems', { default => ['core'] }],
         ['missing|m', 'process only new subsystems'],
         ['privilege|p=i', 'priviliege level for second-pass annotations', { default => Shrub::PUBLIC }],
+        ['badVariants|b=s', 'file containing list of bad variants to skip'],
+        ['coreOnly', 'if specified, only the core projection will take place']
         );
 # Verify the output directory.
 my ($outDir) = @ARGV;
@@ -188,6 +201,17 @@ for my $subSpec (@{$opt->subsystem}) {
         map { $subs{$_} = 1 } $shrub->GetFlat('Subsystem', 'Subsystem(privileged) = ?', [1], 'id');
     } else {
         $subs{$subSpec} = 1;
+    }
+}
+# Get the bad variants. This hash is keyed on a combination of subsystem ID and variant code.
+my %badVariants;
+if ($opt->badvariants) {
+    open(my $ih, "<", $opt->badvariants) || die "Could not open bad-variant file: $!";
+    while (! eof $ih) {
+        my $line = <$ih>;
+        chomp $line;
+        my ($ss, undef, $vc) = split /\t/, $line;
+        $badVariants{$ss}{$vc} = 1;
     }
 }
 # Get a list of all the genomes, mapping each genome ID to its core flag. We will use this hash to
@@ -216,7 +240,7 @@ for my $sub (sort keys %subs) {
             print "Creating subsystem output directory $dataD.\n";
         }
         # Get the solid genomes.
-        %solids = map { $_ => 1 } Projection::choose_genomes($shrub, $sub);
+        %solids = map { $_ => 1 } Projection::choose_genomes($shrub, $sub, $badVariants{$sub});
         if (! keys %solids) {
             print STDERR "No solid genomes found for $sub: subsystem skipped.\n";
             $okSub = 0;
@@ -249,24 +273,25 @@ for my $sub (sort keys %subs) {
             $parms, $oh );
         close $oh;
         undef $oh;
-
-        # Add the new genomes to our set to process.
-        push @full_set, @found;
-        print "Computing core parameters.\n";
-        # Compute a new set of parameters.
-        my $parms2 =
-          Projection::compute_properties_of_solid_roles( $shrub, $sub,
-            \@full_set );
-        # Save the new parms to disk.
-        SeedUtils::write_encoded_object( $parms2, "$dataD/core.parms.json" );
-        # Get a list of all the genomes.
-        my @all = grep { !$solids{$_} && !$genomes{$_}[0] } keys %genomes;
-        # Project the subsystem with the new parameters.
-        open( $oh, ">$dataD/core.proj.tbl" )
-          || die "Could not open second projection file: $!";
-        Projection::project_solid_roles( $shrub, $sub, $opt->privilege, \@to_call,
-            $parms2, $oh );
-        close $oh;
-        undef $oh;
+        if (! $opt->coreonly) {
+            # Add the new genomes to our set to process.
+            push @full_set, @found;
+            print "Computing core parameters.\n";
+            # Compute a new set of parameters.
+            my $parms2 =
+              Projection::compute_properties_of_solid_roles( $shrub, $sub,
+                \@full_set );
+            # Save the new parms to disk.
+            SeedUtils::write_encoded_object( $parms2, "$dataD/core.parms.json" );
+            # Get a list of all the genomes.
+            my @all = grep { !$solids{$_} && !$genomes{$_}[0] } keys %genomes;
+            # Project the subsystem with the new parameters.
+            open( $oh, ">$dataD/core.proj.tbl" )
+              || die "Could not open second projection file: $!";
+            Projection::project_solid_roles( $shrub, $sub, $opt->privilege, \@to_call,
+                $parms2, $oh );
+            close $oh;
+            undef $oh;
+        }
     }
 }
