@@ -13,6 +13,7 @@ my $opt =
                         [ 'maxpsc|p=f', 'maximum pscore for blast match to count', { default => 1.0e-100 } ],
                         [ 'minsim|s=f', 'minimum % identity for condensing', { default => 0.8 } ],
                         [ 'savevecs|v=s', 'File used to save sim vecs (dot products)', { } ],
+                        [ 'normalize|n', 'normalize position vectors as unit vectors', { } ],
                         [ 'refD|r=s', 
 			  'Constructed Directory Reflecting Reference Genomes', { required => 1 }]
     );
@@ -23,7 +24,7 @@ my $save_vecsF = $opt->savevecs;
 my $max_psc    = $opt->maxpsc;
 my $min_len    = $opt->minlen;
 my $min_sim    = $opt->minsim;
-
+my $normalize  = $opt->normalize;
 my %univ_roles = map { chomp; ($_ => 1) } <DATA>;
 opendir(REFD,$refD) || die "Could not access $refD";
 my @refs = sort { $a <=> $b } grep { $_ !~ /^\./ } readdir(REFD);
@@ -35,7 +36,7 @@ my %ref_names  = map { (($_ =~ /^\d+\t(\S+)\t(\S.*\S)/)  && $refs{$1}) ? ($1 => 
 my $univ_in_ref = &locations_of_univ_roles_in_refs($refD,\%univ_roles,\@refs);
 my($contig_similarities_to_ref,$univ_in_contigs) = &process_blast_against_refs(\@refs,$refD,$univ_in_ref,$min_len,$max_psc);
 
-my $normalized_contig_vecs = &compute_ref_vecs(\@refs,$contig_similarities_to_ref);
+my $normalized_contig_vecs = &compute_ref_vecs(\@refs,$contig_similarities_to_ref,$normalize);
 my @similarities           = &similarities_between_contig_vecs($normalized_contig_vecs,$save_vecsF);
 
 my @contigs    = sort keys(%$normalized_contig_vecs);
@@ -221,7 +222,7 @@ sub similarities_between_contig_vecs_1 {
 
 
 sub compute_ref_vecs {
-    my($refs,$contig_similarities_to_ref) = @_;
+    my($refs,$contig_similarities_to_ref,$normalize) = @_;
 
     my $contig_vecs = {};
     foreach my $contig (sort keys(%$contig_similarities_to_ref))
@@ -244,7 +245,7 @@ sub compute_ref_vecs {
 	}
 	if ($keep && &sims_ok($v))
 	{
-	    $contig_vecs->{$contig} = $v;  # &unit_vector($v);
+	    $contig_vecs->{$contig} = $normalize ? &unit_vector($v) : $v;
 	}
     }
     return $contig_vecs;
