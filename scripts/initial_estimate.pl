@@ -3,6 +3,7 @@ use Data::Dumper;
 use SeedUtils;
 use ScriptUtils;
 use Shrub;
+use File::Slurp;
 
 # usage: initial_estimate -r reference.counts -d ReferenceDir > initial.estimate
 my $opt =
@@ -13,8 +14,8 @@ my $opt =
                         [ 'maxpsc|p=f', 'maximum pscore for blast match to count', { default => 1.0e-100 } ],
                         [ 'minsim|s=f', 'minimum % identity for condensing', { default => 0.8 } ],
                         [ 'savevecs|v=s', 'File used to save sim vecs (dot products)', { } ],
-                        [ 'refD|r=s', 
-			  'Constructed Directory Reflecting Reference Genomes', { required => 1 }]
+                        [ 'refD|r=s',
+                          'Constructed Directory Reflecting Reference Genomes', { required => 1 }]
     );
 
 my $ref_counts = $opt->refcounts;
@@ -30,8 +31,11 @@ my @refs = sort { $a <=> $b } grep { $_ !~ /^\./ } readdir(REFD);
 my %refs = map { ($_ => 1) } @refs;
 closedir(REFD);
 
-my %ref_counts = map { (($_ =~ /^(\d+)\t(\S+)/)  && $refs{$1}) ? ($2 => $1) : () } `cat $ref_counts`;
-my %ref_names  = map { (($_ =~ /^\d+\t(\S+)\t(\S.*\S)/)  && $refs{$1}) ? ($1 => $2) : () } `cat $ref_counts`;
+my @lines = File::Slurp::read_file($ref_counts);
+my %ref_counts = map { (($_ =~ /^(\d+)\t(\S+)/)  && $refs{$1}) ? ($2 => $1) : () } @lines;
+my %ref_names  = map { (($_ =~ /^\d+\t(\S+)\t(\S.*\S)/)  && $refs{$1}) ? ($1 => $2) : () } @lines;
+@lines = (); # Free up memory.
+
 my $univ_in_ref = &locations_of_univ_roles_in_refs($refD,\%univ_roles,\@refs);
 my($contig_similarities_to_ref,$univ_in_contigs) = &process_blast_against_refs(\@refs,$refD,$univ_in_ref,$min_len,$max_psc);
 
@@ -54,13 +58,13 @@ sub output_final_sets {
 
     foreach my $set (@sets)
     {
-	my($contigs,$univ) = @$set;
-	foreach my $contig (@$contigs)
-	{
-	    &display_contig($contig,$ref_names,$refs,$normalized_contig_vecs->{$contig});
-	}
-	&display_univ($univ);
-	print "//\n";
+        my($contigs,$univ) = @$set;
+        foreach my $contig (@$contigs)
+        {
+            &display_contig($contig,$ref_names,$refs,$normalized_contig_vecs->{$contig});
+        }
+        &display_univ($univ);
+        print "//\n";
     }
 }
 
@@ -69,7 +73,7 @@ sub display_univ {
 
     foreach my $role (sort keys(%$univ))
     {
-	print join("\t",($univ->{$role},$role)),"\n";
+        print join("\t",($univ->{$role},$role)),"\n";
     }
 }
 
@@ -80,15 +84,15 @@ sub display_contig {
     my @hits;
     for (my $i=0; ($i < @$ref_vec); $i++)
     {
-	if ($ref_vec->[$i] > 0)
-	{
-	    push(@hits,[$ref_vec->[$i],$refs->[$i],$ref_names->{$refs->[$i]}]);
-	}
+        if ($ref_vec->[$i] > 0)
+        {
+            push(@hits,[$ref_vec->[$i],$refs->[$i],$ref_names->{$refs->[$i]}]);
+        }
     }
     @hits = sort { ($b->[0] <=> $a->[0] ) } @hits;
     foreach my $hit (@hits)
     {
-	print join("\t",@$hit),"\n";
+        print join("\t",@$hit),"\n";
     }
     print "\n";
 }
@@ -103,30 +107,30 @@ sub cluster_contigs {
 
 sub condense_sets {
     my($sets,$contig_to_set,$similarities,$min_sim) = @_;
-    
+
     foreach my $sim (@$similarities)
     {
-	my($sc,$contig1,$contig2) = @$sim;
-	my $set1 = $contig_to_set->{$contig1};
-	my $set2 = $contig_to_set->{$contig2};
-	if ($set1 && $set2 && ($set1 != $set2) && ($sc >= $min_sim) && &univ_ok($sets->{$set1}->[1],$sets->{$set2}->[1]))
-	{
-	    my $contigs_to_move = $sets->{$set2}->[0];
-	    foreach my $contig_in_set2 (@$contigs_to_move)
-	    {
-		$contig_to_set->{$contig_in_set2} = $set1;
-	    }
-	    my $contigs1 = $sets->{$set1}->[0];
-	    my $contigs2 = $sets->{$set2}->[0];
-	    push(@$contigs1,@$contigs2);
-	    my $u = $sets->{$set2}->[1];
-	    foreach my $role (keys(%$u))
-	    {
-		my $v = $sets->{$set2}->[1]->{$role};
-		$sets->{$set1}->[1]->{$role} += $v;
-	    }
-	    delete $sets->{$set2};
-	}
+        my($sc,$contig1,$contig2) = @$sim;
+        my $set1 = $contig_to_set->{$contig1};
+        my $set2 = $contig_to_set->{$contig2};
+        if ($set1 && $set2 && ($set1 != $set2) && ($sc >= $min_sim) && &univ_ok($sets->{$set1}->[1],$sets->{$set2}->[1]))
+        {
+            my $contigs_to_move = $sets->{$set2}->[0];
+            foreach my $contig_in_set2 (@$contigs_to_move)
+            {
+                $contig_to_set->{$contig_in_set2} = $set1;
+            }
+            my $contigs1 = $sets->{$set1}->[0];
+            my $contigs2 = $sets->{$set2}->[0];
+            push(@$contigs1,@$contigs2);
+            my $u = $sets->{$set2}->[1];
+            foreach my $role (keys(%$u))
+            {
+                my $v = $sets->{$set2}->[1]->{$role};
+                $sets->{$set1}->[1]->{$role} += $v;
+            }
+            delete $sets->{$set2};
+        }
     }
     return $sets;
 }
@@ -140,12 +144,12 @@ sub in_common {
     my($s1,$s2) = @_;
 
     my $in_common = 0;
-    foreach $_ (keys(%$s1))  
-    { 
-	if ($s2->{$_}) 
-	{
-	    $in_common++;
-	}
+    foreach $_ (keys(%$s1))
+    {
+        if ($s2->{$_})
+        {
+            $in_common++;
+        }
     }
     return $in_common;
 }
@@ -159,15 +163,15 @@ sub initial_sets {
 
     foreach my $contig (@$contigs)
     {
-	my $univ                  = $univ_in_contigs->{$contig};
-	if (! $univ) 
-	{ 
-	    $univ = {};
-	}
+        my $univ                  = $univ_in_contigs->{$contig};
+        if (! $univ)
+        {
+            $univ = {};
+        }
 
-  	$sets->{$nxt_set}         = [[$contig],$univ];
-	$contig_to_set->{$contig} = $nxt_set;
-	$nxt_set++;
+          $sets->{$nxt_set}         = [[$contig],$univ];
+        $contig_to_set->{$contig} = $nxt_set;
+        $nxt_set++;
     }
     return ($sets,$contig_to_set);
 }
@@ -178,20 +182,20 @@ sub similarities_between_contig_vecs {
 
     if ($save_vecsF && (-s $save_vecsF))
     {
-	return sort { $b->[0] <=> $a->[0] } map { chop; [split(/\t/,$_)] } `cat $save_vecsF`;
+        return sort { $b->[0] <=> $a->[0] } map { chop; [split(/\t/,$_)] } File::Slurp::read_file($save_vecsF, 'chomp' => 1);
     }
     else
     {
-	my @sims = &similarities_between_contig_vecs_1($contig_vecs);
-	if ($save_vecsF && open(SAVE,">$save_vecsF"))
-	{
-	    foreach my $tuple (@sims)
-	    {
-		print SAVE join("\t",@$tuple),"\n";
-	    }
-	    close(SAVE);
-	}
-	return @sims;
+        my @sims = &similarities_between_contig_vecs_1($contig_vecs);
+        if ($save_vecsF && open(SAVE,">$save_vecsF"))
+        {
+            foreach my $tuple (@sims)
+            {
+                print SAVE join("\t",@$tuple),"\n";
+            }
+            close(SAVE);
+        }
+        return @sims;
     }
 }
 
@@ -204,17 +208,17 @@ sub similarities_between_contig_vecs_1 {
     my($i,$j);
     for ($i=0; ($i < @contigs);$i++)
     {
-	my $cv1 = $contig_vecs->{$contigs[$i]};
-	for ($j=$i+1; ($j < @contigs); $j++)
-	{
-	    my $cv2 = $contig_vecs->{$contigs[$j]};
-	    my $sim = &dot_product($cv1,$cv2);
-	    if ($sim > 0)
-	    {
-		push(@sims,[$sim,$contigs[$i],$contigs[$j]]);
-	    }
-	}
-	if (($i % 100) == 0) { print STDERR "$i of $n\n" }
+        my $cv1 = $contig_vecs->{$contigs[$i]};
+        for ($j=$i+1; ($j < @contigs); $j++)
+        {
+            my $cv2 = $contig_vecs->{$contigs[$j]};
+            my $sim = &dot_product($cv1,$cv2);
+            if ($sim > 0)
+            {
+                push(@sims,[$sim,$contigs[$i],$contigs[$j]]);
+            }
+        }
+        if (($i % 100) == 0) { print STDERR "$i of $n\n" }
     }
     return sort { $b->[0] <=> $a->[0] } @sims;
 }
@@ -226,26 +230,26 @@ sub compute_ref_vecs {
     my $contig_vecs = {};
     foreach my $contig (sort keys(%$contig_similarities_to_ref))
     {
-	my $v = [];
-	my $keep = 0;  # we keep only contigs that hit at least one ref
-	for (my $i=0; ($i < @$refs); $i++)
-	{
-	    my $r = $refs->[$i];
-	    my $x = $contig_similarities_to_ref->{$contig}->{$r};
-	    if (! $x) 
-	    { 
-		$x = 0;
-	    } 
-	    else
-	    {
-		$keep = 1;
-	    }
-	    push(@$v,$x);
-	}
-	if ($keep && &sims_ok($v))
-	{
-	    $contig_vecs->{$contig} = $v;  # &unit_vector($v);
-	}
+        my $v = [];
+        my $keep = 0;  # we keep only contigs that hit at least one ref
+        for (my $i=0; ($i < @$refs); $i++)
+        {
+            my $r = $refs->[$i];
+            my $x = $contig_similarities_to_ref->{$contig}->{$r};
+            if (! $x)
+            {
+                $x = 0;
+            }
+            else
+            {
+                $keep = 1;
+            }
+            push(@$v,$x);
+        }
+        if ($keep && &sims_ok($v))
+        {
+            $contig_vecs->{$contig} = $v;  # &unit_vector($v);
+        }
     }
     return $contig_vecs;
 }
@@ -294,15 +298,15 @@ sub unit_vector {
         my $x = $v->[$i];
         $x    = $x ? $x : 0;
         if ($nf)
-	{
-	    my $y = $x / $nf;
-	    if ($y > 1) { $y = 1 }
-	    push(@$uv,sprintf("%0.2f",$y));
-	}
-	else
-	{
-	    push(@$uv,0);
-	}
+        {
+            my $y = $x / $nf;
+            if ($y > 1) { $y = 1 }
+            push(@$uv,sprintf("%0.2f",$y));
+        }
+        else
+        {
+            push(@$uv,0);
+        }
     }
     return $uv;
 }
@@ -315,34 +319,28 @@ sub process_blast_against_refs {
 
     foreach my $r (@$refs)
     {
-	my $dir = "$refD/$r";
-	open(BLAST,"<$dir/blast.out") || die "$dir/blast.out is missing";
-	while (defined($_ = <BLAST>))
-	{
-	    chop;
-	    my($ref_id,$contig_id,$iden,undef,undef,undef,$rbeg,$rend,undef,undef,$psc,$bsc) = split(/\s+/,$_);
-	    if (($psc <= $max_psc) && (abs($rend-$rbeg) >= $min_len))
-	    {
-		if ((! $contig_similarities_to_ref->{$contig_id}->{$r}) ||
-		    ($contig_similarities_to_ref->{$contig_id}->{$r} < $iden))
-		{
-		    $contig_similarities_to_ref->{$contig_id}->{$r} = $iden;
-		}
+        my $dir = "$refD/$r";
+        open(BLAST,"<$dir/blast.out") || die "$dir/blast.out is missing";
+        while (defined($_ = <BLAST>))
+        {
+            chop;
+            my($ref_id,$contig_id,$iden,undef,undef,undef,$rbeg,$rend,undef,undef,$psc,$bsc) = split(/\s+/,$_);
+            if (($psc <= $max_psc) && (abs($rend-$rbeg) >= $min_len))
+            {
+                if ((! $contig_similarities_to_ref->{$contig_id}->{$r}) ||
+                    ($contig_similarities_to_ref->{$contig_id}->{$r} < $iden))
+                {
+                    $contig_similarities_to_ref->{$contig_id}->{$r} = $iden;
+                }
 
-		if ($_ = &in_univ($univ_in_ref,$r,$ref_id,$rbeg,$rend,$univ_in_ref))
-		{
-		    $univ_in_contigs->{$contig_id}->{$_} = 1;
-		}
-	    }
-	}
+                if ($_ = &in_univ($univ_in_ref,$r,$ref_id,$rbeg,$rend,$univ_in_ref))
+                {
+                    $univ_in_contigs->{$contig_id}->{$_} = 1;
+                }
+            }
+        }
     }
     return ($contig_similarities_to_ref,$univ_in_contigs);
-}
-
-sub between {
-    my($x,$y,$z) = @_;
-
-    return (($x <= $y) && ($y <= $z)) || (($x >= $y) && ($y >= $z));
 }
 
 sub in_univ {
@@ -350,12 +348,12 @@ sub in_univ {
 
     if (my $x = $univ_in_ref->{$ref}->{$ref_contig})
     {
-	my $i;
-	for ($i=0; ($i < @$x) && (! &between($beg,$x->[$i]->[0],$end)); $i++) {}
-	if ($i < @$x)
-	{
-	    return $x->[$i]->[1];
-	}
+        my $i;
+        for ($i=0; ($i < @$x) && (! &between($beg,$x->[$i]->[0],$end)); $i++) {}
+        if ($i < @$x)
+        {
+            return $x->[$i]->[1];
+        }
     }
     return undef;
 }
@@ -366,19 +364,19 @@ sub locations_of_univ_roles_in_refs {
     my $univ_in_ref = {};
     foreach my $r (@$refs)
     {
-	my $dir = "$refD/$r";
-	my $gto = &SeedUtils::read_encoded_object("$dir/$r.gto");
-	my $features = $gto->{features};
-	foreach my $f (@$features)
-	{
-	    if ($univ_roles->{$f->{function}})
-	    {
-		my $loc = $f->{location};
-		my $contig   = $loc->[0]->[0];
-		my $midpt    = int(($loc->[0]->[1] + $loc->[-1]->[2]) /2);
-		push(@{$univ_in_ref->{$r}->{$contig}},[$midpt,$f->{function}]);
-	    }
-	}
+        my $dir = "$refD/$r";
+        my $gto = &SeedUtils::read_encoded_object("$dir/genome.gto");
+        my $features = $gto->{features};
+        foreach my $f (@$features)
+        {
+            if ($univ_roles->{$f->{function}})
+            {
+                my $loc = $f->{location};
+                my $contig   = $loc->[0]->[0];
+                my $midpt    = int(($loc->[0]->[1] + $loc->[-1]->[2]) /2);
+                push(@{$univ_in_ref->{$r}->{$contig}},[$midpt,$f->{function}]);
+            }
+        }
     }
     return $univ_in_ref;
 }
