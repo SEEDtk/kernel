@@ -37,20 +37,31 @@ sub pull_ref_contigs {
     {
         my($count,$g,$gs) = @$tuple;
         my $giD = "$refD/$g";
-        next if (-s "$giD/blast.out");
-        mkdir($giD,0777);
-        my $obj = Shrub::GTO->new($shrub, $g);
-        $obj->write_contigs_to_file("$giD/reference.contigs");
-        # Get protein translation FASTA.
-        # $obj->write_protein_translations_to_file("$giD/reference.protein");
-        $obj->destroy_to_file("$giD/genome.gto");
-        my @matches = gjo::BlastInterface::blastn("$giD/reference.contigs", $contigF, { dust => 'no' });
-        # my @matches = gjo::BlastInterface::tblastn("$giD/reference.protein", $contigF, { dust => 'no' });)
-        open(SIMS, ">$giD/blast.out") || die "Could not open $giD/blast.out: $!";
-        foreach my $m (@matches) {
-            print SIMS $m->as_line;
-        }
-        close(SIMS);
+        if (! -s "$giD/blast.out.dna")
+	{
+	    mkdir($giD,0777);
+	    my $obj = Shrub::GTO->new($shrub, $g);
+	    $obj->write_contigs_to_file("$giD/reference.contigs");
+            my @matches = gjo::BlastInterface::blastn("$giD/reference.contigs", $contigF, { dust => 'no' });
+	    open(SIMS, ">$giD/blast.out.dna") || die "Could not open $giD/blast.out.dna: $!";
+	    foreach my $m (@matches) {
+		print SIMS $m->as_line;
+	    }
+	    close(SIMS);
+	}
+        if (! -s "$giD/blast.out.protein")
+	{
+	    # Get protein translation FASTA.
+	    $obj->write_protein_translations_to_file("$giD/reference.translations");
+	    $obj->destroy_to_file("$giD/genome.gto");
+            my @matches = gjo::BlastInterface::tblastn("$giD/reference.translations", $contigF, { dust => 'no' });
+	    open(SIMS, ">$giD/blast.out.protein") || die "Could not open $giD/blast.out.protein: $!";
+	    foreach my $m (@matches) {
+		print SIMS $m->as_line;
+	    }
+	    close(SIMS);
+
+	}
     }
 }
 
