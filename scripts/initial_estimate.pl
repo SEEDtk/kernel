@@ -21,6 +21,7 @@ my $opt = ScriptUtils::Opts(
         'maximum pscore for blast match to count',
         { default => 1.0e-100 }
     ],
+    [ 'blast|b=s',  'blast type (p or n)',               { default => 'p' } ],
     [ 'minsim|s=f', 'minimum % identity for condensing', { default => 0.8 } ],
     [ 'savevecs|v=s', 'File used to save sim vecs (dot products)',  {} ],
     [ 'normalize|n',  'normalize position vectors as unit vectors', {} ],
@@ -35,6 +36,9 @@ my $opt = ScriptUtils::Opts(
         { default => 1.2 }
     ],
 );
+
+my $blast_type = $opt->blast;
+$blast_type = ( $blast_type =~ /^[pP]/ ) ? 'p' : 'n';
 
 my $ref_counts      = $opt->refcounts;
 my $refD            = $opt->refd;
@@ -60,10 +64,11 @@ my %ref_names =
 @lines = ();    # Free up memory.
 
 my $univ_in_ref =
-  &locations_of_univ_roles_in_refs( $refD, \%univ_roles, \@refs );
+  &univ_roles_in_ref_pegs( $refD, \%univ_roles, \@refs, $blast_type );
+
 my ( $contig_similarities_to_ref, $univ_in_contigs ) =
-  &process_blast_against_refs( \@refs, $refD, $univ_in_ref, $min_len,
-    $max_psc );
+  &process_blast_against_refs( \@refs, $refD, $univ_in_ref, $min_len, $max_psc,
+    $blast_type );
 
 my $normalized_contig_vecs =
   &compute_ref_vecs( \@refs, $contig_similarities_to_ref, $normalize );
@@ -268,8 +273,7 @@ sub similarities_between_contig_vecs
 
     if ( $save_vecsF && ( -s $save_vecsF ) )
     {
-        return
-          sort { $b->[0] <=> $a->[0] }
+        return sort { $b->[0] <=> $a->[0] }
           map { [ split( /\t/, $_ ) ] }
           File::Slurp::read_file( $save_vecsF, 'chomp' => 1 );
     }
@@ -406,23 +410,25 @@ sub unit_vector
 
 sub process_blast_against_refs
 {
-    my ( $refs, $refD, $univ_in_ref, $min_len, $max_psc ) = @_;
+    my ( $refs, $refD, $univ_in_ref, $min_len, $max_psc, $blast_type ) = @_;
 
     my $contig_similarities_to_ref = {};
     my $univ_in_contigs            = {};
 
+    my $blast_out =
+      ( $blast_type =~ /^[pP]/ ) ? 'blast.out.protein' : 'blast.out.dna';
     foreach my $r (@$refs)
     {
         my $dir = "$refD/$r";
-        open( BLAST, "<$dir/blast.out" ) || die "$dir/blast.out is missing";
+        open( BLAST, "<$dir/$blast_out" ) || die "$dir/$blast_out is missing";
         while ( defined( $_ = <BLAST> ) )
         {
             chop;
             my (
                 $ref_id, $contig_id, $iden, undef, undef, undef,
-                $rbeg,   $rend,      undef, undef, $psc,  $bsc
+                $rbeg,   $rend,      $beg,  $end,  $psc,  $bsc
             ) = split( /\s+/, $_ );
-            if ( ( $psc <= $max_psc ) && ( abs( $rend - $rbeg ) >= $min_len ) )
+            if ( ( $psc <= $max_psc ) && ( abs( $end - $beg ) >= $min_len ) )
             {
                 if ( ( !$contig_similarities_to_ref->{$contig_id}->{$r} )
                     || ( $contig_similarities_to_ref->{$contig_id}->{$r} <
@@ -431,19 +437,36 @@ sub process_blast_against_refs
                     $contig_similarities_to_ref->{$contig_id}->{$r} = $iden;
                 }
 
-                if (
-                    $_ = &in_univ(
-                        $univ_in_ref, $r,    $ref_id,
-                        $rbeg,        $rend, $univ_in_ref
-                    )
-                  )
+                if ( $blast_type eq 'n' )
                 {
-                    $univ_in_contigs->{$contig_id}->{$_} = 1;
+                    if ( $_ =
+                        &in_univ( $univ_in_ref, $r, $ref_id, $rbeg, $rend ) )
+                    {
+                        $univ_in_contigs->{$contig_id}->{$_} = 1;
+                    }
+                }
+                else
+                {
+                    if ( $_ = &univ_prot( $univ_in_ref, $r, $ref_id ) )
+                    {
+                        $univ_in_contigs->{$contig_id}->{$_} = 1;
+                    }
                 }
             }
         }
     }
     return ( $contig_similarities_to_ref, $univ_in_contigs );
+}
+
+sub univ_prot
+{
+    my ( $univ_in_ref, $ref, $ref_id ) = @_;
+
+    if ( my $x = $univ_in_ref->{$ref}->{$ref_id} )
+    {
+        return $x->[0]->[1];
+    }
+    return undef;
 }
 
 sub in_univ
@@ -468,9 +491,9 @@ sub in_univ
     return undef;
 }
 
-sub locations_of_univ_roles_in_refs
+sub univ_roles_in_ref_pegs
 {
-    my ( $refD, $univ_roles, $refs ) = @_;
+    my ( $refD, $univ_roles, $refs, $blast_type ) = @_;
 
     my $univ_in_ref = {};
     foreach my $r (@$refs)
@@ -482,13 +505,23 @@ sub locations_of_univ_roles_in_refs
         {
             if ( $univ_roles->{ $f->{function} } )
             {
-                my @locs   = map { BasicLocation->new($_) } @{ $f->{location} };
-                my $contig = $locs[0]->Contig;
-                my $midpt  = int( ( $locs[0]->Left + $locs[-1]->Right ) / 2 );
-                push(
-                    @{ $univ_in_ref->{$r}->{$contig} },
-                    [ $midpt, $f->{function} ]
-                );
+                if ( $blast_type eq 'n' )
+                {
+                    my @locs =
+                      map { BasicLocation->new($_) } @{ $f->{location} };
+                    my $contig = $locs[0]->Contig;
+                    my $midpt =
+                      int( ( $locs[0]->Left + $locs[-1]->Right ) / 2 );
+                    push(
+                        @{ $univ_in_ref->{$r}->{$contig} },
+                        [ $midpt, $f->{function} ]
+                    );
+                }
+                else 
+                {
+                    push( @{ $univ_in_ref->{$r}->{ $f->{id} } },
+                        [ undef, $f->{function} ] );
+                }
             }
         }
     }
