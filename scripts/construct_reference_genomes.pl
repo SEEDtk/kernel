@@ -56,7 +56,7 @@ sub pull_ref_contigs {
         {
             # Get protein translation FASTA.
             $obj->write_protein_translations_to_file("$giD/reference.translations");
-            my @matches = gjo::BlastInterface::tblastn("$giD/reference.translations", $contigF, { dust => 'no' });
+            my @matches = gjo::BlastInterface::tblastn("$giD/reference.translations", $contigF);
             open(SIMS, ">$giD/blast.out.protein") || die "Could not open $giD/blast.out.protein: $!";
             foreach my $m (@matches) {
                 print SIMS $m->as_line;

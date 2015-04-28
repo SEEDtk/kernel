@@ -424,6 +424,9 @@ sub process_blast_against_refs
 
     my $contig_similarities_to_ref = {};
     my $univ_in_contigs            = {};
+    if ($blastType eq 'protein') {
+        $min_len /= 3;
+    }
 
     foreach my $r (@$refs)
     {
