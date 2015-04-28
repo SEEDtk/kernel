@@ -45,6 +45,7 @@ sub pull_ref_contigs
     foreach my $tuple (@$potential_orgs)
     {
         my ( $count, $g, $gs ) = @$tuple;
+        print STDERR "Analyzing $g - $gs\n";
         my $giD = "$refD/$g";
         if (! -d $giD)
         {

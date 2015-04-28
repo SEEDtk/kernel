@@ -48,7 +48,6 @@ my $min_len         = $opt->minlen;
 my $min_sim         = $opt->minsim;
 my $normalize       = $opt->normalize;
 my $covg_constraint = $opt->covgratio;
-my $blastType       = $opt->blasttype;
 
 my %univ_roles = map { chomp; ( $_ => 1 ) } <DATA>;
 opendir( REFD, $refD ) || die "Could not access $refD";
@@ -415,9 +414,6 @@ sub process_blast_against_refs
 
     my $contig_similarities_to_ref = {};
     my $univ_in_contigs            = {};
-    if ($blastType eq 'protein') {
-        $min_len /= 3;
-    }
 
     my $blast_out =
       ( $blast_type =~ /^[pP]/ ) ? 'blast.out.protein' : 'blast.out.dna';
@@ -427,7 +423,7 @@ sub process_blast_against_refs
         open( BLAST, "<$dir/$blast_out" ) || die "$dir/$blast_out is missing";
         while ( defined( $_ = <BLAST> ) )
         {
-            chop;
+            chomp;
             my (
                 $ref_id, $contig_id, $iden, undef, undef, undef,
                 $rbeg,   $rend,      $beg,  $end,  $psc,  $bsc
