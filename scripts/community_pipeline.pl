@@ -104,6 +104,11 @@ The name of a file containing a list of the representative genomes. The communit
 contigs each of which resembles one of these representative genomes. The file is tab-delimited, with the genome ID
 in the first column and the genome name in the second.
 
+=item univLimit
+
+Maximum number of overlapping universal proteins allowed in a contig partition when the sample contigs are being grouped
+together.
+
 =back
 
 =head2 Output
@@ -214,6 +219,7 @@ my $opt =
                         [ 'minkhits|k=i','minimum number hits to be a reference', { default => 400 } ],
                         [ 'refsf|r=s','File of potential reference genomes', { } ],
                         [ 'covgRatio|cr=s', 'maximum acceptable coverage ratio for condensing', { default => 1.2 }],
+                        [ 'univLimit|ul=n', 'maximum number of duplicate universal proteins in a set', { default => 2 }],
     );
 
 my $blast_type = $opt->blast;
@@ -228,7 +234,7 @@ my $max_psc    = $opt->maxpsc;
 my $min_len    = $opt->minlen;
 my $min_sim    = $opt->minsim;
 my $cr         = $opt->covgratio;
-
+my $univ_limit = $opt->univlimit;
 
 if (! -d $dataD) { mkdir($dataD,0777) || die "could not make $dataD" }
 
@@ -254,5 +260,5 @@ if (! -s "$dataS/ref.counts") {
 }
 &SeedUtils::run("construct_reference_genomes -c $dataS/sample.fa -m $min_hits -r $dataS/RefD < $dataS/ref.counts");
 my $norm = $opt->normalize ? '-n' : '';
-&SeedUtils::run("initial_estimate -b $blast_type -r $dataS/RefD -c $dataS/ref.counts -l $min_len -p $max_psc -s $min_sim $norm -v $dataS/saved.sim.vecs --cr $cr > $dataS/bins");
+&SeedUtils::run("initial_estimate -b $blast_type -r $dataS/RefD -c $dataS/ref.counts -l $min_len -p $max_psc -s $min_sim $norm -v $dataS/saved.sim.vecs --cr $cr --ul $univ_limit > $dataS/bins");
 &SeedUtils::run("summarize_bins < $dataS/bins > $dataS/bins.summary");
