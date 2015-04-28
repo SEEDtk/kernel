@@ -35,6 +35,11 @@ my $opt = ScriptUtils::Opts(
         'maximum acceptable coverage ratio for condensing',
         { default => 1.2 }
     ],
+    [
+        'blastType|b=s',
+        'type of blast output to use, "dna" or "protein"',
+        { default => 'protein', regex => qr/^(?:dna|protein)$/ }
+    ]
 );
 
 my $blast_type = $opt->blast;
@@ -48,6 +53,7 @@ my $min_len         = $opt->minlen;
 my $min_sim         = $opt->minsim;
 my $normalize       = $opt->normalize;
 my $covg_constraint = $opt->covgratio;
+my $blastType       = $opt->blasttype;
 
 my %univ_roles = map { chomp; ( $_ => 1 ) } <DATA>;
 opendir( REFD, $refD ) || die "Could not access $refD";
@@ -63,12 +69,30 @@ my %ref_names =
   @lines;
 @lines = ();    # Free up memory.
 
+<<<<<<< HEAD
 my $univ_in_ref =
   &univ_roles_in_ref_pegs( $refD, \%univ_roles, \@refs, $blast_type );
 
+=======
+my $univ_in_ref;
+if ($blastType eq 'dna') {
+    # For DNA, univ_in_ref maps each contig to a list of universal role midpoints.
+    # The hash is two-dimensional (ref genome ID, contig ID).
+    $univ_in_ref = &locations_of_univ_roles_in_refs( $refD, \%univ_roles, \@refs );
+} else {
+    # For proteins, univ_in_ref maps each feature ID to its universal role (if any).
+    # The hash is one-dimensional (feature ID).
+    $univ_in_ref = &fids_of_univ_roles_in_refs( $refD, \%univ_roles, \@refs );
+}
+>>>>>>> branch 'master' of https://github.com/SEEDtk/kernel
 my ( $contig_similarities_to_ref, $univ_in_contigs ) =
+<<<<<<< HEAD
   &process_blast_against_refs( \@refs, $refD, $univ_in_ref, $min_len, $max_psc,
     $blast_type );
+=======
+        &process_blast_against_refs( \@refs, $refD, $univ_in_ref, $min_len,
+        $max_psc, $blastType );
+>>>>>>> branch 'master' of https://github.com/SEEDtk/kernel
 
 my $normalized_contig_vecs =
   &compute_ref_vecs( \@refs, $contig_similarities_to_ref, $normalize );
@@ -410,17 +434,28 @@ sub unit_vector
 
 sub process_blast_against_refs
 {
+<<<<<<< HEAD
     my ( $refs, $refD, $univ_in_ref, $min_len, $max_psc, $blast_type ) = @_;
+=======
+    my ( $refs, $refD, $univ_in_ref, $min_len, $max_psc, $blastType ) = @_;
+>>>>>>> branch 'master' of https://github.com/SEEDtk/kernel
 
     my $contig_similarities_to_ref = {};
     my $univ_in_contigs            = {};
+    if ($blastType eq 'protein') {
+        $min_len /= 3;
+    }
 
     my $blast_out =
       ( $blast_type =~ /^[pP]/ ) ? 'blast.out.protein' : 'blast.out.dna';
     foreach my $r (@$refs)
     {
         my $dir = "$refD/$r";
+<<<<<<< HEAD
         open( BLAST, "<$dir/$blast_out" ) || die "$dir/$blast_out is missing";
+=======
+        open( BLAST, "<$dir/blast.out.$blastType" ) || die "$dir/blast.out.$blastType is missing";
+>>>>>>> branch 'master' of https://github.com/SEEDtk/kernel
         while ( defined( $_ = <BLAST> ) )
         {
             chop;
@@ -436,9 +471,23 @@ sub process_blast_against_refs
                 {
                     $contig_similarities_to_ref->{$contig_id}->{$r} = $iden;
                 }
+<<<<<<< HEAD
 
                 if ( $blast_type eq 'n' )
+=======
+                my $role;
+                if ($blastType eq 'dna' && (
+                    $role = &in_univ(
+                        $univ_in_ref, $r,    $ref_id,
+                        $rbeg,        $rend, $univ_in_ref
+                    )
+                  ) ||
+                 $blastType eq 'protein' && (
+                    $role = $univ_in_ref->{$ref_id}
+                 ))
+>>>>>>> branch 'master' of https://github.com/SEEDtk/kernel
                 {
+<<<<<<< HEAD
                     if ( $_ =
                         &in_univ( $univ_in_ref, $r, $ref_id, $rbeg, $rend ) )
                     {
@@ -451,6 +500,9 @@ sub process_blast_against_refs
                     {
                         $univ_in_contigs->{$contig_id}->{$_} = 1;
                     }
+=======
+                    $univ_in_contigs->{$contig_id}->{$role} = 1;
+>>>>>>> branch 'master' of https://github.com/SEEDtk/kernel
                 }
             }
         }
@@ -522,6 +574,25 @@ sub univ_roles_in_ref_pegs
                     push( @{ $univ_in_ref->{$r}->{ $f->{id} } },
                         [ undef, $f->{function} ] );
                 }
+            }
+        }
+    }
+    return $univ_in_ref;
+}
+
+# $univ_in_ref = &fids_of_univ_roles_in_refs( $refD, \%univ_roles, \@refs );
+sub fids_of_univ_roles_in_refs {
+    my ($refD, $univ_roles, $refs) = @_;
+
+    my $univ_in_ref = {};
+    foreach my $r (@$refs) {
+        my $dir      = "$refD/$r";
+        my $gto      = &SeedUtils::read_encoded_object("$dir/genome.gto");
+        my $features = $gto->{features};
+        foreach my $f (@$features)
+        {
+            if ( $univ_roles->{ $f->{function} } ) {
+                $univ_in_ref->{$f->{id}} = $f->{function};
             }
         }
     }

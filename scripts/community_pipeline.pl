@@ -39,6 +39,14 @@ There are no positional parameters. The following command-line options are suppo
 
 =over 4
 
+=item blast
+
+The type of BLAST results to use when computing similarities to contigs in the
+reference genomes. Both protein and nucleotide BLASTs are computed. If this
+parameter is C<n>, the nucleotide results will be used. If it is C<p>, the
+protein results will be used. A value of C<n> will cause more conservative
+results. The default is C<n>.
+
 =item minlen
 
 The minimun length of a blast match necessary to consider that we have a correspondence between a
@@ -138,7 +146,7 @@ A JSON-format L<GenomeTypeObject> for the genome.
 
 A FASTA file for the genome's contigs.
 
-=item blast.out
+=item blast.out.protein, blast.out.dna
 
 The BLAST output from comparing the genome's contigs to the contigs in the community sample.
 
@@ -194,11 +202,12 @@ equal sign (C<=>), and the total number of base pairs in all the contigs belongi
 
 my $opt =
   ScriptUtils::Opts( '',
-		        [ 'blast|b=s','blast type (p or n)',{ default => 'p'} ],
+		                [ 'blast|b=s','blast type (p or n)',{ default => 'p'} ],
                         [ 'minlen|l=i', 'minimum length for blast match to count', { default => 500 } ],
                         [ 'maxpsc|p=f', 'maximum pscore for blast match to count', { default => 1.0e-100 } ],
                         [ 'minsim|s=f', 'minimum % identity for condensing', { default => 7000 } ],
                         [ 'normalize', 'use normalized distances'],
+                        [ 'maxExpect|e=f', 'maximum E-value for BLASTing', { default => 1e-50 } ],
                         [ 'data|d=s', 'Data Directory for Community Pipeline', { required => 1 } ],
                         [ 'sample|c=s','community DNA sample in fasta format', { } ],
                         [ 'samplename|n=s','environmental Sample Name', { required => 1 } ],
@@ -207,7 +216,7 @@ my $opt =
                         [ 'covgRatio|cr=s', 'maximum acceptable coverage ratio for condensing', { default => 1.2 }],
     );
 
-my $blast_type = $opt->data;
+my $blast_type = $opt->blast;
 $blast_type    = ($blast_type =~ /^[pP]/) ? 'p' : 'n';
 
 my $dataD      = $opt->data;

@@ -18,7 +18,8 @@ my $opt = ScriptUtils::Opts(
         'refD|r=s',
         'Constructed Directory Reflecting Refernce Genomes',
         { required => 1 }
-    ]
+    ],
+    [ 'maxExpect|e=f', 'maximum expectation value for BLASTing', { default => 1e-50 } ]
 );
 my $ih = ScriptUtils::IH( $opt->input );
 
@@ -26,6 +27,7 @@ my $contigF  = $opt->contigs;
 my $refD     = $opt->refd;
 my $min_hits = $opt->minhits;
 my $shrub    = Shrub->new_for_script($opt);
+my $maxE     = $opt->maxexpect;
 
 # usage: construct_reference_genomes -c ContigF -r ReferenceDir < close.ref.report
 
@@ -44,40 +46,35 @@ sub pull_ref_contigs
     {
         my ( $count, $g, $gs ) = @$tuple;
         my $giD = "$refD/$g";
-        if ( !-s "$giD/blast.out.dna" )
+        if (! -d $giD)
         {
-            mkdir( $giD, 0777 );
-            my $obj = Shrub::GTO->new( $shrub, $g );
+            mkdir($giD, 0777);
+        }
+        my $obj = Shrub::GTO->new($shrub, $g);
+        if (! -s "$giD/blast.out.dna")
+        {
             $obj->write_contigs_to_file("$giD/reference.contigs");
-            my @matches =
-              gjo::BlastInterface::blastn( "$giD/reference.contigs", $contigF,
-                { dust => 'no' } );
-            open( SIMS, ">$giD/blast.out.dna" )
-              || die "Could not open $giD/blast.out.dna: $!";
-            foreach my $m (@matches)
-            {
+            my @matches = gjo::BlastInterface::blastn("$giD/reference.contigs", $contigF, { dust => 'no', maxE => $maxE });
+            open(SIMS, ">$giD/blast.out.dna") || die "Could not open $giD/blast.out.dna: $!";
+            foreach my $m (@matches) {
                 print SIMS $m->as_line;
             }
             close(SIMS);
         }
-        if ( !-s "$giD/blast.out.protein" )
+        if (! -s "$giD/blast.out.protein")
         {
-
             # Get protein translation FASTA.
-            $obj->write_protein_translations_to_file(
-                "$giD/reference.translations");
-            $obj->destroy_to_file("$giD/genome.gto");
-            my @matches =
-              gjo::BlastInterface::tblastn( "$giD/reference.translations",
-                $contigF, { dust => 'no' } );
-            open( SIMS, ">$giD/blast.out.protein" )
-              || die "Could not open $giD/blast.out.protein: $!";
-            foreach my $m (@matches)
-            {
+            $obj->write_protein_translations_to_file("$giD/reference.translations");
+            my @matches = gjo::BlastInterface::tblastn("$giD/reference.translations", $contigF, { maxE => $maxE });
+            open(SIMS, ">$giD/blast.out.protein") || die "Could not open $giD/blast.out.protein: $!";
+            foreach my $m (@matches) {
                 print SIMS $m->as_line;
             }
             close(SIMS);
-
+        }
+        if (! -s "$giD/genome.gto")
+        {
+            $obj->destroy_to_file("$giD/genome.gto");
         }
     }
 }
