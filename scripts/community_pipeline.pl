@@ -202,7 +202,7 @@ equal sign (C<=>), and the total number of base pairs in all the contigs belongi
 
 my $opt =
   ScriptUtils::Opts( '',
-                                [ 'blast|b=s','blast type (p or n)',{ default => 'p'} ],
+                        [ 'blast|b=s','blast type (p or n)',{ default => 'p'} ],
                         [ 'minlen|l=i', 'minimum length for blast match to count', { default => 500 } ],
                         [ 'maxpsc|p=f', 'maximum pscore for blast match to count', { default => 1.0e-100 } ],
                         [ 'minsim|s=f', 'minimum % identity for condensing', { default => 7000 } ],
@@ -254,5 +254,5 @@ if (! -s "$dataS/ref.counts") {
 }
 &SeedUtils::run("construct_reference_genomes -c $dataS/sample.fa -m $min_hits -r $dataS/RefD < $dataS/ref.counts");
 my $norm = $opt->normalize ? '-n' : '';
-&SeedUtils::run("initial_estimate -b $blast_type -r $dataS/RefD -c $dataS/ref.counts -l $min_len -p $max_psc -s $min_sim $norm -v $dataS/saved.sim.vecs --cr $cr > $dataS/bins");
+&SeedUtils::run("initial_estimate -b $blast_type -r $dataS/RefD -c $dataS/ref.counts -l $min_len -p $max_psc -s $min_sim $norm -v $dataS/saved.sim.vecs --cr $cr -u $dataS/contig.to.uni > $dataS/bins");
 &SeedUtils::run("summarize_bins < $dataS/bins > $dataS/bins.summary");

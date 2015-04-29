@@ -44,7 +44,7 @@ sub process_1 {
         print "total size of contigs=$sz\n";
 	print "number universal=$num_univ\n";
 	print "number extra universals=$num_extra\n";
-	my $sc = ($c1 * $num_univ) - ($c2 * $num_extra);
+ 	my $sc = ($c1 * $num_univ) - ($c2 * $num_extra);
 	print "score=$sc\n";
         print "//\n\n";
     }

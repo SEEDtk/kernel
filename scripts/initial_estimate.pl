@@ -10,6 +10,7 @@ use BasicLocation;
 my $opt = ScriptUtils::Opts(
     '',
     Shrub::script_options(),
+    [ 'unicontigs|u=s','write contig to universal into this file',{}],
     [ 'refcounts|c=s', 'kmer reference counts', { required => 1 } ],
     [
         'minlen|l=i',
@@ -40,6 +41,7 @@ my $opt = ScriptUtils::Opts(
 my $blast_type = $opt->blast;
 $blast_type = ( $blast_type =~ /^[pP]/ ) ? 'p' : 'n';
 
+my $uni_contigsF = $opt->unicontigs;
 my $ref_counts      = $opt->refcounts;
 my $refD            = $opt->refd;
 my $save_vecsF      = $opt->savevecs;
@@ -69,6 +71,11 @@ my $univ_in_ref =
 my ( $contig_similarities_to_ref, $univ_in_contigs ) =
   &process_blast_against_refs( \@refs, $refD, $univ_in_ref, $min_len, $max_psc,
     $blast_type );
+
+if ($uni_contigsF)
+{
+    &write_unis_in_contigs($uni_contigsF,$univ_in_contigs);
+}
 
 my $normalized_contig_vecs =
   &compute_ref_vecs( \@refs, $contig_similarities_to_ref, $normalize );
@@ -104,6 +111,21 @@ sub output_final_sets
         &display_univ($univ);
         print "//\n";
     }
+}
+
+sub write_unis_in_contigs {
+    my($uni_contigsF,$univ_in_contigs) = @_;
+
+    open(UNI,">$uni_contigsF") || die "could not open $uni_contigsF";
+    foreach my $contig (sort keys(%$univ_in_contigs))
+    {
+	my $x = $univ_in_contigs->{$contig};
+	foreach my $univ (sort keys(%$x))
+	{
+	    print UNI join("\t",($contig,$univ)),"\n";
+	}
+    }
+    close(UNI);
 }
 
 sub display_univ
