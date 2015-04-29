@@ -16,9 +16,13 @@ sub process_1 {
     # Split the universal roles and the contig list.
     if ($x =~ /^(.*)\n\n(.*)\n?\/\/\n/s)
     {
-        my $univs = $2;
-        print $univs,"\n--------\n";
         my $contigs = $1;
+        my $univs = $2;
+	my @univ = map { ($_ =~ /^(\d+)/) ? $1 : () } split(/\n/,$univs);
+	my $num_univ = @univ;
+	my @extra = grep { $_ > 1 } @univ;
+	my $num_extra = @extra;
+        print $univs,"\n--------\n";
         my @counts = &count_ref($contigs);
         foreach my $tuple (@counts)
         {
@@ -27,6 +31,12 @@ sub process_1 {
         print "\n--------\n";
         my $sz = &sum_lengths($contigs);
         print "total size of contigs=$sz\n";
+	print "number universal=$num_univ\n";
+	print "number extra universals=$num_extra\n";
+	my $c1 = 1;
+	my $c2 = 5;
+	my $sc = ($c1 * $num_univ) - ($c2 * $num_extra);
+	print "score=$sc\n";
         print "//\n\n";
     }
 }
