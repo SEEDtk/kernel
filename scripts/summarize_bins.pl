@@ -78,7 +78,6 @@ sub display_univ {
 	    }
 	}
     }
-    die "HERE";
 }
  
 sub count_ref {
