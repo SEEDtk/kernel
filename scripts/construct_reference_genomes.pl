@@ -51,9 +51,10 @@ sub pull_ref_contigs
         {
             mkdir($giD, 0777);
         }
-        my $obj = Shrub::GTO->new($shrub, $g);
+        my $obj;
         if (! -s "$giD/blast.out.dna")
         {
+            $obj //= Shrub::GTO->new($shrub, $g);
             $obj->write_contigs_to_file("$giD/reference.contigs");
             my @matches = gjo::BlastInterface::blastn("$giD/reference.contigs", $contigF, { dust => 'no', maxE => $maxE });
             open(SIMS, ">$giD/blast.out.dna") || die "Could not open $giD/blast.out.dna: $!";
@@ -64,6 +65,7 @@ sub pull_ref_contigs
         }
         if (! -s "$giD/blast.out.protein")
         {
+            $obj //= Shrub::GTO->new($shrub, $g);
             # Get protein translation FASTA.
             $obj->write_protein_translations_to_file("$giD/reference.translations");
             my @matches = gjo::BlastInterface::tblastn("$giD/reference.translations", $contigF, { maxE => $maxE });
@@ -75,6 +77,7 @@ sub pull_ref_contigs
         }
         if (! -s "$giD/genome.gto")
         {
+            $obj //= Shrub::GTO->new($shrub, $g);
             $obj->destroy_to_file("$giD/genome.gto");
         }
     }
