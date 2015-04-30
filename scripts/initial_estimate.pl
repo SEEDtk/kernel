@@ -36,6 +36,10 @@ my $opt = ScriptUtils::Opts(
         'maximum acceptable coverage ratio for condensing',
         { default => 1.2 }
     ],
+    [
+        'univLimit|ul=n',
+        'maximum number of duplicate universal proteins in a set', { default => 2 }
+    ],
 );
 
 my $blast_type = $opt->blast;
@@ -50,6 +54,7 @@ my $min_len         = $opt->minlen;
 my $min_sim         = $opt->minsim;
 my $normalize       = $opt->normalize;
 my $covg_constraint = $opt->covgratio;
+my $univ_limit      = $opt->univlimit;
 
 my %univ_roles = map { chomp; ( $_ => 1 ) } <DATA>;
 opendir( REFD, $refD ) || die "Could not access $refD";
@@ -240,7 +245,7 @@ sub covg_ok
 sub univ_ok
 {
     my ( $univ1, $univ2 ) = @_;
-    return ( &in_common( $univ1, $univ2 ) < 3 );
+    return ( &in_common( $univ1, $univ2 ) <= $univ_limit );
 }
 
 sub in_common

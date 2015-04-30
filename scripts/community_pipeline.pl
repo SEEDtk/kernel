@@ -71,9 +71,9 @@ no results.
 
 =item normalize
 
-If specified, the similarity vectors will be normalized to a unit length. This will place greater
+If C<1>, the similarity vectors will be normalized to a unit length. This will place greater
 reliance on relative scale of matching rather than absolute percentages when partitioning contigs
-into bins.
+into bins. The default is C<0>.
 
 =item data
 
@@ -103,6 +103,18 @@ community sample.
 The name of a file containing a list of the representative genomes. The community will be analyzed to find sets of
 contigs each of which resembles one of these representative genomes. The file is tab-delimited, with the genome ID
 in the first column and the genome name in the second.
+
+=item univLimit
+
+Maximum number of overlapping universal proteins allowed in a contig partition when the sample contigs are being grouped
+together.
+
+=item parmFile
+
+If specified, the name of a file containing alternate parameter values. The file is space-delimited: each record begins
+with a parameter name (long form) and is followed by one or more parameter values. All combinations of the parameter
+values will be tried. The permissible parameters are C<blast>, C<minlen>, C<maxpsc>, C<minsim>, C<covgRatio>, C<univLimit>,
+and C<normalize>. The output files (C<bins>, C<bins.summary>, and C<parms>) will be given numeric suffixes to distinguish them.
 
 =back
 
@@ -146,17 +158,27 @@ A JSON-format L<GenomeTypeObject> for the genome.
 
 A FASTA file for the genome's contigs.
 
-=item blast.out.protein, blast.out.dna
+=item blast.out.dna
 
 The BLAST output from comparing the genome's contigs to the contigs in the community sample.
 
+=item blast.out.protein
+
+The BLAST output from comparing the genome's proteins to the contigs in the community sample.
+
 =back
 
-=item saved.sim.vecs
+=item saved.p.sim.vecs
 
-A tab-delimited file of similarity vectors. If present, the vectors will not be recomputed. Each record in the file
-contains (0) a similarity score, (1) the ID of a source contig in the input sample, (2) the ID of a second contig in
-the input sample.
+A tab-delimited file of similarity vectors based on the protein BLAST results. If present, the vectors will not be
+recomputed. Each record in the file contains (0) a similarity score, (1) the ID of a source contig in the input
+sample, (2) the ID of a second contig in the input sample.
+
+=item saved.n.sim.vecs
+
+A tab-delimited file of similarity vectors based on the DNA BLAST results. If present, the vectors will not be
+recomputed. Each record in the file contains (0) a similarity score, (1) the ID of a source contig in the input
+sample, (2) the ID of a second contig in the input sample.
 
 =item bins
 
@@ -196,6 +218,10 @@ reference genome was the closest match to a contig, (1) the total length of the 
 and (2) the name of the reference genome. The contig size count consists of the text C<total size of contigs>, an
 equal sign (C<=>), and the total number of base pairs in all the contigs belonging to the bin.
 
+=item parms
+
+A tab-delimited file listing the major tuning parameters and their values.
+
 =back
 
 =cut
@@ -206,7 +232,6 @@ my $opt =
                         [ 'minlen|l=i', 'minimum length for blast match to count', { default => 500 } ],
                         [ 'maxpsc|p=f', 'maximum pscore for blast match to count', { default => 1.0e-100 } ],
                         [ 'minsim|s=f', 'minimum % identity for condensing', { default => 7000 } ],
-                        [ 'normalize', 'use normalized distances'],
                         [ 'maxExpect|e=f', 'maximum E-value for BLASTing', { default => 1e-50 } ],
                         [ 'data|d=s', 'Data Directory for Community Pipeline', { required => 1 } ],
                         [ 'sample|c=s','community DNA sample in fasta format', { } ],
@@ -214,6 +239,9 @@ my $opt =
                         [ 'minkhits|k=i','minimum number hits to be a reference', { default => 400 } ],
                         [ 'refsf|r=s','File of potential reference genomes', { } ],
                         [ 'covgRatio|cr=s', 'maximum acceptable coverage ratio for condensing', { default => 1.2 }],
+                        [ 'univLimit|ul=i', 'maximum number of duplicate universal proteins in a set', { default => 2 }],
+                        [ 'normalize=i', 'use normalized distances', { default => 0}],
+                        [ 'parmFile=s', 'parameter specification file'],
     );
 
 my $blast_type = $opt->blast;
@@ -223,12 +251,17 @@ my $dataD      = $opt->data;
 my $sample     = $opt->sample;
 my $sample_id  = $opt->samplename;
 my $refsF      = $opt->refsf;
+my $maxE       = $opt->maxexpect;
 my $min_hits   = $opt->minkhits;
-my $max_psc    = $opt->maxpsc;
-my $min_len    = $opt->minlen;
-my $min_sim    = $opt->minsim;
-my $cr         = $opt->covgratio;
 
+my %parms;
+$parms{blast}     = $blast_type;
+$parms{maxpsc}    = $opt->maxpsc;
+$parms{minlen}    = $opt->minlen;
+$parms{minsim}    = $opt->minsim;
+$parms{covgRatio} = $opt->covgratio;
+$parms{univLimit} = $opt->univlimit;
+$parms{normalize} = $opt->normalize;
 
 if (! -d $dataD) { mkdir($dataD,0777) || die "could not make $dataD" }
 
@@ -252,7 +285,64 @@ if (! -s "$dataS/repk.json")
 if (! -s "$dataS/ref.counts") {
     &SeedUtils::run("get_closest_representative_genomes -d $dataS/repk.json < $dataS/sample.fa > $dataS/ref.counts");
 }
-&SeedUtils::run("construct_reference_genomes -c $dataS/sample.fa -m $min_hits -r $dataS/RefD < $dataS/ref.counts");
-my $norm = $opt->normalize ? '-n' : '';
-&SeedUtils::run("initial_estimate -b $blast_type -r $dataS/RefD -c $dataS/ref.counts -l $min_len -p $max_psc -s $min_sim $norm -v $dataS/saved.sim.vecs --cr $cr -u $dataS/contig.to.uni > $dataS/bins");
-&SeedUtils::run("summarize_bins -c $dataS/contig.to.uni < $dataS/bins > $dataS/bins.summary");
+&SeedUtils::run("construct_reference_genomes -c $dataS/sample.fa -m $min_hits -e $maxE -r $dataS/RefD < $dataS/ref.counts");
+
+if (! $opt->parmfile) {
+    Process(\%parms);
+} else {
+    my %parmQ;
+    open(PARMS, "<", $opt->parmfile) || die "Could not open parameter file: $!";
+    while (defined (my $line = <PARMS>)) {
+        chomp $line;
+        my ($parm, @values) = split ' ', $line;
+        if (! exists $parms{$parm}) {
+            die "Invalid parameter name: $parm.";
+        }
+        $parmQ{$parm} = \@values;
+    }
+    close PARMS;
+    my $runN = 1;
+    my @keyQ = sort keys %parmQ;
+    my @qPos = map { 0 } @keyQ;
+    my @qLen = map { scalar @{$parmQ{$_}} } @keyQ;
+    for my $parm (@keyQ) {
+        $parms{$parm} = $parmQ{$parm}[0];
+    }
+    # We treat our positions in the parameter queues as a number with a variable
+    # radix, and increment it each time. When a digit position overflows, we reset it to 0 and
+    # increment the next position. So, if our parm value counts are 2,3,2 our numbers would go
+    # 0,0,0 - 0,0,1 - 0,1,0 - 0,1,1 - 0,2,0 - 0,2,1 - 1,0,0 - etc.
+    while ($qPos[0] < $qLen[0]) {
+        print STDERR "Parameter run $runN.\n";
+        Process(\%parms, $runN);
+        $runN++;
+        my $idx = $#keyQ;
+        my $done = 0;
+        while (! $done && $idx >= 0) {
+            $qPos[$idx]++;
+            if ($qPos[$idx] >= $qLen[$idx]) {
+                $qPos[$idx] = 0;
+            } else {
+                $done = 1;
+            }
+            $parms{$keyQ[$idx]} = $parmQ{$keyQ[$idx]}[$qPos[$idx]];
+            $idx--;
+        }
+    }
+
+}
+
+sub Process {
+    my ($parms, $suffix) = @_;
+    my $realSuffix = (defined $suffix ? ".$suffix" : '');
+    my $norm = $parms->{normalize} ? '-n' : '';
+    open(PARMS, ">$dataS/parms$realSuffix") || die "Could not open parms file: $!";
+    for my $parm (sort keys %$parms) {
+        print PARMS "$parm = $parms->{$parm}\n";
+    }
+    close PARMS;
+    my $cmd = "initial_estimate -b $parms->{blast} -r $dataS/RefD -c $dataS/ref.counts -l $parms->{minlen} -p $parms->{maxpsc} -s $parms->{minsim} $norm -v $dataS/saved.$parms->{blast}.sim.vecs -u $dataS/contig.to.uni --cr $parms->{covgRatio} --ul $parms->{univLimit} > $dataS/bins$realSuffix";
+    &SeedUtils::run($cmd);
+    &SeedUtils::run("summarize_bins -c $dataS/contig.to.uni < $dataS/bins$realSuffix > $dataS/bins.summary$realSuffix");
+}
+
