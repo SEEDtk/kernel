@@ -1,11 +1,12 @@
 use strict;
 use Data::Dumper;
 use ScriptUtils;
+use File::Slurp;
 
 my $opt =
   ScriptUtils::Opts( '',
                      ScriptUtils::ih_options(),
-		     [ 'c2uni|c=s','File connecting contigs to uni roles',{ required => 1}],
+                     [ 'c2uni|c=s','File connecting contigs to uni roles',{ required => 1}],
                      [ 'c1|u=f', 'incr for universal match', { default => 1 } ],
                      [ 'c2|e=f', 'decr for duplicate universal match', { default => 5} ]
     );
@@ -15,7 +16,7 @@ my $c1 = $opt->c1;
 my $c2 = $opt->c2;
 
 my %uni2contigs;
-foreach $_ (`cat $c2uni`)
+foreach $_ (File::Slurp::read_file($c2uni))
 {
     chomp;
     my($contig,$role) = split(/\t/,$_);
@@ -39,11 +40,11 @@ sub process_1 {
     {
         my $contigs = $1;
         my $univs = $2;
-	my @univ = map { ($_ =~ /^(\d+)\t(\S.*\S)/) ? [$1,$2] : () } split(/\n/,$univs);
-	my $num_univ = @univ;
-	my @extra = grep { $_->[0] > 1 } @univ;
-	my $num_extra = @extra;
-	&display_univ(\@univ,$uni2contigs,$contigs);
+        my @univ = map { ($_ =~ /^(\d+)\t(\S.*\S)/) ? [$1,$2] : () } split(/\n/,$univs);
+        my $num_univ = @univ;
+        my @extra = grep { $_->[0] > 1 } @univ;
+        my $num_extra = @extra;
+        &display_univ(\@univ,$uni2contigs,$contigs);
         print "\n--------\n";
         my @counts = &count_ref($contigs);
         foreach my $tuple (@counts)
@@ -53,10 +54,10 @@ sub process_1 {
         print "\n--------\n";
         my $sz = &sum_lengths($contigs);
         print "total size of contigs=$sz\n";
-	print "number universal=$num_univ\n";
-	print "number extra universals=$num_extra\n";
- 	my $sc = ($c1 * $num_univ) - ($c2 * $num_extra);
-	print "score=$sc\n";
+        print "number universal=$num_univ\n";
+        print "number extra universals=$num_extra\n";
+         my $sc = ($c1 * $num_univ) - ($c2 * $num_extra);
+        print "score=$sc\n";
         print "//\n\n";
     }
 }
@@ -66,20 +67,20 @@ sub display_univ {
     my %binned_contigs = map { ($_ =~ /^([^\n]+)/) ? ($1 => 1) : () } split(/\n\n/,$contigs);
     foreach my $tuple (@$univs)
     {
-	my($n,$role) = @$tuple;
-	print join("\t",@$tuple),"\n";
-	my $contigs = $uni2contigs->{$role};
-	my %this_bin = map { ($_ => 1 ) } grep { $binned_contigs{$_} } @$contigs;
-	if ($contigs && ($n > 1))
-	{
-	    foreach my $contig (sort keys(%this_bin))
-	    {
-		print "\t\t$contig\n";
-	    }
-	}
+        my($n,$role) = @$tuple;
+        print join("\t",@$tuple),"\n";
+        my $contigs = $uni2contigs->{$role};
+        my %this_bin = map { ($_ => 1 ) } grep { $binned_contigs{$_} } @$contigs;
+        if ($contigs && ($n > 1))
+        {
+            foreach my $contig (sort keys(%this_bin))
+            {
+                print "\t\t$contig\n";
+            }
+        }
     }
 }
- 
+
 sub count_ref {
     my($contigs) = @_;
 
