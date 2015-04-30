@@ -43,7 +43,7 @@ sub process_1 {
 	my $num_univ = @univ;
 	my @extra = grep { $_->[0] > 1 } @univ;
 	my $num_extra = @extra;
-	&display_univ(\@univ,$uni2contigs);
+	&display_univ(\@univ,$uni2contigs,$contigs);
         print "\n--------\n";
         my @counts = &count_ref($contigs);
         foreach my $tuple (@counts)
@@ -62,21 +62,23 @@ sub process_1 {
 }
 
 sub display_univ {
-    my($univs,$uni2contigs) = @_;
-
+    my($univs,$uni2contigs,$contigs) = @_;
+    my %binned_contigs = map { ($_ =~ /^([^\n]+)/) ? ($1 => 1) : () } split(/\n\n/,$contigs);
     foreach my $tuple (@$univs)
     {
 	my($n,$role) = @$tuple;
 	print join("\t",@$tuple),"\n";
 	my $contigs = $uni2contigs->{$role};
+	my %this_bin = map { ($_ => 1 ) } grep { $binned_contigs{$_} } @$contigs;
 	if ($contigs && ($n > 1))
 	{
-	    foreach my $contig (@$contigs)
+	    foreach my $contig (sort keys(%this_bin))
 	    {
-		print "\t$contig\n";
+		print "\t\t$contig\n";
 	    }
 	}
     }
+    die "HERE";
 }
  
 sub count_ref {

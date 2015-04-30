@@ -255,4 +255,4 @@ if (! -s "$dataS/ref.counts") {
 &SeedUtils::run("construct_reference_genomes -c $dataS/sample.fa -m $min_hits -r $dataS/RefD < $dataS/ref.counts");
 my $norm = $opt->normalize ? '-n' : '';
 &SeedUtils::run("initial_estimate -b $blast_type -r $dataS/RefD -c $dataS/ref.counts -l $min_len -p $max_psc -s $min_sim $norm -v $dataS/saved.sim.vecs --cr $cr -u $dataS/contig.to.uni > $dataS/bins");
-&SeedUtils::run("summarize_bins < $dataS/bins > $dataS/bins.summary");
+&SeedUtils::run("summarize_bins -c $dataS/contig.to.uni < $dataS/bins > $dataS/bins.summary");
