@@ -25,7 +25,7 @@ foreach $_ (File::Slurp::read_file($c2uni))
 
 $/ = "\n//\n";
 
-while (defined ($_ = <STDIN>))
+while (defined ($_ = <$ih>))
 {
     $/ = "\n";
     # Process the data for a bin.
@@ -47,15 +47,18 @@ sub process_1 {
         &display_univ(\@univ,$uni2contigs,$contigs);
         print "\n--------\n";
         my @counts = &count_ref($contigs);
-        foreach my $tuple (@counts)
+        foreach my $tuple (@counts[0..9])
         {
-            print join("\t",@$tuple),"\n";
+            if ($tuple) {
+                print join("\t",@$tuple),"\n";
+            }
         }
         print "\n--------\n";
-        my $sz = &sum_lengths($contigs);
+        my ($sz,$cv) = &sum_lengths($contigs);
         print "total size of contigs=$sz\n";
         print "number universal=$num_univ\n";
         print "number extra universals=$num_extra\n";
+        print "average coverage=$cv\n";
          my $sc = ($c1 * $num_univ) - ($c2 * $num_extra);
         print "score=$sc\n";
         print "//\n\n";
@@ -104,13 +107,15 @@ sub sum_lengths {
     my($contigs) = @_;
 
     my $tot=0;
+    my $cvg=0;
     my @entries = split(/\n\n/,$contigs);
     foreach my $x (@entries)
     {
-        if ($x =~ /length_(\d+)/)
+        if ($x =~ /length_(\d+)_cov_([\d\.]+)/)
         {
             $tot += $1;
+            $cvg += $1*$2;
         }
     }
-    return $tot;
+    return ($tot, $cvg/$tot);
 }

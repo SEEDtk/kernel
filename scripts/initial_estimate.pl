@@ -40,6 +40,10 @@ my $opt = ScriptUtils::Opts(
         'univLimit|ul=n',
         'maximum number of duplicate universal proteins in a set', { default => 2 }
     ],
+    [
+        'minCovg|C=f',
+        'minimum coverage amount for a community sample contig', { default => 0 }
+    ],
 );
 
 my $blast_type = $opt->blast;
@@ -55,6 +59,7 @@ my $min_sim         = $opt->minsim;
 my $normalize       = $opt->normalize;
 my $covg_constraint = $opt->covgratio;
 my $univ_limit      = $opt->univlimit;
+my $min_covg        = $opt->mincovg;
 
 my %univ_roles = map { chomp; ( $_ => 1 ) } <DATA>;
 opendir( REFD, $refD ) || die "Could not access $refD";
@@ -75,7 +80,7 @@ my $univ_in_ref =
 
 my ( $contig_similarities_to_ref, $univ_in_contigs ) =
   &process_blast_against_refs( \@refs, $refD, $univ_in_ref, $min_len, $max_psc,
-    $blast_type );
+    $blast_type, $min_covg );
 
 if ($uni_contigsF)
 {
@@ -124,11 +129,11 @@ sub write_unis_in_contigs {
     open(UNI,">$uni_contigsF") || die "could not open $uni_contigsF";
     foreach my $contig (sort keys(%$univ_in_contigs))
     {
-	my $x = $univ_in_contigs->{$contig};
-	foreach my $univ (sort keys(%$x))
-	{
-	    print UNI join("\t",($contig,$univ)),"\n";
-	}
+        my $x = $univ_in_contigs->{$contig};
+        foreach my $univ (sort keys(%$x))
+        {
+            print UNI join("\t",($contig,$univ)),"\n";
+        }
     }
     close(UNI);
 }
@@ -437,7 +442,7 @@ sub unit_vector
 
 sub process_blast_against_refs
 {
-    my ( $refs, $refD, $univ_in_ref, $min_len, $max_psc, $blast_type ) = @_;
+    my ( $refs, $refD, $univ_in_ref, $min_len, $max_psc, $blast_type, $min_covg ) = @_;
 
     my $contig_similarities_to_ref = {};
     my $univ_in_contigs            = {};
@@ -455,7 +460,10 @@ sub process_blast_against_refs
                 $ref_id, $contig_id, $iden, undef, undef, undef,
                 $rbeg,   $rend,      $beg,  $end,  $psc,  $bsc
             ) = split( /\s+/, $_ );
-            if ( ( $psc <= $max_psc ) && ( abs( $end - $beg ) >= $min_len ) )
+            $contig_id =~ /cov_([\d\.]+)/;
+            my $covg = $1 // 0;
+            if ( ($covg >= $min_covg) &&
+                ( $psc <= $max_psc ) && ( abs( $end - $beg ) >= $min_len ) )
             {
                 if ( ( !$contig_similarities_to_ref->{$contig_id}->{$r} )
                     || ( $contig_similarities_to_ref->{$contig_id}->{$r} <

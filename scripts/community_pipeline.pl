@@ -116,6 +116,11 @@ with a parameter name (long form) and is followed by one or more parameter value
 values will be tried. The permissible parameters are C<blast>, C<minlen>, C<maxpsc>, C<minsim>, C<covgRatio>, C<univLimit>,
 and C<normalize>. The output files (C<bins>, C<bins.summary>, and C<parms>) will be given numeric suffixes to distinguish them.
 
+=item minCovg
+
+The minimum coverage amount for a contig in the community sample. Only contigs with a coverage value greater than or equal
+to this parameter will be included in the output. The default is C<0>, which means all are included.
+
 =back
 
 =head2 Output
@@ -242,6 +247,7 @@ my $opt =
                         [ 'univLimit|ul=i', 'maximum number of duplicate universal proteins in a set', { default => 2 }],
                         [ 'normalize=i', 'use normalized distances', { default => 0}],
                         [ 'parmFile=s', 'parameter specification file'],
+                        [ 'minCovg|C=f', 'minimum coverage amount for a community sample contig', { default => 0 }],
     );
 
 my $blast_type = $opt->blast;
@@ -262,6 +268,7 @@ $parms{minsim}    = $opt->minsim;
 $parms{covgRatio} = $opt->covgratio;
 $parms{univLimit} = $opt->univlimit;
 $parms{normalize} = $opt->normalize;
+$parms{minCovg}   = $opt->mincovg;
 
 if (! -d $dataD) { mkdir($dataD,0777) || die "could not make $dataD" }
 
@@ -341,7 +348,7 @@ sub Process {
         print PARMS "$parm = $parms->{$parm}\n";
     }
     close PARMS;
-    my $cmd = "initial_estimate -b $parms->{blast} -r $dataS/RefD -c $dataS/ref.counts -l $parms->{minlen} -p $parms->{maxpsc} -s $parms->{minsim} $norm -v $dataS/saved.$parms->{blast}.sim.vecs -u $dataS/contig.to.uni --cr $parms->{covgRatio} --ul $parms->{univLimit} > $dataS/bins$realSuffix";
+    my $cmd = "initial_estimate -b $parms->{blast} -r $dataS/RefD -c $dataS/ref.counts -l $parms->{minlen} -p $parms->{maxpsc} -s $parms->{minsim} $norm -v $dataS/saved.$parms->{blast}.sim.vecs -u $dataS/contig.to.uni --cr $parms->{covgRatio} --ul $parms->{univLimit} --minCovg $parms->{minCovg} > $dataS/bins$realSuffix";
     &SeedUtils::run($cmd);
     &SeedUtils::run("summarize_bins -c $dataS/contig.to.uni < $dataS/bins$realSuffix > $dataS/bins.summary$realSuffix");
 }
