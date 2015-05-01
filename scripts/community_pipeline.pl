@@ -319,11 +319,12 @@ if (! $opt->parmfile) {
     # radix, and increment it each time. When a digit position overflows, we reset it to 0 and
     # increment the next position. So, if our parm value counts are 2,3,2 our numbers would go
     # 0,0,0 - 0,0,1 - 0,1,0 - 0,1,1 - 0,2,0 - 0,2,1 - 1,0,0 - etc.
-    while ($qPos[0] < $qLen[0]) {
+    my $idx;
+    while ($idx >= 0) {
         print STDERR "Parameter run $runN.\n";
         Process(\%parms, $runN);
         $runN++;
-        my $idx = $#keyQ;
+        $idx = $#keyQ;
         my $done = 0;
         while (! $done && $idx >= 0) {
             $qPos[$idx]++;
