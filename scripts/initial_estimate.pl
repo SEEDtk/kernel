@@ -275,7 +275,6 @@ sub initial_sets
     my $sets          = {};
     my $contig_to_set = {};
     my $nxt_set       = 1;
-
     foreach my $contig (@$contigs)
     {
         my $univ = $univ_in_contigs->{$contig};
@@ -386,7 +385,7 @@ sub sims_ok
 
     my $tot = 0;
     foreach $_ (@$v) { $tot += $_ }
-    return ( $tot < 500 );
+    return (( $tot > 30) && ($tot < 10000))
 }
 
 sub dot_product
@@ -449,7 +448,7 @@ sub process_blast_against_refs
 
     my $blast_out =
       ( $blast_type =~ /^[pP]/ ) ? 'blast.out.protein' : 'blast.out.dna';
-    foreach my $r (@$refs)
+    foreach my $r (sort @$refs)
     {
         my $dir = "$refD/$r";
         open( BLAST, "<$dir/$blast_out" ) || die "$dir/$blast_out is missing";
@@ -459,15 +458,14 @@ sub process_blast_against_refs
             my (
                 $ref_id, $contig_id, $iden, undef, undef, undef,
                 $rbeg,   $rend,      $beg,  $end,  $psc,  $bsc
-            ) = split( /\s+/, $_ );
+               ) = split( /\s+/, $_ );
             $contig_id =~ /cov_([\d\.]+)/;
+
             my $covg = $1 // 0;
-            if ( ($covg >= $min_covg) &&
-                ( $psc <= $max_psc ) && ( abs( $end - $beg ) >= $min_len ) )
+            if ( ($covg >= $min_covg) && ( $psc <= $max_psc ) && ( abs( $end - $beg ) >= $min_len ) )
             {
-                if ( ( !$contig_similarities_to_ref->{$contig_id}->{$r} )
-                    || ( $contig_similarities_to_ref->{$contig_id}->{$r} <
-                        $iden ) )
+                if ( ( ! defined($contig_similarities_to_ref->{$contig_id}->{$r})) || 
+		     ( $contig_similarities_to_ref->{$contig_id}->{$r} <  $iden))
                 {
                     $contig_similarities_to_ref->{$contig_id}->{$r} = $iden;
                 }
@@ -489,6 +487,7 @@ sub process_blast_against_refs
                 }
             }
         }
+	close(BLAST);
     }
     return ( $contig_similarities_to_ref, $univ_in_contigs );
 }
