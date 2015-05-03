@@ -304,9 +304,10 @@ sub similarities_between_contig_vecs
 
     if ( $save_vecsF && ( -s $save_vecsF ) )
     {
+        open(my $ih, "<", $save_vecsF) || die "Cannot open saved vectors: $!";
         return sort { $b->[0] <=> $a->[0] }
-          map { [ split( /\t/, $_ ) ] }
-          File::Slurp::read_file( $save_vecsF, 'chomp' => 1 );
+          map { chomp; [ split( /\t/, $_ ) ] }
+          <$ih>;
     }
     else
     {
@@ -464,8 +465,8 @@ sub process_blast_against_refs
             my $covg = $1 // 0;
             if ( ($covg >= $min_covg) && ( $psc <= $max_psc ) && ( abs( $end - $beg ) >= $min_len ) )
             {
-                if ( ( ! defined($contig_similarities_to_ref->{$contig_id}->{$r})) || 
-		     ( $contig_similarities_to_ref->{$contig_id}->{$r} <  $iden))
+                if ( ( ! defined($contig_similarities_to_ref->{$contig_id}->{$r})) ||
+                     ( $contig_similarities_to_ref->{$contig_id}->{$r} <  $iden))
                 {
                     $contig_similarities_to_ref->{$contig_id}->{$r} = $iden;
                 }
@@ -487,7 +488,7 @@ sub process_blast_against_refs
                 }
             }
         }
-	close(BLAST);
+        close(BLAST);
     }
     return ( $contig_similarities_to_ref, $univ_in_contigs );
 }
