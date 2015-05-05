@@ -100,7 +100,7 @@ sub count_ref {
         }
     }
 
-    return sort { $b->[0] <=> $a->[0] } map { [$counts{$_},$bp{$_},$_] } keys(%counts);
+    return sort { $b->[1] <=> $a->[1] } map { [$counts{$_},$bp{$_},$_] } keys(%counts);
 }
 
 sub sum_lengths {
