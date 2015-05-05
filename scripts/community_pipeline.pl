@@ -102,7 +102,8 @@ community sample.
 
 The name of a file containing a list of the representative genomes. The community will be analyzed to find sets of
 contigs each of which resembles one of these representative genomes. The file is tab-delimited, with the genome ID
-in the first column and the genome name in the second.
+in the first column and the genome name in the second. The default is C<representative.genomes> in the SEEDtk global
+data directory.
 
 =item univLimit
 
@@ -242,7 +243,7 @@ my $opt =
                         [ 'sample|c=s','community DNA sample in fasta format', { } ],
                         [ 'samplename|n=s','environmental Sample Name', { required => 1 } ],
                         [ 'minkhits|k=i','minimum number hits to be a reference', { default => 400 } ],
-                        [ 'refsf|r=s','File of potential reference genomes', { } ],
+                        [ 'refsf|r=s','File of potential reference genomes', { default => "$FIG_Config::global/representative.genomes" } ],
                         [ 'covgRatio|cr=s', 'maximum acceptable coverage ratio for condensing', { default => 1.2 }],
                         [ 'univLimit|ul=i', 'maximum number of duplicate universal proteins in a set', { default => 2 }],
                         [ 'normalize=i', 'use normalized distances', { default => 0}],

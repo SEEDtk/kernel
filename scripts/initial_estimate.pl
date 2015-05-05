@@ -61,7 +61,7 @@ my $covg_constraint = $opt->covgratio;
 my $univ_limit      = $opt->univlimit;
 my $min_covg        = $opt->mincovg;
 
-my %univ_roles = map { chomp; ( $_ => 1 ) } <DATA>;
+my %univ_roles = map { $_ => 1 } File::Slurp::read_file("$FIG_Config::global/uni.roles", { chomp => 1 });
 opendir( REFD, $refD ) || die "Could not access $refD";
 my @refs = sort { $a <=> $b } grep { $_ !~ /^\./ } readdir(REFD);
 my %refs = map { ( $_ => 1 ) } @refs;
@@ -581,103 +581,3 @@ sub fids_of_univ_roles_in_refs {
     }
     return $univ_in_ref;
 }
-
-__DATA__
-Phenylalanyl-tRNA synthetase alpha chain (EC 6.1.1.20)
-Phenylalanyl-tRNA synthetase beta chain (EC 6.1.1.20)
-Preprotein translocase secY subunit (TC 3.A.5.1.1)
-GTP-binding and nucleic acid-binding protein YchF
-Translation initiation factor 2
-Signal recognition particle, subunit Ffh SRP54 (TC 3.A.5.1.1)
-Histidyl-tRNA synthetase (EC 6.1.1.21)
-Isoleucyl-tRNA synthetase (EC 6.1.1.5)
-Methionyl-tRNA synthetase (EC 6.1.1.10)
-Seryl-tRNA synthetase (EC 6.1.1.11)
-Alanyl-tRNA synthetase (EC 6.1.1.7)
-Valyl-tRNA synthetase (EC 6.1.1.9)
-LSU ribosomal protein L11p (L12e)
-Leucyl-tRNA synthetase (EC 6.1.1.4)
-Arginyl-tRNA synthetase (EC 6.1.1.19)
-tRNA (Guanine37-N1) -methyltransferase (EC 2.1.1.31)
-LSU ribosomal protein L3p (L3e)
-SSU ribosomal protein S8p (S15Ae)
-LSU ribosomal protein L27p
-SSU ribosomal protein S19p (S15e)
-LSU ribosomal protein L1p (L10Ae)
-SSU ribosomal protein S17p (S11e)
-Translation elongation factor Ts
-LSU ribosomal protein L6p (L9e)
-SSU ribosomal protein S15p (S13e)
-Threonyl-tRNA synthetase (EC 6.1.1.3)
-LSU ribosomal protein L10p (P0)
-SSU ribosomal protein S10p (S20e)
-SSU ribosomal protein S6p
-Signal recognition particle receptor protein FtsY (=alpha subunit) (TC 3.A.5.1.1)
-SSU ribosomal protein S13p (S18e)
-SSU ribosomal protein S7p (S5e)
-LSU ribosomal protein L14p (L23e)
-LSU ribosomal protein L15p (L27Ae)
-LSU ribosomal protein L16p (L10e)
-SSU ribosomal protein S3p (S3e)
-LSU ribosomal protein L20p
-LSU ribosomal protein L5p (L11e)
-Transcription termination protein NusA
-Ribonuclease HII (EC 3.1.26.4)
-SSU ribosomal protein S16p
-SSU ribosomal protein S11p (S14e)
-SSU ribosomal protein S2p (SAe)
-Tyrosyl-tRNA synthetase (EC 6.1.1.1)
-SSU ribosomal protein S9p (S16e)
-Peptide chain release factor 1
-SSU ribosomal protein S12p (S23e)
-LSU ribosomal protein L24p (L26e)
-LSU ribosomal protein L9p
-LSU ribosomal protein L18p (L5e)
-LSU ribosomal protein L13p (L13Ae)
-SSU ribosomal protein S5p (S2e)
-LSU ribosomal protein L2p (L8e)
-LSU ribosomal protein L19p
-LSU ribosomal protein L23p (L23Ae)
-SSU ribosomal protein S20p
-LSU ribosomal protein L17p
-Ribosome-binding factor A
-LSU ribosomal protein L4p (L1e)
-Translation initiation factor 3
-LSU ribosomal protein L22p (L17e)
-Cysteinyl-tRNA synthetase (EC 6.1.1.16)
-Peptidyl-tRNA hydrolase (EC 3.1.1.29)
-DNA-directed RNA polymerase alpha subunit (EC 2.7.7.6)
-Ribosome recycling factor
-Transcription antitermination protein NusG
-Excinuclease ABC subunit B
-CTP synthase (EC 6.3.4.2)
-Phosphoglycerate kinase (EC 2.7.2.3)
-Holliday junction DNA helicase RuvA
-LSU ribosomal protein L35p
-LSU ribosomal protein L21p
-tRNA pseudouridine synthase B (EC 5.4.99.25)
-tRNA(Ile)-lysidine synthetase (EC 6.3.4.19)
-Heat shock protein GrpE
-Orotidine 5'-phosphate decarboxylase (EC 4.1.1.23)
-Phosphoribosylformylglycinamidine cyclo-ligase (EC 6.3.3.1)
-DNA-directed RNA polymerase beta subunit (EC 2.7.7.6)
-Excinuclease ABC subunit C
-Transcription termination protein NusB
-Ribonuclease III (EC 3.1.26.3)
-UDP-N-acetylmuramoylalanine--D-glutamate ligase (EC 6.3.2.9)
-DNA gyrase subunit B (EC 5.99.1.3)
-Phosphopantetheine adenylyltransferase (EC 2.7.7.3)
-GTP-binding protein Era
-LSU ribosomal protein L29p (L35e)
-Tryptophanyl-tRNA synthetase (EC 6.1.1.2)
-GTP-binding protein EngA
-Recombination protein RecR
-Enolase (EC 4.2.1.11)
-Triosephosphate isomerase (EC 5.3.1.1)
-NAD kinase (EC 2.7.1.23)
-Polyribonucleotide nucleotidyltransferase (EC 2.7.7.8)
-Phospho-N-acetylmuramoyl-pentapeptide-transferase (EC 2.7.8.13)
-DNA-directed RNA polymerase beta' subunit (EC 2.7.7.6)
-Phosphoribosylamine--glycine ligase (EC 6.3.4.13)
-Orotate phosphoribosyltransferase (EC 2.4.2.10)
-Methionyl-tRNA formyltransferase (EC 2.1.2.9)
