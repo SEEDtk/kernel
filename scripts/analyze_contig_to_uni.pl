@@ -39,6 +39,7 @@ which specify the full name of the C<contig.to.uni> file.
 use strict;
 use Stats;
 
+my $opt = ScriptUtils::Opts('', ScriptUtils::ih_options());
 my $stats = Stats->new();
 my $line;
 my %uni;
@@ -48,7 +49,7 @@ while (defined($line = <$rh>)) {
     $uni{$line} = 1;
     $stats->Add($line, 0);
 }
-open(my $ih, "<$ARGV[0]") || die "Could not open input: $!";
+my $ih = ScriptUtils::IH($opt->input);
 while (! eof $ih) {
     $line = <$ih>; chomp $line;
     my ($contig, $uni) = split /\t/, $line;
