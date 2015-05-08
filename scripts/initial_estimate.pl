@@ -67,6 +67,9 @@ my @refs = sort { $a <=> $b } grep { $_ !~ /^\./ } readdir(REFD);
 my %refs = map { ( $_ => 1 ) } @refs;
 closedir(REFD);
 
+open(LOG, ">$FIG_Config::data/sets.log") || die "Could not open log file: $!"; ## TODO logging
+my %setNames; ## TODO logging
+
 my @lines = File::Slurp::read_file($ref_counts);
 my %ref_counts =
   map { ( ( $_ =~ /^(\d+)\t(\S+)/ ) && $refs{$1} ) ? ( $2 => $1 ) : () } @lines;
@@ -200,6 +203,7 @@ sub condense_sets
             && &covg_ok( $sets->{$set1}[2], $sets->{$set2}[2],
                 $covg_constraint ) )
         {
+            print LOG "Combining $set1 ($contig1) and $set2 ($contig2) with score $sc.\n";  ##TODO logging
             my $contigs_to_move = $sets->{$set2}->[0];
             foreach my $contig_in_set2 (@$contigs_to_move)
             {
@@ -292,6 +296,7 @@ sub initial_sets
             die "Invalid contig ID $contig.";
         }
         $sets->{$nxt_set} = [ [$contig], $univ, $covg, $length ];
+        $setNames{$nxt_set} = $contig; ## TODO logging
         $contig_to_set->{$contig} = $nxt_set;
         $nxt_set++;
     }
