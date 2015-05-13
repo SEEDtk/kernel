@@ -59,21 +59,56 @@ The maximum permissible p-score (Poisson distribution rating) for a blast match 
 This score is an indication of the degree to which a match may be random change. The default is
 C<1e-100>. A lower value will cause more conservative results.
 
+=item scoring
+
+Scoring method for determining how to group contigs. The base algorithm groups the contigs
+together by an abstract I<similarity score>. The similarity score is computed by one of the
+following methods, as determined by the value of this parameter.
+
+=over 8
+
+=item vector
+
+The score is computed by taking the dot product of the similarity vectors. A similarity vector
+contains the percent identity score against each reference genome.
+
+=item normvec
+
+The score is computed by taking the dot product of normalized similarity vectors. A similarity
+vector contains the percent identity score against each reference genome. The normalized
+vector is computed by dividing the vector coordinates by the vector length.
+
+=item signalrank
+
+The score is computed by ranking the signal strengths to the reference genome. The signal
+strength between a sample contig and a reference genoem is the sum of the percent identity
+times the match length for each BLAST match, an indication of how much of the contig
+matches the genome. The reference genomes are matched by the signal strength, and the score
+for two contigs is equal to the number of genome pairs with the same relative rank less
+twice the number with a different relative rank times 100.
+
+=item signaldist
+
+The score is computed by comparing the signal strengths to the reference genome. The signal
+strength between a sample contig and a reference genoem is the sum of the percent identity
+times the match length for each BLAST match, an indication of how much of the contig
+matches the genome. The reference genomes are matched by the signal strength, and the score
+for two contigs is an indication of how well the signal strengths match.
+
+=item signalbest
+
+The score is computed by comparing the signal strengths to the reference genome. The signal
+strength between a sample contig and a reference genoem is the sum of the percent identity
+times the match length for each BLAST match, an indication of how much of the contig
+matches the genome. The score is 0 if the best signal strength in each contig's vector is
+different, otherwise it is an indication of how close the strengths are.
+
+=back
+
 =item minsim
 
-The minimum similarity percentage for two community sample contigs to be considered for membership in
-the same bin.  This value is computed as a dot product of vectors. In the default situation, the
-vector coordinates run from 0 to 100, so a virtually perfect match would have a value of 10000.
-If the C<--normalize> parameter is specified, the vector lengths are always 1, so a perfect match
-would have a value of 1. The default is C<7000>. A larger value will cause more conservative
-results. If C<--normalize> is specified, then this parameter MUST be overridden or there will be
-no results.
-
-=item normalize
-
-If C<1>, the similarity vectors will be normalized to a unit length. This will place greater
-reliance on relative scale of matching rather than absolute percentages when partitioning contigs
-into bins. The default is C<0>.
+The minimum similarity score for two community sample contigs to be considered for membership in
+the same bin.
 
 =item data
 
@@ -174,17 +209,16 @@ The BLAST output from comparing the genome's proteins to the contigs in the comm
 
 =back
 
-=item saved.p.sim.vecs
+=item saved.vecs
 
-A tab-delimited file of similarity vectors based on the protein BLAST results. If present, the vectors will not be
-recomputed. Each record in the file contains (0) a similarity score, (1) the ID of a source contig in the input
+A tab-delimited file of similarity scores. The first record contains the blast type (C<p> or C<n>) followed
+by a space and the scoring type. If these do not match the current values, the file is recomputed. Each additional
+record in the file contains (0) a similarity score, (1) the ID of a source contig in the input
 sample, (2) the ID of a second contig in the input sample.
 
-=item saved.n.sim.vecs
+=item merge.log
 
-A tab-delimited file of similarity vectors based on the DNA BLAST results. If present, the vectors will not be
-recomputed. Each record in the file contains (0) a similarity score, (1) the ID of a source contig in the input
-sample, (2) the ID of a second contig in the input sample.
+A log file of messages describing the binning choices made.
 
 =item bins
 
@@ -249,6 +283,7 @@ my $opt =
                         [ 'normalize=i', 'use normalized distances', { default => 0}],
                         [ 'parmFile=s', 'parameter specification file'],
                         [ 'minCovg|C=f', 'minimum coverage amount for a community sample contig', { default => 0 }],
+                        [ 'scoring=s', 'scoring method', { default => 'vector' }],
     );
 
 my $blast_type = $opt->blast;
@@ -268,8 +303,8 @@ $parms{minlen}    = $opt->minlen;
 $parms{minsim}    = $opt->minsim;
 $parms{covgRatio} = $opt->covgratio;
 $parms{univLimit} = $opt->univlimit;
-$parms{normalize} = $opt->normalize;
 $parms{minCovg}   = $opt->mincovg;
+$parms{scoring}   = $opt->scoring;
 
 if (! -d $dataD) { mkdir($dataD,0777) || die "could not make $dataD" }
 
@@ -344,13 +379,12 @@ if (! $opt->parmfile) {
 sub Process {
     my ($parms, $suffix) = @_;
     my $realSuffix = (defined $suffix ? ".$suffix" : '');
-    my $norm = $parms->{normalize} ? '-n' : '';
     open(PARMS, ">$dataS/parms$realSuffix") || die "Could not open parms file: $!";
     for my $parm (sort keys %$parms) {
         print PARMS "$parm = $parms->{$parm}\n";
     }
     close PARMS;
-    my $cmd = "initial_estimate -b $parms->{blast} -r $dataS/RefD -c $dataS/ref.counts -l $parms->{minlen} -p $parms->{maxpsc} -s $parms->{minsim} $norm -v $dataS/saved.$parms->{blast}.sim.vecs -u $dataS/contig.to.uni --cr $parms->{covgRatio} --ul $parms->{univLimit} --minCovg $parms->{minCovg} > $dataS/bins$realSuffix";
+    my $cmd = "initial_estimate -b $parms->{blast} -r $dataS/RefD -c $dataS/ref.counts -l $parms->{minlen} -p $parms->{maxpsc} -s $parms->{minsim} -v $dataS/saved.vecs -u $dataS/contig.to.uni --cr $parms->{covgRatio} --ul $parms->{univLimit} --minCovg $parms->{minCovg} --scoring $parms->{scoring} --logFile $dataS/mergelog$realSuffix > $dataS/bins$realSuffix";
     &SeedUtils::run($cmd);
     &SeedUtils::run("summarize_bins -c $dataS/contig.to.uni < $dataS/bins$realSuffix > $dataS/bins.summary$realSuffix");
 }
