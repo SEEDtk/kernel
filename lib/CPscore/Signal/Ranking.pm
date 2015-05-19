@@ -39,9 +39,10 @@ Return the type sttring for this scoring method.
 
 sub type {
     my ($self) = @_;
-    my $retVal = 'signalrank';
+    my $retVal = $self->SUPER::type() . 'rank';
     return $retVal;
 }
+
 
 =head3 vector_compare
 

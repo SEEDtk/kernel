@@ -16,11 +16,11 @@
 #
 
 
-package CPscore::Signal::Best;
+package CPscore::Vector::Best;
 
     use strict;
     use warnings;
-    use base qw(CPscore::Signal);
+    use base qw(CPscore::Vector);
 
 =head1 Community Pipeline Vector Scoring
 
@@ -55,6 +55,7 @@ sub type {
     return $retVal;
 }
 
+
 =head3 init_vector_hash
 
     $scoring->init_vector_hash();
@@ -76,7 +77,7 @@ sub init_vector_hash {
     my $score = $scoring->vector_compare($contig1, $cv1, $contig2, $cv2);
 
 Compute the similarity score for a pair of contigs from their similarity vectors. Each similarity
-vector contains the scores computed by L<CPscore::Signal/update_vector_hash> in order by the relevant reference
+vector contains the scores computed by L<CPscore::Vector/update_vector_hash> in order by the relevant reference
 genome ID and formatted by L</store_vector>.
 
 =over 4

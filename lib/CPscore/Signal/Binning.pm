@@ -16,7 +16,7 @@
 #
 
 
-package CPscore::Signal::Distance;
+package CPscore::Signal::Binning;
 
     use strict;
     use warnings;
@@ -25,10 +25,7 @@ package CPscore::Signal::Distance;
 =head1 Community Pipeline Vector Scoring
 
 This is a community pipeline scoring object that computes the similarity between two sample contigs based on the
-relative distance of the signals in similarity signal vectors. The distance in this case is not a true metric
-distance. Instead, the vector is scored positively for matching nonzero coordinates and negatively for mismatches.
-If both coordinates are zero, they are ignored. Otherwise, the absolute value of the difference is taken
-and the score is incremented by 1/(1+I<x>), where I<x> is the percent difference.
+precise ordering of the signals in similarity signal vectors.
 
 =head2 Virtual Methods
 
@@ -42,7 +39,7 @@ Return the type sttring for this scoring method.
 
 sub type {
     my ($self) = @_;
-    my $retVal = $self->SUPER::type() . 'dist';
+    my $retVal = $self->SUPER::type() . 'bin';
     return $retVal;
 }
 
@@ -52,8 +49,9 @@ sub type {
     my $score = $scoring->vector_compare($contig1, $cv1, $contig2, $cv2);
 
 Compute the similarity score for a pair of contigs from their similarity vectors. Each similarity
-vector contains the scores computed by L<CPscore::Signal/update_vector_hash> in order by the relevant reference
-genome ID and formatted by L<CPscore/store_vector>.
+vector contains the scores computed by L<CPscore::Vector/update_vector_hash> in order by the relevant reference
+genome ID and formatted by L<CPscore/store_vector>. The score is C<1> if the two vectors have the same
+ordering and C<0> otherwise.
 
 =over 4
 
@@ -84,15 +82,25 @@ Returns the similarity score for the two contigs.
 sub vector_compare {
     # Get the parameters.
     my ($self, $contig1, $cv1, $contig2, $cv2) = @_;
-    # Loop through the two vectors.
-    my $retVal = 0;
+    # We need to find the coordinates in common. We put them into the following vector in the form
+    # [score1, score2].
+    my @scores;
     my $n = scalar @$cv1;
     for (my $i = 0; $i < $n; $i++) {
-        my $v1 = $cv1->[$i];
-        my $v2 = $cv2->[$i];
-        if ($v1 || $v2) {
-            my $x = (($v1 > $v2) ? ($v1 - $v2)/$v1 : ($v2 - $v1)/$v2);
-            $retVal += 1 / (1 + $x);
+        push @scores, [$cv1->[$i], $cv2->[$i]];
+    }
+    my @sorted = sort { $b->[0] <=> $a->[0] } @scores;
+    # The vector is now sorted by the CV1 scores, in order from largest to smallest.
+    # We will now compare every two positions. If a subsequent position has a greater
+    # CV2 score than a particular position, we have a failure and return 0.
+    my $retVal = 1;
+    $n = scalar(@sorted) - 1;
+    # Loop through the pairs, searchign for a mismatch.
+    for (my $i = 0; $i < $n && $retVal; $i++) {
+        my $sortedI = $sorted[$i][1];
+        my $sortedJ = $sorted[$i+1][1];
+        if ($sortedJ > $sortedI) {
+            $retVal = 0;
         }
     }
     # Return the tally.

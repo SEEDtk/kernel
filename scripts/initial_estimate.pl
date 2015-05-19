@@ -10,6 +10,8 @@ use CPscore::Vector;
 use CPscore::Signal::Ranking;
 use CPscore::Signal::Distance;
 use CPscore::Signal::Best;
+use CPscore::Vector::Binning;
+use CPscore::Vector::Best;
 
 # usage: initial_estimate -r reference.counts -d ReferenceDir > initial.estimate
 my $opt = ScriptUtils::Opts(
@@ -78,6 +80,10 @@ if ($scoringType eq 'vector') {
     $scoring = CPscore::Signal::Distance->new();
 } elsif ($scoringType eq 'signalbest') {
     $scoring = CPscore::Signal::Best->new();
+} elsif ($scoringType eq 'vectorbin') {
+    $scoring = CPscore::Vector::Binning->new();
+} elsif ($scoringType eq 'vectorbest') {
+    $scoring = CPscore::Vector::Best->new();
 } else {
     die "Invalid scoring type '$scoringType'.";
 }
@@ -282,7 +288,8 @@ sub covg_ok
 sub univ_ok
 {
     my ( $univ1, $univ2 ) = @_;
-    return ( &in_common( $univ1, $univ2 ) <= $univ_limit );
+    my $retVal = ( &in_common( $univ1, $univ2 ) <= $univ_limit );
+    return $retVal;
 }
 
 sub in_common

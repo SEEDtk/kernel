@@ -103,6 +103,11 @@ times the match length for each BLAST match, an indication of how much of the co
 matches the genome. The score is 0 if the best signal strength in each contig's vector is
 different, otherwise it is an indication of how close the strengths are.
 
+=item vectorbin
+
+The score is C<1> if the similarity vectors have identical coordinate orderings and C<0>
+otherwise. A similarity vector contains the percent identity score against each reference genome.
+
 =back
 
 =item minsim
@@ -271,14 +276,14 @@ my $opt =
                         [ 'blast|b=s','blast type (p or n)',{ default => 'p'} ],
                         [ 'minlen|l=i', 'minimum length for blast match to count', { default => 500 } ],
                         [ 'maxpsc|p=f', 'maximum pscore for blast match to count', { default => 1.0e-100 } ],
-                        [ 'minsim|s=f', 'minimum % identity for condensing', { default => 7000 } ],
+                        [ 'minsim|s=f', 'minimum % identity for condensing', { default => 0.2 } ],
                         [ 'maxExpect|e=f', 'maximum E-value for BLASTing', { default => 1e-50 } ],
                         [ 'data|d=s', 'Data Directory for Community Pipeline', { required => 1 } ],
                         [ 'sample|c=s','community DNA sample in fasta format', { } ],
                         [ 'samplename|n=s','environmental Sample Name', { required => 1 } ],
                         [ 'minkhits|k=i','minimum number hits to be a reference', { default => 400 } ],
                         [ 'refsf|r=s','File of potential reference genomes', { default => "$FIG_Config::global/representative.genomes" } ],
-                        [ 'covgRatio|cr=s', 'maximum acceptable coverage ratio for condensing', { default => 1.2 }],
+                        [ 'covgRatio|cr=f', 'maximum acceptable coverage ratio for condensing', { default => 1.2 }],
                         [ 'univLimit|ul=i', 'maximum number of duplicate universal proteins in a set', { default => 2 }],
                         [ 'normalize=i', 'use normalized distances', { default => 0}],
                         [ 'parmFile=s', 'parameter specification file'],
