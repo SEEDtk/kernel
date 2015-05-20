@@ -24,8 +24,8 @@ package CPscore;
 =head1 Community Pipeline Scoring
 
 This is the base class for all community pipeline scoring objects. Its purpose is to compute the scoring
-vector for each sample contig (one score per reference genome) as well as the similarity score for each
-contig pair.
+vector for each sample contig (one score per reference genome per contig) as well as the similarity score
+for each contig pair.
 
 This object has the following fields.
 

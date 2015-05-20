@@ -2,19 +2,33 @@ use strict;
 use Data::Dumper;
 use ScriptUtils;
 use File::Slurp;
+use Stats;
 
 my $opt =
   ScriptUtils::Opts( '',
                      ScriptUtils::ih_options(),
                      [ 'c2uni|c=s','File connecting contigs to uni roles',{ required => 1}],
                      [ 'c1|u=f', 'incr for universal match', { default => 1 } ],
-                     [ 'c2|e=f', 'decr for duplicate universal match', { default => 5} ]
+                     [ 'c2|e=f', 'decr for duplicate universal match', { default => 5} ],
+                     [ 'expected=s', 'file of expected bin assignments']
     );
 my $ih = ScriptUtils::IH( $opt->input );
 my $c2uni = $opt->c2uni;
 my $c1 = $opt->c1;
 my $c2 = $opt->c2;
-
+my $stats = Stats->new();
+my %expectations;
+my %expectedBin;
+if ($opt->expected) {
+    open(my $ih, "<", $opt->expected) || die "Could not open expectation file: $!";
+    while (! eof $ih) {
+        my $line = <$ih>;
+        chomp $line;
+        my ($contig, $bin) = split /\t/, $line;
+        $expectations{$contig} = $bin;
+        push @{$expectedBin{$bin}}, $contig;
+    }
+}
 my %uni2contigs;
 foreach $_ (File::Slurp::read_file($c2uni))
 {
@@ -32,6 +46,7 @@ while (defined ($_ = <$ih>))
     &process_1($_,\%uni2contigs);
     $/ = "\n//\n";
 }
+print "########\n" . $stats->Show();
 
 sub process_1 {
     my($x,$uni2contigs) = @_;
@@ -44,7 +59,8 @@ sub process_1 {
         my $num_univ = @univ;
         my @extra = grep { $_->[0] > 1 } @univ;
         my $num_extra = @extra;
-        &display_univ(\@univ,$uni2contigs,$contigs);
+        my %binned_contigs = map { ($_ =~ /^([^\n]+)/) ? ($1 => 1) : () } split(/\n\n/,$contigs);
+        &display_univ(\@univ,$uni2contigs,\%binned_contigs);
         print "\n--------\n";
         my @counts = &count_ref($contigs);
         foreach my $tuple (@counts[0..9])
@@ -54,6 +70,7 @@ sub process_1 {
             }
         }
         print "\n--------\n";
+        analyze_bin([keys %binned_contigs], \%expectations, \%expectedBin);
         my ($sz,$cv) = &sum_lengths($contigs);
         print "total size of contigs=$sz\n";
         print "number universal=$num_univ\n";
@@ -62,18 +79,45 @@ sub process_1 {
          my $sc = ($c1 * $num_univ) - ($c2 * $num_extra);
         print "score=$sc\n";
         print "//\n\n";
+        if ($sz >= 500000) {
+            $stats->Add(Over500KBin => 1);
+        } else {
+            $stats->Add(Under500KBin => 1);
+        }
+        if ($sz >= 100000) {
+            $stats->Add(Over100Kbin => 1);
+        } else {
+            $stats->Add(Under100Kbin => 1);
+        }
     }
 }
 
+sub analyze_bin {
+    my ($contigList, $expectationsH, $expectedBinHL) = @_;
+    my %found;
+    for my $contig (@$contigList) {
+        $found{$expectationsH->{$contig}}++;
+    }
+    my ($best, $bestCount) = ('none', 0);
+    for my $binFound (keys %found) {
+        if ($found{$binFound} > $bestCount) {
+            $best = $binFound;
+            $bestCount = $found{$binFound};
+        }
+    }
+    my $missing = scalar(@{$expectedBinHL->{$best}}) - $bestCount;
+    my $extra = scalar(@$contigList) - $bestCount;
+    print "best matching bin $best: $bestCount found, $missing missing, $extra extra\n";
+}
+
 sub display_univ {
-    my($univs,$uni2contigs,$contigs) = @_;
-    my %binned_contigs = map { ($_ =~ /^([^\n]+)/) ? ($1 => 1) : () } split(/\n\n/,$contigs);
+    my($univs,$uni2contigs,$binned_contigs) = @_;
     foreach my $tuple (@$univs)
     {
         my($n,$role) = @$tuple;
         print join("\t",@$tuple),"\n";
         my $contigs = $uni2contigs->{$role};
-        my %this_bin = map { ($_ => 1 ) } grep { $binned_contigs{$_} } @$contigs;
+        my %this_bin = map { ($_ => 1 ) } grep { $binned_contigs->{$_} } @$contigs;
         if ($contigs && ($n > 1))
         {
             foreach my $contig (sort keys(%this_bin))

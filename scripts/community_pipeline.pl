@@ -162,6 +162,12 @@ and C<normalize>. The output files (C<bins>, C<bins.summary>, and C<parms>) will
 The minimum coverage amount for a contig in the community sample. Only contigs with a coverage value greater than or equal
 to this parameter will be included in the output. The default is C<0>, which means all are included.
 
+=item expected
+
+If specified, the name of a file containing the expected results. The file should be tab-delimited with two columns, the
+first column being a contig ID and the second being a bin identifier. The results will be scored according to how well
+they match the bin assignments in this file.
+
 =back
 
 =head2 Output
@@ -289,6 +295,7 @@ my $opt =
                         [ 'parmFile=s', 'parameter specification file'],
                         [ 'minCovg|C=f', 'minimum coverage amount for a community sample contig', { default => 0 }],
                         [ 'scoring=s', 'scoring method', { default => 'vector' }],
+                        [ 'expected=s', 'name of a file containing expected results'],
     );
 
 my $blast_type = $opt->blast;
@@ -300,6 +307,7 @@ my $sample_id  = $opt->samplename;
 my $refsF      = $opt->refsf;
 my $maxE       = $opt->maxexpect;
 my $min_hits   = $opt->minkhits;
+my $expected   = $opt->expected;
 
 my %parms;
 $parms{blast}     = $blast_type;
@@ -391,6 +399,7 @@ sub Process {
     close PARMS;
     my $cmd = "initial_estimate -b $parms->{blast} -r $dataS/RefD -c $dataS/ref.counts -l $parms->{minlen} -p $parms->{maxpsc} -s $parms->{minsim} -v $dataS/saved.vecs -u $dataS/contig.to.uni --cr $parms->{covgRatio} --ul $parms->{univLimit} --minCovg $parms->{minCovg} --scoring $parms->{scoring} --logFile $dataS/mergelog$realSuffix > $dataS/bins$realSuffix";
     &SeedUtils::run($cmd);
-    &SeedUtils::run("summarize_bins -c $dataS/contig.to.uni < $dataS/bins$realSuffix > $dataS/bins.summary$realSuffix");
+    my $expectation = ($opt->expected ? ("--expected " . $opt->expected) : "");
+    &SeedUtils::run("summarize_bins -c $dataS/contig.to.uni $expectation < $dataS/bins$realSuffix > $dataS/bins.summary$realSuffix");
 }
 
