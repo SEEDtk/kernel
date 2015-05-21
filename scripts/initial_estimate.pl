@@ -5,6 +5,13 @@ use ScriptUtils;
 use Shrub;
 use File::Slurp;
 use BasicLocation;
+use Sim;
+use CPscore::Vector;
+use CPscore::Signal;
+use CPscore::Signal::Avg;
+use SampleContig;
+use CPscore::Basis;
+use CPscore::Basis::HotGroup;
 
 # usage: initial_estimate -r reference.counts -d ReferenceDir > initial.estimate
 my $opt = ScriptUtils::Opts(
@@ -24,8 +31,7 @@ my $opt = ScriptUtils::Opts(
     ],
     [ 'blast|b=s',  'blast type (p or n)',               { default => 'p' } ],
     [ 'minsim|s=f', 'minimum % identity for condensing', { default => 0.8 } ],
-    [ 'savevecs|v=s', 'File used to save sim vecs (dot products)',  {} ],
-    [ 'normalize|n',  'normalize position vectors as unit vectors', {} ],
+    [ 'savevecs|v=s', 'File used to save similarity scores',  {} ],
     [
         'refD|r=s',
         'Constructed Directory Reflecting Reference Genomes',
@@ -44,6 +50,10 @@ my $opt = ScriptUtils::Opts(
         'minCovg|C=f',
         'minimum coverage amount for a community sample contig', { default => 0 }
     ],
+    [ 'scoring=s', 'scoring method', { default => 'vector' }],
+    [ 'compare=s', 'comparison method', { default => 'dot'}],
+    [ 'logFile=s', 'name of log file'],
+    [ 'basis=s', 'method for computing the basis vectors', { default => 'normal' }]
 );
 
 my $blast_type = $opt->blast;
@@ -56,10 +66,36 @@ my $save_vecsF      = $opt->savevecs;
 my $max_psc         = $opt->maxpsc;
 my $min_len         = $opt->minlen;
 my $min_sim         = $opt->minsim;
-my $normalize       = $opt->normalize;
 my $covg_constraint = $opt->covgratio;
 my $univ_limit      = $opt->univlimit;
 my $min_covg        = $opt->mincovg;
+my $scoringType     = $opt->scoring;
+my $compareType     = $opt->compare;
+my $basisType       = $opt->basis;
+
+my $scoring;
+if ($scoringType eq 'vector') {
+    $scoring = CPscore::Vector->new($compareType);
+} elsif ($scoringType eq 'normvec') {
+    $scoring = CPscore::Vector->new($compareType, normalize => 1);
+} elsif ($scoringType eq 'signal') {
+    $scoring = CPscore::Signal->new($compareType);
+} elsif ($scoringType eq 'signalavg') {
+    $scoring = CPscore::Signal::Avg->new($compareType);
+} else {
+    die "Invalid scoring type '$scoringType'.";
+}
+
+my $basis;
+if ($basisType eq 'normal') {
+    $basis = CPscore::Basis->new();
+} elsif ($basisType eq 'hot') {
+    $basis = CPscore::Basis::HotGroup->new();
+} elsif ($basisType =~ /^hot(\d+)$/) {
+    $basis = CPscore::Basis::HotGroup->new(topSize => $1);
+} else {
+    die "Invalid basis type '$basisType'.";
+}
 
 my %univ_roles = map { $_ => 1 } File::Slurp::read_file("$FIG_Config::global/uni.roles", { chomp => 1 });
 print STDERR scalar(keys %univ_roles) . " universal roles read from file.\n";
@@ -67,6 +103,10 @@ opendir( REFD, $refD ) || die "Could not access $refD";
 my @refs = sort { $a <=> $b } grep { $_ !~ /^\./ } readdir(REFD);
 my %refs = map { ( $_ => 1 ) } @refs;
 closedir(REFD);
+
+if ($opt->logfile) {
+    open(LOG, ">", $opt->logfile) || die "Could not open log file: $!";
+}
 
 my @lines = File::Slurp::read_file($ref_counts);
 my %ref_counts =
@@ -78,29 +118,30 @@ my %ref_names =
 
 my $univ_in_ref =
   &univ_roles_in_ref_pegs( $refD, \%univ_roles, \@refs, $blast_type );
-my ( $contig_similarities_to_ref, $univ_in_contigs ) =
-  &process_blast_against_refs( \@refs, $refD, $univ_in_ref, $min_len, $max_psc,
-    $blast_type, $min_covg );
+my %contigs;
+
+&process_blast_against_refs( \@refs, $refD, $univ_in_ref, $min_len, $max_psc,
+    $blast_type, $min_covg, $scoring, \%contigs );
 
 if ($uni_contigsF)
 {
-    &write_unis_in_contigs($uni_contigsF,$univ_in_contigs);
+    &write_unis_in_contigs(\%contigs, $uni_contigsF);
 }
 
-my $normalized_contig_vecs =
-  &compute_ref_vecs( \@refs, $contig_similarities_to_ref, $normalize );
+&compute_ref_vecs( \@refs, \%contigs, $scoring, $basis );
 my @similarities =
-  &similarities_between_contig_vecs( $normalized_contig_vecs, $save_vecsF );
+  &similarities_between_contig_vecs( \%contigs, $save_vecsF, $scoring, $blast_type, $basis );
 
-my @contigs = sort keys(%$normalized_contig_vecs);
 my $final_sets =
-  &cluster_contigs( \@contigs, \@similarities, $univ_in_contigs, $min_sim,
-    $covg_constraint );
-&output_final_sets( $final_sets, \%ref_names, \@refs, $normalized_contig_vecs );
+  &cluster_contigs( \%contigs, \@similarities, $min_sim, $covg_constraint );
+&output_final_sets( $final_sets, \%ref_names, \@refs, \%contigs );
+if ($opt->logfile) {
+    close LOG;
+}
 
 sub output_final_sets
 {
-    my ( $final_sets, $ref_names, $refs, $normalized_contig_vecs ) = @_;
+    my ( $final_sets, $ref_names, $refs, $contigHash ) = @_;
 
     my @sets = map { $final_sets->{$_} } keys(%$final_sets);
 
@@ -116,7 +157,7 @@ sub output_final_sets
         foreach my $contig (@$contigs)
         {
             &display_contig( $contig, $ref_names, $refs,
-                $normalized_contig_vecs->{$contig} );
+                $contigHash->{$contig} );
         }
         &display_univ($univ);
         print "//\n";
@@ -124,12 +165,13 @@ sub output_final_sets
 }
 
 sub write_unis_in_contigs {
-    my($uni_contigsF,$univ_in_contigs) = @_;
+    my($contigHash, $uni_contigsF) = @_;
 
     open(UNI,">$uni_contigsF") || die "could not open $uni_contigsF";
-    foreach my $contig (sort keys(%$univ_in_contigs))
+    foreach my $contigID (sort keys(%$contigHash))
     {
-        my $x = $univ_in_contigs->{$contig};
+        my $contig = $contigHash->{$contigID};
+        my $x = $contig->roles;
         foreach my $univ (sort keys(%$x))
         {
             print UNI join("\t",($contig,$univ)),"\n";
@@ -150,10 +192,11 @@ sub display_univ
 
 sub display_contig
 {
-    my ( $contig, $ref_names, $refs, $ref_vec ) = @_;
+    my ( $contig, $ref_names, $refs, $contigO ) = @_;
 
     print "$contig\n";
     my @hits;
+    my $ref_vec = $contigO->vector;
     for ( my $i = 0 ; ( $i < @$ref_vec ) ; $i++ )
     {
         if ( $ref_vec->[$i] > 0 )
@@ -172,10 +215,10 @@ sub display_contig
 
 sub cluster_contigs
 {
-    my ( $contigs, $similarities, $univ_in_contigs, $min_sim, $covg_constraint )
+    my ( $contigHash, $similarities, $min_sim, $covg_constraint )
       = @_;
 
-    my ( $sets, $contig_to_set ) = &initial_sets( $contigs, $univ_in_contigs );
+    my ( $sets, $contig_to_set ) = &initial_sets( $contigHash );
     my $final_sets =
       &condense_sets( $sets, $contig_to_set, $similarities, $min_sim,
         $covg_constraint );
@@ -200,6 +243,9 @@ sub condense_sets
             && &covg_ok( $sets->{$set1}[2], $sets->{$set2}[2],
                 $covg_constraint ) )
         {
+            if ($opt->logfile) {
+                print LOG "Combining $set1 ($contig1) and $set2 ($contig2) with score $sc.\n";
+            }
             my $contigs_to_move = $sets->{$set2}->[0];
             foreach my $contig_in_set2 (@$contigs_to_move)
             {
@@ -250,7 +296,8 @@ sub covg_ok
 sub univ_ok
 {
     my ( $univ1, $univ2 ) = @_;
-    return ( &in_common( $univ1, $univ2 ) <= $univ_limit );
+    my $retVal = ( &in_common( $univ1, $univ2 ) <= $univ_limit );
+    return $retVal;
 }
 
 sub in_common
@@ -270,29 +317,18 @@ sub in_common
 
 sub initial_sets
 {
-    my ( $contigs, $univ_in_contigs ) = @_;
+    my ( $contigHash ) = @_;
 
     my $sets          = {};
     my $contig_to_set = {};
     my $nxt_set       = 1;
-    foreach my $contig (@$contigs)
+    foreach my $contigID (sort keys %$contigHash)
     {
-        my $univ = $univ_in_contigs->{$contig};
-        if ( !$univ )
-        {
-            $univ = {};
-        }
-        my ( $covg, $length );
-        if ( $contig =~ /length_(\d+)_cov_([\d\.]+)_/ )
-        {
-            ( $length, $covg ) = ( $1, $2 );
-        }
-        else
-        {
-            die "Invalid contig ID $contig.";
-        }
-        $sets->{$nxt_set} = [ [$contig], $univ, $covg, $length ];
-        $contig_to_set->{$contig} = $nxt_set;
+        my $contigO = $contigHash->{$contigID};
+        my $univ = $contigO->roles;
+        my ( $covg, $length ) = ($contigO->covg, $contigO->len);
+        $sets->{$nxt_set} = [ [$contigID], $univ, $covg, $length ];
+        $contig_to_set->{$contigID} = $nxt_set;
         $nxt_set++;
     }
     return ( $sets, $contig_to_set );
@@ -300,45 +336,50 @@ sub initial_sets
 
 sub similarities_between_contig_vecs
 {
-    my ( $contig_vecs, $save_vecsF ) = @_;
-
+    my ( $contigHash, $save_vecsF, $scoring, $blast_type, $basis ) = @_;
+    my @sims;
+    my $typeLine = "$blast_type " . $scoring->type() . " " . $basis->type() . "\n";
     if ( $save_vecsF && ( -s $save_vecsF ) )
     {
         open(my $ih, "<", $save_vecsF) || die "Cannot open saved vectors: $!";
-        return sort { $b->[0] <=> $a->[0] }
+        my $line = <$ih>;
+        if ($line eq $typeLine) {
+            @sims = sort { $b->[0] <=> $a->[0] }
           map { chomp; [ split( /\t/, $_ ) ] }
           <$ih>;
+        }
     }
-    else
+    if (! @sims)
     {
-        my @sims = &similarities_between_contig_vecs_1($contig_vecs);
+        @sims = &similarities_between_contig_vecs_1($contigHash, $scoring);
         if ( $save_vecsF && open( SAVE, ">$save_vecsF" ) )
         {
+            print SAVE $typeLine;
             foreach my $tuple (@sims)
             {
                 print SAVE join( "\t", @$tuple ), "\n";
             }
             close(SAVE);
         }
-        return @sims;
     }
+    return @sims;
 }
 
 sub similarities_between_contig_vecs_1
 {
-    my ($contig_vecs) = @_;
+    my ($contigHash, $scoring) = @_;
 
     my @sims;
-    my @contigs = sort keys(%$contig_vecs);
+    my @contigs = sort keys(%$contigHash);
     my $n       = @contigs;
     my ( $i, $j );
     for ( $i = 0 ; ( $i < @contigs ) ; $i++ )
     {
-        my $cv1 = $contig_vecs->{ $contigs[$i] };
+        my $co1 = $contigHash->{ $contigs[$i] };
         for ( $j = $i + 1 ; ( $j < @contigs ) ; $j++ )
         {
-            my $cv2 = $contig_vecs->{ $contigs[$j] };
-            my $sim = &dot_product( $cv1, $cv2 );
+            my $co2 = $contigHash->{ $contigs[$j] };
+            my $sim = $scoring->compare( $co1, $co2 );
             if ( $sim > 0 )
             {
                 push( @sims, [ $sim, $contigs[$i], $contigs[$j] ] );
@@ -351,101 +392,30 @@ sub similarities_between_contig_vecs_1
 
 sub compute_ref_vecs
 {
-    my ( $refs, $contig_similarities_to_ref, $normalize ) = @_;
+    my ( $refs, $contigHash, $scoring, $basis ) = @_;
 
-    my $contig_vecs = {};
-    foreach my $contig ( sort keys(%$contig_similarities_to_ref) )
+    my $basisVec = $basis->compute($contigHash, $refs);
+    foreach my $contigID ( sort keys(%$contigHash) )
     {
-        my $v    = [];
-        my $keep = 0;    # we keep only contigs that hit at least one ref
-        for ( my $i = 0 ; ( $i < @$refs ) ; $i++ )
+        my $contig = $contigHash->{$contigID};
+        $scoring->adjust_scores($contig);
+        my $keep = $contig->Score($basisVec);
+        if ( $keep )
         {
-            my $r = $refs->[$i];
-            my $x = $contig_similarities_to_ref->{$contig}->{$r};
-            if ( !$x )
-            {
-                $x = 0;
-            }
-            else
-            {
-                $keep = 1;
-            }
-            push( @$v, $x );
+            $keep = $scoring->adjust_vector($contig);
         }
-        if ( $keep && &sims_ok($v) )
+        if (! $keep)
         {
-            $contig_vecs->{$contig} = $normalize ? &unit_vector($v) : $v;
+            delete $contigHash->{$contigID};
         }
     }
-    return $contig_vecs;
 }
 
-sub sims_ok
-{
-    my ($v) = @_;
-
-    my $tot = 0;
-    foreach $_ (@$v) { $tot += $_ }
-    return (( $tot > 30) && ($tot < 10000))
-}
-
-sub dot_product
-{
-    my ( $v1, $v2 ) = @_;
-
-    my $tot = 0;
-    my $i;
-    for ( $i = 0 ; ( $i < @$v1 ) ; $i++ )
-    {
-        if ( $v1->[$i] && $v2->[$i] )
-        {
-            $tot += $v1->[$i] * $v2->[$i];
-        }
-    }
-    return $tot;
-}
-
-sub unit_vector
-{
-    my ($v) = @_;
-
-    my $tot = 0;
-    my $uv  = [];
-    my $i;
-    for ( $i = 0 ; ( $i < @$v ) ; $i++ )
-    {
-        my $x = $v->[$i];
-        if ( defined($x) )
-        {
-            $tot += $x * $x;
-        }
-    }
-
-    my $nf = sqrt($tot);
-    for ( $i = 0 ; ( $i < @$v ) ; $i++ )
-    {
-        my $x = $v->[$i];
-        $x = $x ? $x : 0;
-        if ($nf)
-        {
-            my $y = $x / $nf;
-            if ( $y > 1 ) { $y = 1 }
-            push( @$uv, sprintf( "%0.2f", $y ) );
-        }
-        else
-        {
-            push( @$uv, 0 );
-        }
-    }
-    return $uv;
-}
 
 sub process_blast_against_refs
 {
-    my ( $refs, $refD, $univ_in_ref, $min_len, $max_psc, $blast_type, $min_covg ) = @_;
+    my ( $refs, $refD, $univ_in_ref, $min_len, $max_psc, $blast_type, $min_covg, $scoring, $contigHash ) = @_;
 
-    my $contig_similarities_to_ref = {};
-    my $univ_in_contigs            = {};
 
     my $blast_out =
       ( $blast_type =~ /^[pP]/ ) ? 'blast.out.protein' : 'blast.out.dna';
@@ -456,41 +426,36 @@ sub process_blast_against_refs
         while ( defined( $_ = <BLAST> ) )
         {
             chomp;
-            my (
-                $ref_id, $contig_id, $iden, undef, undef, undef,
-                $rbeg,   $rend,      $beg,  $end,  $psc,  $bsc
-               ) = split( /\s+/, $_ );
-            $contig_id =~ /cov_([\d\.]+)/;
+            my $sim = Sim->new(split( /\s+/, $_ ));
+            my $contig_id = $sim->id2();
+            my $contig = SampleContig::get_contig($contigHash, $contig_id);
 
-            my $covg = $1 // 0;
-            if ( ($covg >= $min_covg) && ( $psc <= $max_psc ) && ( abs( $end - $beg ) >= $min_len ) )
+            my $covg = $contig->covg;
+            if ( ($covg >= $min_covg) && ( $sim->psc() <= $max_psc ) && ( abs( $sim->e2() - $sim->b2() ) >= $min_len ) )
             {
-                if ( ( ! defined($contig_similarities_to_ref->{$contig_id}->{$r})) ||
-                     ( $contig_similarities_to_ref->{$contig_id}->{$r} <  $iden))
-                {
-                    $contig_similarities_to_ref->{$contig_id}->{$r} = $iden;
-                }
 
+                $scoring->update_score($contig, $sim, $r);
+
+                my $role;
                 if ( $blast_type eq 'n' )
                 {
-                    if ( $_ =
-                        &in_univ( $univ_in_ref, $r, $ref_id, $rbeg, $rend ) )
+                    if ( $role =
+                        &in_univ( $univ_in_ref, $r, $sim->id1(), $sim->b1(), $sim->b2() ) )
                     {
-                        $univ_in_contigs->{$contig_id}->{$_} = 1;
+                        $contig->SetRole($role);
                     }
                 }
                 else
                 {
-                    if ( $_ = &univ_prot( $univ_in_ref, $r, $ref_id ) )
+                    if ( $role = &univ_prot( $univ_in_ref, $r, $sim->id1() ) )
                     {
-                        $univ_in_contigs->{$contig_id}->{$_} = 1;
+                        $contig->SetRole($role);
                     }
                 }
             }
         }
         close(BLAST);
     }
-    return ( $contig_similarities_to_ref, $univ_in_contigs );
 }
 
 sub univ_prot

@@ -59,21 +59,68 @@ The maximum permissible p-score (Poisson distribution rating) for a blast match 
 This score is an indication of the degree to which a match may be random change. The default is
 C<1e-100>. A lower value will cause more conservative results.
 
+=item scoring
+
+Scoring method for determining how to group contigs. The base algorithm groups the contigs
+together by an abstract I<similarity score>. The similarity score is computed by comparing
+I<scoring vectors>. The scoring vectors are computed by one of the following methods, as
+determined by the value of this parameter.
+
+=over 8
+
+=item vector
+
+The scoring vector contains the maximum percent identity score against each reference genome.
+
+=item normvec
+
+Same as C<vector>, but the vector is normalized to a unit length.
+
+=item signal
+
+The scoring vector contains the signal strength to the reference genome. The signal
+strength between a sample contig and a reference genome is the sum of the percent identity
+times the match length for each BLAST match, an indication of how much of the contig
+matches the genome.
+
+=item signalavg
+
+The scoring vector contains the signal strength to the reference genome. The signal
+strength between a sample contig and a reference genome is the mean of the percent identity
+times the match length for each BLAST match, an indication of how much of the contig
+matches the genome.
+
+=back
+
+=item compare
+
+This specifies the algorithm for computing a similarity score from two scoring vectors.
+
+=over 8
+
+=item best
+
+The score is an indication of how close together the two best scores in the vectors are. If the
+best scores are at different positions, the score is 0.
+
+=item bin
+
+The score is C<1> if the scores are in the same relative order, else C<0>.
+
+=item dist
+
+The score indicates how close together the scores are at each vector position.
+
+=item dot
+
+The score is a dot product of the two vectors.
+
+=back
+
 =item minsim
 
-The minimum similarity percentage for two community sample contigs to be considered for membership in
-the same bin.  This value is computed as a dot product of vectors. In the default situation, the
-vector coordinates run from 0 to 100, so a virtually perfect match would have a value of 10000.
-If the C<--normalize> parameter is specified, the vector lengths are always 1, so a perfect match
-would have a value of 1. The default is C<7000>. A larger value will cause more conservative
-results. If C<--normalize> is specified, then this parameter MUST be overridden or there will be
-no results.
-
-=item normalize
-
-If C<1>, the similarity vectors will be normalized to a unit length. This will place greater
-reliance on relative scale of matching rather than absolute percentages when partitioning contigs
-into bins. The default is C<0>.
+The minimum similarity score for two community sample contigs to be considered for membership in
+the same bin.
 
 =item data
 
@@ -121,6 +168,12 @@ and C<normalize>. The output files (C<bins>, C<bins.summary>, and C<parms>) will
 
 The minimum coverage amount for a contig in the community sample. Only contigs with a coverage value greater than or equal
 to this parameter will be included in the output. The default is C<0>, which means all are included.
+
+=item expected
+
+If specified, the name of a file containing the expected results. The file should be tab-delimited with two columns, the
+first column being a contig ID and the second being a bin identifier. The results will be scored according to how well
+they match the bin assignments in this file.
 
 =back
 
@@ -174,17 +227,16 @@ The BLAST output from comparing the genome's proteins to the contigs in the comm
 
 =back
 
-=item saved.p.sim.vecs
+=item saved.vecs
 
-A tab-delimited file of similarity vectors based on the protein BLAST results. If present, the vectors will not be
-recomputed. Each record in the file contains (0) a similarity score, (1) the ID of a source contig in the input
+A tab-delimited file of similarity scores. The first record contains the blast type (C<p> or C<n>) followed
+by a space and the scoring type. If these do not match the current values, the file is recomputed. Each additional
+record in the file contains (0) a similarity score, (1) the ID of a source contig in the input
 sample, (2) the ID of a second contig in the input sample.
 
-=item saved.n.sim.vecs
+=item merge.log
 
-A tab-delimited file of similarity vectors based on the DNA BLAST results. If present, the vectors will not be
-recomputed. Each record in the file contains (0) a similarity score, (1) the ID of a source contig in the input
-sample, (2) the ID of a second contig in the input sample.
+A log file of messages describing the binning choices made.
 
 =item bins
 
@@ -237,18 +289,21 @@ my $opt =
                         [ 'blast|b=s','blast type (p or n)',{ default => 'p'} ],
                         [ 'minlen|l=i', 'minimum length for blast match to count', { default => 500 } ],
                         [ 'maxpsc|p=f', 'maximum pscore for blast match to count', { default => 1.0e-100 } ],
-                        [ 'minsim|s=f', 'minimum % identity for condensing', { default => 7000 } ],
+                        [ 'minsim|s=f', 'minimum % identity for condensing', { default => 0.2 } ],
                         [ 'maxExpect|e=f', 'maximum E-value for BLASTing', { default => 1e-50 } ],
                         [ 'data|d=s', 'Data Directory for Community Pipeline', { required => 1 } ],
                         [ 'sample|c=s','community DNA sample in fasta format', { } ],
                         [ 'samplename|n=s','environmental Sample Name', { required => 1 } ],
                         [ 'minkhits|k=i','minimum number hits to be a reference', { default => 400 } ],
                         [ 'refsf|r=s','File of potential reference genomes', { default => "$FIG_Config::global/representative.genomes" } ],
-                        [ 'covgRatio|cr=s', 'maximum acceptable coverage ratio for condensing', { default => 1.2 }],
+                        [ 'covgRatio|cr=f', 'maximum acceptable coverage ratio for condensing', { default => 1.2 }],
                         [ 'univLimit|ul=i', 'maximum number of duplicate universal proteins in a set', { default => 2 }],
                         [ 'normalize=i', 'use normalized distances', { default => 0}],
                         [ 'parmFile=s', 'parameter specification file'],
                         [ 'minCovg|C=f', 'minimum coverage amount for a community sample contig', { default => 0 }],
+                        [ 'scoring=s', 'scoring method', { default => 'vector' }],
+                        [ 'compare=s', 'comparison method', { default => 'dotproduct' }],
+                        [ 'expected=s', 'name of a file containing expected results'],
     );
 
 my $blast_type = $opt->blast;
@@ -260,6 +315,7 @@ my $sample_id  = $opt->samplename;
 my $refsF      = $opt->refsf;
 my $maxE       = $opt->maxexpect;
 my $min_hits   = $opt->minkhits;
+my $expected   = $opt->expected;
 
 my %parms;
 $parms{blast}     = $blast_type;
@@ -268,8 +324,9 @@ $parms{minlen}    = $opt->minlen;
 $parms{minsim}    = $opt->minsim;
 $parms{covgRatio} = $opt->covgratio;
 $parms{univLimit} = $opt->univlimit;
-$parms{normalize} = $opt->normalize;
 $parms{minCovg}   = $opt->mincovg;
+$parms{scoring}   = $opt->scoring;
+$parms{compare}   = $opt->compare;
 
 if (! -d $dataD) { mkdir($dataD,0777) || die "could not make $dataD" }
 
@@ -344,14 +401,17 @@ if (! $opt->parmfile) {
 sub Process {
     my ($parms, $suffix) = @_;
     my $realSuffix = (defined $suffix ? ".$suffix" : '');
-    my $norm = $parms->{normalize} ? '-n' : '';
     open(PARMS, ">$dataS/parms$realSuffix") || die "Could not open parms file: $!";
     for my $parm (sort keys %$parms) {
         print PARMS "$parm = $parms->{$parm}\n";
     }
     close PARMS;
-    my $cmd = "initial_estimate -b $parms->{blast} -r $dataS/RefD -c $dataS/ref.counts -l $parms->{minlen} -p $parms->{maxpsc} -s $parms->{minsim} $norm -v $dataS/saved.$parms->{blast}.sim.vecs -u $dataS/contig.to.uni --cr $parms->{covgRatio} --ul $parms->{univLimit} --minCovg $parms->{minCovg} > $dataS/bins$realSuffix";
+    my $cmd = "initial_estimate -b $parms->{blast} -r $dataS/RefD -c $dataS/ref.counts -l $parms->{minlen} -p $parms->{maxpsc} " .
+                    "-s $parms->{minsim} -v $dataS/saved.vecs -u $dataS/contig.to.uni --cr $parms->{covgRatio} --ul $parms->{univLimit} " .
+                    "--minCovg $parms->{minCovg} --scoring $parms->{scoring} --compare $parms->{compare} " .
+                    "--logFile $dataS/mergelog$realSuffix > $dataS/bins$realSuffix";
     &SeedUtils::run($cmd);
-    &SeedUtils::run("summarize_bins -c $dataS/contig.to.uni < $dataS/bins$realSuffix > $dataS/bins.summary$realSuffix");
+    my $expectation = ($opt->expected ? ("--expected " . $opt->expected) : "");
+    &SeedUtils::run("summarize_bins -c $dataS/contig.to.uni $expectation < $dataS/bins$realSuffix > $dataS/bins.summary$realSuffix");
 }
 
