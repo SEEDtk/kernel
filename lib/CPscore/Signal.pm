@@ -27,96 +27,47 @@ package CPscore::Signal;
 This is a community pipeline scoring object that computes the similarity between two sample contigs based on
 similarity signal vectors. In this case, the similarity vector contains the sum of the percent identity times the length
 of all the BLAST matches to each reference genome. The resulting number is an indication of how much of the sample contig
-matches each reference genome. This is a base class for several scoring methods that use signal strength vectors.
+matches each reference genome.
 
 =head2 Virtual Methods
 
-=head3 type
+=head3 compute_score
 
-    my $typeName = $scoring->type();
+    my $score = $scoring->compute_score($contig, $sim, $refID, $oldScore);
 
-Return the type sttring for this scoring method.
-
-=cut
-
-sub type {
-    my ($self) = @_;
-    die "type method must be overridden.";
-}
-
-=head3 update_vector_hash
-
-    $scoring->update_vector_hash($sim, $refID);
-
-Process a similarity and use it to update the scoring vector coordinates.
+Process a similarity and use it to update the scoring vector coordinates for the relevant genome.
 
 =over 4
 
+=item contig
+
+A L<SampleContig> object containing the data for the contig.
+
 =item sim
 
-A L<Sim> object containing the results of a significant BLAST hit between a contig and a
+A L<Sim> object containing the results of a significant BLAST hit between the contig and a
 reference genome.
 
 =item refID
 
 The ID of the target reference genome.
 
+=item oldScore
+
+The current score for the similarity between the contig and the reference genome.
+
 =back
 
 =cut
 
-sub update_vector_hash {
+sub compute_score {
     # Get the parameters.
-    my ($self, $sim, $refID) = @_;
-    # Extract the contig ID.
-    my $contigID = $sim->id2();
+    my ($self, $contig, $sim, $refID, $oldScore) = @_;
     # Get the match strength.
     my $strength = $sim->iden * abs($sim->e2() - $sim->b2()) / 100;
-    # Get the vector hash.
-    my $vecH = $self->{vectorHash};
-    # Update the score.
-    $vecH->{$contigID}{$refID} //= 0;
-    $vecH->{$contigID}{$refID} += $strength;
+    my $retVal = $oldScore + $strength;
+    return $retVal;
 }
 
-=head3 vector_compare
-
-    my $score = $scoring->vector_compare($contig1, $cv1, $contig2, $cv2);
-
-Compute the similarity score for a pair of contigs from their similarity vectors. Each similarity
-vector contains the scores computed by L<CPscore::Signal/update_vector_hash> in order by the relevant reference
-genome ID and formatted by L</store_vector>.
-
-=over 4
-
-=item contig1
-
-ID of the first contig.
-
-=item cv1
-
-Similarity vector for the first contig.
-
-=item contig2
-
-ID of the second contig.
-
-=item cv2
-
-Similarity vector for the second contig.
-
-=item RETURN
-
-Returns the similarity score for the two contigs.
-
-=back
-
-=cut
-
-sub vector_compare {
-    # Get the parameters.
-    my ($self, $contig1, $cv1, $contig2, $cv2) = @_;
-    die "vector_compare must be overridden."
-}
 
 1;

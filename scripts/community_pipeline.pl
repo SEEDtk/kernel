@@ -62,51 +62,58 @@ C<1e-100>. A lower value will cause more conservative results.
 =item scoring
 
 Scoring method for determining how to group contigs. The base algorithm groups the contigs
-together by an abstract I<similarity score>. The similarity score is computed by one of the
-following methods, as determined by the value of this parameter.
+together by an abstract I<similarity score>. The similarity score is computed by comparing
+I<scoring vectors>. The scoring vectors are computed by one of the following methods, as
+determined by the value of this parameter.
 
 =over 8
 
 =item vector
 
-The score is computed by taking the dot product of the similarity vectors. A similarity vector
-contains the percent identity score against each reference genome.
+The scoring vector contains the maximum percent identity score against each reference genome.
 
 =item normvec
 
-The score is computed by taking the dot product of normalized similarity vectors. A similarity
-vector contains the percent identity score against each reference genome. The normalized
-vector is computed by dividing the vector coordinates by the vector length.
+Same as C<vector>, but the vector is normalized to a unit length.
 
-=item signalrank
+=item signal
 
-The score is computed by ranking the signal strengths to the reference genome. The signal
-strength between a sample contig and a reference genoem is the sum of the percent identity
+The scoring vector contains the signal strength to the reference genome. The signal
+strength between a sample contig and a reference genome is the sum of the percent identity
 times the match length for each BLAST match, an indication of how much of the contig
-matches the genome. The reference genomes are matched by the signal strength, and the score
-for two contigs is equal to the number of genome pairs with the same relative rank less
-twice the number with a different relative rank times 100.
+matches the genome.
 
-=item signaldist
+=item signalavg
 
-The score is computed by comparing the signal strengths to the reference genome. The signal
-strength between a sample contig and a reference genoem is the sum of the percent identity
+The scoring vector contains the signal strength to the reference genome. The signal
+strength between a sample contig and a reference genome is the mean of the percent identity
 times the match length for each BLAST match, an indication of how much of the contig
-matches the genome. The reference genomes are matched by the signal strength, and the score
-for two contigs is an indication of how well the signal strengths match.
+matches the genome.
 
-=item signalbest
+=back
 
-The score is computed by comparing the signal strengths to the reference genome. The signal
-strength between a sample contig and a reference genoem is the sum of the percent identity
-times the match length for each BLAST match, an indication of how much of the contig
-matches the genome. The score is 0 if the best signal strength in each contig's vector is
-different, otherwise it is an indication of how close the strengths are.
+=item compare
 
-=item vectorbin
+This specifies the algorithm for computing a similarity score from two scoring vectors.
 
-The score is C<1> if the similarity vectors have identical coordinate orderings and C<0>
-otherwise. A similarity vector contains the percent identity score against each reference genome.
+=over 8
+
+=item best
+
+The score is an indication of how close together the two best scores in the vectors are. If the
+best scores are at different positions, the score is 0.
+
+=item bin
+
+The score is C<1> if the scores are in the same relative order, else C<0>.
+
+=item dist
+
+The score indicates how close together the scores are at each vector position.
+
+=item dot
+
+The score is a dot product of the two vectors.
 
 =back
 
@@ -295,6 +302,7 @@ my $opt =
                         [ 'parmFile=s', 'parameter specification file'],
                         [ 'minCovg|C=f', 'minimum coverage amount for a community sample contig', { default => 0 }],
                         [ 'scoring=s', 'scoring method', { default => 'vector' }],
+                        [ 'compare=s', 'comparison method', { default => 'dotproduct' }],
                         [ 'expected=s', 'name of a file containing expected results'],
     );
 
@@ -318,6 +326,7 @@ $parms{covgRatio} = $opt->covgratio;
 $parms{univLimit} = $opt->univlimit;
 $parms{minCovg}   = $opt->mincovg;
 $parms{scoring}   = $opt->scoring;
+$parms{compare}   = $opt->compare;
 
 if (! -d $dataD) { mkdir($dataD,0777) || die "could not make $dataD" }
 
@@ -397,7 +406,10 @@ sub Process {
         print PARMS "$parm = $parms->{$parm}\n";
     }
     close PARMS;
-    my $cmd = "initial_estimate -b $parms->{blast} -r $dataS/RefD -c $dataS/ref.counts -l $parms->{minlen} -p $parms->{maxpsc} -s $parms->{minsim} -v $dataS/saved.vecs -u $dataS/contig.to.uni --cr $parms->{covgRatio} --ul $parms->{univLimit} --minCovg $parms->{minCovg} --scoring $parms->{scoring} --logFile $dataS/mergelog$realSuffix > $dataS/bins$realSuffix";
+    my $cmd = "initial_estimate -b $parms->{blast} -r $dataS/RefD -c $dataS/ref.counts -l $parms->{minlen} -p $parms->{maxpsc} " .
+                    "-s $parms->{minsim} -v $dataS/saved.vecs -u $dataS/contig.to.uni --cr $parms->{covgRatio} --ul $parms->{univLimit} " .
+                    "--minCovg $parms->{minCovg} --scoring $parms->{scoring} --compare $parms->{compare} " .
+                    "--logFile $dataS/mergelog$realSuffix > $dataS/bins$realSuffix";
     &SeedUtils::run($cmd);
     my $expectation = ($opt->expected ? ("--expected " . $opt->expected) : "");
     &SeedUtils::run("summarize_bins -c $dataS/contig.to.uni $expectation < $dataS/bins$realSuffix > $dataS/bins.summary$realSuffix");

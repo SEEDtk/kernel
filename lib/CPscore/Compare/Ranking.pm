@@ -16,59 +16,36 @@
 #
 
 
-package CPscore::Signal::Ranking;
+package CPscore::Compare::Ranking;
 
     use strict;
     use warnings;
-    use base qw(CPscore::Signal);
+    use base qw(CPscore::Compare);
 
-=head1 Community Pipeline Vector Scoring
+=head1 Community Pipeline Vector Scoring -- Ranking Comparison
 
 This is a community pipeline scoring object that computes the similarity between two sample contigs based on the
 relative strength of the signals in similarity signal vectors.
 
+
+
 =head2 Virtual Methods
 
-=head3 type
+=head3 compare
 
-    my $typeName = $scoring->type();
+    my $sim = $compare->compare($contig1, $contig2);
 
-Return the type sttring for this scoring method.
-
-=cut
-
-sub type {
-    my ($self) = @_;
-    my $retVal = $self->SUPER::type() . 'rank';
-    return $retVal;
-}
-
-
-=head3 vector_compare
-
-    my $score = $scoring->vector_compare($contig1, $cv1, $contig2, $cv2);
-
-Compute the similarity score for a pair of contigs from their similarity vectors. Each similarity
-vector contains the scores computed by L<CPscore::Signal/update_vector_hash> in order by the relevant reference
-genome ID and formatted by L<CPscore/store_vector>.
+Return the similarity score for a pair of contigs.
 
 =over 4
 
 =item contig1
 
-ID of the first contig.
-
-=item cv1
-
-Similarity vector for the first contig.
+L<SampleContig> object for the first contig.
 
 =item contig2
 
-ID of the second contig.
-
-=item cv2
-
-Similarity vector for the second contig.
+L<SampleContig> object for the second contig.
 
 =item RETURN
 
@@ -78,9 +55,12 @@ Returns the similarity score for the two contigs.
 
 =cut
 
-sub vector_compare {
+sub compare {
     # Get the parameters.
-    my ($self, $contig1, $cv1, $contig2, $cv2) = @_;
+    my ($self, $contig1, $contig2) = @_;
+    # Get the scoring vectors.
+    my $cv1 = $contig1->vector;
+    my $cv2 = $contig2->vector;
     # We need to find the coordinates in common. We put them into the following vector in the form
     # [score1, score2].
     my @scores;

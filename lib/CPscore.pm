@@ -20,6 +20,11 @@ package CPscore;
 
     use strict;
     use warnings;
+    use CPscore::Compare::Best;
+    use CPscore::Compare::Binning;
+    use CPscore::Compare::Ranking;
+    use CPscore::Compare::Distance;
+    use CPscore::Compare::DotProduct;
 
 =head1 Community Pipeline Scoring
 
@@ -31,10 +36,13 @@ This object has the following fields.
 
 =over 4
 
-=item vectorHash
+=item compare
 
-A reference to a two-dimensional hash, keyed on sample contig ID followed by reference genome ID. The hash tracks
-the similarity score for each sample contig / reference genome pair.
+A L<Compare> object that can be used to compute the comparison score between two scoring vectors.
+
+=item normalize
+
+TRUE if the scoring vectors should be normalized, else FALSE.
 
 =back
 
@@ -42,15 +50,27 @@ the similarity score for each sample contig / reference genome pair.
 
 =head3 new
 
-    my $scoring = CPscore->new(%options);
+    my $scoring = CPscore->new($compareType, %options);
 
 Create a new scoring object with the specified options.
 
 =over 4
 
+=item compareType
+
+Comparison algorithm to use.
+
 =item options
 
-A hash containing the option values. No keys are supported for the base class.
+A hash containing the option values. The following keys are supported.
+
+=over 8
+
+=item normalize
+
+TRUE if the scoring vectors should be normalized, else FALSE.
+
+=back
 
 =back
 
@@ -58,68 +78,60 @@ A hash containing the option values. No keys are supported for the base class.
 
 sub new {
     # Get the parameters.
-    my ($class, %options) = @_;
+    my ($class, $compareType, %options) = @_;
+    # Get the comparison algorithm.
+    my $compare;
+    if ($compareType eq 'best') {
+        $compare = CPscore::Compare::Best->new(%options);
+    } elsif ($compareType eq 'bin') {
+        $compare = CPscore::Compare::Binning->new(%options);
+    } elsif ($compareType eq 'dist') {
+        $compare = CPscore::Compare::Distance->new(%options);
+    } elsif ($compareType eq 'rank') {
+        $compare = CPscore::Compare::Ranking->new(%options);
+    } elsif ($compareType eq 'dot') {
+        $compare = CPscore::Compare::DotProduct->new(%options);
+    } else {
+        die "Invalid comparison method $compareType.";
+    }
     # Create the object.
-    my $retVal = { vectorHash => {} };
+    my $retVal = { compare => $compare, normalize => ($options{normalize} // 0) };
     # Bless and return it.
     bless $retVal, $class;
     return $retVal;
 }
 
 
-=head2 Virtual Methods
+=head2 Utility Methods
 
 =head3 type
 
     my $typeName = $scoring->type();
 
-Return the type sttring for this scoring method.
+Return the type string for this scoring method.
 
 =cut
 
 sub type {
     my ($self) = @_;
-    die "type method not overridden.";
+    return join('-', ref($self), ref($self->{compare}), ($self->{normalize} ? 'n' : 'v'));
 }
 
-=head3 init_vector_hash
+=head3 update_score
 
-    $scoring->init_vector_hash();
-
-Initialize the scoring process. This process is used to compute the scoring vector
-coordinates. For this object we simply create an empty hash.
-
-=cut
-
-sub init_vector_hash {
-    my ($self) = @_;
-    $self->{vectorHash} = {};
-}
-
-=head3 get_vector_hash
-
-    $scoring->get_vector_hash()
-
-Return the hash containing the scoring vector coordinates.
-
-=cut
-
-sub get_vector_hash {
-    my ($self) = @_;
-    return $self->{vectorHash};
-}
-
-=head3 update_vector_hash
-
-    $scoring->update_vector_hash($sim, $refID);
+    $scoring->update_score($contig, $sim, $refID);
 
 Process a similarity and use it to update the scoring vector coordinates.
 
 =over 4
 
+=item contig
+
+A L<SampleContig> object containing the data for the contig.
+
 =item sim
 
-A L<Sim> object containing the results of a significant BLAST hit between a contig and a
+A L<Sim> object containing the results of a significant BLAST hit between the contig and a
 reference genome.
 
 =item refID
@@ -130,37 +142,32 @@ The ID of the target reference genome.
 
 =cut
 
-sub update_vector_hash {
+sub update_score {
     # Get the parameters.
-    my ($self, $sim, $refID) = @_;
-    die "update_vector_hash must be overridden.";
+    my ($self, $contig, $sim, $refID) = @_;
+    # Get the old score.
+    my $oldScore = $contig->Hit($refID);
+    # Compute the new score (this calls through to the subclass).
+    my $score = $self->compute_score($contig, $sim, $refID);
+    # Store it in the contig object.
+    $contig->SetScore($refID, $score);
 }
 
-=head3 vector_compare
+=head3 compare
 
-    my $score = $scoring->vector_compare($contig1, $cv1, $contig2, $cv2);
+    my $score = $scoring->compare($contig1, $contig2);
 
-Compute the similarity score for a pair of contigs from their similarity vectors. Each similarity
-vector contains the scores computed by L</update_vector_hash> in order by the relevant reference
-genome ID and formatted by L</store_vector>.
+Compute the similarity score for a pair of contigs from their similarity vectors.
 
 =over 4
 
 =item contig1
 
-ID of the first contig.
-
-=item cv1
-
-Similarity vector for the first contig.
+L<SampleContig> object for the first contig.
 
 =item contig2
 
-ID of the second contig.
-
-=item cv2
-
-Similarity vector for the second contig.
+L<SampleContig> object for the second contig.
 
 =item RETURN
 
@@ -170,49 +177,150 @@ Returns the similarity score for the two contigs.
 
 =cut
 
-sub vector_compare {
+sub compare {
     # Get the parameters.
-    my ($self, $contig1, $cv1, $contig2, $cv2) = @_;    die "vector_compare must be overridden.";
+    my ($self, $contig1, $contig2) = @_;
+    # Call the comparison object.
+    my $retVal = $self->{compare}->compare($contig1, $contig2);
+    # Return the result.
+    return $retVal;
 }
 
-=head3 store_vector
+=head3 adjust_vector
 
-    $scoring->store_vector($contig_vecs, $contig, $v);
+    my $keepFlag = $scoring->adjust_vector($contig);
 
-Store a similarity vector in the vector hash.
+Adjust a similarity vector. This method performs post-processing on an assembled vector and allows the
+scoring process one last chance to reject it.
 
 =over 4
 
-=item contig_vecs
-
-Reference to a hash keyed on contig ID that is used to store the similarity vectors.
-
 =item contig
 
-ID of the contig whose vector is being stored.
+L<SampleContig> object whose vector is to be adjusted.
 
-=item v
+=item RETURN
 
-Similarity vector to store.
+Returns TRUE if the vector should be kept, FALSE if it should be discarded.
 
 =back
 
 =cut
 
-sub store_vector {
+sub adjust_vector {
     # Get the parameters.
-    my ($self, $contig_vecs, $contig, $v) = @_;
-    # Determine whether or not the vector is acceptable.
-    my $tot = 0;
-    for my $vi (@$v) {
-        $tot += $vi;
+    my ($self, $contig) = @_;
+    # Call the subclass to fix the vector.
+    my $retVal = $self->fix_vector($contig);
+    # Normalize if necessary.
+    if ($retVal && $self->{normalize}) {
+        my $v = $contig->vector;
+        my $norm = 0;
+        # Note the vectors are sparse, so there is a real performance gain by skipping 0 positions.
+        for my $x (@$v) {
+            if ($x) {
+                $norm += $x*$x;
+            }
+        }
+        $norm = sqrt($norm);
+        if ($norm > 0) {
+            my $n = scalar @$v;
+            for (my $i = 0; $i < $n; $i++) {
+                $v->[$i] /= $norm;
+            }
+        }
     }
-    if ($tot >= 500) {
-        $contig_vecs->{$contig} = $v;
-    }
+    # Return the keep/discard indicator.
+    return $retVal;
 }
 
 
+=head2 Virtual Methods
+
+=head3 compute_score
+
+    my $score = $scoring->compute_score($contig, $sim, $refID, $oldScore);
+
+Process a similarity and use it to update the scoring vector coordinates for the relevant genome.
+
+=over 4
+
+=item contig
+
+A L<SampleContig> object containing the data for the contig.
+
+=item sim
+
+A L<Sim> object containing the results of a significant BLAST hit between the contig and a
+reference genome.
+
+=item refID
+
+The ID of the target reference genome.
+
+=item oldScore
+
+The current score for the similarity between the contig and the reference genome.
+
+=back
+
+=cut
+
+sub compute_score {
+    # Get the parameters.
+    my ($self, $contig, $sim, $refID, $oldScore) = @_;
+    die "compute_score must be overridden.";
+}
+
+=head3 adjust_scores
+
+    $scoring->adjust_scores($contig);
+
+Perform a final adjustment on the scores for the contig before forming them into a vector. Use this method
+for adjustments that are related solely to the scores themselves. For adjustments that are relevant to the
+vector nature of the scores, use L</adjust_vector>. The default method does nothing.
+
+=over 4
+
+=item contig
+
+L<SampleContig> object whose scores are to be adjusted.
+
+=back
+
+=cut
+
+sub adjust_scores {
+    # Get the parameters.
+    my ($self, $contig) = @_;
+}
+
+=head3 fix_vector
+
+    my $keepFlag = $scoring->fix_vector($contig);
+
+Adjust a similarity vector. This method performs post-processing on an assembled vector and allows the
+scoring process one last chance to reject it. The default method makes no adjustment and returns TRUE.
+
+=over 4
+
+=item contig
+
+L<SampleContig> object whose vector is to be adjusted.
+
+=item RETURN
+
+Returns TRUE if the vector should be kept, FALSE if it should be discarded.
+
+=back
+
+=cut
+
+sub fix_vector {
+    # Get the parameters.
+    my ($self, $contig) = @_;
+    return 1;
+}
 
 
 1;
