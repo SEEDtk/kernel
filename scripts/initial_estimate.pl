@@ -62,6 +62,7 @@ my $univ_limit      = $opt->univlimit;
 my $min_covg        = $opt->mincovg;
 
 my %univ_roles = map { $_ => 1 } File::Slurp::read_file("$FIG_Config::global/uni.roles", { chomp => 1 });
+print STDERR scalar(keys %univ_roles) . " universal roles read from file.\n";
 opendir( REFD, $refD ) || die "Could not access $refD";
 my @refs = sort { $a <=> $b } grep { $_ !~ /^\./ } readdir(REFD);
 my %refs = map { ( $_ => 1 ) } @refs;
@@ -77,7 +78,6 @@ my %ref_names =
 
 my $univ_in_ref =
   &univ_roles_in_ref_pegs( $refD, \%univ_roles, \@refs, $blast_type );
-
 my ( $contig_similarities_to_ref, $univ_in_contigs ) =
   &process_blast_against_refs( \@refs, $refD, $univ_in_ref, $min_len, $max_psc,
     $blast_type, $min_covg );
