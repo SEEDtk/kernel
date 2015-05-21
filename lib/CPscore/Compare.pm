@@ -57,6 +57,20 @@ sub new {
 
 =head2 Virtual Methods
 
+=head3 type
+
+    my $typeName = $compare->type();
+
+Return the type string for this scoring method.
+
+=cut
+
+sub type {
+    my ($self) = @_;
+    return ref $self;
+}
+
+
 =head3 compare
 
     my $sim = $compare->compare($contig1, $contig2);

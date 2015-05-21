@@ -7,11 +7,11 @@ use File::Slurp;
 use BasicLocation;
 use Sim;
 use CPscore::Vector;
-use CPscore::Signal::Ranking;
-use CPscore::Signal::Distance;
-use CPscore::Signal::Best;
-use CPscore::Vector::Binning;
-use CPscore::Vector::Best;
+use CPscore::Signal;
+use CPscore::Signal::Avg;
+use SampleContig;
+use CPscore::Basis;
+use CPscore::Basis::HotGroup;
 
 # usage: initial_estimate -r reference.counts -d ReferenceDir > initial.estimate
 my $opt = ScriptUtils::Opts(
@@ -52,7 +52,8 @@ my $opt = ScriptUtils::Opts(
     ],
     [ 'scoring=s', 'scoring method', { default => 'vector' }],
     [ 'compare=s', 'comparison method', { default => 'dot'}],
-    [ 'logFile=s', 'name of log file']
+    [ 'logFile=s', 'name of log file'],
+    [ 'basis=s', 'method for computing the basis vectors', { default => 'normal' }]
 );
 
 my $blast_type = $opt->blast;
@@ -70,6 +71,7 @@ my $univ_limit      = $opt->univlimit;
 my $min_covg        = $opt->mincovg;
 my $scoringType     = $opt->scoring;
 my $compareType     = $opt->compare;
+my $basisType       = $opt->basis;
 
 my $scoring;
 if ($scoringType eq 'vector') {
@@ -84,6 +86,16 @@ if ($scoringType eq 'vector') {
     die "Invalid scoring type '$scoringType'.";
 }
 
+my $basis;
+if ($basisType eq 'normal') {
+    $basis = CPscore::Basis->new();
+} elsif ($basisType eq 'hot') {
+    $basis = CPscore::Basis::HotGroup->new();
+} elsif ($basisType =~ /^hot(\d+)$/) {
+    $basis = CPscore::Basis::HotGroup->new(topSize => $1);
+} else {
+    die "Invalid basis type '$basisType'.";
+}
 
 my %univ_roles = map { $_ => 1 } File::Slurp::read_file("$FIG_Config::global/uni.roles", { chomp => 1 });
 opendir( REFD, $refD ) || die "Could not access $refD";
@@ -116,9 +128,9 @@ if ($uni_contigsF)
     &write_unis_in_contigs(\%contigs, $uni_contigsF);
 }
 
-&compute_ref_vecs( \@refs, \%contigs, $scoring );
+&compute_ref_vecs( \@refs, \%contigs, $scoring, $basis );
 my @similarities =
-  &similarities_between_contig_vecs( \%contigs, $save_vecsF, $scoring, $blast_type );
+  &similarities_between_contig_vecs( \%contigs, $save_vecsF, $scoring, $blast_type, $basis );
 
 my $final_sets =
   &cluster_contigs( \%contigs, \@similarities, $min_sim, $covg_constraint );
@@ -180,10 +192,11 @@ sub display_univ
 
 sub display_contig
 {
-    my ( $contig, $ref_names, $refs, $ref_vec ) = @_;
+    my ( $contig, $ref_names, $refs, $contigO ) = @_;
 
-    print $contig->id, "\n";
+    print "$contig\n";
     my @hits;
+    my $ref_vec = $contigO->vector;
     for ( my $i = 0 ; ( $i < @$ref_vec ) ; $i++ )
     {
         if ( $ref_vec->[$i] > 0 )
@@ -323,9 +336,9 @@ sub initial_sets
 
 sub similarities_between_contig_vecs
 {
-    my ( $contigHash, $save_vecsF, $scoring, $blast_type ) = @_;
+    my ( $contigHash, $save_vecsF, $scoring, $blast_type, $basis ) = @_;
     my @sims;
-    my $typeLine = "$blast_type " . $scoring->type() . "\n";
+    my $typeLine = "$blast_type " . $scoring->type() . " " . $basis->type() . "\n";
     if ( $save_vecsF && ( -s $save_vecsF ) )
     {
         open(my $ih, "<", $save_vecsF) || die "Cannot open saved vectors: $!";
@@ -379,13 +392,14 @@ sub similarities_between_contig_vecs_1
 
 sub compute_ref_vecs
 {
-    my ( $refs, $contigHash, $scoring ) = @_;
+    my ( $refs, $contigHash, $scoring, $basis ) = @_;
 
+    my $basisVec = $basis->compute($contigHash, $refs);
     foreach my $contigID ( sort keys(%$contigHash) )
     {
         my $contig = $contigHash->{$contigID};
         $scoring->adjust_scores($contig);
-        my $keep = $contig->Score($refs);
+        my $keep = $contig->Score($basisVec);
         if ( $keep )
         {
             $keep = $scoring->adjust_vector($contig);

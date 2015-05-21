@@ -85,6 +85,8 @@ sub new {
         $compare = CPscore::Compare::Best->new(%options);
     } elsif ($compareType eq 'bin') {
         $compare = CPscore::Compare::Binning->new(%options);
+    } elsif ($compareType =~ /^bin(\d+)$/) {
+        $compare = CPscore::Compare::Binning->new(topSize => $1);
     } elsif ($compareType eq 'dist') {
         $compare = CPscore::Compare::Distance->new(%options);
     } elsif ($compareType eq 'rank') {
@@ -114,7 +116,7 @@ Return the type string for this scoring method.
 
 sub type {
     my ($self) = @_;
-    return join('-', ref($self), ref($self->{compare}), ($self->{normalize} ? 'n' : 'v'));
+    return join('-', ref($self), $self->{compare}->type, ($self->{normalize} ? 'n' : 'v'));
 }
 
 =head3 update_score
@@ -148,7 +150,7 @@ sub update_score {
     # Get the old score.
     my $oldScore = $contig->Hit($refID);
     # Compute the new score (this calls through to the subclass).
-    my $score = $self->compute_score($contig, $sim, $refID);
+    my $score = $self->compute_score($contig, $sim, $refID, $oldScore);
     # Store it in the contig object.
     $contig->SetScore($refID, $score);
 }

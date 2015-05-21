@@ -70,7 +70,9 @@ sub process_1 {
             }
         }
         print "\n--------\n";
-        analyze_bin([keys %binned_contigs], \%expectations, \%expectedBin);
+        if ($opt->expected) {
+            analyze_bin([keys %binned_contigs], \%expectations, \%expectedBin);
+        }
         my ($sz,$cv) = &sum_lengths($contigs);
         print "total size of contigs=$sz\n";
         print "number universal=$num_univ\n";
@@ -96,18 +98,25 @@ sub analyze_bin {
     my ($contigList, $expectationsH, $expectedBinHL) = @_;
     my %found;
     for my $contig (@$contigList) {
-        $found{$expectationsH->{$contig}}++;
+        my $bin = $expectationsH->{$contig};
+        if ($bin) {
+            $found{$bin}++;
+        }
     }
-    my ($best, $bestCount) = ('none', 0);
+    my ($best, $bestCount) = (undef, 0);
     for my $binFound (keys %found) {
-        if ($found{$binFound} > $bestCount) {
+        if ($found{$binFound} && $found{$binFound} > $bestCount) {
             $best = $binFound;
             $bestCount = $found{$binFound};
         }
     }
-    my $missing = scalar(@{$expectedBinHL->{$best}}) - $bestCount;
-    my $extra = scalar(@$contigList) - $bestCount;
-    print "best matching bin $best: $bestCount found, $missing missing, $extra extra\n";
+    if ($best) {
+        my $missing = scalar(@{$expectedBinHL->{$best}}) - $bestCount;
+        my $extra = scalar(@$contigList) - $bestCount;
+        print "best matching bin $best: $bestCount found, $missing missing, $extra extra\n";
+    } else {
+        print "No contigs found in expected bins.\n";
+    }
 }
 
 sub display_univ {
@@ -137,10 +146,13 @@ sub count_ref {
     foreach my $x (@entries)
     {
         # Get the contig length and the genome name.
-        if ($x =~ /length_(\d+).*\t([^\t]*)$/s)
+        my ($node, $genome) = split /\n/, $x;
+        if ($node =~ /length_(\d+)/)
         {
-            $bp{$2} += $1;
-            $counts{$2}++;
+            my $length = $1;
+            my (undef, undef, $gname) = split /\t/, $genome;
+            $bp{$gname} += $length;
+            $counts{$gname}++;
         }
     }
 

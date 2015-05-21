@@ -29,8 +29,63 @@ whether they belong to the same ordering bin. The score is C<1> if the coordinat
 same relative order-- that is, if the highest coordinate is at the same position in both, as is the second
 highest, and so forth. Otherwise, it is C<0>.
 
+In addition to the fields in the base class, this object contains the following.
+
+=over 4
+
+=item topSize
+
+The maximum number of vector positions to consider when determining the bin. The default is 0, indicating all
+positions are considered.
+
+=back
+
+=head2 Special Methods
+
+=head3 new
+
+    my $compare = CPscore::Compare->new(%options);
+
+Create a new, blank comparison object.
+
+=over 4
+
+=item options
+
+Hash containing options for the comparison algorithm. Currently no options are supported by the
+base class.
+
+=back
+
+=cut
+
+sub new {
+    # Get the parameters.
+    my ($class, %options) = @_;
+    # Compute the options.
+    my $topSize = $options{topSize} // 0;
+    # Create the object.
+    my $retVal = { topSize => $topSize };
+    # Bless and return it.
+    bless $retVal, $class;
+    return $retVal;
+}
+
 
 =head2 Virtual Methods
+
+=head3 type
+
+    my $typeName = $compare->type();
+
+Return the type string for this scoring method.
+
+=cut
+
+sub type {
+    my ($self) = @_;
+    return "bin" . $self->{topSize};
+}
 
 
 =head3 compare
@@ -76,6 +131,9 @@ sub compare {
     # CV2 score than a particular position, we have a failure and return 0.
     my $retVal = 1;
     $n = scalar(@sorted) - 1;
+    if ($self->{topSize} && $self->{topSize} < $n) {
+        $n = $self->{topSize};
+    }
     # Loop through the pairs, searchign for a mismatch.
     for (my $i = 0; $i < $n && $retVal; $i++) {
         my $sortedI = $sorted[$i][1];
