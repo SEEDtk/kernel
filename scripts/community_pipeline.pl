@@ -304,6 +304,7 @@ my $opt =
                         [ 'scoring=s', 'scoring method', { default => 'vector' }],
                         [ 'compare=s', 'comparison method', { default => 'dotproduct' }],
                         [ 'expected=s', 'name of a file containing expected results'],
+                        [ 'basis=s', 'algorithm for computing the reference genome basis', { default => 'normal' }]
     );
 
 my $blast_type = $opt->blast;
@@ -327,6 +328,7 @@ $parms{univLimit} = $opt->univlimit;
 $parms{minCovg}   = $opt->mincovg;
 $parms{scoring}   = $opt->scoring;
 $parms{compare}   = $opt->compare;
+$parms{basis}     = $opt->basis;
 
 if (! -d $dataD) { mkdir($dataD,0777) || die "could not make $dataD" }
 
@@ -408,7 +410,7 @@ sub Process {
     close PARMS;
     my $cmd = "initial_estimate -b $parms->{blast} -r $dataS/RefD -c $dataS/ref.counts -l $parms->{minlen} -p $parms->{maxpsc} " .
                     "-s $parms->{minsim} -v $dataS/saved.vecs -u $dataS/contig.to.uni --cr $parms->{covgRatio} --ul $parms->{univLimit} " .
-                    "--minCovg $parms->{minCovg} --scoring $parms->{scoring} --compare $parms->{compare} " .
+                    "--minCovg $parms->{minCovg} --scoring $parms->{scoring} --compare $parms->{compare} --basis $parms->{basis} " .
                     "--logFile $dataS/mergelog$realSuffix > $dataS/bins$realSuffix";
     &SeedUtils::run($cmd);
     my $expectation = ($opt->expected ? ("--expected " . $opt->expected) : "");
