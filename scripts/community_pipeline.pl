@@ -345,7 +345,7 @@ if (! -s "$dataS/repk.json")
 {
     if (! -s $refsF)
     {
-        die "you need to use the --refs parameter to specify representative genomes";
+        die "you need to use the --refsf parameter to specify representative genomes";
     }
     &SeedUtils::run("compute_close_data > $dataS/repk.json < $refsF");
 }
