@@ -111,9 +111,8 @@ sub analyze_bin {
         }
     }
     if ($best) {
-        my $missing = scalar(@{$expectedBinHL->{$best}}) - $bestCount;
         my $extra = scalar(@$contigList) - $bestCount;
-        print "best matching bin $best: $bestCount found, $missing missing, $extra extra\n";
+        print "best matching bin $best: $bestCount found, $extra extra\n";
     } else {
         print "No contigs found in expected bins.\n";
     }
