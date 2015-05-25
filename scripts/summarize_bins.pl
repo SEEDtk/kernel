@@ -167,7 +167,7 @@ sub sum_lengths {
     my @entries = split(/\n\n/,$contigs);
     foreach my $x (@entries)
     {
-        if ($x =~ /length_(\d+)_cov_([\d\.]+)/)
+        if ($x =~ /length_(\d+)_covg?_([\d\.]+)/)
         {
             $tot += $1;
             $cvg += $1*$2;
