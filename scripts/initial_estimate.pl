@@ -53,6 +53,7 @@ my $opt = ScriptUtils::Opts(
     [ 'scoring=s', 'scoring method', { default => 'vector' }],
     [ 'compare=s', 'comparison method', { default => 'dot'}],
     [ 'logFile=s', 'name of log file'],
+    [ 'blacklist=s', 'file containing reference genomes to ignore'],
     [ 'basis=s', 'method for computing the basis vectors', { default => 'normal' }]
 );
 
@@ -72,6 +73,7 @@ my $min_covg        = $opt->mincovg;
 my $scoringType     = $opt->scoring;
 my $compareType     = $opt->compare;
 my $basisType       = $opt->basis;
+my $blackList       = $opt->blacklist;
 
 my $scoring;
 if ($scoringType eq 'vector') {
@@ -97,10 +99,14 @@ if ($basisType eq 'normal') {
     die "Invalid basis type '$basisType'.";
 }
 
+my %blackList;
+if ($blackList) {
+    %blackList = map { $_ => 1 } File::Slurp::read_file($blackList, { chomp => 1 });
+}
 my %univ_roles = map { $_ => 1 } File::Slurp::read_file("$FIG_Config::global/uni.roles", { chomp => 1 });
 print STDERR scalar(keys %univ_roles) . " universal roles read from file.\n";
 opendir( REFD, $refD ) || die "Could not access $refD";
-my @refs = sort { $a <=> $b } grep { $_ !~ /^\./ } readdir(REFD);
+my @refs = sort { $a <=> $b } grep { $_ !~ /^\./ && ! $blackList{$_} } readdir(REFD);
 my %refs = map { ( $_ => 1 ) } @refs;
 closedir(REFD);
 
