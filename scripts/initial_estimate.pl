@@ -30,7 +30,7 @@ my $opt = ScriptUtils::Opts(
         { default => 1.0e-100 }
     ],
     [ 'blast|b=s',  'blast type (p or n)',               { default => 'p' } ],
-    [ 'minsim|s=f', 'minimum % identity for condensing', { default => 0.8 } ],
+    [ 'minsim|s=f', 'minimum score for condensing', { default => 0.2 } ],
     [ 'savevecs|v=s', 'File used to save similarity scores',  {} ],
     [
         'refD|r=s',
@@ -54,7 +54,9 @@ my $opt = ScriptUtils::Opts(
     [ 'compare=s', 'comparison method', { default => 'dot'}],
     [ 'logFile=s', 'name of log file'],
     [ 'blacklist=s', 'file containing reference genomes to ignore'],
-    [ 'basis=s', 'method for computing the basis vectors', { default => 'normal' }]
+    [ 'basis=s', 'method for computing the basis vectors', { default => 'normal' }],
+    [ 'basisLimit=i', 'maximum number of reference genomes in the basis', { default => 3000 }],
+    [ 'basisfile=s', 'output file for basis vector'],
 );
 
 my $blast_type = $opt->blast;
@@ -74,6 +76,7 @@ my $scoringType     = $opt->scoring;
 my $compareType     = $opt->compare;
 my $basisType       = $opt->basis;
 my $blackList       = $opt->blacklist;
+my $basisLimit      = $opt->basislimit;
 
 my $scoring;
 if ($scoringType eq 'vector') {
@@ -101,7 +104,7 @@ if ($basisType eq 'normal') {
 
 my %blackList;
 if ($blackList) {
-    %blackList = map { $_ => 1 } File::Slurp::read_file($blackList, { chomp => 1 });
+    %blackList = map { $_ =~ /^(\S+)/; $1 => 1 } File::Slurp::read_file($blackList, { chomp => 1 });
 }
 my %univ_roles = map { $_ => 1 } File::Slurp::read_file("$FIG_Config::global/uni.roles", { chomp => 1 });
 print STDERR scalar(keys %univ_roles) . " universal roles read from file.\n";
@@ -134,12 +137,13 @@ if ($uni_contigsF)
     &write_unis_in_contigs(\%contigs, $uni_contigsF);
 }
 
-&compute_ref_vecs( \@refs, \%contigs, $scoring, $basis );
+&compute_ref_vecs( \@refs, \%contigs, $scoring, $basis, $opt->basisfile, \%ref_names, $basisLimit );
 my @similarities =
-  &similarities_between_contig_vecs( \%contigs, $save_vecsF, $scoring, $blast_type, $basis );
+  &similarities_between_contig_vecs( \%contigs, $save_vecsF, $scoring, $blast_type, $basis, $min_sim,
+    $basisLimit );
 
 my $final_sets =
-  &cluster_contigs( \%contigs, \@similarities, $min_sim, $covg_constraint );
+  &cluster_contigs( \%contigs, \@similarities, $covg_constraint );
 &output_final_sets( $final_sets, \%ref_names, \@refs, \%contigs );
 if ($opt->logfile) {
     close LOG;
@@ -233,7 +237,7 @@ sub cluster_contigs
 
 sub condense_sets
 {
-    my ( $sets, $contig_to_set, $similarities, $min_sim, $covg_constraint ) =
+    my ( $sets, $contig_to_set, $similarities, $covg_constraint ) =
       @_;
 
     foreach my $sim (@$similarities)
@@ -244,7 +248,6 @@ sub condense_sets
         if (   $set1
             && $set2
             && ( $set1 != $set2 )
-            && ( $sc >= $min_sim )
             && &univ_ok( $sets->{$set1}->[1], $sets->{$set2}->[1] )
             && &covg_ok( $sets->{$set1}[2], $sets->{$set2}[2],
                 $covg_constraint ) )
@@ -342,9 +345,9 @@ sub initial_sets
 
 sub similarities_between_contig_vecs
 {
-    my ( $contigHash, $save_vecsF, $scoring, $blast_type, $basis ) = @_;
+    my ( $contigHash, $save_vecsF, $scoring, $blast_type, $basis, $min_sim, $basisLimit ) = @_;
     my @sims;
-    my $typeLine = "$blast_type " . $scoring->type() . " " . $basis->type() . "\n";
+    my $typeLine = "$blast_type " . $scoring->type() . " " . $basis->type() . "-lim$basisLimit " . "$min_sim\n";
     if ( $save_vecsF && ( -s $save_vecsF ) )
     {
         open(my $ih, "<", $save_vecsF) || die "Cannot open saved vectors: $!";
@@ -357,7 +360,7 @@ sub similarities_between_contig_vecs
     }
     if (! @sims)
     {
-        @sims = &similarities_between_contig_vecs_1($contigHash, $scoring);
+        @sims = &similarities_between_contig_vecs_1($contigHash, $scoring, $min_sim);
         if ( $save_vecsF && open( SAVE, ">$save_vecsF" ) )
         {
             print SAVE $typeLine;
@@ -373,7 +376,7 @@ sub similarities_between_contig_vecs
 
 sub similarities_between_contig_vecs_1
 {
-    my ($contigHash, $scoring) = @_;
+    my ($contigHash, $scoring, $min_sim) = @_;
 
     my @sims;
     my @contigs = sort keys(%$contigHash);
@@ -386,21 +389,31 @@ sub similarities_between_contig_vecs_1
         {
             my $co2 = $contigHash->{ $contigs[$j] };
             my $sim = $scoring->compare( $co1, $co2 );
-            if ( $sim > 0 )
+            if ( $sim > $min_sim )
             {
                 push( @sims, [ $sim, $contigs[$i], $contigs[$j] ] );
             }
         }
         if ( ( $i % 100 ) == 0 ) { print STDERR "$i of $n\n" }
     }
-    return sort { $b->[0] <=> $a->[0] } @sims;
+    print STDERR scalar(@sims) . " total scores found.\n";
+    if ($scoring->sortNeeded()) {
+        @sims = sort { $b->[0] <=> $a->[0] } @sims;
+        print STDERR "Scores sorted.\n";
+    }
+    return @sims;
 }
 
 sub compute_ref_vecs
 {
-    my ( $refs, $contigHash, $scoring, $basis ) = @_;
+    my ( $refs, $contigHash, $scoring, $basis, $basisfile, $refNames, $basisLimit ) = @_;
 
     my $basisVec = $basis->compute($contigHash, $refs);
+    if (scalar(@$basisVec) > $basisLimit) {
+        my $basisLast = $basisLimit - 1;
+        $basisVec = [ @{$basisVec}[0 .. $basisLast] ];
+    }
+    print_basis_vector($basisVec, $basisfile, $refNames);
     foreach my $contigID ( sort keys(%$contigHash) )
     {
         my $contig = $contigHash->{$contigID};
@@ -417,7 +430,15 @@ sub compute_ref_vecs
     }
 }
 
-
+sub print_basis_vector {
+    my ($basisVec, $basisfile, $refNames) = @_;
+    if ($basisfile) {
+       open(my $oh, ">$basisfile") || die "Could not open basis vector output file: $!";
+       for my $genome (@$basisVec) {
+           print $oh "$genome\t$refNames->{$genome}\n";
+       }
+    }
+}
 sub process_blast_against_refs
 {
     my ( $refs, $refD, $univ_in_ref, $min_len, $max_psc, $blast_type, $min_covg, $scoring, $contigHash ) = @_;

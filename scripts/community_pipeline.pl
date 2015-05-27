@@ -181,6 +181,10 @@ If specified, the name of a file containing the IDs of genomes to be removed fro
 The file should contain one genome ID per line. This is useful to insure that the genomes used to generate test samples are
 not distorting the scoring process.
 
+=item basisLimit
+
+Maximum number of reference genomes to include in the scoring vector.
+
 =back
 
 =head2 Output
@@ -312,6 +316,7 @@ my $opt =
                         [ 'expected=s', 'name of a file containing expected results'],
                         [ 'basis=s', 'algorithm for computing the reference genome basis', { default => 'normal' }],
                         [ 'blacklist=s', 'file containing IDs of reference genomes to bypass during scoring'],
+                        [ 'basisLimit=s', 'maximum number of reference genomes per scoring vector', { default => 5 }],
     );
 
 my $blast_type = $opt->blast;
@@ -336,6 +341,7 @@ $parms{minCovg}   = $opt->mincovg;
 $parms{scoring}   = $opt->scoring;
 $parms{compare}   = $opt->compare;
 $parms{basis}     = $opt->basis;
+$parms{basisLimit}= $opt->basislimit;
 
 if (! -d $dataD) { mkdir($dataD,0777) || die "could not make $dataD" }
 
@@ -420,7 +426,8 @@ sub Process {
     my $cmd = "initial_estimate -b $parms->{blast} -r $dataS/RefD -c $dataS/ref.counts -l $parms->{minlen} -p $parms->{maxpsc} " .
                     "-s $parms->{minsim} -v $dataS/saved.vecs -u $dataS/contig.to.uni --cr $parms->{covgRatio} --ul $parms->{univLimit} " .
                     "--minCovg $parms->{minCovg} --scoring $parms->{scoring} --compare $parms->{compare} --basis $parms->{basis} " .
-                    "--logFile $dataS/mergelog$realSuffix $blacklisting > $dataS/bins$realSuffix";
+                    "--logFile $dataS/mergelog$realSuffix $blacklisting --basisfile $dataS/basis.vec --basisLimit $parms->{basisLimit} " .
+                    "> $dataS/bins$realSuffix";
     &SeedUtils::run($cmd);
     my $expectation = ($opt->expected ? ("--expected " . $opt->expected) : "");
     &SeedUtils::run("summarize_bins -c $dataS/contig.to.uni $expectation < $dataS/bins$realSuffix > $dataS/bins.summary$realSuffix");

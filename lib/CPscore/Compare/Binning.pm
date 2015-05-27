@@ -87,6 +87,19 @@ sub type {
     return "bin" . $self->{topSize};
 }
 
+=head3 sortNeeded
+
+    my $flag = $compare->sortNeeded();
+
+Return TRUE if this is a normal scoring method that requires sorting, or FALSE if this is a binary
+scoring method that returns only C<1> and C<0>. This scoring method does not require a sort.
+
+=cut
+
+sub sortNeeded {
+    return 0;
+}
+
 
 =head3 compare
 

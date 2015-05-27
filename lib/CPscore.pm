@@ -119,6 +119,21 @@ sub type {
     return join('-', ref($self), $self->{compare}->type, ($self->{normalize} ? 'n' : 'v'));
 }
 
+=head3 sortNeeded
+
+    my $flag = $compare->sortNeeded();
+
+Return TRUE if this is a normal scoring method that requires sorting, or FALSE if this is a binary
+scoring method that returns only C<1> and C<0>. This method calls through to the comparison object.
+
+=cut
+
+sub sortNeeded {
+    my ($self) = @_;
+    return $self->{compare}->sortNeeded;
+}
+
+
 =head3 update_score
 
     $scoring->update_score($contig, $sim, $refID);
