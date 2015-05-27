@@ -317,6 +317,7 @@ my $opt =
                         [ 'basis=s', 'algorithm for computing the reference genome basis', { default => 'normal' }],
                         [ 'blacklist=s', 'file containing IDs of reference genomes to bypass during scoring'],
                         [ 'basisLimit=s', 'maximum number of reference genomes per scoring vector', { default => 5 }],
+                        [ 'suffix1=i', 'first suffix to use for parm file results', { default => 1 }],
     );
 
 my $blast_type = $opt->blast;
@@ -381,7 +382,7 @@ if (! $opt->parmfile) {
         $parmQ{$parm} = \@values;
     }
     close PARMS;
-    my $runN = 1;
+    my $runN = $opt->suffix1;
     my @keyQ = sort keys %parmQ;
     my @qPos = map { 0 } @keyQ;
     my @qLen = map { scalar @{$parmQ{$_}} } @keyQ;
