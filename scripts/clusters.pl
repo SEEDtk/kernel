@@ -37,7 +37,12 @@ appended:
 
     Cluster is a comma-separated set of peg ids
     
-MaxGap is optionl.
+MaxGap is optionl.  Hence, you often wish to use something like
+
+    echo genomes | perl cluster -m 4000 | perl ss_and_genome_of_row.pl -c 1 | perl embedded_rel.pl -c 2 -f tmp > clusters
+    perl function_of -c 3  tmp > clusters.in.relational.format
+
+    
 
 =head2 Parameters
 
@@ -46,11 +51,7 @@ L<ScriptUtils/ih_options> plus the following.
 
 -m MaxGapBetweenGenesInCluster
 
-    the maximum gap between members of a cluster.  Defaults to 2000bp.
-
--c N
-
-    the column containing genome IDs
+    the maximum gap between members of a cluster.  Defaults to 4000 bp.
 
 =cut
 
@@ -58,7 +59,7 @@ L<ScriptUtils/ih_options> plus the following.
 my $opt =
   ScriptUtils::Opts( '',
                      Shrub::script_options(), ScriptUtils::ih_options(),
-		     [ 'maxgap|m=i', { default => 2000 } ]
+		     [ 'maxgap|m=i', { default => 4000 } ]
     );
 
 my $max_gap    = $opt->maxgap;
