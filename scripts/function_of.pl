@@ -15,8 +15,19 @@
 # Genomes at veronika@thefig.info or download a copy from
 # http://www.theseed.org/LICENSE.TXT.
 #
-=head1 Expand row IDs to subsystems and genomes
+=head1 Add Functions to Table
 
+Given a table with feature ids as a column, add a new column 
+containing function description.
+
+=head2 Parameters
+
+The command-line options are those found in L<Shrub/script_options> and
+L<ScriptUtils/ih_options> plus the following.
+
+-c N  The column containing feature
+
+-p N  The privilege level for accessing the function
 
 =cut
 
@@ -31,7 +42,8 @@ use ScriptThing;
 my $opt =
   ScriptUtils::Opts( '',
                      Shrub::script_options(), ScriptUtils::ih_options(),
-                        ['col|c=i', 'rowid column', { }]
+                        ['col|c=i', 'rowid column', { }],
+                        ['privilegel|p=i', 'privilege level', { default => 2 }]
     );
 my $ih = ScriptUtils::IH( $opt->input );
 my $shrub = Shrub->new_for_script($opt);
@@ -44,10 +56,14 @@ while (my @tuples = ScriptThing::GetBatch($ih, undef, $column)) {
     foreach my $tuple (@tuples) {
         my ($id, $line) = @$tuple;
         my $data = $funcH->{$id};
-	if (! $data) { $data = ['','',''] }
-	if (defined($data))
+	if (! $data) 
+        { 
+             $data = ['','',''] 
+        }
+        else
 	{
-	    print $line,"\t",join("\t",@$data),"\n";
-	}
+            $data = [$data->[1]];
+        }
+	print $line,"\t",join("\t",@$data),"\n";
     }
 }

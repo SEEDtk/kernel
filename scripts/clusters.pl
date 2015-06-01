@@ -25,24 +25,31 @@ use File::Slurp;
 use SeedUtils;
 use Clusters;
 
-=head1 Compute Clusters
+=head1 Compute Subsystem chromosomal Clusters
 
     clusters [-m MaxGap] [ options ] > Clusters
 
 computes clusters on the chromosome of pegs from a subsystem (perhaps
-multiple subsystems).  The primary output is the input table with 2 columns
-appended:
+multiple subsystems).  The primary output is a  2-column table:
 
     RowId   is the id of a row in a populated subsystem
 
     Cluster is a comma-separated set of peg ids
     
-MaxGap is optionl.  Hence, you often wish to use something like
+MaxGap is optionl.  A cluster is formed by finding genes whose midpoints
+differ by MaxGap or less, and the two close genes occur in the same subsystem.
+Pairs are gathered into clusters.
 
-    echo genomes | perl cluster -m 4000 | perl ss_and_genome_of_row.pl -c 1 | perl embedded_rel.pl -c 2 -f tmp > clusters
-    perl function_of -c 3  tmp > clusters.in.relational.format
+Hence, you often wish to try something like
 
-    
+    echo 83333.1 | perl clusters.pl -m 4000 | perl ss_and_genome_of_row.pl -c 1 | perl embedded_rel.pl -c 2 -f tmp > clusters
+    perl function_of.pl -c 2  < tmp > clusters.in.relational.format
+
+This would produce two files:
+
+    clusters will contain 4-columns [RowId,ClusterNumber,Subsystem,Genome]
+        and
+    clusters.in.relational.format   [ClusterNumber,Peg,Function]
 
 =head2 Parameters
 
