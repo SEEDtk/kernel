@@ -7,25 +7,19 @@ use BasicLocation;
 sub subsys_mems {
     my($genome,$shrub) = @_;
     my @tuples = $shrub->GetAll("Genome Genome2Row SubsystemRow Row2Cell SubsystemCell Cell2Feature",
-				"Genome(id) = ?",
-				[$genome],
-				"Cell2Feature(to-link) SubsystemRow(id) SubsystemRow(variant-code)");
+                                "Genome(id) = ?",
+                                [$genome],
+                                "Cell2Feature(to-link) SubsystemRow(id) SubsystemRow(variant-code)");
     my $peg_to_subsys_row = {};
     foreach my $tuple (@tuples)
     {
-	my($peg,$ss_row,$vc) = @$tuple;
-	if (&probably_active($vc))
-	{
-	    $peg_to_subsys_row->{$peg}->{$ss_row} = 1;
-	}
+        my($peg,$ss_row,$vc) = @$tuple;
+        if (&SeedUtils::probably_active($vc))
+        {
+            $peg_to_subsys_row->{$peg}->{$ss_row} = 1;
+        }
     }
     return $peg_to_subsys_row;
-}
-
-sub probably_active {  ### Move to SeedUtils, wherever that is
-    my($vc) = @_;
-
-    return $vc !~ /^(inactive|-1|\*-1|0|\*0)$/;
 }
 
 sub cluster_subsys_fids {
@@ -35,28 +29,28 @@ sub cluster_subsys_fids {
     my $i=0;
     while ($i < (@$sorted_fid_tuples - 1))
     {
-	my @ss = &clustered_pair($sorted_fid_tuples->[$i],$sorted_fid_tuples->[$i+1],$max_gap,$peg_to_subsys_row);
-	if (@ss > 0)
-	{
-	    my $fid1 = $sorted_fid_tuples->[$i]->[0];
-	    my $fid2 = $sorted_fid_tuples->[$i+1]->[0];
-	    foreach my $ss (@ss)
-	    {
-		push(@{$pairs{$ss}},[$fid1,$fid2]);
-	    }
-	}
-	$i++;
+        my @ss = &clustered_pair($sorted_fid_tuples->[$i],$sorted_fid_tuples->[$i+1],$max_gap,$peg_to_subsys_row);
+        if (@ss > 0)
+        {
+            my $fid1 = $sorted_fid_tuples->[$i]->[0];
+            my $fid2 = $sorted_fid_tuples->[$i+1]->[0];
+            foreach my $ss (@ss)
+            {
+                push(@{$pairs{$ss}},[$fid1,$fid2]);
+            }
+        }
+        $i++;
     }
 
     my @ss_clusters;
     foreach my $ss (keys(%pairs))
     {
-	my $con = $pairs{$ss};
-	my @clusters = &cluster_connections($con);
-	foreach my $cluster (@clusters)
-	{
-	    push(@ss_clusters,[$ss,$cluster]);
-	}
+        my $con = $pairs{$ss};
+        my @clusters = &cluster_connections($con);
+        foreach my $cluster (@clusters)
+        {
+            push(@ss_clusters,[$ss,$cluster]);
+        }
     }
     return @ss_clusters;
 }
@@ -75,7 +69,7 @@ sub clustered_pair {
     my $ss2 = $peg_to_subsys_row->{$fid2};
     if ($ss1 && $ss2)
     {
-	@ss = &intersection($ss1,$ss2);
+        @ss = &intersection($ss1,$ss2);
     }
     return @ss;
 }
@@ -93,7 +87,7 @@ sub cluster_connections {
 
     foreach my $pair (@$pairs)
     {
-	my($obj1,$obj2) = @$pair;
+        my($obj1,$obj2) = @$pair;
         my $in1 = $to_cluster{$obj1};
         my $in2 = $to_cluster{$obj2};
 
@@ -107,7 +101,7 @@ sub cluster_connections {
             delete $in_cluster{$in2};
         }
         elsif ((! defined($in1)) && defined($in2))
-	{
+        {
             push(@{$in_cluster{$in1}},@{$in_cluster{$in2}});
             foreach $_ (@{$in_cluster{$in2}})
             {
@@ -126,7 +120,7 @@ sub cluster_connections {
             $to_cluster{$obj2} = $in1;
         }
         elsif ((! defined($in1)) && (! defined($in2)))
-        {   
+        {
             $to_cluster{$obj1} = $to_cluster{$obj2} = $nxt;
             $in_cluster{$nxt} = [$obj1,$obj2];
             $nxt++;
