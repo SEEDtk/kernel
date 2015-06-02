@@ -103,17 +103,14 @@ sub analyze_bin {
             $found{$bin}++;
         }
     }
-    my ($best, $bestCount) = (undef, 0);
-    for my $binFound (keys %found) {
-        if ($found{$binFound} && $found{$binFound} > $bestCount) {
-            $best = $binFound;
-            $bestCount = $found{$binFound};
-        }
-    }
+    my @sorted = sort { $found{$b} <=> $found{$a} } keys %found;
+    my $best = $sorted[0];
     if ($best) {
-        my $missing = scalar(@{$expectedBinHL->{$best}}) - $bestCount;
-        my $extra = scalar(@$contigList) - $bestCount;
-        print "best matching bin $best: $bestCount found, $missing missing, $extra extra\n";
+        my $extra = scalar(@$contigList) - $found{$best};
+        print "best matching bin $best: $extra extra\n";
+        for my $bin (@sorted) {
+            print "* bin $bin\t$found{$bin}\n";
+        }
     } else {
         print "No contigs found in expected bins.\n";
     }
@@ -167,7 +164,7 @@ sub sum_lengths {
     my @entries = split(/\n\n/,$contigs);
     foreach my $x (@entries)
     {
-        if ($x =~ /length_(\d+)_cov_([\d\.]+)/)
+        if ($x =~ /length_(\d+)_covg?_([\d\.]+)/)
         {
             $tot += $1;
             $cvg += $1*$2;

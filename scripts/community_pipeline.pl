@@ -175,6 +175,16 @@ If specified, the name of a file containing the expected results. The file shoul
 first column being a contig ID and the second being a bin identifier. The results will be scored according to how well
 they match the bin assignments in this file.
 
+=item blacklist
+
+If specified, the name of a file containing the IDs of genomes to be removed from the list of reference genomes during scoring.
+The file should contain one genome ID per line. This is useful to insure that the genomes used to generate test samples are
+not distorting the scoring process.
+
+=item basisLimit
+
+Maximum number of reference genomes to include in the scoring vector.
+
 =back
 
 =head2 Output
@@ -304,6 +314,10 @@ my $opt =
                         [ 'scoring=s', 'scoring method', { default => 'vector' }],
                         [ 'compare=s', 'comparison method', { default => 'dotproduct' }],
                         [ 'expected=s', 'name of a file containing expected results'],
+                        [ 'basis=s', 'algorithm for computing the reference genome basis', { default => 'normal' }],
+                        [ 'blacklist=s', 'file containing IDs of reference genomes to bypass during scoring'],
+                        [ 'basisLimit=s', 'maximum number of reference genomes per scoring vector', { default => 5 }],
+                        [ 'suffix1=i', 'first suffix to use for parm file results', { default => 1 }],
     );
 
 my $blast_type = $opt->blast;
@@ -315,7 +329,7 @@ my $sample_id  = $opt->samplename;
 my $refsF      = $opt->refsf;
 my $maxE       = $opt->maxexpect;
 my $min_hits   = $opt->minkhits;
-my $expected   = $opt->expected;
+
 
 my %parms;
 $parms{blast}     = $blast_type;
@@ -327,6 +341,8 @@ $parms{univLimit} = $opt->univlimit;
 $parms{minCovg}   = $opt->mincovg;
 $parms{scoring}   = $opt->scoring;
 $parms{compare}   = $opt->compare;
+$parms{basis}     = $opt->basis;
+$parms{basisLimit}= $opt->basislimit;
 
 if (! -d $dataD) { mkdir($dataD,0777) || die "could not make $dataD" }
 
@@ -343,7 +359,7 @@ if (! -s "$dataS/repk.json")
 {
     if (! -s $refsF)
     {
-        die "you need to use the --refs parameter to specify representative genomes";
+        die "you need to use the --refsf parameter to specify representative genomes";
     }
     &SeedUtils::run("compute_close_data > $dataS/repk.json < $refsF");
 }
@@ -353,7 +369,7 @@ if (! -s "$dataS/ref.counts") {
 &SeedUtils::run("construct_reference_genomes -c $dataS/sample.fa -m $min_hits -e $maxE -r $dataS/RefD < $dataS/ref.counts");
 
 if (! $opt->parmfile) {
-    Process(\%parms);
+    Process(\%parms, undef, $opt);
 } else {
     my %parmQ;
     open(PARMS, "<", $opt->parmfile) || die "Could not open parameter file: $!";
@@ -366,7 +382,7 @@ if (! $opt->parmfile) {
         $parmQ{$parm} = \@values;
     }
     close PARMS;
-    my $runN = 1;
+    my $runN = $opt->suffix1;
     my @keyQ = sort keys %parmQ;
     my @qPos = map { 0 } @keyQ;
     my @qLen = map { scalar @{$parmQ{$_}} } @keyQ;
@@ -380,7 +396,7 @@ if (! $opt->parmfile) {
     my $found = 1;
     while ($found) {
         print STDERR "Parameter run $runN.\n";
-        Process(\%parms, $runN);
+        Process(\%parms, $runN, $opt);
         $runN++;
         my $idx = $#keyQ;
         $found = 0;
@@ -399,8 +415,10 @@ if (! $opt->parmfile) {
 }
 
 sub Process {
-    my ($parms, $suffix) = @_;
+    my ($parms, $suffix, $opt) = @_;
     my $realSuffix = (defined $suffix ? ".$suffix" : '');
+    my $blacklist = $opt->blacklist;
+    my $blacklisting = (defined $blacklist ? "--blacklist $blacklist" : "");
     open(PARMS, ">$dataS/parms$realSuffix") || die "Could not open parms file: $!";
     for my $parm (sort keys %$parms) {
         print PARMS "$parm = $parms->{$parm}\n";
@@ -408,8 +426,9 @@ sub Process {
     close PARMS;
     my $cmd = "initial_estimate -b $parms->{blast} -r $dataS/RefD -c $dataS/ref.counts -l $parms->{minlen} -p $parms->{maxpsc} " .
                     "-s $parms->{minsim} -v $dataS/saved.vecs -u $dataS/contig.to.uni --cr $parms->{covgRatio} --ul $parms->{univLimit} " .
-                    "--minCovg $parms->{minCovg} --scoring $parms->{scoring} --compare $parms->{compare} " .
-                    "--logFile $dataS/mergelog$realSuffix > $dataS/bins$realSuffix";
+                    "--minCovg $parms->{minCovg} --scoring $parms->{scoring} --compare $parms->{compare} --basis $parms->{basis} " .
+                    "--logFile $dataS/mergelog$realSuffix $blacklisting --basisfile $dataS/basis.vec --basisLimit $parms->{basisLimit} " .
+                    "> $dataS/bins$realSuffix";
     &SeedUtils::run($cmd);
     my $expectation = ($opt->expected ? ("--expected " . $opt->expected) : "");
     &SeedUtils::run("summarize_bins -c $dataS/contig.to.uni $expectation < $dataS/bins$realSuffix > $dataS/bins.summary$realSuffix");

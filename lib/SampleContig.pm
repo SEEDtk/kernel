@@ -112,7 +112,7 @@ sub new {
     }
     my $covg = $options{covg};
     if (! defined $covg) {
-        if ($contigID =~ /cov_(\d+(?:\.\d+)?)/) {
+        if ($contigID =~ /covg?_(\d+(?:\.\d+)?)/) {
             $covg = $1;
         } else {
             die "Contig ID $contigID does not specify a coverage and no \"covg\" option specified.";

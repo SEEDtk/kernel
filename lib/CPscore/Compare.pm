@@ -70,6 +70,19 @@ sub type {
     return ref $self;
 }
 
+=head3 sortNeeded
+
+    my $flag = $compare->sortNeeded();
+
+Return TRUE if this is a normal scoring method that requires sorting, or FALSE if this is a binary
+scoring method that returns only C<1> and C<0>. The default is TRUE.
+
+=cut
+
+sub sortNeeded {
+    return 1;
+}
+
 
 =head3 compare
 
