@@ -35,7 +35,7 @@ multiple subsystems).  The primary output is a  2-column table:
     RowId   is the id of a row in a populated subsystem
 
     Cluster is a comma-separated set of peg ids
-    
+
 MaxGap is optionl.  A cluster is formed by finding genes whose midpoints
 differ by MaxGap or less, and the two close genes occur in the same subsystem.
 Pairs are gathered into clusters.
@@ -66,25 +66,24 @@ L<ScriptUtils/ih_options> plus the following.
 my $opt =
   ScriptUtils::Opts( '',
                      Shrub::script_options(), ScriptUtils::ih_options(),
-		     [ 'maxgap|m=i', { default => 4000 } ]
+                     [ 'maxgap|m=i', 'maximum gap allowed between features in a cluster', { default => 4000 } ]
     );
 
 my $max_gap    = $opt->maxgap;
 my $shrub      = Shrub->new_for_script($opt);
-####  Fails to pick up default   !!!!!
-#     die $max_gap;
-while (defined($_ = <STDIN>))
+my $ih         = ScriptUtils::IH($opt->input);
+while (defined($_ = <$ih>))
 {
-    chop;
+    chomp;
     my $genome = $_;
-    
+
     my $peg_to_subsys_row = &Clusters::subsys_mems($genome,$shrub);
     my @fidPairs   = grep { $_->[1] } map { [$_,$shrub->loc_of($_)] } keys(%$peg_to_subsys_row);
     my @sorted     = sort { BasicLocation::Cmp($a->[1], $b->[1]) } @fidPairs;
     my @clusters = &Clusters::cluster_subsys_fids($max_gap,\@sorted,$peg_to_subsys_row);
     foreach my $cluster (@clusters)
     {
-	&print_cluster($cluster);
+        &print_cluster($cluster);
     }
 }
 

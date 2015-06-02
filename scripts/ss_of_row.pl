@@ -36,7 +36,7 @@ use warnings;
 use Data::Dumper;
 use Shrub;
 use ScriptUtils;
-use ScriptThing;
+
 
 # Get the command-line parameters.
 my $opt =
@@ -49,24 +49,23 @@ my $shrub = Shrub->new_for_script($opt);
 my $column = $opt->col;
 
 
-while (my @tuples = ScriptThing::GetBatch($ih, undef, $column)) {
-    my @ids = map { $_->[0] } @tuples;
+while (my @tuples = ScriptUtils::GetBatch($ih, undef, $column)) {
     foreach my $tuple (@tuples) {
         my ($id, $line) = @$tuple;
         my $data = &expand_row($shrub,$id);
-	if (defined($data))
-	{
-	    print $line,"\t",join("\t",@$data),"\n";
-	}
+        if (defined($data))
+        {
+            print $line,"\t",join("\t",@$data),"\n";
+        }
     }
 }
 
 sub expand_row {
     my($shrub,$row_id) = @_;
 
-	my @tuples = $shrub->GetAll("Subsystem Subsystem2Row SubsystemRow Row2Genome",
-				    "SubsystemRow(id) = ?",
-				    [$row_id],
-				    "Subsystem(name) Row2Genome(to-link)");
+        my @tuples = $shrub->GetAll("Subsystem Subsystem2Row SubsystemRow",
+                                    "SubsystemRow(id) = ?",
+                                    [$row_id],
+                                    "Subsystem(id) Subsystem(name)");
     return (@tuples == 1) ? $tuples[0] : undef;
 }
