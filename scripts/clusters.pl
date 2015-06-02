@@ -42,7 +42,7 @@ Pairs are gathered into clusters.
 
 Hence, you often wish to try something like
 
-    echo 83333.1 | perl clusters.pl -m 4000 | perl ss_and_genome_of_row.pl -c 1 | perl embedded_rel.pl -c 2 -f tmp > clusters
+    echo 83333.1 | perl clusters.pl -m 4000 | perl ss_of_row.pl -c 1 | perl embedded_set.pl -c 2 -f tmp > clusters
     perl function_of.pl -c 2  < tmp > clusters.in.relational.format
 
 This would produce two files:

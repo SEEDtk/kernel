@@ -9,14 +9,23 @@ sub subsys_mems {
     my @tuples = $shrub->GetAll("Genome Genome2Row SubsystemRow Row2Cell SubsystemCell Cell2Feature",
 				"Genome(id) = ?",
 				[$genome],
-				"Cell2Feature(to-link) SubsystemRow(id)");
+				"Cell2Feature(to-link) SubsystemRow(id) SubsystemRow(variant-code)");
     my $peg_to_subsys_row = {};
     foreach my $tuple (@tuples)
     {
-	my($peg,$ss_row) = @$tuple;
-	$peg_to_subsys_row->{$peg}->{$ss_row} = 1;
+	my($peg,$ss_row,$vc) = @$tuple;
+	if (&probably_active($vc))
+	{
+	    $peg_to_subsys_row->{$peg}->{$ss_row} = 1;
+	}
     }
     return $peg_to_subsys_row;
+}
+
+sub probably_active {  ### Move to SeedUtils, wherever that is
+    my($vc) = @_;
+
+    return $vc !~ /^(inactive|-1|\*-1|0|\*0)$/;
 }
 
 sub cluster_subsys_fids {
