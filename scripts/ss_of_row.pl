@@ -36,7 +36,7 @@ use warnings;
 use Data::Dumper;
 use Shrub;
 use ScriptUtils;
-
+use ScriptThing;
 
 # Get the command-line parameters.
 my $opt =
@@ -49,7 +49,7 @@ my $shrub = Shrub->new_for_script($opt);
 my $column = $opt->col;
 
 
-while (my @tuples = ScriptUtils::GetBatch($ih, undef, $column)) {
+while (my @tuples = ScriptThing::GetBatch($ih, undef, $column)) {
     foreach my $tuple (@tuples) {
         my ($id, $line) = @$tuple;
         my $data = &expand_row($shrub,$id);

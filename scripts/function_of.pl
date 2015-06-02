@@ -17,7 +17,7 @@
 #
 =head1 Add Functions to Table
 
-Given a table with feature ids as a column, add a new column 
+Given a table with feature ids as a column, add a new column
 containing function description.
 
 =head2 Parameters
@@ -56,14 +56,14 @@ while (my @tuples = ScriptThing::GetBatch($ih, undef, $column)) {
     foreach my $tuple (@tuples) {
         my ($id, $line) = @$tuple;
         my $data = $funcH->{$id};
-	if (! $data) 
-        { 
-             $data = ['','',''] 
+        if (! $data)
+        {
+             $data = ['','','']
         }
         else
-	{
+        {
             $data = [$data->[1]];
         }
-	print $line,"\t",join("\t",@$data),"\n";
+        print $line,"\t",join("\t",@$data),"\n";
     }
 }
