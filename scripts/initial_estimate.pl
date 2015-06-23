@@ -138,6 +138,7 @@ if ($uni_contigsF)
 }
 
 &compute_ref_vecs( \@refs, \%contigs, $scoring, $basis, $opt->basisfile, \%ref_names, $basisLimit );
+
 my @similarities =
   &similarities_between_contig_vecs( \%contigs, $save_vecsF, $scoring, $blast_type, $basis, $min_sim,
     $basisLimit );
@@ -413,7 +414,6 @@ sub compute_ref_vecs
         my $basisLast = $basisLimit - 1;
         $basisVec = [ @{$basisVec}[0 .. $basisLast] ];
     }
-    print_basis_vector($basisVec, $basisfile, $refNames);
     foreach my $contigID ( sort keys(%$contigHash) )
     {
         my $contig = $contigHash->{$contigID};
@@ -428,14 +428,21 @@ sub compute_ref_vecs
             delete $contigHash->{$contigID};
         }
     }
+    print_basis_vector($basisVec, $basisfile, $refNames, $contigHash);
 }
 
 sub print_basis_vector {
-    my ($basisVec, $basisfile, $refNames) = @_;
+    my ($basisVec, $basisfile, $refNames, $contigHash) = @_;
     if ($basisfile) {
+       print STDERR "Updating $basisfile.\n";
        open(my $oh, ">$basisfile") || die "Could not open basis vector output file: $!";
        for my $genome (@$basisVec) {
            print $oh "$genome\t$refNames->{$genome}\n";
+       }
+       print $oh "\n//\n\n";
+       for my $contig (sort keys %$contigHash) {
+           my $vector = $contigHash->{$contig}->vector;
+           print $oh join("\t", $contig, @$vector) . "\n";
        }
     }
 }

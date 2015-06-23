@@ -132,6 +132,7 @@ sub compute {
     # This hash tracks the number of times each genome was the best.
     my %hits;
     # Loop through the contigs.
+    ## TODO This process needs to be done after each pass, with the genomes already chosen removed from consideration.
     for my $contigID (keys %$contigHash) {
         # Get the scoring hash for this contig.
         my $contig = $contigHash->{$contigID};
@@ -161,15 +162,23 @@ sub compute {
             }
         }
         push @retVal, $winner;
-        if (! defined $winner) {
-            print STDERR "Winner failure.\n"; ##TODO remove this section
-        }
-        # When we're done, this list will contain all the contigs that didn't contain the
-        # last winning genome.
-        my @newContigList;
+        # This hash will identify the genomes to be eliminated.
+        my %related = ($winner => 1);
+        # Look for contigs containing the winning genome.
         for my $contigData (@contigList) {
             if (grep { $_ eq $winner } @$contigData) {
-                # Here the winner is in this contig, so remove its influence from the
+                # Add all this contig's genomes to the related-genome hash.
+                for my $genome (@$contigData) {
+                    $related{$genome} = 1;
+                }
+            }
+        }
+        # When we're done, this list will contain all the contigs that didn't contain the
+        # related genomes.
+        my @newContigList;
+        for my $contigData (@contigList) {
+            if (grep { $related{$_} } @$contigData) {
+                # Here a related genome is in this contig, so remove its influence from the
                 # hit counts.
                 $hits{$contigData->[0]}--;
             } else {

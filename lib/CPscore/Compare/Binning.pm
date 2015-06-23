@@ -38,6 +38,10 @@ In addition to the fields in the base class, this object contains the following.
 The maximum number of vector positions to consider when determining the bin. The default is 0, indicating all
 positions are considered.
 
+=item strict
+
+If TRUE, then any scoring vectors with zero entries are placed in a special bin for later consideration.
+
 =back
 
 =head2 Special Methods
@@ -52,8 +56,20 @@ Create a new, blank comparison object.
 
 =item options
 
-Hash containing options for the comparison algorithm. Currently no options are supported by the
-base class.
+Hash containing options for the comparison algorithm.
+
+=over 8
+
+=item topSize
+
+The maximum number of vector positions to consider when determining the bin. The default is 0, indicating all
+positions are considered.
+
+=item strict
+
+If TRUE, then any scoring vectors with zero entries are placed in a special bin for later consideration.
+
+=back
 
 =back
 
@@ -64,8 +80,9 @@ sub new {
     my ($class, %options) = @_;
     # Compute the options.
     my $topSize = $options{topSize} // 0;
+    my $strict = $options{strict} // 0;
     # Create the object.
-    my $retVal = { topSize => $topSize };
+    my $retVal = { topSize => $topSize, strict => $strict };
     # Bless and return it.
     bless $retVal, $class;
     return $retVal;
@@ -131,28 +148,45 @@ sub compare {
     # Get the scoring vectors.
     my $cv1 = $contig1->vector;
     my $cv2 = $contig2->vector;
-    # We need to find the coordinates in common. We put them into the following vector in the form
-    # [score1, score2].
-    my @scores;
-    my $n = scalar @$cv1;
-    for (my $i = 0; $i < $n; $i++) {
-        push @scores, [$cv1->[$i], $cv2->[$i]];
-    }
-    my @sorted = sort { $b->[0] <=> $a->[0] } @scores;
-    # The vector is now sorted by the CV1 scores, in order from largest to smallest.
-    # We will now compare every two positions. If a subsequent position has a greater
-    # CV2 score than a particular position, we have a failure and return 0.
-    my $retVal = 1;
-    $n = scalar(@sorted) - 1;
-    if ($self->{topSize} && $self->{topSize} < $n) {
-        $n = $self->{topSize};
-    }
-    # Loop through the pairs, searchign for a mismatch.
-    for (my $i = 0; $i < $n && $retVal; $i++) {
-        my $sortedI = $sorted[$i][1];
-        my $sortedJ = $sorted[$i+1][1];
-        if ($sortedJ > $sortedI) {
+    # Declare the return value.
+    my $retVal;
+    # Are we strict?
+    if ($self->{strict}) {
+        # Yes. Check for zeroes.
+        my $z1 = scalar(grep { $_ == 0 } @$cv1);
+        my $z2 = scalar(grep { $_ == 0 } @$cv2);
+        # We have a mismatch if only one vector has zeroes, and a match if both vectors
+        # have zero (the discard bin).
+        if ($z1 && $z2) {
+            $retVal = 1;
+        } elsif ($z1 || $z2) {
             $retVal = 0;
+        }
+    }
+    if (! defined $retVal) {
+        # We need to find the coordinates in common. We put them into the following vector in the form
+        # [score1, score2].
+        my @scores;
+        my $n = scalar @$cv1;
+        for (my $i = 0; $i < $n; $i++) {
+            push @scores, [$cv1->[$i], $cv2->[$i]];
+        }
+        my @sorted = sort { $b->[0] <=> $a->[0] } @scores;
+        # The vector is now sorted by the CV1 scores, in order from largest to smallest.
+        # We will now compare every two positions. If a subsequent position has a greater
+        # CV2 score than a particular position, we have a failure and return 0.
+        $retVal = 1;
+        $n = scalar(@sorted) - 1;
+        if ($self->{topSize} && $self->{topSize} < $n) {
+            $n = $self->{topSize};
+        }
+        # Loop through the pairs, searching for a mismatch.
+        for (my $i = 0; $i < $n && $retVal; $i++) {
+            my $sortedI = $sorted[$i][1];
+            my $sortedJ = $sorted[$i+1][1];
+            if ($sortedJ > $sortedI) {
+                $retVal = 0;
+            }
         }
     }
     # Return the indicator.
