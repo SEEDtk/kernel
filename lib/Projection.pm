@@ -370,11 +370,13 @@ sub bad_peg
 {
     my ( $shrub, $peg, $func, $loc, $parms ) = @_;
     my $rc;
-    if ( $rc = &bad_length( $shrub, $peg, $func, $parms ) )
+    my $seq = &seq_of_peg( $shrub, $peg );
+
+    if ( $rc = &bad_length( $shrub, $peg, $func, $seq, $parms ) )
     {
         return $rc;
     }
-    elsif ( $rc = &bad_sims( $shrub, $peg, $func, $parms ) )
+    elsif ( $rc = &bad_sims( $shrub, $peg, $func, $seq, $parms ) )
     {
         return $rc;
     }
@@ -383,12 +385,12 @@ sub bad_peg
 
 sub bad_length
 {
-    my ( $shrub, $peg, $func, $parms ) = @_;
+    my ( $shrub, $peg, $func, $seq, $parms ) = @_;
 
     my $tuple = $parms->{length_stats}->{$func};
     if ( !$tuple ) { return undef }
     my ( $mean, $stddev ) = @$tuple;
-    my $len = length( &seq_of_peg( $shrub, $peg ) );
+    my $len = length( $seq );
     if ( !$len ) { return ['no_translation'] }
     if ( $stddev < 10 ) { $stddev = 10 }
     if ( abs( ( $len - $mean ) / $stddev ) > 3 )
@@ -401,13 +403,12 @@ sub bad_length
 
 sub bad_sims
 {
-    my ( $shrub, $peg, $func, $parms ) = @_;
+    my ( $shrub, $peg, $func, $seq, $parms ) = @_;
 
     my $blast_parms = $parms->{blast_parms}->{$func};
     if ( !$blast_parms ) { return undef }
     my ( $worst, $seq_tuples ) = @{$blast_parms};
 
-    my $seq = &seq_of_peg( $shrub, $peg );
     my @sims = &gjo::BlastInterface::blast( [ $peg, '', $seq ],
         $seq_tuples, 'blastp', { outForm => 'sim' } );
     my $sim;
