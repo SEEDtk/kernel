@@ -107,6 +107,11 @@ best scores are at different positions, the score is 0.
 
 The score is C<1> if the scores are in the same relative order, else C<0>.
 
+=item strict
+
+The score is C<1> if either vector has a missing signal or if neither vector has a missing signal and the scores are
+in the same relative order. Otherwise the score is C<0>.
+
 =item dist
 
 The score indicates how close together the scores are at each vector position.

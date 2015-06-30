@@ -35,6 +35,7 @@ two pieces of data: the report giving projections and the current memberships in
 
 We need to be careful to filter out proposals in which the current membership/vc already
 exists.
+
 =head2 Output
 
 The proposed changes from the projection report that have not already been made.
@@ -97,6 +98,7 @@ being text that describes why the peg is considered problematic.
 my $opt = ScriptUtils::Opts(
     '',
     Shrub::script_options(),
+    [ 'core|o', 'if specified, only core genomes will be output'],
     [ 'current|c=s', 'A table of current subsystem memberships' ],
     [ 'projections|p=s', 'A pipeline report of proposed projections', { required => 1 } ]
 );
@@ -125,71 +127,79 @@ if ($currentF) {
         $memberH{$name}{$g} = $vc;
     }
 }
-
+my %cores;
+if ($opt->core) {
+    %cores = map { $_ => 1 } $shrub->GetFlat('Genome', 'Genome(core) = ?', [1], 'id');
+}
 opendir(my $dh, $projRoot) || die "Could not open projections directory: $!";
 my @projDirs = grep { -f "$projRoot/$_/core.proj.tbl" } readdir $dh;
 closedir $dh;
 my $total = scalar(@projDirs);
 print STDERR "$total projection directories found.\n";
+
 for my $ss (@projDirs) {
     my $count = $stats->Add(ssDir => 1);
     print STDERR "Processing $ss ($count of $total).\n";
-    # Get the projection output file for this directory.
-    my $projFile = "$projRoot/$ss/core.proj.tbl";
-    # Get the genome/variant hash for this subsystem.
-    my $ssName = $subNames{$ss};
-    if (! $ssName) {
-        $stats->Add(subsystemNotFound => 1);
-        print STDERR "Directory skipped: $ss not in current database.\n";
-    } else {
-        my $memberGH = $memberH{$ssName};
-        # We want to read in the proposals from the projection output file,
-        # checking against the member hash.
-        # Create a header for this subsystem.
-        my $header = "$ssName";
-        # Open the projection file for input.
-        my $ih = $loader->OpenFile(projection => $projFile);
-        while (! eof $ih) {
-            # Read the proposal header.
-            my $line = $loader->GetLine(projection => $ih);
-            my ($ssID, $g, $vc, $templateG) = @$line;
-            $stats->Add(projectionProposal => 1);
-            # Check for a reason to reject this proposal.
-            my $keep;
-            if ($vc eq 'dirty') {
-                $stats->Add(proposedSuspiciousVariant => 1);
-            } elsif ($vc eq 'not-active') {
-                $stats->Add(proposedNotActive => 1);
-            } elsif ($memberGH->{$g} && $vc eq $memberGH->{$g}) {
-                $stats->Add(proposedAlreadyPresent => 1);
-            } else {
-                $keep = 1;
-            }
-            # Create an output string for this proposal.
-            $templateG //= '';
-            $line = join("\t", $header, $g, $vc, $templateG) . "\n";
-            my @proposal;
-            my $null = "";
-            my ($fid, $role, $fun);
-            while (! eof $ih && $null ne '----') {
-                push @proposal, $line;
-                $line = $loader->GetLine(projection => $ih);
-                ($null, $fid, $role, $fun) = @$line;
-                if ($fun) {
-                    my $fname = $shrub->FunctionName($fun);
-                    $line = join("\t", $null, $fid, $role, $fname) . "\n";
+    # Get the projection output files for this directory.
+    for my $mode (qw(solid core)) {
+        my $projFile = "$projRoot/$ss/$mode.proj.tbl";
+        # Get the genome/variant hash for this subsystem.
+        my $ssName = $subNames{$ss};
+        if (! $ssName) {
+            $stats->Add(subsystemNotFound => 1);
+            print STDERR "Directory skipped: $ss not in current database.\n";
+        } else {
+            my $memberGH = $memberH{$ssName};
+            # We want to read in the proposals from the projection output file,
+            # checking against the member hash.
+            # Create a header for this subsystem.
+            my $header = "$ssName ($mode)";
+            # Open the projection file for input.
+            my $ih = $loader->OpenFile(projection => $projFile);
+            while (! eof $ih) {
+                # Read the proposal header.
+                my $line = $loader->GetLine(projection => $ih);
+                my ($ssID, $g, $vc, $templateG) = @$line;
+                $stats->Add(projectionProposal => 1);
+                # Check for a reason to reject this proposal.
+                my $keep;
+                if ($opt->core && ! $cores{$g}) {
+                    $stats->Add(nonCore => 1);
+                } elsif ($vc eq 'dirty') {
+                    $stats->Add(proposedSuspiciousVariant => 1);
+                } elsif ($vc eq 'not-active') {
+                    $stats->Add(proposedNotActive => 1);
+                } elsif ($memberGH->{$g} && $vc eq $memberGH->{$g}) {
+                    $stats->Add(proposedAlreadyPresent => 1);
                 } else {
-                    $line = "$null\n";
+                    $keep = 1;
                 }
-            }
-            while (! eof $ih && substr($line, 0, 2) ne '//') {
-                push @proposal, $line;
-                $line = <$ih>;
-                $stats->Add('projection-lineIn' => 1);
-            }
-            if ($keep) {
-                print join("", @proposal, "//\n");
-                $stats->Add(proposalOut => 1);
+                # Create an output string for this proposal.
+                $templateG //= '';
+                $line = join("\t", $header, $g, $vc, $templateG) . "\n";
+                my @proposal;
+                my $null = "";
+                my ($fid, $role, $fun);
+                while (! eof $ih && $null ne '----') {
+                    push @proposal, $line;
+                    $line = $loader->GetLine(projection => $ih);
+                    ($null, $fid, $role, $fun) = @$line;
+                    if ($fun) {
+                        my $fname = $shrub->FunctionName($fun);
+                        $line = join("\t", $null, $fid, $role, $fname) . "\n";
+                    } else {
+                        $line = "$null\n";
+                    }
+                }
+                while (! eof $ih && substr($line, 0, 2) ne '//') {
+                    push @proposal, $line;
+                    $line = <$ih>;
+                    $stats->Add('projection-lineIn' => 1);
+                }
+                if ($keep) {
+                    print join("", @proposal, "//\n");
+                    $stats->Add(proposalOut => 1);
+                }
             }
         }
     }

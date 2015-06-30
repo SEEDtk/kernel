@@ -87,6 +87,10 @@ sub new {
         $compare = CPscore::Compare::Binning->new(%options);
     } elsif ($compareType =~ /^bin(\d+)$/) {
         $compare = CPscore::Compare::Binning->new(topSize => $1);
+    } elsif ($compareType eq 'strict') {
+        $compare = CPscore::Compare::Binning->new(strict => 1);
+    } elsif ($compareType =~ /^strict(\d+)$/) {
+        $compare = CPscore::Compare::Binning->new(strict => 1, topSize => $1);
     } elsif ($compareType eq 'dist') {
         $compare = CPscore::Compare::Distance->new(%options);
     } elsif ($compareType eq 'rank') {
