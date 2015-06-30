@@ -24,6 +24,7 @@ use ScriptUtils;
 use Shrub;
 use Projection;
 use File::Copy::Recursive;
+use Projection::Analyze;
 
 
 =head1 Project Multiple Subsystems Onto Shrub Genomes
@@ -78,6 +79,10 @@ A tab-delimited file containing the projections from the solid genomes onto the 
 =item core.proj.tbl
 
 A tab-delimited file containing the projections from the core genomes onto the non-core genomes.
+
+=item projections.html
+
+An HMTL file containing the output in tabular form, with links to SEED pages.
 
 =back
 
@@ -168,6 +173,16 @@ of (0) the subsystem ID, and (1) the variant code.
 If specified, the subsystems will be projected onto the core genomes, but there will be no
 subsequent projection onto the non-core genomes.
 
+=item onlyCore
+
+If specified, the subsystems will only be projected onto core genomes. However, there may still
+be two passes through the data.
+
+=item seedRoot
+
+The root URL of the relevant SEED, including the seedviewer invocation. The default is
+C<http://core.theseed.org/FIG/seedviewer.cgi>.
+
 =back
 
 =cut
@@ -178,7 +193,9 @@ my $opt = ScriptUtils::Opts('outputDirectory', Shrub::script_options(),
         ['missing|m', 'process only new subsystems'],
         ['privilege|p=i', 'priviliege level for second-pass annotations', { default => Shrub::PUBLIC }],
         ['badVariants|b=s', 'file containing list of bad variants to skip'],
-        ['coreOnly', 'if specified, only the core projection will take place']
+        ['coreOnly', 'if specified, only the core projection will take place'],
+        ['onlyCore', 'if specified, only the core genomes will be output'],
+        ['seedRoot=s', 'root directory for the SEED to use in HTML links', { default => 'http://core.theseed.org/FIG/seedviewer.cgi' } ],
         );
 # Verify the output directory.
 my ($outDir) = @ARGV;
@@ -254,12 +271,13 @@ for my $sub (sort keys %subs) {
     }
     # Only proceed if our subsystem is OK to process.
     if ($okSub) {
+        my $analyzer = Projection::Analyze->new($shrub, $sub);
         my @full_set = keys %solids;
         print "Computing solid parameters.\n";
         # Compute the parameters for the projection.
         my $parms =
           Projection::compute_properties_of_solid_roles( $shrub, $sub,
-            [keys %solids] );
+            \@full_set );
         # Save them to disk.
         SeedUtils::write_encoded_object( $parms, "$dataD/solid.parms.json" );
         # Get the remaining core genomes in the database.
@@ -273,6 +291,8 @@ for my $sub (sort keys %subs) {
             $parms, $oh );
         close $oh;
         undef $oh;
+        # Analyze the results.
+        $analyzer->AddFile("$dataD/solid.proj.tbl");
         if (! $opt->coreonly) {
             # Add the new genomes to our set to process.
             push @full_set, @found;
@@ -283,15 +303,22 @@ for my $sub (sort keys %subs) {
                 \@full_set );
             # Save the new parms to disk.
             SeedUtils::write_encoded_object( $parms2, "$dataD/core.parms.json" );
-            # Get a list of all the genomes.
-            my @all = grep { !$solids{$_} && !$genomes{$_}[0] } keys %genomes;
+            # Get a list of all the genomes not in the current set. If "onlyCore" is on, restrict to core
+            # genomes.
+            %solids = map { $_ => 1 } @full_set;
+            my $minCore = ($opt->onlycore ? 1 : 0);
+            my @all = grep { !$solids{$_} && $genomes{$_}[0] >= $minCore } keys %genomes;
             # Project the subsystem with the new parameters.
             open( $oh, ">$dataD/core.proj.tbl" )
               || die "Could not open second projection file: $!";
-            Projection::project_solid_roles( $shrub, $sub, $opt->privilege, \@to_call,
+            Projection::project_solid_roles( $shrub, $sub, $opt->privilege, \@all,
                 $parms2, $oh );
             close $oh;
             undef $oh;
+            # Update the analysis.
+            $analyzer->AddFile("$dataD/solid.proj.tbl");
         }
+        # Output the analysis.
+        $analyzer->ToHtml("$dataD/projections.html", $opt->seedroot);
     }
 }

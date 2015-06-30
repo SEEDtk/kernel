@@ -300,12 +300,12 @@ sub project_subsys_to_genome
         if ($rc)
         {
             $projection->{problematic_pegs}->{$peg} = $rc;
-            push(@$rc,$func);
+            push(@$rc,$func,$role);
         }
         else
         {
             $roles{$role}++;
-            push( @$calls, [ $peg, $role, $func ] );
+            push( @$calls, [ $peg, $func, $role ] );
         }
     }
     my $pattern = &to_pattern( \%roles );
@@ -389,12 +389,14 @@ sub bad_length
     if ( !$tuple ) { return undef }
     my ( $mean, $stddev ) = @$tuple;
     my $len = length( &seq_of_peg( $shrub, $peg ) );
-    if ( !$len ) { return ['no_translation'] }
+    if ( !$len ) { return ['no_translation', ''] }
     if ( $stddev < 10 ) { $stddev = 10 }
-    if ( abs( ( $len - $mean ) / $stddev ) > 3 )
+    my $delta = abs($len - $mean);
+    my $max = $stddev * 3;
+    if ( $delta > $max )
     {
         #print STDERR "$peg failed length test: len=$len  mean=$mean stddev=$stddev\n";
-        return [ 'bad_length', $len, $mean, $stddev ];
+        return [ 'bad_length', "$len differs from $mean by $delta ($max = 3 * $stddev)" ];
     }    # z-score is too high or too low
     return undef;
 }
@@ -420,8 +422,8 @@ sub bad_sims
     }
     return
       defined($sim)
-      ? [ 'weak_similarity', $sim->psc, $worst ]
-      : ['no_similarities'];
+      ? [ 'weak_similarity', $sim->psc . " > $worst" ]
+      : ['no_similarities', ''];
 }
 
 # returns sequence(translation) of a PEG
