@@ -22,6 +22,7 @@ use warnings;
 use FIG_Config;
 use Shrub;
 use ScriptUtils;
+use Data::Dumper;
 
 =head1 Prototype Shrub Pipeline Script
 
