@@ -27,8 +27,8 @@ sub relevant_projection_data
                                Row2Genome(to-link) IN ($qs)",
         [ $subsystem_id, 2, @$genomes ],
         "SubsystemRow(variant-code) Cell2Feature(to-link)
-                               Function(id) Function(description) Protein(sequence) Feature2Contig(to-link)
-                               Feature2Contig(begin) Feature2Contig(dir)"
+                               Function(id) Function(description) Protein(sequence)
+                               Feature2Contig(to-link) Feature2Contig(begin) Feature2Contig(dir)"
     );
 
     my %by_vc;
@@ -293,6 +293,10 @@ sub project_subsys_to_genome
     my $projection = {};
     my %roles;
     my $calls = [];
+    my %checks;
+    if (@pegs) {
+        %checks = map { $_->[0] => $_->[1] } $shrub->GetAll('Feature', 'Feature(id) IN (' . join(',', map {'?'} @pegs) . ')', \@pegs, 'id checksum');
+    }
     foreach my $peg (@pegs)
     {
         my ( $role, $func, $loc ) = @{ $relevant_to_genome->{$peg} };
@@ -300,12 +304,12 @@ sub project_subsys_to_genome
         if ($rc)
         {
             $projection->{problematic_pegs}->{$peg} = $rc;
-            push(@$rc,$func,$role);
+            push(@$rc,$func,$role,$checks{$peg});
         }
         else
         {
             $roles{$role}++;
-            push( @$calls, [ $peg, $func, $role ] );
+            push( @$calls, [ $peg, $func, $role, $checks{$peg} ] );
         }
     }
     my $pattern = &to_pattern( \%roles );
@@ -539,8 +543,8 @@ sub project_solid_roles
         foreach my $call ( sort { &SeedUtils::by_fig_id( $a->[0], $b->[0] ) }
             @$calls )
         {
-            my ( $peg, $role, $func ) = @$call;
-            print $oh "\t", join( "\t", ( $peg, $role, $func ) ), "\n";
+            my ( $peg, $role, $func, $check ) = @$call;
+            print $oh "\t", join( "\t", ( $peg, $role, $func, $check ) ), "\n";
         }
         print $oh "----\n";
         my $problems = $projection->{problematic_pegs};

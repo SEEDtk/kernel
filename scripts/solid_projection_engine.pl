@@ -25,6 +25,7 @@ use Shrub;
 use Projection;
 use File::Copy::Recursive;
 use Projection::Analyze;
+use SeedUtils;
 
 
 =head1 Project Multiple Subsystems Onto Shrub Genomes
@@ -80,9 +81,9 @@ A tab-delimited file containing the projections from the solid genomes onto the 
 
 A tab-delimited file containing the projections from the core genomes onto the non-core genomes.
 
-=item projections.html
+=item projections.json
 
-An HMTL file containing the output in tabular form, with links to SEED pages.
+A json file containing an analysis of the output, used to produce an HTML page later.
 
 =back
 
@@ -130,13 +131,40 @@ ID of the role.
 
 ID of the function assigned to the peg.
 
+=item 4
+
+The peg's checksum indicating its status when loaded.
+
 =back
 
 Finally, there is a series of records representing pegs that are assigned to functions
 implementing roles for the subsystem, but which violated one or more of the parameters
 determined by the analysis of the solid instances. Each record in this series is
-multiple tab-delimited columns, the first being the peg ID, and each additional column
-being text that describes why the peg is considered problematic.
+multiple tab-delimited columns, as follows
+
+=over 4
+
+=item 1
+
+ID of the peg with the problem
+
+=item 2
+
+description of the problem
+
+=item 2
+
+ID of the role.
+
+=item 3
+
+ID of the function assigned to the peg.
+
+=item 4
+
+The peg's checksum indicating its status when loaded.
+
+=back
 
 =head2 Parameters
 
@@ -319,6 +347,6 @@ for my $sub (sort keys %subs) {
             $analyzer->AddFile("$dataD/solid.proj.tbl");
         }
         # Output the analysis.
-        $analyzer->ToHtml("$dataD/projections.html", $opt->seedroot);
+        $analyzer->JsonOut("$dataD/projections.json");
     }
 }

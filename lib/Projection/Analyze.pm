@@ -21,6 +21,8 @@ package Projection::Analyze;
     use strict;
     use warnings;
     use CGI;
+    use SEEDClient;
+    use SeedUtils;
 
 ## TODO: output the json of this object. Create a CGI to verify against core seed and only produce stuff still relevant (genome not in subsystem, peg has same function)
 
@@ -54,6 +56,10 @@ C<good> if the feature is good; otherwise a description of why the feature is su
 =item role
 
 The ID of the role performed in the subsystem.
+
+=item check
+
+The feature's checksum, indicating its status when loaded.
 
 =back
 
@@ -129,6 +135,14 @@ Reference to a hash of genome IDs to names for all the acceptable genomes.
 
 URL of the seedviewer page for HTML links.
 
+=item core
+
+TRUE if only core genoems are being processed, else FALSE.
+
+=item pegMap
+
+Reference to a hash mapping each genome ID to a sub-hash that maps its peg IDs to their checksums.
+
 =back
 
 =head2 Special Methods
@@ -173,7 +187,9 @@ sub new {
         subsystem => $subID,
         db => $shrub,
         sheet => {},
-        errors => {}
+        errors => {},
+        pegMap => {},
+        core => ($options{core} // 0)
     };
     # Get the subsystem name.
     my ($name) = $shrub->GetFlat('Subsystem', 'Subsystem(id) = ?', [$subID], 'name');
@@ -202,7 +218,70 @@ sub new {
     return $retVal;
 }
 
+=head3 new_from_file
+
+    my $proj = Projection::Analyze->new_from_file($shrub, $fileName);
+
+Read this object from a file produced by L</JsonOut>.
+
+=over 4
+
+=item shrub
+
+L<Shrub> object for accessing the database.
+
+=item fileName
+
+Name of a file containing this object in JSON format.
+
+=back
+
+=cut
+
+sub new_from_file {
+    # Get the parameters.
+    my ($class, $shrub, $fileName) = @_;
+    # Read the object.
+    my $retVal = SeedUtils::read_encoded_object($fileName);
+    # Add the database.
+    $retVal->{db} = $shrub;
+    # Bless and return the object.
+    bless $retVal, $class;
+    return $retVal;
+}
+
+
 =head2 Public Manipulation Methods
+
+=head3 JsonOut
+
+    $proj->JsonOut($fileName);
+
+Write this object out to a file in JSON format.
+
+=over 4
+
+=item fileName
+
+Name of the file to receive the object in JSON format.
+
+=back
+
+=cut
+
+sub JsonOut {
+    # Get the parameters.
+    my ($self, $fileName) = @_;
+    # We need to create an unblessed object to hold all our data. We copy all the fields except "db".
+    my %output;
+    for my $key (keys %$self) {
+        if ($key ne 'db') {
+            $output{$key} = $self->{$key};
+        }
+    }
+    # Write the object.
+    SeedUtils::write_encoded_object(\%output, $fileName);
+}
 
 =head3 AddFile
 
@@ -230,7 +309,9 @@ sub AddFile {
     open(my $ih, "<", $fileName) || die "Could not open projection file: $!";
     # Loop through the input file, reading prediction sections.
     while (! eof $ih) {
-        my ($genome, $vc, $model, $pegs, $errors) = $self->_ReadPrediction($ih);
+        my ($genome, $vc, $model, $cells, $errors) = $self->_ReadPrediction($ih);
+        # This will hold the genome's peg list.
+        my %pegList;
         # Only proceed if we care about this genome.
         my $gName = $self->{genomes}{$genome};
         if ($gName) {
@@ -245,12 +326,25 @@ sub AddFile {
                 } elsif ($vcOld ne $vc) {
                     $status = 'changed';
                 }
-                $self->{sheet}{$genome} = { variant => $vc, name => $gName, model => $model, status => $status, row => $pegs };
+                $self->{sheet}{$genome} = { variant => $vc, name => $gName, model => $model, status => $status, row => $cells };
+                # Get the list of peg IDs for the genome.
+                for my $cell (@$cells) {
+                    for my $peg (@$cell) {
+                        $pegList{$peg->{id}} = $peg->{check};
+                    }
+
+                }
             }
             # If we have errors, store them.
             if (@$errors) {
                 $self->{errors}{$genome} = $errors;
+                # Update the list of peg IDs.
+                for my $error (@$errors) {
+                    $pegList{$error->{id}} = $error->{check};
+                }
             }
+            # Store the peg ID list.
+            $self->{pegMap}{$genome} = [sort keys %pegList];
         }
     }
 }
@@ -284,6 +378,11 @@ sub ToHtml {
     my ($self, $fileName, $seedRoot) = @_;
     # Save the seed root URL.
     $self->{seedRoot} = $seedRoot;
+    # If this is core-only mode, get the seed client object.
+    my $seedClient;
+    if ($self->{core}) {
+        $seedClient = SEEDClient->new('http://core.theseed.org/FIG/seed_svc');
+    }
     # Open the output file.
     open(my $oh, ">", $fileName) || die "Could not open HTML output file: $!";
     # Start the page.
@@ -304,6 +403,24 @@ sub ToHtml {
     for my $genome (sort keys %$sheet) {
         # Get this projection.
         my $projection = $sheet->{$genome};
+        # If this is core mode, verify the features.
+        my %badPegs;
+        if ($self->{core}) {
+            my $pegHash = $self->{pegMap}{$genome};
+            my @pegList = keys %$pegHash;
+            my $funMap = $seedClient->get_function(\@pegList);
+            for my $peg (@pegList) {
+                my $fun = $funMap->{$peg};
+                if (! $fun) {
+                    $badPegs{$peg} = 1;
+                } else {
+                    my $md5 = Shrub::Checksum($fun);
+                    if ($md5 ne $pegHash->{$peg}) {
+                        $badPegs{$peg} = 1;
+                    }
+                }
+            }
+        }
         # Compute the color based on the status. Undefined is a legal result, and
         # indicates no special coloring.
         my $color = GENOME_COLOR->{$projection->{status}};
@@ -525,7 +642,7 @@ sub _ReadPrediction {
     # Declare the error return list.
     my @errors;
     # Initialize the spreadsheet peg list.
-    my @pegs = map { [] } @{$self->{roles}};
+    my @cells = map { [] } @{$self->{roles}};
     # Get the header record.
     my ($subID, $genome, $vc, $model) = _ReadRecord($ih);
     # We will put the pegs we find in here. Each peg will map to a feature object.
@@ -541,20 +658,20 @@ sub _ReadPrediction {
         # Loop through the pegs.
         my $done;
         while (! eof $ih && ! $done) {
-            my ($flag, $peg, $fun, $role) = _ReadRecord($ih);
+            my ($flag, $peg, $fun, $role, $checksum) = _ReadRecord($ih);
             # Check for the end marker.
             if ($flag eq '----') {
                 $done = 1;
             } else {
                 # Store this peg.
-                $pegH{$peg} = { id => $peg, role => $role, fun => $fun, status => 'good' };
+                $pegH{$peg} = { id => $peg, role => $role, fun => $fun, status => 'good', check => $checksum };
             }
         }
     }
     # Loop through the errors.
     my $done = 0;
     while (! eof $ih && ! $done) {
-        my ($peg, $error, $desc, $fun, $role) = _ReadRecord($ih);
+        my ($peg, $error, $desc, $fun, $role, $checksum) = _ReadRecord($ih);
         # Check for the end marker.
         if ($peg eq '//') {
             $done = 1;
@@ -563,7 +680,7 @@ sub _ReadPrediction {
             if ($desc) {
                 $error .= " ($desc)";
             }
-            my $pegData = { id => $peg, role => $role, fun => $fun, status => $error };
+            my $pegData = { id => $peg, role => $role, fun => $fun, status => $error, check => $checksum };
             push @errors, $pegData;
             # Add it to the subsystem if the subsystem is being kept.
             if ($vc) {
@@ -571,15 +688,16 @@ sub _ReadPrediction {
             }
         }
     }
+    # Check for wrong pegs.
     # If we have spreadsheet pegs, format the spreadsheet.
     my $roleMap = $self->{roleMap};
     for my $peg (keys %pegH) {
         my $pegData = $pegH{$peg};
         my $role = $pegData->{role};
-        push @{$pegs[$roleMap->{$role}[0]]}, $pegData;
+        push @{$cells[$roleMap->{$role}[0]]}, $pegData;
     }
     # Return the results.
-    return ($genome, $vc, $model, \@pegs, \@errors);
+    return ($genome, $vc, $model, \@cells, \@errors);
 }
 
 =head3 _ReadRecord
