@@ -107,7 +107,6 @@ if ($blackList) {
     %blackList = map { $_ =~ /^(\S+)/; $1 => 1 } File::Slurp::read_file($blackList, { chomp => 1 });
 }
 my %univ_roles = map { $_ => 1 } File::Slurp::read_file("$FIG_Config::global/uni.roles", { chomp => 1 });
-print STDERR scalar(keys %univ_roles) . " universal roles read from file.\n";
 opendir( REFD, $refD ) || die "Could not access $refD";
 my @refs = sort { $a <=> $b } grep { $_ !~ /^\./ && ! $blackList{$_} } readdir(REFD);
 my %refs = map { ( $_ => 1 ) } @refs;
@@ -136,7 +135,6 @@ if ($uni_contigsF)
 {
     &write_unis_in_contigs(\%contigs, $uni_contigsF);
 }
-
 &compute_ref_vecs( \@refs, \%contigs, $scoring, $basis, $opt->basisfile, \%ref_names, $basisLimit );
 
 my @similarities =
@@ -158,7 +156,7 @@ sub output_final_sets
 
     #   an ugly Schwarzian transform
     my @s1 =
-      map { my ( $contigs, $univ ) = @$_; [ scalar keys(%$univ), $_ ] } @sets;
+      map { my ( $contigs, $univ ) = @$_; [ sum_lens($contigs, $contigHash), $_ ] } @sets;
     my @s2 = sort { $b->[0] <=> $a->[0] } @s1;
     @sets = map { $_->[1] } @s2;
 
@@ -175,6 +173,15 @@ sub output_final_sets
     }
 }
 
+sub sum_lens {
+    my ($contigs, $contigHash) = @_;
+    my $retVal = 0;
+    for my $contig (@$contigs) {
+        $retVal += $contigHash->{$contig}->len;
+    }
+    return $retVal;
+}
+
 sub write_unis_in_contigs {
     my($contigHash, $uni_contigsF) = @_;
 
@@ -185,7 +192,7 @@ sub write_unis_in_contigs {
         my $x = $contig->roles;
         foreach my $univ (sort keys(%$x))
         {
-            print UNI join("\t",($contig,$univ)),"\n";
+            print UNI join("\t",($contig->id,$univ)),"\n";
         }
     }
     close(UNI);
@@ -248,37 +255,44 @@ sub condense_sets
         my $set2 = $contig_to_set->{$contig2};
         if (   $set1
             && $set2
-            && ( $set1 != $set2 )
-            && &univ_ok( $sets->{$set1}->[1], $sets->{$set2}->[1] )
-            && &covg_ok( $sets->{$set1}[2], $sets->{$set2}[2],
-                $covg_constraint ) )
-        {
-            if ($opt->logfile) {
-                print LOG "Combining $set1 ($contig1) and $set2 ($contig2) with score $sc.\n";
-            }
-            my $contigs_to_move = $sets->{$set2}->[0];
-            foreach my $contig_in_set2 (@$contigs_to_move)
-            {
-                $contig_to_set->{$contig_in_set2} = $set1;
-            }
-            my $contigs1 = $sets->{$set1}->[0];
-            my $contigs2 = $sets->{$set2}->[0];
-            push( @$contigs1, @$contigs2 );
-            my $u = $sets->{$set2}->[1];
-            foreach my $role ( keys(%$u) )
-            {
-                my $v = $sets->{$set2}->[1]->{$role};
-                $sets->{$set1}->[1]->{$role} += $v;
-            }
+            && ( $set1 != $set2 ) ) {
+            if (! &univ_ok( $sets->{$set1}->[1], $sets->{$set2}->[1] )) {
+                if ($opt->logfile) {
+                    print LOG "Rejected $set1 ($contig1) and $set2 ($contig2) due to universal roles.\n";
+                }
+            } elsif (! &covg_ok( $sets->{$set1}[2], $sets->{$set2}[2],
+                $covg_constraint ) ) {
+                if ($opt->logfile) {
+                    print LOG "Rejected $set1 ($contig1) and $set2 ($contig2) due to coverage.\n";
+                }
+            } else {
+                if ($opt->logfile) {
+                    print LOG "Combining $set1 ($contig1) and $set2 ($contig2) with score $sc.\n";
+                }
+                my $contigs_to_move = $sets->{$set2}->[0];
+                foreach my $contig_in_set2 (@$contigs_to_move)
+                {
+                    $contig_to_set->{$contig_in_set2} = $set1;
+                }
+                my $contigs1 = $sets->{$set1}->[0];
+                my $contigs2 = $sets->{$set2}->[0];
+                push( @$contigs1, @$contigs2 );
+                my $u = $sets->{$set2}->[1];
+                foreach my $role ( keys(%$u) )
+                {
+                    my $v = $sets->{$set2}->[1]->{$role};
+                    $sets->{$set1}->[1]->{$role} += $v;
+                }
 
-        # Compute the new coverage (covg1 * len1 + covg2 * len2) / (len1 + len2)
-            $sets->{$set1}[2] =
-              ( $sets->{$set1}[2] * $sets->{$set1}[3] +
-                  $sets->{$set2}[2] * $sets->{$set2}[3] ) /
-              ( $sets->{$set1}[3] + $sets->{$set2}[3] );
-            $sets->{$set1}[3] += $sets->{$set2}[3];
+            # Compute the new coverage (covg1 * len1 + covg2 * len2) / (len1 + len2)
+                $sets->{$set1}[2] =
+                  ( $sets->{$set1}[2] * $sets->{$set1}[3] +
+                      $sets->{$set2}[2] * $sets->{$set2}[3] ) /
+                  ( $sets->{$set1}[3] + $sets->{$set2}[3] );
+                $sets->{$set1}[3] += $sets->{$set2}[3];
 
-            delete $sets->{$set2};
+                delete $sets->{$set2};
+            }
         }
     }
     return $sets;
@@ -434,7 +448,6 @@ sub compute_ref_vecs
 sub print_basis_vector {
     my ($basisVec, $basisfile, $refNames, $contigHash) = @_;
     if ($basisfile) {
-       print STDERR "Updating $basisfile.\n";
        open(my $oh, ">$basisfile") || die "Could not open basis vector output file: $!";
        for my $genome (@$basisVec) {
            print $oh "$genome\t$refNames->{$genome}\n";

@@ -100,6 +100,7 @@ sub compute {
     my ($self, $contigHash, $genomeIDs) = @_;
     # Return the incoming list of genome IDs;
     my @retVal = @$genomeIDs;
+    print STDERR scalar(@retVal) . " genomes returned.\n";
     return \@retVal;
 }
 

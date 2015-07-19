@@ -20,6 +20,7 @@ use Data::Dumper;
 use SeedUtils;
 use ScriptUtils;
 use File::Copy::Recursive;
+use POSIX qw(ceil);
 
 =head1 Community Analysis Pipeline Script
 
@@ -190,6 +191,26 @@ not distorting the scoring process.
 
 Maximum number of reference genomes to include in the scoring vector.
 
+=item basis
+
+The algorithm for determining which reference genomes should be used in the scoring vector.
+
+=over 8
+
+=item normal
+
+All eligible genomes are used.
+
+=item hot
+
+The genomes with the strongest signals are used.
+
+=back
+
+=item scaled
+
+Used for C<parmFile> situations. The C<minlen> value is divided by 3 (rounding up) when protein blasting is used.
+
 =back
 
 =head2 Output
@@ -304,7 +325,7 @@ my $opt =
                         [ 'blast|b=s','blast type (p or n)',{ default => 'p'} ],
                         [ 'minlen|l=i', 'minimum length for blast match to count', { default => 500 } ],
                         [ 'maxpsc|p=f', 'maximum pscore for blast match to count', { default => 1.0e-100 } ],
-                        [ 'minsim|s=f', 'minimum % identity for condensing', { default => 0.2 } ],
+                        [ 'minsim|s=f', 'minimum % identity for condensing', { default => 0.8 } ],
                         [ 'maxExpect|e=f', 'maximum E-value for BLASTing', { default => 1e-50 } ],
                         [ 'data|d=s', 'Data Directory for Community Pipeline', { required => 1 } ],
                         [ 'sample|c=s','community DNA sample in fasta format', { } ],
@@ -321,8 +342,9 @@ my $opt =
                         [ 'expected=s', 'name of a file containing expected results'],
                         [ 'basis=s', 'algorithm for computing the reference genome basis', { default => 'normal' }],
                         [ 'blacklist=s', 'file containing IDs of reference genomes to bypass during scoring'],
-                        [ 'basisLimit=s', 'maximum number of reference genomes per scoring vector', { default => 5 }],
+                        [ 'basisLimit=s', 'maximum number of reference genomes per scoring vector', { default => 3000 }],
                         [ 'suffix1=i', 'first suffix to use for parm file results', { default => 1 }],
+                        [ 'scaled', 'scale the minimum length for protein blasting']
     );
 
 my $blast_type = $opt->blast;
@@ -424,12 +446,16 @@ sub Process {
     my $realSuffix = (defined $suffix ? ".$suffix" : '');
     my $blacklist = $opt->blacklist;
     my $blacklisting = (defined $blacklist ? "--blacklist $blacklist" : "");
+    my $minlen = $parms->{minlen};
+    if ($parms->{blast} eq 'p' && $opt->scaled) {
+        $minlen = ceil($minlen / 3);
+    }
     open(PARMS, ">$dataS/parms$realSuffix") || die "Could not open parms file: $!";
     for my $parm (sort keys %$parms) {
         print PARMS "$parm = $parms->{$parm}\n";
     }
     close PARMS;
-    my $cmd = "initial_estimate -b $parms->{blast} -r $dataS/RefD -c $dataS/ref.counts -l $parms->{minlen} -p $parms->{maxpsc} " .
+    my $cmd = "initial_estimate -b $parms->{blast} -r $dataS/RefD -c $dataS/ref.counts -l $minlen -p $parms->{maxpsc} " .
                     "-s $parms->{minsim} -v $dataS/saved.vecs -u $dataS/contig.to.uni --cr $parms->{covgRatio} --ul $parms->{univLimit} " .
                     "--minCovg $parms->{minCovg} --scoring $parms->{scoring} --compare $parms->{compare} --basis $parms->{basis} " .
                     "--logFile $dataS/mergelog$realSuffix $blacklisting --basisfile $dataS/basis.vec --basisLimit $parms->{basisLimit} " .

@@ -124,13 +124,13 @@ sub display_univ {
         print join("\t",@$tuple),"\n";
         my $contigs = $uni2contigs->{$role};
         my %this_bin = map { ($_ => 1 ) } grep { $binned_contigs->{$_} } @$contigs;
-        if ($contigs && ($n > 1))
-        {
-            foreach my $contig (sort keys(%this_bin))
-            {
-                print "\t\t$contig\n";
-            }
-        }
+#        if ($contigs && ($n > 1))
+#        {
+#            foreach my $contig (sort keys(%this_bin))
+#            {
+#                print "\t\t$contig\n";
+#            }
+#        }
     }
 }
 
