@@ -38,18 +38,36 @@ foreach $_ (File::Slurp::read_file($c2uni))
 }
 
 $/ = "\n//\n";
-
+my %foundBins = map { $_ => [] } keys %expectedBin;
 while (defined ($_ = <$ih>))
 {
     $/ = "\n";
     # Process the data for a bin.
-    &process_1($_,\%uni2contigs);
+    my $size = &process_1($_,\%uni2contigs);
     $/ = "\n//\n";
 }
-print "########\n" . $stats->Show();
+print "=========\n";
+print "Bins Analysis\n";
+my $numFound;
+for my $bin (sort keys %foundBins) {
+    my $foundBinL = $foundBins{$bin};
+    my $count = scalar @$foundBinL;
+    if (! $count) {
+        $stats->Add(MissingBin => 1);
+        print "$bin (MISSING)\n";
+    } elsif ($count > 1) {
+        $stats->Add(DuplicateBin => 1);
+        print join("\t", "$bin ($count copies)", @$foundBinL) . "\n";
+    } else {
+        print "$bin\t$foundBinL->[0]\n";
+    }
+}
+
+print "\n########\n" . $stats->Show();
 
 sub process_1 {
     my($x,$uni2contigs) = @_;
+    my ($sz, $cv) = (0,0);
     # Split the universal roles and the contig list.
     if ($x =~ /^(.*)\n\n(.*)\n?\/\/\n/s)
     {
@@ -70,10 +88,12 @@ sub process_1 {
             }
         }
         print "\n--------\n";
+        my ($missed, $best);
+        my $bestGenome = $counts[0][2] // '<unknown>';
         if ($opt->expected) {
-            analyze_bin([keys %binned_contigs], \%expectations, \%expectedBin);
+            ($missed, $best) = analyze_bin([keys %binned_contigs], \%expectations, \%expectedBin);
         }
-        my ($sz,$cv) = &sum_lengths($contigs);
+        ($sz,$cv) = &sum_lengths($contigs);
         print "total size of contigs=$sz\n";
         print "number universal=$num_univ\n";
         print "number extra universals=$num_extra\n";
@@ -83,37 +103,54 @@ sub process_1 {
         print "//\n\n";
         if ($sz >= 500000) {
             $stats->Add(Over500KBin => 1);
+            if ($missed) {
+                $stats->Add(Over500KMissed => $missed);
+                $stats->Add(Over500KMissedBin => 1);
+            }
+            if ($best) {
+                push @{$foundBins{$best}}, $bestGenome;
+            }
         } else {
             $stats->Add(Under500KBin => 1);
         }
         if ($sz >= 100000) {
             $stats->Add(Over100Kbin => 1);
+            if ($missed) {
+                $stats->Add(Over100KMissed => $missed);
+                $stats->Add(Over100KMissedBin => 1);
+            }
         } else {
             $stats->Add(Under100Kbin => 1);
         }
     }
+    return $sz;
 }
 
 sub analyze_bin {
     my ($contigList, $expectationsH, $expectedBinHL) = @_;
     my %found;
+    my $missed;
+    my $found;
     for my $contig (@$contigList) {
         my $bin = $expectationsH->{$contig};
         if ($bin) {
             $found{$bin}++;
+            $found++;
         }
     }
     my @sorted = sort { $found{$b} <=> $found{$a} } keys %found;
     my $best = $sorted[0];
     if ($best) {
         my $extra = scalar(@$contigList) - $found{$best};
-        print "best matching bin $best: $extra extra\n";
+        $missed = $found - $found{$best};
+        print "best matching bin $best: $extra extra, $missed missed\n";
         for my $bin (@sorted) {
             print "* bin $bin\t$found{$bin}\n";
         }
     } else {
         print "No contigs found in expected bins.\n";
     }
+    return ($missed, $best);
 }
 
 sub display_univ {

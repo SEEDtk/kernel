@@ -452,7 +452,11 @@ sub Process {
     }
     open(PARMS, ">$dataS/parms$realSuffix") || die "Could not open parms file: $!";
     for my $parm (sort keys %$parms) {
-        print PARMS "$parm = $parms->{$parm}\n";
+        if ($parm eq 'minlen') {
+            print PARMS "minlen = $minlen\n";
+        } else {
+            print PARMS "$parm = $parms->{$parm}\n";
+        }
     }
     close PARMS;
     my $cmd = "initial_estimate -b $parms->{blast} -r $dataS/RefD -c $dataS/ref.counts -l $minlen -p $parms->{maxpsc} " .
