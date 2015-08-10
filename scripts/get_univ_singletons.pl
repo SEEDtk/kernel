@@ -29,34 +29,34 @@ use Data::Dumper;
 
 =head2 Parameters
 
-The command-line options are those found in L<Shrub/script_options> and
-L<ScriptUtils/ih_options> plus the following.
+The command-line options are those found in L<Shrub/script_options>.
 
 =cut
 
 # Get the command-line parameters.
 my $opt =
-  ScriptUtils::Opts( '', Shrub::script_options(), ScriptUtils::ih_options(),
+  ScriptUtils::Opts( '', Shrub::script_options(),
     [] );
-my $ih = ScriptUtils::IH( $opt->input );
 
 # Connect to the database.
 my $shrub = Shrub->new_for_script($opt);
 
-my @tuples = $shrub->GetAll("Function Function2Feature Feature",
-			    "Function2Feature(security) = ?",[2],
-			    "Function(description) Function2Feature(to-link)");
+my @tuples = $shrub->GetAll("Function Function2Feature",
+                            "Function2Feature(security) = ?",[2],
+                            "Function(description) Function2Feature(to-link) Function2Feature(from-link)");
 
 my %funcH;
+my %funcD;
 foreach my $tuple (@tuples)
 {
-    my($func,$fid) = @$tuple;
-    if (! &SeedUtils::hypo($func))
+    my($funcD,$fid, $func) = @$tuple;
+    if (! &SeedUtils::hypo($funcD))
     {
-	if ($fid =~ /^fig\|(\d+\.\d+)\.peg\./)
-	{
-	    $funcH{$func}->{$1}++;
-	}
+        if ($fid =~ /^fig\|(\d+\.\d+)\.peg\./)
+        {
+            $funcH{$func}->{$1}++;
+            $funcD{$func} = $funcD;
+        }
     }
 }
 my %counts;
@@ -66,12 +66,12 @@ foreach my $func (keys(%funcH))
     my @genomes = keys(%$genomesH);
     foreach my $g (keys(%$genomesH))
     {
-	if ($genomesH->{$g} == 1) { $counts{$func}++ }
+        if ($genomesH->{$g} == 1) { $counts{$func}++ }
     }
 }
-	
+
 my @best = sort { $counts{$b} <=> $counts{$a} } keys(%counts);
 foreach $_ (@best)
 {
-    print join("\t",($counts{$_},$_)),"\n";
+    print join("\t",($_, $counts{$_}, $funcD{$_})),"\n";
 }
