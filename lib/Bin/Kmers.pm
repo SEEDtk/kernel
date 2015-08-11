@@ -126,6 +126,7 @@ sub new {
             my @tuples = $shrub->GetAll('Function2Feature Feature Protein AND Feature Feature2Genome',
                     'Function2Feature(from-link) = ? AND Function2Feature(security) = ?',
                     [$role, $priv], 'Feature2Genome(to-link) Protein(sequence)');
+            print "Processing $role. " . scalar(@tuples) . " proteins found.\n";
             # Loop through the proteins.
             for my $tuple (@tuples) {
                 my ($genome, $seq) = @$tuple;

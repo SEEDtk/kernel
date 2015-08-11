@@ -222,7 +222,9 @@ if (-f $refsFile && ! $force) {
     # Compute the list of genomes to BLAST. First we find the relevant genomes.
     print "Computing reference genomes.\n";
     my $refGenomeH = $kmers->FindGenomes($contigFile);
-    $stats->Add(closeRefGenome => scalar(keys %$refGenomeH));
+    my $closeCount = scalar keys %$refGenomeH;
+    $stats->Add(closeRefGenome => $closeCount);
+    print "$closeCount close genomes found.\n";
     # Prepare to write what we decide to keep.
     open(my $oh, ">", $refsFile) || die "Could not open reference genome save file: $!";
     # Filter by the known representatives.
@@ -235,6 +237,7 @@ if (-f $refsFile && ! $force) {
         }
     }
 }
+print scalar(@realRefs) . " reference genomes selected.\n";
 # Now loop through the contig input file.
 my $fh = $loader->OpenFasta(contig => $contigFile);
 my $fields = $loader->GetLine(contig => $fh);
