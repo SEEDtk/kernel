@@ -228,7 +228,6 @@ sub FindGenomes {
             $retVal{$genome} = $hits{$genome};
         }
     }
-    print scalar(keys %retVal) . " reference genomes selected.\n";
     # Return the set of genomes found.
     return \%retVal;
 }
