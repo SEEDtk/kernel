@@ -23,70 +23,30 @@ package Bin::Blast;
     use gjo::BlastInterface;
     use SeedUtils;
     use Stats;
+    use File::Spec;
+    use File::Copy::Recursive;
 
 =head1 Blast Analysis Object
 
-This object BLASTs a contig against the proteins in a set of reference genomes. It returns the two closest
-reference genomes and the list of universal roles found. A reference genome is only considered close if there
-is a successful BLAST of a certain minimum length (default 160) and percent identity (default 0.9). The genome
-with the highest percent identity match is considered the closest.
+This object creates a BLAST database for a community sample, then uses it to find the closest reference genomes
+to each contig in the sample. It accepts as input a selected list of reference genomes to use. It is presumed
+the L<Bin::Kmers> object has been used to select reference genomes likely to produce a hit. The method is
+also responsible for returning the universal roles found in each contig.
 
-During initialization, this object builds a BLAST database of the reference genomes in a specified working
-directory. If that database already exists, the initialization is significantly faster.
+Because there are so many more contigs than reference genomes, a BLAST database is created for the contigs and
+then each reference genome is blasted against it. Because the contigs are DNA and we are blasting proteins, the
+tool used will be C<tblastn>.
 
-The fields in this object are as follows.
+When the query sequences are created, the comment field for each sequence will be the ID of its functional
+assignment. This can be used to determine whether or not a universal role has been hit.
 
-=over 4
+=head2 Public Methods
 
-=item workDir
+=head3 Process
 
-Name of the working directory.
+    my $stats = Bin::Blast::Process($shrub, $workDir, \@refGenomes, \%contigBins, $contigFasta, \@roles, %options);
 
-=item minsim
-
-The minimum acceptable similarity for a BLAST result.
-
-=item minlen
-
-The minimum acceptable length for a BLAST result.
-
-=item stats
-
-Statistics about the blast database. This is a hash with the following values.
-
-=over 8
-
-=item genomes
-
-Number of reference genomes.
-
-=item fids
-
-Number of proteins.
-
-=item uniRoles
-
-Number of universal roles.
-
-=item uniFids
-
-Number of proteins with universal roles.
-
-=back
-
-=back
-
-In the working directory, there will be a subdirectory created for each reference genome. In that subdirectory,
-The FASTA file containing the proteins will be C<blast_ref.fa>. There will also be a universal role hash in JSON format
-called C<blast_ref.uni.json>. In the main directory there will be a statistics hash in JSON format called C<blast_ref.counts.json>.
-
-=head2 Special Methods
-
-=head3 new
-
-    my $blast = Bin::Blast->new($shrub, $workDir, \@refGenomes, \@roles, %options);
-
-Create a new BLAST database in the specified working directory. If the database already exists, it will be reused.
+BLAST a set of contigs and update the L<Bin> objects for those contigs.
 
 =over 4
 
@@ -96,11 +56,19 @@ The L<Shrub> object for accessing the database.
 
 =item workDir
 
-Name of the working directory to contain the database.
+Name of the working directory to contain intermediate files.
 
 =item refGenomes
 
 Reference to a list of reference genome IDs.
+
+=item contigBins
+
+Reference to a hash mapping each sample contig ID to a L<Bin> object which is to contain the results of the blasting.
+
+=item contigFasta
+
+Name of the FASTA file containing the sample contigs.
 
 =item roles
 
@@ -120,265 +88,135 @@ The minimum acceptable percent identity similarity. The default is C<0.9>.
 
 The minimum acceptable match length. The default is C<150>.
 
-=item force
-
-If TRUE, the blast database will be rebuilt even if it is already found in the work directory.
-
 =item priv
 
 Privilege level for the functions of the feature. The default is C<1>.
 
-=back
+=item maxE
+
+The maximum accetable E-value. The default is C<1e-50>.
 
 =back
-
-=cut
-
-sub new {
-    my ($class, $shrub, $workDir, $refGenomes, $roles, %options) = @_;
-    # Extract the options.
-    my $minsim = $options{minsim} // 0.9;
-    my $minlen = $options{minlen} // 150;
-    my $priv = $options{priv} // 1;
-    # Verify the work directory.
-    if (! $workDir) {
-        die "Missing work directory for BLAST database.";
-    } elsif (! -d $workDir) {
-        die "Invalid BLAST work directory $workDir.";
-    }
-    # Get the force option.
-    my $force = $options{force};
-    # Build a hash of universal role IDs.
-    my %uniRoles = map { $_ => 1 } @$roles;
-    # This will contain the statistics hash.
-    my $stats = {};
-    # Check to see if we already have statistics. Note that in force mode we start back at zero.
-    my $statsFile = "$workDir/blast_ref.counts.json";
-    if (-f $statsFile && ! $force) {
-        $stats = SeedUtils::read_encoded_object($statsFile);
-    }
-    # Save the universal role count.
-    $stats->{uniRoles} = scalar @$roles;
-    # Loop through the reference genomes.
-    for my $genome (@$refGenomes) {
-        $stats->{refGenomes}++;
-        # Get this genome's sub-directory and compute the file names.
-        my $genomeDir = "$workDir/$genome";
-        my $fastaFile = "$genomeDir/blast_ref.fa";
-        my $uniFile = "$genomeDir/blast_ref.uni.json";
-        # Check to see if we need to build (or rebuild) the FASTA file.
-        if (! -d $genomeDir) {
-            # Here the directory doesn't even exist.
-            mkdir($genomeDir, 0777);
-            build_genome_db($shrub, $genomeDir, $genome, $fastaFile, $uniFile, $statsFile, \%uniRoles, $stats, $priv);
-        } elsif ($force || ! -f $fastaFile || ! -f $uniFile) {
-            # We have a directory, but we still need a database.
-            build_genome_db($shrub, $genomeDir, $genome, $fastaFile, $uniFile, $statsFile, \%uniRoles, $stats, $priv);
-        }
-    }
-    # Create the final object.
-    my $retVal = {
-        workDir => $workDir,
-        minsim => $minsim,
-        minlen => $minlen,
-        stats => $stats
-    };
-    # Bless and return it.
-    bless $retVal, $class;
-    return $retVal;
-}
-
-
-=head2 Query Methods
-
-=head3 stats
-
-    my $stats = $blast->stats;
-
-Return a statistics object containing the blast database statistics.
-
-=cut
-
-sub stats {
-    my ($self) = @_;
-    my $retVal = Stats->new();
-    my $stats = $self->{stats};
-    for my $stat (keys %$stats) {
-        $retVal->Add($stat => $stats->{$stat});
-    }
-    return $retVal;
-}
-
-
-=head2 Public Methods
-
-=head3 Process
-
-    my ($genomesL, $rolesL) = $blast->Process($seq, \@refs);
-
-Process the specified contig and determine the closest reference genomes and the list of universal roles.
-
-=over 4
-
-=item seq
-
-Sequence of the contig to process.
-
-=item refs
-
-Reference to a list of reference genomes to process. This must be a subset of the reference genomes in this BLAST
-database.
 
 =item RETURN
 
-Returns a 2-element list consisting of (0) a reference to a list of the closest genomes (maximum of 2) and (1) a reference to a list
-of the IDs of the universal roles found.
+Returns a statistics object containing useful information about the BLAST results.
 
 =back
 
 =cut
 
 sub Process {
-    my ($self, $seq, $refs) = @_;
-    # This will track the best match in each genome. It will map each genome ID to a score.
-    my %genomes;
-    # This will track the universal roles found.
-    my %uniRoles;
-    # Loop through the given list of genomes.
-    for my $genome (@$refs) {
-        # Get the genome directory and file names.
-        my $genomeDir = "$self->{workDir}/$genome";
-        my $fastaFile = "$genomeDir/blast_ref.fa";
-        my $uniFile = "$genomeDir/blast_ref.uni.json";
-        # Read the universal role hash.
-        my $fids2Uni = SeedUtils::read_encoded_object($uniFile);
-        # Compute the blast database name.
-        my $dbName = gjo::BlastInterface::get_db($fastaFile, 'blastx', $genomeDir);
-        # Get the list of matches from the blastx.
-        my $matches = gjo::BlastInterface::blast(['contig', '', $seq], $dbName, 'blastx',
-                { minIden => $self->{minsim}, minLen => $self->{minlen}, maxE => 1e-50 });
-        if (@$matches) {
-            print scalar(@$matches) . " hits found in $genome.\n";
-            # Loop through the matches. Note they are pre-filtered by the blast method.
+    my ($shrub, $workDir, $refGenomes, $contigBins, $contigFasta, $roles, %options) = @_;
+    # This will contain the return statistics.
+    my $stats = Stats->new();
+    # Get the options.
+    my $minsim = $options{minsim} // 0.9;
+    my $minlen = $options{minlen} // 150;
+    my $priv = $options{priv} // 1;
+    my $maxE = $options{maxE} // 1e-50;
+    # Create a hash of the universal role IDs.
+    my %uniRoles = map { $_ => 1 } @$roles;
+    # Insure we have a copy of the sample contigs in the working directory. Note we need to deal with
+    # trailing-slash craziness.
+    my $blastFasta = $contigFasta;
+    my $absWorkDir = File::Spec->rel2abs($workDir);
+    my $absContigFasta = File::Spec->rel2abs($contigFasta);
+    my ($volWorkDir, $pathWorkDir) = File::Spec->splitpath($absWorkDir, 1);
+    my ($volFasta, $pathFasta, $nameFasta) = File::Spec->splitpath($absContigFasta);
+    $pathFasta =~ s/[\/\\]$//;
+    $pathWorkDir =~ s/[\/\\]$//;
+    if ($pathFasta ne $pathWorkDir) {
+        my $newName = "$workDir/$nameFasta";
+        print "Copying $contigFasta to $newName.\n";
+        File::Copy::Recursive($contigFasta, $newName);
+        $blastFasta = $newName;
+    }
+    # Create the BLAST database for the sample contigs. If it already exists, it will be reused.
+    my $blastDbName = gjo::BlastInterface::get_db($blastFasta, 'tblastn', $workDir);
+    print "BLAST database found at $blastDbName.\n";
+    # The contig bins will contain the universal role information. We cannot, however, track the closest
+    # genomes there because we want only the best two. This hash will map each sample contig ID to a
+    # sub-hash of genome scores. For each genome the sub-hash will contain the percent identity score of its best hit.
+    my %contigGenomes;
+    # Loop through the reference genomes.
+    for my $refGenome (@$refGenomes) {
+        $stats->Add(refGenomesBlasted => 1);
+        print "Processing $refGenome for BLAST.\n";
+        # Create the FASTA file for this genome's query sequence.
+        my $queryFileName = "$workDir/$refGenome.fa";
+        open(my $oh, ">", $queryFileName) || die "Could not create FASTA output file: $!";
+        # Get the sequences and functions for all of this genome's proteins.
+        my @tuples = $shrub->GetAll('Feature Protein AND Feature Feature2Function', 'Feature(id) LIKE ? AND Feature2Function(security) = ?',
+            ["fig|$refGenome.peg.%", $priv], 'Feature(id) Feature2Function(to-link) Protein(sequence)');
+        # Write them in FASTA format.
+        for my $tuple (@tuples) {
+            my ($id, $function, $sequence) = @$tuple;
+            # Only keep the function if it is a universal role.
+            if (! $uniRoles{$function}) {
+                $function = '';
+            } else {
+                $stats->Add(uniRoleProteins => 1);
+            }
+            print $oh ">$id $function\n$sequence\n";
+            $stats->Add(genomeProteins => 1);
+        }
+        close $oh;
+        # Blast this genome against the sample contigs.
+        my $matches = gjo::BlastInterface::blast($queryFileName, $blastDbName, 'tblastn',
+            { outForm => 'hsp', minIden => $minsim, minLen => $minlen, maxE => $maxE });
+        my $matchCount = scalar @$matches;
+        $stats->Add(blastMatches => $matchCount);
+        if ($matchCount) {
+            print "$matchCount hits found.\n";
+            # Loop through the matches. Note they are pre-filtered for length and percent identity.
             for my $match (@$matches) {
-                # Get the ID of the matched protein and the percent identity. Note we don't have to worry about the denominator
-                # of the percent identity fraction being 0, since it is pre-filtered on match length.
-                my $fid = $match->id2;
-                my $score = $match->iden;
-                my $role = $fids2Uni->{$fid};
-                # If we have a universal role, remember it.
-                if ($role) {
-                    $uniRoles{$role}++;
+                # Get the pieces of the HSP object.
+                my $functionID = $match->[1];
+                my $contigID = $match->[3];
+                my $score = $match->[11] / $match->[10];
+                # Check to see if this is the genome's best score for this contig.
+                my $oldScore = $contigGenomes{$contigID}{$refGenome} // 0;
+                if ($oldScore < $score) {
+                    $contigGenomes{$contigID}{$refGenome} = $score;
                 }
-                # If this is the best match for this genome, remember it.
-                if ($score > ($genomes{$genome} // 0)) {
-                    $genomes{$genome} = $score;
+                # If this is a universal role, count it.
+                if ($functionID) {
+                    $stats->Add(uniRoleFound => 1);
+                    $contigBins->{$contigID}->add_prots($functionID);
                 }
             }
         }
     }
-    # Now get the best two genomes. If the third or subsequent genome has the same score as the second, we keep it anyway.
-    my @sorted = sort { $genomes{$b} <=> $genomes{$a} } keys %genomes;
-    my $maxN = scalar @sorted;
-    my @genomesL;
-    if ($maxN <= 2) {
-        @genomesL = @sorted;
-    } else {
-        @genomesL = shift @sorted;
-        my $g2 = shift @sorted;
-        push @genomesL, $g2;
-        my $g2score = $genomes{$g2};
-        while (scalar(@sorted) && $genomes{$sorted[0]} == $g2score) {
-            push @genomesL, shift @sorted;
+    # Now all the reference genomes have been blasted. For each contig, we need to choose the best two.
+    # Note that many contigs will not have any hits. These do not even appear in the hash, so we don't
+    # worry about skipping them.
+    print "Assigning genomes to sample contigs.\n";
+    for my $contigID (keys %contigGenomes) {
+        $stats->Add(contigsWithRefGenomes => 1);
+        my $genomeH = $contigGenomes{$contigID};
+        my @sorted = sort { $genomeH->{$b} <=> $genomeH->{$a} } keys %$genomeH;
+        my $maxN = scalar @sorted;
+        my @genomesL;
+        # This is a bit tricky. If multiple genomes have the same score, we keep them even if it means
+        # we are passing back more than 2.
+        if ($maxN <= 2) {
+            @genomesL = @sorted;
+        } else {
+            @genomesL = shift @sorted;
+            my $g2 = shift @sorted;
+            push @genomesL, $g2;
+            my $g2score = $genomeH->{$g2};
+            while (scalar(@sorted) && $genomeH->{$sorted[0]} == $g2score) {
+                push @genomesL, shift @sorted;
+            }
         }
+        # Add the genomes found to the contig's bin.
+        $contigBins->{$contigID}->add_ref(@genomesL);
     }
-    # Get the list of universal role IDs.
-    my @rolesL = keys %uniRoles;
-    # Return the information for this contig.
-    return (\@genomesL, \@rolesL);
+    # Return the statistics.
+    return $stats;
 }
 
-=head2 Internal Utility Methods
-
-=head3 build_genome_db
-
-    build_genome_db($shrub, $genomeDir, $genome, $fastaFile, $uniFile, $statsFile, $uniRoles, $stats, $priv);
-
-Create (or re-create) the BLAST database for a single genome.
-
-=over 4
-
-=item shrub
-
-L<Shrub> object for accessing the database.
-
-=item genomeDir
-
-Directory into which the database should be created.
-
-=item genome
-
-ID of the target genome.
-
-=item fastaFile
-
-Name for the output FASTA file of the genome's proteins.
-
-=item uniFile
-
-Name for the output JSON file of the universal role map.
-
-=item statsFile
-
-Name of the statistics file for the whole database.
-
-=item uniRoles
-
-Hash keyed on universal role ID.
-
-=item stats
-
-Hash used to track the statistics.
-
-=item priv
-
-Privilege level for the feature functional assignments.
-
-=back
-
-=cut
-
-sub build_genome_db {
-    my ($shrub, $genomeDir, $genome, $fastaFile, $uniFile, $statsFile, $uniRoles, $stats, $priv) = @_;
-    print "Processing BLAST data for $genome.\n";
-    # This will be the map of feature IDs to universal roles.
-    my $fids2Uni = {};
-    # We need to writing the proteins to the FASTA file. If a protein has a universal role, we save it in the hash.
-    open(my $oh, ">", $fastaFile) || die "Could not open FASTA output file: $!";
-    my @prots = $shrub->GetAll('Feature Protein AND Feature Feature2Function', 'Feature(id) LIKE ? AND Feature2Function(security) = ?',
-            ["fig|$genome.peg.%", $priv], 'Feature(id) Protein(sequence) Feature2Function(to-link)');
-    # Loop through the proteins found.
-    for my $prot (@prots) {
-        my ($id, $seq, $role) = @$prot;
-        $stats->{fids}++;
-        # Output the FASTA.
-        my @chunks = unpack("(A64)*", $seq);
-        print $oh ">$id $role\n";
-        print $oh map { "$_\n" } @chunks;
-        # Record the role if it is universal.
-        if ($uniRoles->{$role}) {
-            $fids2Uni->{$id} = $role;
-            $stats->{uniFids}++;
-        }
-    }
-    # Close the output file.
-    close $oh;
-    # Create the BLAST database.
-    gjo::BlastInterface::get_db($fastaFile, 'blastx', $genomeDir);
-    # Write out the universal role hash.
-    SeedUtils::write_encoded_object($fids2Uni, $uniFile);
-    # Checkpoint the statistics.
-    SeedUtils::write_encoded_object($stats, $statsFile);
-}
 
 1;

@@ -198,11 +198,6 @@ my $tetra = Bin::Tetra->new($opt->tetra);
 my $uniRoles = $loader->GetNamesFromFile(uniRoles => $opt->unis);
 my $uniCount = scalar @$uniRoles;
 print "$uniCount universal roles found.\n";
-# Create the BLAST database.
-print "Creating BLAST database.\n";
-my $blaster = Bin::Blast->new($shrub, $workDir, $refs, $uniRoles, minsim => $opt->minsim, minlen => $opt->minlen, force => $force);
-# Merge the statistics.
-$stats->Accumulate($blaster->stats);
 # Do we need to find the reference genomes?
 my @realRefs;
 my $refsFile = "$sampleDir/ref.counts.tbl";
@@ -239,11 +234,11 @@ if (-f $refsFile && ! $force) {
 }
 print scalar(@realRefs) . " reference genomes selected.\n";
 # Now loop through the contig input file.
+print "Processing tetranucleotide data.\n";
 my $fh = $loader->OpenFasta(contig => $contigFile);
 my $fields = $loader->GetLine(contig => $fh);
 while (defined $fields) {
     my ($contig, undef, $seq) = @$fields;
-    print "Processing contig $contig.\n";
     # Create a new bin for this contig.
     my $bin = Bin->new($contig);
     my $len = length $seq;
@@ -254,20 +249,10 @@ while (defined $fields) {
     # Compute the tetranucleotide vector.
     my $contigTetra = $tetra->ProcessString($seq);
     $bin->set_tetra($contigTetra);
-    # Compute the BLAST data.
-    my ($genomesL, $rolesL) = $blaster->Process($seq, \@realRefs);
-    $bin->add_ref(@$genomesL);
-    if (! @$genomesL) {
-        $stats->Add(lostContigs => 1);
-    }
-    $bin->add_prots(@$rolesL);
-    if (! @$rolesL) {
-        $stats->Add(uniFreeContigs => 1);
-    }
     # Get the next line.
     $fields = $loader->GetLine(contig => $fh);
 }
-# Now all the bins are created, but we lack the coverage information. This is computed from the vector file.
+# Now all the bins are created. Next we get the coverage information. This is computed from the vector file.
 print "Reading coverage vector file.\n";
 my $vh = $loader->OpenFile(coverage => $vectorFile);
 # Throw away the first line. It contains headers.
@@ -289,6 +274,10 @@ while (! eof $vh) {
 }
 # Close the vector input file.
 close $vh;
+# Finally, we do the BLASTing.
+my $blastStats = Bin::Blast::Process($shrub, $sampleDir, \@realRefs, \%contigs, $contigFile, $uniRoles,
+        minsim => $opt->minsim, minlen => $opt->minlen);
+$stats->Accumulate($blastStats);
 # Open the output file.
 open(my $oh, ">", $outputFile) || die "Could not open contig output file: $!";
 # Loop through the contigs.
