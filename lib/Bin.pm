@@ -52,9 +52,12 @@ samples used to assemble the contigs.
 
 =item tetra
 
-A normalized vector of tetranucleotide counts. For each possible tetranucleotide, the vector contains the
-number of times it occurred divided by the total number of tetranucleotides in the contigs. Each is therefore
-a value between 0 and 1, and the sum of all the values is 1.
+A vector of tetranucleotide counts. For each possible tetranucleotide, the vector contains the
+number of times it occurred.
+
+=item tetraLen
+
+The length of the tetranucleotide vector, equal to the square root of the sum of the squares of the counts.
 
 =item refGenomes
 
@@ -84,7 +87,7 @@ The coverage vector values.
 
 =item 3
 
-The tetranucleotide counts, normalized.
+The tetranucleotide counts.
 
 =item 4
 
@@ -134,7 +137,7 @@ sub new_from_file {
     # Read the tetranucleotide counts.
     my @tetra = SeedUtils::fields_of($ih);
     # Read the close-reference genome IDs.
-    my @genomes = sort SeedUtils::fields_of($ih);
+    my @genomes = SeedUtils::fields_of($ih);
     # Read the universal protein IDs.
     my %uniProts = map { $_ => 1 } SeedUtils::fields_of($ih);
     # Create the object to return.
@@ -143,9 +146,11 @@ sub new_from_file {
         len => $len,
         coverage => \@coverage,
         tetra => \@tetra,
-        refGenomes => \@genomes,
+        refGenomes => [sort @genomes],
         uniProts => \%uniProts
     };
+    # Compute the tetranucleotide vector length.
+    _SetTetraLen($retVal);
     # Bless and return it.
     bless $retVal, $class;
     return $retVal;
@@ -200,6 +205,7 @@ sub new {
         len => 0,
         coverage => [],
         tetra => [],
+        tetraLen => 0,
         refGenomes => [],
         uniProts => {}
     };
@@ -362,14 +368,26 @@ sub coverage {
 
     my $tetraL = $self->tetra;
 
-Return the tetranucleotide count vector for this bin, in the form of a reference to a list of tetranucleotide values,
-each representing the proportion of tetranucleotides of that type.
+Return the tetranucleotide count vector for this bin, in the form of a reference to a list of tetranucleotide counts.
 
 =cut
 
 sub tetra {
     my ($self) = @_;
     return $self->{tetra};
+}
+
+=head3 tetraLen
+
+    my $tetraLen = $self->tetraLen
+
+Return the magnitude of the tetranucleotide vector, equal to the square root of the sum of the squares of the counts.
+
+=cut
+
+sub tetraLen {
+    my ($self) = @_;
+    return $self->{tetraLen};
 }
 
 =head3 refGenomes
@@ -440,8 +458,9 @@ sub Merge {
     my $tetra2 = $bin2->tetra;
     $n = scalar @$tetra;
     for ($i = 0; $i < $n; $i++) {
-        $tetra->[$i] = ($tetra->[$i] * $len + $tetra2->[$i] * $len2) / $tlen;
+        $tetra->[$i] = $tetra->[$i] + $tetra2->[$i];
     }
+    _SetTetraLen($self);
     # Combine the reference genomes.
     my %refs = map { $_ => 1 } ($self->refGenomes, $bin2->refGenomes);
     $self->{refGenomes} = [sort keys %refs];
@@ -507,12 +526,8 @@ An unnormalized vector of tetranucleotide values.
 
 sub set_tetra {
     my ($self, $tetras) = @_;
-    # Note we must normalize the counts.
-    my $total = 0;
-    for my $tetrum (@$tetras) {
-        $total += $tetrum;
-    }
-    $self->{tetra} = [ map { $_ / $total } @$tetras ];
+    $self->{tetra} = $tetras;
+    _SetTetraLen($self);
 }
 
 =head3 add_ref
@@ -618,6 +633,34 @@ sub WriteContig {
     print $oh join("\t", @{$self->{refGenomes}}) . "\n";
     # Write the universal proteins.
     print $oh join("\t", keys %{$self->{uniProts}}) . "\n";
+}
+
+=head2 Internal Utility Methods
+
+=head3 _SetTetraLen
+
+    _SetTetraLen($bin);
+
+Compute and store the length of the tetranucleotide vector, for the purposes of computing dot products.
+
+=over 4
+
+=item bin
+
+A Bin object with an updated tetranucleotide vector. The C<tetraLen> member will be computed and set.
+
+=back
+
+=cut
+
+sub _SetTetraLen {
+    my ($bin) = @_;
+    my $tetras = $bin->{tetra};
+    my $squares = 0;
+    for my $tetra (@$tetras) {
+        $squares += $tetra * $tetra;
+    }
+    $bin->{tetraLen} = sqrt($squares);
 }
 
 1;

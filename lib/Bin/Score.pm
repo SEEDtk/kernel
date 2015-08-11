@@ -169,7 +169,7 @@ The minimum acceptable score. (Lower scores are set to 0.)
 
 =item unitotal (optional)
 
-The total number of universal roles. If omitted, C<58> is assumed.
+The total number of universal roles. If omitted, C<57> is assumed.
 
 =back
 
@@ -184,7 +184,7 @@ sub new {
         refWeight => $refweight,
         uniPenalty => $unipenalty,
         uniWeight => $uniweight,
-        uniTotal => ($unitotal // 58),
+        uniTotal => ($unitotal // 57),
         minscore => $minscore
     };
     # Bless and return it.
@@ -304,11 +304,12 @@ sub Score {
     my $dot = 0;
     my $tetra1 = $bin1->tetra;
     my $tetra2 = $bin2->tetra;
+    my $vlen = $bin1->tetraLen * $bin2->tetraLen;
     $n = scalar @$tetra1;
     for ($i = 0; $i < $n; $i++) {
         $dot += $tetra1->[$i] * $tetra2->[$i];
     }
-    $retVal += $self->{tetraWeight} * $dot;
+    $retVal += $self->{tetraWeight} * $dot / $vlen;
     # Compare the reference genome lists.
     my @ref1 = $bin1->refGenomes;
     my @ref2 = $bin2->refGenomes;

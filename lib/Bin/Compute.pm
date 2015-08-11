@@ -74,7 +74,7 @@ sub Process {
         for ($j = $i + 1; $j < $binCount; $j++) {
             my $binJ = $binList->[$j];
             my $contigJ = $binJ->contig1;
-            my $scoreValue = $score->($binI, $binJ);
+            my $scoreValue = $score->Score($binI, $binJ);
             $stats->Add(pairsScored => 1);
             if ($scoreValue > 0) {
                 $stats->Add(pairsKept => 1);
