@@ -226,7 +226,6 @@ if (-f $refsFile && ! $force) {
     # Prepare to write what we decide to keep.
     open(my $oh, ">", $refsFile) || die "Could not open reference genome save file: $!";
     # Filter by the known representatives.
-    my @realRefs;
     for my $refGenome (@$refs) {
         my $count = $refGenomeH->{$refGenome};
         if ($count) {
