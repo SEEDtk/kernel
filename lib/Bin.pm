@@ -175,7 +175,13 @@ Open file handle positioned on the json-encoded bin.
 sub new_from_json {
     my ($class, $ih) = @_;
     # Read the object from the JSON file.
-    my $retVal = SeedUtils::read_encoded_object($ih);
+    my @parts;
+    my $line = <$ih>;
+    while ($line ne "//\n") {
+        push @parts, $line;
+    }
+    my $json = join("", @parts);
+    my $retVal = SeedUtils::read_encoded_object(\$json);
     # Bless and return it.
     bless $retVal, $class;
     return $retVal;
@@ -297,6 +303,37 @@ sub ReadContigs {
     return \@retVal;
 }
 
+=head3 cmp
+
+    my $val = Bin::cmp($a, $b);
+
+Compare two bins. Sort the one with the most universal proteins first, and after that, the one with the biggest length.
+
+=over 4
+
+=item a
+
+First Bin to compare.
+
+=item b
+
+Second Bin to compare.
+
+=back
+
+=cut
+
+sub cmp {
+    my ($a, $b) = @_;
+    my $aUni = scalar keys %{$a->{uniProts}};
+    my $bUni = scalar keys %{$b->{uniProts}};
+    my $retVal = ($bUni <=> $aUni);
+    if (! $retVal) {
+        $retVal = ($b->len <=> $a->len);
+    }
+    return $retVal;
+}
+
 =head2 Member Access Methods
 
 =head3 contigs
@@ -353,7 +390,7 @@ sub len {
 
 =head3 coverage
 
-    my $coverageL = $self->coverage;
+    my $coverageL = $bin->coverage;
 
 Return the coverage vector for this bin, in the form of a reference to a list of coverage values.
 
@@ -366,7 +403,7 @@ sub coverage {
 
 =head3 tetra
 
-    my $tetraL = $self->tetra;
+    my $tetraL = $bin->tetra;
 
 Return the tetranucleotide count vector for this bin, in the form of a reference to a list of tetranucleotide counts.
 
@@ -379,7 +416,7 @@ sub tetra {
 
 =head3 tetraLen
 
-    my $tetraLen = $self->tetraLen
+    my $tetraLen = $bin->tetraLen
 
 Return the magnitude of the tetranucleotide vector, equal to the square root of the sum of the squares of the counts.
 
@@ -392,7 +429,7 @@ sub tetraLen {
 
 =head3 refGenomes
 
-    my @refGenomes = $self->refGenomes;
+    my @refGenomes = $bin->refGenomes;
 
 Return the list of close reference genomes for this bin.
 
@@ -403,9 +440,22 @@ sub refGenomes {
     return @{$self->{refGenomes}};
 }
 
+=head3 hashits
+
+    my $flag = $bin->hasHits;
+
+Return TRUE if this bin has reference genomes attached to it.
+
+=cut
+
+sub hasHits {
+    my ($self) = @_;
+    return ((scalar @{$self->{refGenomes}}) ? 1 : 0);
+}
+
 =head3 uniProts
 
-    my $uniProtH = $self->uniProts;
+    my $uniProtH = $bin->uniProts;
 
 Return a reference to a hash mapping each universal protein role ID to the number of times it occurs in the bin.
 
@@ -464,6 +514,12 @@ sub Merge {
     # Combine the reference genomes.
     my %refs = map { $_ => 1 } ($self->refGenomes, $bin2->refGenomes);
     $self->{refGenomes} = [sort keys %refs];
+    # Combine the universal roles.
+    my $roles1 = $self->uniProts;
+    my $roles2 = $bin2->uniProts;
+    for my $role (keys %$roles2) {
+        $roles1->{$role} += $roles2->{$role};
+    }
 }
 
 =head3 set_len
@@ -603,6 +659,8 @@ sub Write {
     my $copy = { %$self };
     # Write it to the output.
     SeedUtils::write_encoded_object($copy, $oh);
+    # Add a trailer.
+    print $oh "//\n";
 }
 
 =head3 WriteContig

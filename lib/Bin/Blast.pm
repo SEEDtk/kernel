@@ -139,10 +139,11 @@ sub Process {
     # genomes there because we want only the best two. This hash will map each sample contig ID to a
     # sub-hash of genome scores. For each genome the sub-hash will contain the percent identity score of its best hit.
     my %contigGenomes;
+    my $totalGenomes = scalar (@$refGenomes);
     # Loop through the reference genomes.
     for my $refGenome (@$refGenomes) {
-        $stats->Add(refGenomesBlasted => 1);
-        print "Processing $refGenome for BLAST.\n";
+        my $blasted = $stats->Add(refGenomesBlasted => 1);
+        print "Processing $refGenome for BLAST ($blasted of $totalGenomes).\n";
         # Create the FASTA file for this genome's query sequence.
         my $queryFileName = "$workDir/$refGenome.fa";
         open(my $oh, ">", $queryFileName) || die "Could not create FASTA output file: $!";

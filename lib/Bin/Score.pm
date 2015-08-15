@@ -185,7 +185,7 @@ sub new {
         uniPenalty => $unipenalty,
         uniWeight => $uniweight,
         uniTotal => ($unitotal // 57),
-        minscore => $minscore
+        minScore => $minscore
     };
     # Bless and return it.
     bless $retVal, $class;
@@ -237,17 +237,174 @@ that can be used in the L<ScriptUtils/Opts> method.
 
 sub script_options {
     return (
-           [ "covgweight=f", "the weight to assign to the coverage score", { default => 0.2 } ],
-           [ "tetraweight=f", "the weight to assign to the tetranucleotide score", { default => 0.2 }  ],
-           [ "refweight=f", "the weight to assign to the closest-reference-genome score", { default => 0.2 } ],
+           [ "covgweight=f", "the weight to assign to the coverage score", { default => 0.25 } ],
+           [ "tetraweight=f", "the weight to assign to the tetranucleotide score", { default => 0.25 }  ],
+           [ "refweight=f", "the weight to assign to the closest-reference-genome score", { default => 0.25 } ],
            [ "unipenalty=f", "the penalty to assign to duplicate universal roles", { default => 1 } ],
-           [ "uniweight=f", "the weight to assign to the universal role score", { default => 0.2 } ],
-           [ "unitotal=i", "the total number of universal roles", { default => 58 } ],
-           [ "minscore=f", "the minimum acceptable score (lower scores are set to 0)", { default => 0.6 }]
+           [ "uniweight=f", "the weight to assign to the universal role score", { default => 0.25 } ],
+           [ "unitotal=i", "the total number of universal roles", { default => 57 } ],
+           [ "minscore=f", "the minimum acceptable score (lower scores are set to 0)", { default => 0.5 }]
     );
 }
 
+=head3 Vector
+
+    my $vector = Bin::Score::Vector($bin1, $bin2);
+
+Return the scoring vector for a pair of bins. The scoring vector consists of the coverage score, the tetranucleotide
+score, the closest-reference-genome score, the number of universal roles not in common, and the number of
+universal roles in common. These components are combined using the weights in the scoring object to compute the
+real score.
+
+=over 4
+
+=item bin1
+
+A L<Bin> object representing the first set of contigs.
+
+=item bin2
+
+A L<Bin> object representing the second set of contigs.
+
+=item RETURN
+
+Returns a 5-tuple consisting of (0) the coverage score, (1) the tetranucleotide score, (2) the closest-reference-genome
+score, (3) the number of universal roles not in common, and (4) the number of universal roles in common.
+
+=back
+
+=cut
+
+sub Vector {
+    my ($bin1, $bin2) = @_;
+    my ($i, $n);
+    # This will be the output vector.
+    my @retVal;
+    # Compare the coverage vectors.
+    my $covg1 = $bin1->coverage;
+    my $covg2 = $bin2->coverage;
+    $n = scalar @$covg1;
+    my $cScore = 0;
+    for ($i = 0; $i < $n; $i++) {
+        # Get the corresponding coverages.
+        my ($covgV1, $covgV2) = ($covg1->[$i], $covg2->[$i]);
+        # Count them if they are close.
+        if ($covgV1 > $covgV2) {
+            if ($covgV1 <= $covgV2 * 1.2) {
+                $cScore++;
+            }
+        } elsif ($covgV2 > $covgV1) {
+            if ($covgV2 <= $covgV1 * 1.2) {
+                $cScore++;
+            }
+        } else {
+            $cScore++;
+        }
+    }
+    $cScore /= $n;
+    push @retVal, $cScore;
+    # Compare the tetranucleotide vectors.
+    my $dot = 0;
+    my $tetra1 = $bin1->tetra;
+    my $tetra2 = $bin2->tetra;
+    my $vlen = $bin1->tetraLen * $bin2->tetraLen;
+    $n = scalar @$tetra1;
+    for ($i = 0; $i < $n; $i++) {
+        $dot += $tetra1->[$i] * $tetra2->[$i];
+    }
+    my $tscore = $dot / $vlen;
+    push @retVal, $tscore;
+    # Compare the reference genome lists.
+    my @ref1 = $bin1->refGenomes;
+    my @ref2 = $bin2->refGenomes;
+    my $refScore;
+    if (! @ref1 && ! @ref2) {
+        # Both sets are empty.
+        $refScore = 0.6;
+    } elsif (! @ref1 || ! @ref2) {
+        # One set is empty.
+        $refScore = 0.5;
+    } else {
+        # Both sets are nonempty. Compare the sets.
+        $n = scalar @ref1;
+        if ($n != scalar(@ref2)) {
+            $refScore = 0;
+        } else {
+            # Sets are the same size. The elements are sorted, so we can
+            # do a straight compare.
+            $refScore = 1;
+            for ($i = 0; $i < $n && $refScore; $i++) {
+                if ($ref1[$i] ne $ref2[$i]) {
+                    $refScore = 0;
+                }
+            }
+        }
+    }
+    push @retVal, $refScore;
+    # Now check the universal proteins. We track the number in both bins and the number in only one bin.
+    my $uCommon = 0;
+    my $uOnly = 0;
+    my $univ1 = $bin1->uniProts;
+    my $univ2 = $bin2->uniProts;
+    my $u;
+    for $u (keys %$univ1) {
+        if ($univ2->{$u}) {
+            $uCommon++;
+        } else {
+            $uOnly++;
+        }
+    }
+    for $u (keys %$univ2) {
+        if (! $univ1->{$u}) {
+            $uOnly++;
+        }
+    }
+    push @retVal, $uOnly, $uCommon;
+    # Return the scoring vector.
+    return \@retVal;
+}
+
+
 =head2 Public Manipulation Methods
+
+=head3 ScoreV
+
+    my $value = $score->ScoreV(\@vector);
+
+Compute the score from a scoring vector.
+
+=over 4
+
+=item vector
+
+Vector of scores from which the final score should be computed. A 5-tuple consisting of (0) the coverage
+score, (1) the tetranucleotide score, (2) the closest-reference-genome score, (3) the number of universal
+roles not in common, and (4) the number of universal roles in common.
+
+=item RETURN
+
+Returns the score computed by applying the weights to the individual scores in the vector.
+
+=back
+
+=cut
+
+sub ScoreV {
+    my ($self, $vector) = @_;
+    my $retVal = $self->{covgWeight} * $vector->[0] + $self->{tetraWeight} * $vector->[1] + $self->{refWeight} * $vector->[2];
+    my $uscore = $vector->[3] - $self->{uniPenalty} * $vector->[4];
+    if ($uscore < 0) {
+        $uscore = 0;
+    } else {
+        $uscore /= $self->{uniTotal};
+    }
+    $retVal += $self->{uniWeight} * $uscore;
+    if ($retVal < $self->{minScore}) {
+        $retVal = 0;
+    }
+    return $retVal;
+}
+
 
 =head3 Score
 
@@ -275,97 +432,8 @@ Returns a score comparing the two bins. A high score means the bins are more lik
 
 sub Score {
     my ($self, $bin1, $bin2) = @_;
-    my ($i, $n);
-    # This will be the total score.
-    my $retVal = 0;
-    # Compare the coverage vectors.
-    my $covg1 = $bin1->coverage;
-    my $covg2 = $bin2->coverage;
-    $n = scalar @$covg1;
-    my $cScore = 0;
-    for ($i = 0; $i < $n; $i++) {
-        # Get the corresponding coverages.
-        my ($covgV1, $covgV2) = ($covg1->[$i], $covg2->[$i]);
-        # Count them if they are close.
-        if ($covgV1 > $covgV2) {
-            if ($covgV1 <= $covgV2 * 1.2) {
-                $cScore++;
-            }
-        } elsif ($covgV2 > $covgV1) {
-            if ($covgV2 <= $covgV1 * 1.2) {
-                $cScore++;
-            }
-        } else {
-            $cScore++;
-        }
-    }
-    $retVal += $self->{covgWeight} * ($cScore / $n);
-    # Compare the tetranucleotide vectors.
-    my $dot = 0;
-    my $tetra1 = $bin1->tetra;
-    my $tetra2 = $bin2->tetra;
-    my $vlen = $bin1->tetraLen * $bin2->tetraLen;
-    $n = scalar @$tetra1;
-    for ($i = 0; $i < $n; $i++) {
-        $dot += $tetra1->[$i] * $tetra2->[$i];
-    }
-    $retVal += $self->{tetraWeight} * $dot / $vlen;
-    # Compare the reference genome lists.
-    my @ref1 = $bin1->refGenomes;
-    my @ref2 = $bin2->refGenomes;
-    my $refScore;
-    if (! @ref1 && ! @ref2) {
-        # Both sets are empty.
-        $refScore = 0.6;
-    } elsif (! @ref1 || ! @ref2) {
-        # One set is empty.
-        $refScore = 0.5;
-    } else {
-        # Both sets are nonempty. Compare the sets.
-        $n = scalar @ref1;
-        if ($n != scalar(@ref2)) {
-            $refScore = 0;
-        } else {
-            # Sets are the same size. The elements are sorted, so we can
-            # do a straight compare.
-            $refScore = 1;
-            for ($i = 0; $i < $n && $refScore; $i++) {
-                if ($ref1[$i] ne $ref2[$i]) {
-                    $refScore = 0;
-                }
-            }
-        }
-    }
-    $retVal += $self->{refWeight} * $refScore;
-    # Now check the universal proteins. We track the number in both bins and the number in only one bin.
-    my $uCommon = 0;
-    my $uOnly = 0;
-    my $univ1 = $bin1->uniProts;
-    my $univ2 = $bin2->uniProts;
-    my $u;
-    for $u (keys %$univ1) {
-        if ($univ2->{$u}) {
-            $uCommon++;
-        } else {
-            $uOnly++;
-        }
-    }
-    for $u (keys %$univ2) {
-        if (! $univ1->{$u}) {
-            $uOnly++;
-        }
-    }
-    my $uScore = ($uOnly - $self->{uniPenalty} * $uCommon) / $self->{uniTotal};
-    # Note we ignore non-positive values.
-    if ($uScore > 0) {
-        $retVal += $self->{uniWeight} * $uScore;
-    }
-    # Apply the minimum.
-    if ($retVal < $self->{minScore}) {
-        $retVal = 0;
-    }
-    # Return the total score.
-    return $retVal;
+    my $vector = Vector($bin1, $bin2);
+    return $self->ScoreV($vector);
 }
 
 
