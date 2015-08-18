@@ -88,7 +88,7 @@ sub new {
 }
 
 
-=head2 Quality
+=head3 Quality
 
     my $score = Bin::Analyze::Quality(\@bins, %options);
 

@@ -27,6 +27,7 @@ use Bin::Compute;
 use Bin::Analyze;
 use AI::Genetic;
 use Time::HiRes qw(time);
+use IO::File;
 
 =head1 Search for Good Binning Parameters
 
@@ -42,10 +43,6 @@ The single positional parameter is the name of a working directory to contain te
 The command-line options are those found in L<ScriptUtils/ih_options> plus the following.
 
 =over 4
-
-=item force
-
-If specified, the scoring vectors will be recomputed even if the vector file already exists.
 
 =item generations
 
@@ -68,14 +65,9 @@ The output files are as follows, all in the working directory.
 
 =over 4
 
-=item bins.json
+=item genes.log
 
-A file of L<Bin> objects in JSON format, suitable for reading by L<Bin/ReadBins>. These represent the computed bins.
-
-=item scores.tbl
-
-A tab-delimited file. Each record contains two contig IDs followed by the elements of the scoring vector for the two
-contigs. The vectors can be used to compute the final scores. If this file already exists, it will be reused.
+A text file containing the input scores and the analysis statitics of each run.
 
 =back
 
@@ -83,7 +75,6 @@ contigs. The vectors can be used to compute the final scores. If this file alrea
 
 # Get the command-line parameters.
 my $opt = ScriptUtils::Opts('workDirectory', ScriptUtils::ih_options(),
-        ['force', 'force recomputation of the scoring vectors'],
         ['generations', 'number of generations to run', { default => 50 }],
         ['population', 'starting population', { default => 100 }],
         );
@@ -100,6 +91,7 @@ my $ih = ScriptUtils::IH($opt->input);
 # Get the list of contigs. These are read in as bins.
 print "Reading contigs from input.\n";
 my $binList = Bin::ReadContigs($ih);
+print scalar(@$binList) . " contigs found.\n";
 # Verify the working directory.
 my ($workDir) = @ARGV;
 if (! $workDir) {
@@ -107,30 +99,11 @@ if (! $workDir) {
 } elsif (! -d $workDir) {
     die "Invalid working directory $workDir.\n";
 }
-# Compute the scoring vectors.
-my $scoreVectors;
-my $vectorFile = "$workDir/scores.tbl";
-if ($opt->force || ! -f $vectorFile) {
-    (undef, $scoreVectors) = Bin::Compute::ScoreVectors($binList);
-    # Write out the scores.
-    print "Saving score vectors to $vectorFile.\n";
-    open(my $oh, ">", $vectorFile) || die "Could not open vector output file: $!";
-    for my $scoreVector (@$scoreVectors) {
-        my ($vector, $contig1, $contig2) = @$scoreVector;
-        print $oh join("\t", $contig1, $contig2, @$vector) . "\n";
-    }
-} else {
-    print "Reading score vectors from $vectorFile.\n";
-    open(my $vh, "<", $vectorFile) || die "Could not open vector input file: $!";
-    while (! eof $vh) {
-        my $line = <$vh>;
-        chomp $line;
-        my ($contig1, $contig2, @vector) = split /\t/, $line;
-        push @$scoreVectors, [\@vector, $contig1, $contig2];
-    }
-}
+# Open the log file. We take special pains so that it is unbuffered.
+my $oh = IO::File->new(">$workDir/genes.log") || die "Could not open output log.";
+$oh->autoflush(1);
 # Initialize the scoring parameter ranges.
-$ga->init([[0, 0.5], [0, 0.5], [0, 0.5], [0, 0.5], [0, 1], [0.5, 1]]);
+$ga->init([[0, 10], [1, 10], [0, 10], [0, 10], [0, 10], [5, 7]]);
 # Search for the best scoring parameters.
 for (my $g = 1; $g <= $opt->generations; $g++) {
     print "*** Generation $g.\n";
@@ -145,13 +118,25 @@ for (my $g = 1; $g <= $opt->generations; $g++) {
 sub ComputeBins {
     my ($scoreParms) = @_;
     my $start = time;
+    # Scale the scores.
+    my ($covgweight, $tetraweight, $refweight, $uniweight, $unipenalty, $minscore) = @$scoreParms;
+    my $denom = ($covgweight + $tetraweight + $refweight + $uniweight);
+    ($covgweight, $tetraweight, $refweight, $uniweight) = map { $_ / $denom } ($covgweight, $tetraweight, $refweight, $uniweight);
+    $minscore /= 10;
+    $unipenalty /= 5;
+    my @realScores = ($covgweight, $tetraweight, $refweight, $unipenalty, $uniweight, $minscore);
     # Create the scoring object.
-    my $score = Bin::Score->new(@$scoreParms);
+    my $score = Bin::Score->new(@realScores);
+    # Get copies of the original bins.
+    my @startBins = map { Bin->new_copy($_) } @$binList;
     # Compute the bins.
-    my (undef, $bins) = Bin::Compute::ProcessScores($binList, $score, $scoreVectors);
+    my (undef, $bins) = Bin::Compute::ProcessScores(\@startBins, $score);
     # Analyze the bins.
     my $quality = Bin::Analyze::Quality($bins);
-    print "** Score computed for [" . join(", ", @$scoreParms) . "] is $quality. " . int(time - $start + 0.5) . " seconds for run.\n";
+    my $scoreString = "[" . join(", ", @realScores) . "]";
+    print "** Score computed for $scoreString is $quality. " . int(time - $start + 0.5) . " seconds for run.\n";
+    my $stats = Bin::Analyze::Report($bins);
+    print $oh "REPORT FOR $scoreString\n" . $stats->Show() . "\n\n";
     return $quality;
 }
 

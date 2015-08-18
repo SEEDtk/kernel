@@ -187,33 +187,43 @@ sub new_from_json {
     return $retVal;
 }
 
-=head3 new
+=head3 new_copy
 
-    my $bin = Bin->new($contigID);
+    my $bin = Bin->new_copy($bin2);
 
-Create a new, blank bin for a single contig.
+Create a new bin by copying an old one.
 
 =over 4
 
-=item contigID
+=item bin2
 
-ID of the single contig to be in this bin.
+Bin object to copy.
 
 =back
 
 =cut
 
-sub new {
-    my ($class, $contigID) = @_;
+sub new_copy {
+    my ($class, $bin2) = @_;
+    # Copy the arrays.
+    my $covg = [ @{$bin2->coverage} ];
+    my $tetra = [ @{$bin2->tetra} ];
+    my $refs = [ $bin2->refGenomes ];
+    # Copy the hash.
+    my $uniProts2 = $bin2->uniProts;
+    my %uniProts;
+    for my $prot (keys %$uniProts2) {
+        $uniProts{$prot} = $uniProts2->{$prot};
+    }
     # Create the object.
     my $retVal = {
-        contigs => [$contigID],
-        len => 0,
-        coverage => [],
-        tetra => [],
-        tetraLen => 0,
-        refGenomes => [],
-        uniProts => {}
+        contigs => [$bin2->contigs],
+        len => $bin2->len,
+        coverage => $covg,
+        tetra => $tetra,
+        tetraLen => $bin2->tetraLen,
+        refGenomes => $refs,
+        uniProts => \%uniProts
     };
     # Bless and return it.
     bless $retVal, $class;

@@ -64,9 +64,6 @@ sub ScoreVectors {
     my $filteredCount = scalar @selectedBins;
     my $totalScores = $filteredCount * ($filteredCount + 1) / 2;
     print "$filteredCount useful contigs found in input. $totalScores scores required.\n";
-    # We must loop through the contigs, comparing them. This hash tells us which bin
-    # contains each contig.
-    my %contig2Bin = map { $_->contig1 => $_ } @$binList;
     # This list contains 3-tuples for each pair of contigs containing the contig IDs and the comparison vector.
     my @scores;
     my ($i, $j);
@@ -124,27 +121,52 @@ sub ProcessScores {
     my ($binList, $score, $scoreVectors) = @_;
     # Create the statistics object.
     my $stats = Stats->new();
-    # Get the scoring vectors.
-    if (! $scoreVectors) {
-        my $newStats;
-        ($newStats, $scoreVectors) = ScoreVectors($binList);
-        $stats->Accumulate($newStats);
+    # This list will contains 3-tuples for each comparable pair of contigs containing the contig IDs and the comparison score.
+    my @scores;
+    # We have two possible scenarios: scoring vectors were input, or we compute scores on the fly. The scoring vectors are very
+    # memory-intensive.
+    if ($scoreVectors) {
+        my $incomingScores = scalar @$scoreVectors;
+        print "Converting $incomingScores score components to final scores.\n";
+        for my $scoreVector (@$scoreVectors) {
+            my ($vector, $contigI, $contigJ) = @$scoreVector;
+            my $scoreValue = $score->ScoreV($vector);
+            $stats->Add(scoresComputed => 1);
+            if ($scoreValue > 0) {
+                $stats->Add(pairsKept => 1);
+                push @scores, [$contigI, $contigJ, $scoreValue];
+            }
+        }
+    } else {
+        # Select only the bins with reference genomes.
+        my @selectedBins = grep { $_->hasHits } @$binList;
+        my $filteredCount = scalar @selectedBins;
+        my $totalScores = $filteredCount * ($filteredCount + 1) / 2;
+        print "$filteredCount useful contigs found in input. $totalScores scores required.\n";
+        my ($i, $j);
+        my $scoresComputed = 0;
+        # Now the nested loop.
+        for ($i = 0; $i < $filteredCount; $i++) {
+            my $binI = $selectedBins[$i];
+            my $contigI = $binI->contig1;
+            for ($j = $i + 1; $j < $filteredCount; $j++) {
+                my $binJ = $selectedBins[$j];
+                my $contigJ = $binJ->contig1;
+                my $scoreValue = $score->Score($binI, $binJ);
+                $scoresComputed++;
+                if ($scoresComputed % 1000000 == 0) {
+                    print "$scoresComputed of $totalScores scores computed.\n";
+                }
+                $stats->Add(pairsScored => 1);
+                if ($scoreValue > 0) {
+                    push @scores, [$contigI, $contigJ, $scoreValue];
+                }
+            }
+        }
     }
     # We must loop through the contigs, comparing them. This hash tells us which bin
     # contains each contig.
     my %contig2Bin = map { $_->contig1 => $_ } @$binList;
-    # This list contains 3-tuples for each pair of contigs containing the contig IDs and the comparison score.
-    my @scores;
-    print "Converting score components to final scores.\n";
-    for my $scoreVector (@$scoreVectors) {
-        my ($vector, $contigI, $contigJ) = @$scoreVector;
-        my $scoreValue = $score->ScoreV($vector);
-        $stats->Add(scoresComputed => 1);
-        if ($scoreValue > 0) {
-            $stats->Add(pairsKept => 1);
-            push @scores, [$contigI, $contigJ, $scoreValue];
-        }
-    }
     print "Sorting " . scalar(@scores) . " scores.\n";
     @scores = sort { $b->[2] <=> $a->[2] } @scores;
     print "Merging bins.\n";
@@ -195,6 +217,7 @@ sub ProcessScores {
             $stats->Add(outputBin => 1);
         }
     }
+    print scalar(@bins) . " bins output.\n";
     my @sortedBins = sort { Bin::cmp($a, $b) } @bins;
     # Return the statistics and the list of bins.
     return ($stats, \@sortedBins);
