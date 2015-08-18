@@ -52,6 +52,14 @@ The number of generations for which to run the search.
 
 The population size to use for the search.
 
+=item scorefile
+
+If specified, a tab-delimited file containing the scoring vectors. For each pair of input contigs, the file will
+contain the contig IDs followed by a list of the score components (coverage score, tetranucleotide score, closest
+reference-genome score, universal roles not in common, and universal roles in common). If this file is not specified,
+the scores will be computed from scratch. If it is specified, the scores will be computed from the scoring vectors
+in the file.
+
 =back
 
 =head2 Input File
@@ -77,6 +85,7 @@ A text file containing the input scores and the analysis statitics of each run.
 my $opt = ScriptUtils::Opts('workDirectory', ScriptUtils::ih_options(),
         ['generations', 'number of generations to run', { default => 50 }],
         ['population', 'starting population', { default => 100 }],
+        ['scoreFile=s', 'file containing the scoring vectors'],
         );
 # Create the genetic search object.
 my $ga = new AI::Genetic(
@@ -102,6 +111,17 @@ if (! $workDir) {
 # Open the log file. We take special pains so that it is unbuffered.
 my $oh = IO::File->new(">$workDir/genes.log") || die "Could not open output log.";
 $oh->autoflush(1);
+# The scoring vector is kept in here, if we are going to use one.
+my $scoreVectors;
+if ($opt->scoreFile) {
+    open(my $ih, "<", $opt->scoreFile) || die "Could not open score file: $!";
+    while (! eof $ih) {
+        my $line = <$ih>;
+        chomp $line;
+        my ($contig1, $contig2, @vector) = split /\t/, $line;
+        push @$scoreVectors, [\@vector, $contig1, $contig2];
+    }
+}
 # Initialize the scoring parameter ranges.
 $ga->init([[0, 10], [1, 10], [0, 10], [0, 10], [0, 10], [5, 7]]);
 # Search for the best scoring parameters.
@@ -130,7 +150,7 @@ sub ComputeBins {
     # Get copies of the original bins.
     my @startBins = map { Bin->new_copy($_) } @$binList;
     # Compute the bins.
-    my (undef, $bins) = Bin::Compute::ProcessScores(\@startBins, $score);
+    my (undef, $bins) = Bin::Compute::ProcessScores(\@startBins, $score, $scoreVectors);
     # Analyze the bins.
     my $quality = Bin::Analyze::Quality($bins);
     my $scoreString = "[" . join(", ", @realScores) . "]";

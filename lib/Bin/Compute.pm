@@ -121,7 +121,7 @@ sub ProcessScores {
     my ($binList, $score, $scoreVectors) = @_;
     # Create the statistics object.
     my $stats = Stats->new();
-    # This list will contains 3-tuples for each comparable pair of contigs containing the contig IDs and the comparison score.
+    # This list will contain 3-tuples for each comparable pair of contigs containing the contig IDs and the comparison score.
     my @scores;
     # We have two possible scenarios: scoring vectors were input, or we compute scores on the fly. The scoring vectors are very
     # memory-intensive.
