@@ -113,8 +113,8 @@ my $oh = IO::File->new(">$workDir/genes.log") || die "Could not open output log.
 $oh->autoflush(1);
 # The scoring vector is kept in here, if we are going to use one.
 my $scoreVectors;
-if ($opt->scoreFile) {
-    open(my $ih, "<", $opt->scoreFile) || die "Could not open score file: $!";
+if ($opt->scorefile) {
+    open(my $ih, "<", $opt->scorefile) || die "Could not open score file: $!";
     while (! eof $ih) {
         my $line = <$ih>;
         chomp $line;
