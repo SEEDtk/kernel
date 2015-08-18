@@ -97,6 +97,8 @@ my $ga = new AI::Genetic(
         );
 # Open the input file.
 my $ih = ScriptUtils::IH($opt->input);
+# Insure the output is unbuffered.
+$| = 1;
 # Get the list of contigs. These are read in as bins.
 print "Reading contigs from input.\n";
 my $binList = Bin::ReadContigs($ih);
