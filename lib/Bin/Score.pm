@@ -437,4 +437,21 @@ sub Score {
 }
 
 
+=head3 Show
+
+    my $string = $score->Show();
+
+Return the score parameter values as a printable string.
+
+=cut
+
+sub Show {
+    my ($self) = @_;
+    my @retVal;
+    for my $parm (keys %$self) {
+        push @retVal, "$parm = $self->{$parm}";
+    }
+    return join("\n", "** SCORING PARAMETERS", @retVal, "", "");
+}
+
 1;

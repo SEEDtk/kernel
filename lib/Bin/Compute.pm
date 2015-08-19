@@ -157,6 +157,7 @@ sub ProcessScores {
     # Get the number of bins.
     my $binCount = scalar @$binList;
     print $logh "$binCount input contigs specified for score processing.\n";
+    print $logh $score->Show();
     $stats->Add(contigsRead => $binCount);
     # Select only the bins with reference genomes.
     my @selectedBins = grep { $_->hasHits } @$binList;
