@@ -22,78 +22,107 @@ package Bin::Compute;
     use warnings;
     use Bin;
     use Stats;
+    use IO::File;
 
 =head1 Compute the Bins For a Community's Contigs.
 
 This object contains the main method for converting contigs into bins. It takes as input a L<Bin::Score>
-object containing scoring parameters, plus an open input file handle for the contig data.
+object containing scoring parameters, plus a list of bins, and an optional file containing scoring
+vectors.
 
-=head2 Public Methods
-
-=head3 ScoreVectors
-
-    my ($stats, $vectors) = Bin::Compute::ScoreVectors($binList)'
-
-Compute the scoring vectors for a set of contigs. For each likely pair of contigs, we compute the vector
-of scoring components. These vectors can be used to compute actual scores.
+The fields of the object are as follows.
 
 =over 4
 
-=item binList
+=item logh
 
-A reference to a list of L<Bin> objects containing the input contigs, one per bin.
+Open file handle for producing log and trace output.
 
-=item RETURN
+=item stats
 
-Returns a two-element list consisting of (0) a L<Stats> object containing statistics about the scoring and
-(2) a list of 3-tuples, each containing [0] a scoring vector, [1] the first contig ID, and [2] the second
-contig ID.
+Statistics object for keeping statistics about a run.
+
+=item score
+
+L<Bin::Score> object for computing comparison scores between bins.
+
+=back
+
+=head2 Special Methods
+
+    my $computer = Bin::Compute->new($score, %options);
+
+Create a new bin computation object.
+
+=over 4
+
+=item score
+
+A L<Bin::Score> object for comparing two bins.
+
+=item options
+
+A hash of optional parameters.
+
+=over 8
+
+=item logFile
+
+An open file handle for the log/trace file, or the name of the log/trace file. The default is to write to STDOUT.
+
+=back
 
 =back
 
 =cut
 
-sub ScoreVectors {
-    my ($binList) = @_;
-    # Create the statistics object.
-    my $stats = Stats->new();
-    my $binCount = scalar @$binList;
-    $stats->Add(contigsRead => $binCount);
-    # Select only the bins with reference genomes.
-    my @selectedBins = grep { $_->hasHits } @$binList;
-    my $filteredCount = scalar @selectedBins;
-    my $totalScores = $filteredCount * ($filteredCount + 1) / 2;
-    print "$filteredCount useful contigs found in input. $totalScores scores required.\n";
-    # This list contains 3-tuples for each pair of contigs containing the contig IDs and the comparison vector.
-    my @scores;
-    my ($i, $j);
-    my $scoresComputed = 0;
-    # Now the nested loop.
-    for ($i = 0; $i < $filteredCount; $i++) {
-        my $binI = $selectedBins[$i];
-        my $contigI = $binI->contig1;
-        for ($j = $i + 1; $j < $filteredCount; $j++) {
-            my $binJ = $selectedBins[$j];
-            my $contigJ = $binJ->contig1;
-            my $scoreVector = Bin::Score::Vector($binI, $binJ);
-            $scoresComputed++;
-            if ($scoresComputed % 1000000 == 0) {
-                print "$scoresComputed of $totalScores scores computed.\n";
-            }
-            $stats->Add(pairsScored => 1);
-            push @scores, [$scoreVector, $contigI, $contigJ];
-        }
+sub new {
+    my ($class, $score, %options) = @_;
+    # Handle the log file.
+    my $logh;
+    if (! $options{logFile}) {
+        $logh = \*STDOUT;
+    } elsif (! ref $options{logFile}) {
+        $logh = IO::File->new(">$options{logFile}") || die "Could not open log: $!";
+        $logh->autoflush(1);
+    } else {
+        $logh = $options{logFile};
     }
-    # Return the statistics and the score vector list.
-    return ($stats, \@scores);
+    # Create the object.
+    my $retVal = {
+        score => $score,
+        logh => $logh,
+        stats => Stats->new()
+    };
+    # Bless and return it.
+    bless $retVal, $class;
+    return $retVal;
 }
 
 
+=head2 Query Methods
+
+=head3 stats
+
+    my $stats = $helper->stats;
+
+Return the L<Stats> object for tracking statistics.
+
+=cut
+
+sub stats {
+    return $_[0]->{stats};
+}
+
+
+=head2 Public Methods
+
 =head3 ProcessScores
 
-    my ($stats, $bins) = Bin::Compute::ProcessScores($binList, $score, $scoreVectors, $oh);
+    my $bins = $computer->ProcessScores($binList, $vectorFile);
 
-Process a set of contigs and form them into bins.
+Score comparisons between the specified bins to merge them into larger bins. We will first perform a comparison between
+all the bins with found reference genomes. The non-zero comparisons will be sorted and used to combine the bins.
 
 =over 4
 
@@ -101,56 +130,66 @@ Process a set of contigs and form them into bins.
 
 A reference to a list of L<Bin> objects containing the input contigs, one per bin.
 
-=item score
+=item vectorFile (optional)
 
-A L<Bin::Score> object containing the scoring parameters.
-
-=item scoreVectors (optional)
-
-Reference to a list of 3-tuples produced by L<ScoreVectors>, each 3-tuple consisting of (0) a scoring vector,
-(1) the first contig ID, and (2) the second contig ID.
-
-=item oh (optional)
-
-Open file handle to use for status messages. If omitted, C<STDOUT> is assumed.
+If specified, a tab-delimited file containing comparison vectors for all the interesting contigs. For each pair of
+interesting contigs, there will be a record containing (0) the first contig ID, (1) the second contig ID, (2) the
+coverage score, (3) the tetranucleotide score, (4) the closest-reference-genome score, (4) the number of universal
+roles not in common, and (5) the number of universal roles in common. If the file is not provided, the scores will
+be computed from scratch.
 
 =item RETURN
 
-Returns a two-element list consisting of (0) a L<Stats> object containing statistics for the operation and (1) a
-reference to a list of the output bins. If it is not supplied it will be computed internally.
+Returns a list of L<Bin> objects, sorted from most interesting to least, representing merged copies of the original
+bins.
+
+=back
 
 =cut
 
 sub ProcessScores {
-    my ($binList, $score, $scoreVectors, $oh) = @_;
-    # Default the log file handle.
-    $oh //= \*STDOUT;
-    # Create the statistics object.
-    my $stats = Stats->new();
-    # This list will contain 3-tuples for each comparable pair of contigs containing the contig IDs and the comparison score.
+    my ($self, $binList, $vectorFile) = @_;
+    # Get the statistics object.
+    my $stats = $self->{stats};
+    # Get the scoring object and the log file handle.
+    my $score = $self->{score};
+    my $logh = $self->{logh};
+    # Get the number of bins.
+    my $binCount = scalar @$binList;
+    print $logh "$binCount input contigs specified for score processing.\n";
+    $stats->Add(contigsRead => $binCount);
+    # Select only the bins with reference genomes.
+    my @selectedBins = grep { $_->hasHits } @$binList;
+    my $filteredCount = scalar @selectedBins;
+    my $totalScores = $filteredCount * ($filteredCount + 1) / 2;
+    print $logh "$filteredCount useful contigs found in input. $totalScores scores required.\n";
+    # This list contains 3-tuples for each pair of contigs containing the contig IDs and the comparison vector.
     my @scores;
-    # We have two possible scenarios: scoring vectors were input, or we compute scores on the fly. The scoring vectors are very
-    # memory-intensive.
-    if ($scoreVectors) {
-        my $incomingScores = scalar @$scoreVectors;
-        print $oh "Converting $incomingScores score components to final scores.\n";
-        for my $scoreVector (@$scoreVectors) {
-            my ($vector, $contigI, $contigJ) = @$scoreVector;
-            my $scoreValue = $score->ScoreV($vector);
-            $stats->Add(scoresComputed => 1);
+    # This will count our progress.
+    my $scoresComputed = 0;
+    # Do we have a vector file?
+    if ($vectorFile) {
+        # Yes. Read from the file.
+        print $logh "Reading score vectors from $vectorFile.\n";
+        open(my $vh, "<", $vectorFile) || die "Could not open score vector file: $!";
+        while (! eof $vh) {
+            my $line = <$vh>;
+            chomp $vh;
+            my ($contigI, $contigJ, @vector) = split /\t/, $line;
+            my $scoreValue = $score->ScoreV(\@vector);
+            $stats->Add(pairsScored => 1);
+            $scoresComputed++;
+            if ($scoresComputed % 1000000 == 0) {
+                print $logh "$scoresComputed of $totalScores scores computed.\n";
+            }
             if ($scoreValue > 0) {
                 $stats->Add(pairsKept => 1);
                 push @scores, [$contigI, $contigJ, $scoreValue];
             }
         }
     } else {
-        # Select only the bins with reference genomes.
-        my @selectedBins = grep { $_->hasHits } @$binList;
-        my $filteredCount = scalar @selectedBins;
-        my $totalScores = $filteredCount * ($filteredCount + 1) / 2;
-        print $oh "$filteredCount useful contigs found in input. $totalScores scores required.\n";
+        # No vector file. Compute the scores manually.
         my ($i, $j);
-        my $scoresComputed = 0;
         # Now the nested loop.
         for ($i = 0; $i < $filteredCount; $i++) {
             my $binI = $selectedBins[$i];
@@ -161,47 +200,34 @@ sub ProcessScores {
                 my $scoreValue = $score->Score($binI, $binJ);
                 $scoresComputed++;
                 if ($scoresComputed % 1000000 == 0) {
-                    print $oh "$scoresComputed of $totalScores scores computed.\n";
+                    print $logh "$scoresComputed of $totalScores scores computed.\n";
                 }
                 $stats->Add(pairsScored => 1);
                 if ($scoreValue > 0) {
+                    $stats->Add(pairsKept => 1);
                     push @scores, [$contigI, $contigJ, $scoreValue];
                 }
             }
         }
     }
-    # Process the sorted list of scores.
-    my $bins = ProcessScoreList($stats, $binList, \@scores, $score, $oh);
-    return ($stats, $bins);
-}
-
-
-=head3 ProcessScoreList
-
-    my $bins = Bin::Compute::ProcessScoreList($stats, $binList, $scores, $score, $oh);
-
-=cut
-
-sub ProcessScoreList {
-    my ($stats, $binList, $scores, $score, $oh) = @_;
     # We must loop through the contigs, comparing them. This hash tells us which bin
     # contains each contig.
     my %contig2Bin = map { $_->contig1 => $_ } @$binList;
-    print $oh "Sorting " . scalar(@$scores) . " scores.\n";
-    @$scores = sort { $b->[2] <=> $a->[2] } @$scores;
-    print $oh "Merging bins.\n";
-    for my $scoreTuple (@$scores) {
+    print $logh "Sorting " . scalar(@scores) . " scores.\n";
+    @scores = sort { $b->[2] <=> $a->[2] } @scores;
+    print $logh "Merging bins.\n";
+    for my $scoreTuple (@scores) {
         # Get the bins.
         my ($contigI, $contigJ, $scoreValue) = @$scoreTuple;
         my $binI = $contig2Bin{$contigI};
         my $binJ = $contig2Bin{$contigJ};
         # Compute the score for these two bins.
         if (! $binI) {
-            print $oh "WARNING: Missing bin for $contigI.\n";
+            print $logh "WARNING: Missing bin for $contigI.\n";
             $scoreValue = 0;
             $stats->Add(missingBin => 1);
         } elsif (! $binJ) {
-            print $oh "WARNING: Missing bin for $contigJ.\n";
+            print $logh "WARNING: Missing bin for $contigJ.\n";
             $scoreValue = 0;
             $stats->Add(missingBin => 1);
         } elsif ($binI->contig1 eq $binJ->contig1) {
@@ -225,7 +251,7 @@ sub ProcessScoreList {
         }
     }
     # Get the final list of bins.
-    print $oh "Preparing for output.\n";
+    print $logh "Preparing for output.\n";
     my %found;
     my @bins;
     for my $contigX (keys %contig2Bin) {
@@ -237,7 +263,7 @@ sub ProcessScoreList {
             $stats->Add(outputBin => 1);
         }
     }
-    print $oh scalar(@bins) . " bins output.\n";
+    print $logh scalar(@bins) . " bins output.\n";
     my @sortedBins = sort { Bin::cmp($a, $b) } @bins;
     # Return the statistics and the list of bins.
     return \@sortedBins;

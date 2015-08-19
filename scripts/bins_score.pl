@@ -63,6 +63,10 @@ score, (4) the number of universal roles not in common, and (5) the number of un
 
 =back
 
+=item logFile
+
+The name of a file to contain status and analysis information about this computation.
+
 =item covgWeight
 
 The weight to assign to the coverage score. The coverage score is the fraction of the coverage values that are within
@@ -94,10 +98,6 @@ roles. A negative values is changed to zero.
 
 The minimum acceptable score. Lower scores are set to 0.
 
-=item logFile
-
-The name of a file to contain status and analysis information about this computation.
-
 =back
 
 The command-line options are the following.
@@ -120,14 +120,15 @@ The maximum number of duplicate universal roles for a bin to be considered good.
 
 =cut
 
-# Get the command-line parameters.
-my $opt = ScriptUtils::Opts('workDirectory covgWeight tetraWeight refWeight uniPenalty uniWeight minScore logFile',
+my $start = time();
+# Get the command-line options.
+my $opt = ScriptUtils::Opts('workDirectory logFile covgWeight tetraWeight refWeight uniPenalty uniWeight minScore',
         ['unitotal=i', 'total number of universal roles', { default => 57}],
         ['minunis=i', 'minimum number of universal roles for a bin to be considered good', { default => 30 }],
         ['maxdups=i', 'maximum number of duplicate universal roles for a bin to be considered good', { default => 4 }]
         );
 # Get the command-line parameters.
-my ($workDir, $covgWeight, $tetraWeight, $refWeight, $uniPenalty, $uniWeight, $minScore, $logFile) = @ARGV;
+my ($workDir, $logFile, $covgWeight, $tetraWeight, $refWeight, $uniPenalty, $uniWeight, $minScore) = @ARGV;
 if (! $workDir) {
     die "No working directory specified.";
 } elsif (! -d $workDir) {
@@ -137,37 +138,27 @@ if (! $workDir) {
 my $score = Bin::Score->new($covgWeight, $tetraWeight, $refWeight, $uniPenalty, $uniWeight, $minScore, $opt->unitotal);
 # Create the analysis object.
 my $analyzer = Bin::Analyze->new(minUnis => $opt->minunis, maxDups => $opt->maxdups);
-# Open the log file. We take special pains so that it is unbuffered.
-my $oh = IO::File->new(">$logFile") || die "Could not open output log.";
+# Open the log file.
+my $oh = IO::File->new(">$logFile");
 $oh->autoflush(1);
 # Get the list of contigs. These are read in as bins.
 print $oh "Reading contigs from input.\n";
 open(my $ih, "<", "$workDir/contigs.bin") || die "Could not open contigs.bin file: $!";
 my $binList = Bin::ReadContigs($ih);
 close $ih;
-# Compute the scoring vectors.
-my @scoreVectors;
+# Get the vector file name.
 my $vectorFile = "$workDir/scores.tbl";
-print $oh "Reading score vectors from $vectorFile.\n";
-open(my $vh, "<", $vectorFile) || die "Could not open vector input file: $!";
-while (! eof $vh) {
-    my $line = <$vh>;
-    chomp $line;
-    my ($contig1, $contig2, @vector) = split /\t/, $line;
-    push @scoreVectors, [\@vector, $contig1, $contig2];
-}
-close $vh;
-# Compute the bins.
-my $bins = [];
-#my $start = time();
-#(undef, $bins) = Bin::Compute::ProcessScores($binList, $score, \@scoreVectors, $oh);
-#my $duration = time() - $start;
-#print $oh "Computation took $duration seconds.\n";
-@scoreVectors = ();
+# Create the score computation object.
+my $computer = Bin::Compute->new($score, logFile => $oh);
+my $bins = $computer->ProcessScores($binList, $vectorFile);
+my $duration = time() - $start;
+print $oh "Computation took $duration seconds.\n";
 # Analyze the bins and output the score.
 my $quality = $analyzer->Analyze($bins);
 print "$quality\n";
+# Create a report on what we've found.
 my $report = $analyzer->Stats($bins);
-print $oh "Quality Report\n" . $report->Show() . "\n";
+$report->Accumulate($computer->stats);
+print $oh "Run Report\n" . $report->Show() . "\n";
 close $oh;
 exit($quality);

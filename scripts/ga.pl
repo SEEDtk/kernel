@@ -2,9 +2,9 @@ use strict;
 use Data::Dumper;
 use SeedUtils;
 use ScriptUtils;
-use Proc::ParallelLoop;
+require Proc::ParallelLoop;
 
-# usage: ga -p PopSz -n Interations 
+# usage: ga -p PopSz -n Interations
 my $opt = ScriptUtils::Opts(
     '',
     [ 'pop_size|p=i','population size',{ default => 50 }],
@@ -33,7 +33,7 @@ sub display_final {
 
     foreach my $tuple (@$scored)
     {
-	print &Dumper($tuple);
+        print &Dumper($tuple);
     }
 }
 
@@ -70,18 +70,18 @@ sub scored {
     mkdir($tmpD,0777) || die "could not make $tmpD";
     for ($n=0; ($n < @$pop); $n++)
     {
-	my $chromosome = $pop->[$n];
-	push(@args,[$chromosome,$iter,$dir,$log,$n,$tmpD]);
+        my $chromosome = $pop->[$n];
+        push(@args,[$chromosome,$iter,$dir,$log,$n,$tmpD]);
     }
-    pareach(\@args,\&run,{ Max_Workers => 10 });
+    Proc::ParallelLoop::pareach(\@args,\&run,{ Max_Workers => 10 });
     my @scored ;
     for (my $i=0; ($i < $n);$i++)
     {
-	open(TMP,"<$tmpD/$i") || die "could not open $tmpD/$i";
-	$_ = <TMP>;
-	chomp;
-	push(@scored,[$_,$args[$i]->[0]]);
-	close(TMP);
+        open(TMP,"<$tmpD/$i") || die "could not open $tmpD/$i";
+        $_ = <TMP>;
+        chomp;
+        push(@scored,[$_,$args[$i]->[0]]);
+        close(TMP);
     }
     system "rm -r $tmpD";
     @scored = sort { $b->[0] <=> $a->[0] } @scored;
@@ -106,14 +106,14 @@ sub one_iteration {
     my @new_pop;
     for (my $i=0; ($i < $keep); $i++)
     {
-	push(@new_pop,$pop[$i]);
+        push(@new_pop,$pop[$i]);
     }
     my @children;
     for (my $i=0; ($i < (@pop - $keep)); $i++)
     {
-	my $p1 = int(rand() * $keep);
-	my $p2 = int(rand() * $keep);
-	push(@children,&mate($new_pop[$p1],$new_pop[$p2]));
+        my $p1 = int(rand() * $keep);
+        my $p2 = int(rand() * $keep);
+        push(@children,&mate($new_pop[$p1],$new_pop[$p2]));
     }
     push(@new_pop,@children);
     return \@new_pop;
@@ -126,34 +126,34 @@ sub mate {
     my @chrome;
     for (my $i=0; ($i < @$x); $i++)
     {
-	my $v = ($i <= $cross) ? $x->[$i] : $y->[$i];
-	if (rand() < 0.1)
-	{
-	    my $change = (rand() * 0.4) - 0.2;
-	    $v      = $v + $change;
-	    if ($v < 0)    { $v = 0 }
+        my $v = ($i <= $cross) ? $x->[$i] : $y->[$i];
+        if (rand() < 0.1)
+        {
+            my $change = (rand() * 0.4) - 0.2;
+            $v      = $v + $change;
+            if ($v < 0)    { $v = 0 }
             if ($v >= $1)  { $v = 0.999 }
-	}
-	push(@chrome,$v);
+        }
+        push(@chrome,$v);
     }
     return \@chrome;
 }
 
 sub init_population {
     my($num_parms,$pop_sz) = @_;
-    
+
     my $pop = [];
     my $i;
     for ($i=0; ($i < $pop_sz); $i++)
     {
-	my $chromosome = [];
-	my $j;
-	for ($j=0; ($j < $num_parms); $j++)
-	{
-	    my $v = rand();
-	    push(@$chromosome,$v);
-	}
-	push(@$pop,$chromosome);
+        my $chromosome = [];
+        my $j;
+        for ($j=0; ($j < $num_parms); $j++)
+        {
+            my $v = rand();
+            push(@$chromosome,$v);
+        }
+        push(@$pop,$chromosome);
     }
     return($pop);
 }
