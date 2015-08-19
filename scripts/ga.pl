@@ -41,7 +41,7 @@ sub score {
     my($chromosome,$iter,$dir,$log,$n) = @_;
     my $args = join(" ",$dir,"$log/$iter.$n",@$chromosome);
 
-    open(SC,"bins_compute $args |") || die "bins_compute $args: $!";
+    open(SC,"bins_score $args |") || die "bins_score $args: $!";
     my $sc = <SC>;
     chomp $sc;
     close(SC);
