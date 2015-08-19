@@ -128,7 +128,8 @@ my $opt = ScriptUtils::Opts('workDirectory logFile covgWeight tetraWeight refWei
         ['maxdups=i', 'maximum number of duplicate universal roles for a bin to be considered good', { default => 4 }]
         );
 # Get the command-line parameters.
-my ($workDir, $logFile, $covgWeight, $tetraWeight, $refWeight, $uniPenalty, $uniWeight, $minScore) = @ARGV;
+my ($workDir, $logFile, @scores) = @ARGV;
+my ($covgWeight, $tetraWeight, $refWeight, $uniPenalty, $uniWeight, $minScore) = @scores;
 if (! $workDir) {
     die "No working directory specified.";
 } elsif (! -d $workDir) {
@@ -160,5 +161,6 @@ print "$quality\n";
 my $report = $analyzer->Stats($bins);
 $report->Accumulate($computer->stats);
 print $oh "Run Report\n" . $report->Show() . "\n";
+print $oh "SCORE RESULT = $quality from (" . join(", ", @scores) . ")\n";
 close $oh;
 exit($quality);
