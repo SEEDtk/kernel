@@ -25,7 +25,7 @@ package Bin::Compute;
 
 =head1 Compute the Bins For a Community's Contigs.
 
-This package contains the main method for converting contigs into bins. It takes as input a L<Bin::Score>
+This object contains the main method for converting contigs into bins. It takes as input a L<Bin::Score>
 object containing scoring parameters, plus an open input file handle for the contig data.
 
 =head2 Public Methods
@@ -91,7 +91,7 @@ sub ScoreVectors {
 
 =head3 ProcessScores
 
-    my ($stats, $bins) = Bin::Compute::ProcessScores($binList, $score, $scoreVectors);
+    my ($stats, $bins) = Bin::Compute::ProcessScores($binList, $score, $scoreVectors, $oh);
 
 Process a set of contigs and form them into bins.
 
@@ -110,6 +110,10 @@ A L<Bin::Score> object containing the scoring parameters.
 Reference to a list of 3-tuples produced by L<ScoreVectors>, each 3-tuple consisting of (0) a scoring vector,
 (1) the first contig ID, and (2) the second contig ID.
 
+=item oh (optional)
+
+Open file handle to use for status messages. If omitted, C<STDOUT> is assumed.
+
 =item RETURN
 
 Returns a two-element list consisting of (0) a L<Stats> object containing statistics for the operation and (1) a
@@ -118,7 +122,9 @@ reference to a list of the output bins. If it is not supplied it will be compute
 =cut
 
 sub ProcessScores {
-    my ($binList, $score, $scoreVectors) = @_;
+    my ($binList, $score, $scoreVectors, $oh) = @_;
+    # Default the log file handle.
+    $oh //= \*STDOUT;
     # Create the statistics object.
     my $stats = Stats->new();
     # This list will contain 3-tuples for each comparable pair of contigs containing the contig IDs and the comparison score.
@@ -127,7 +133,7 @@ sub ProcessScores {
     # memory-intensive.
     if ($scoreVectors) {
         my $incomingScores = scalar @$scoreVectors;
-        print "Converting $incomingScores score components to final scores.\n";
+        print $oh "Converting $incomingScores score components to final scores.\n";
         for my $scoreVector (@$scoreVectors) {
             my ($vector, $contigI, $contigJ) = @$scoreVector;
             my $scoreValue = $score->ScoreV($vector);
@@ -142,7 +148,7 @@ sub ProcessScores {
         my @selectedBins = grep { $_->hasHits } @$binList;
         my $filteredCount = scalar @selectedBins;
         my $totalScores = $filteredCount * ($filteredCount + 1) / 2;
-        print "$filteredCount useful contigs found in input. $totalScores scores required.\n";
+        print $oh "$filteredCount useful contigs found in input. $totalScores scores required.\n";
         my ($i, $j);
         my $scoresComputed = 0;
         # Now the nested loop.
@@ -155,7 +161,7 @@ sub ProcessScores {
                 my $scoreValue = $score->Score($binI, $binJ);
                 $scoresComputed++;
                 if ($scoresComputed % 1000000 == 0) {
-                    print "$scoresComputed of $totalScores scores computed.\n";
+                    print $oh "$scoresComputed of $totalScores scores computed.\n";
                 }
                 $stats->Add(pairsScored => 1);
                 if ($scoreValue > 0) {
@@ -164,24 +170,38 @@ sub ProcessScores {
             }
         }
     }
+    # Process the sorted list of scores.
+    my $bins = ProcessScoreList($stats, $binList, \@scores, $score, $oh);
+    return ($stats, $bins);
+}
+
+
+=head3 ProcessScoreList
+
+    my $bins = Bin::Compute::ProcessScoreList($stats, $binList, $scores, $score, $oh);
+
+=cut
+
+sub ProcessScoreList {
+    my ($stats, $binList, $scores, $score, $oh) = @_;
     # We must loop through the contigs, comparing them. This hash tells us which bin
     # contains each contig.
     my %contig2Bin = map { $_->contig1 => $_ } @$binList;
-    print "Sorting " . scalar(@scores) . " scores.\n";
-    @scores = sort { $b->[2] <=> $a->[2] } @scores;
-    print "Merging bins.\n";
-    for my $scoreTuple (@scores) {
+    print $oh "Sorting " . scalar(@$scores) . " scores.\n";
+    @$scores = sort { $b->[2] <=> $a->[2] } @$scores;
+    print $oh "Merging bins.\n";
+    for my $scoreTuple (@$scores) {
         # Get the bins.
         my ($contigI, $contigJ, $scoreValue) = @$scoreTuple;
         my $binI = $contig2Bin{$contigI};
         my $binJ = $contig2Bin{$contigJ};
         # Compute the score for these two bins.
         if (! $binI) {
-            print "WARNING: Missing bin for $contigI.\n";
+            print $oh "WARNING: Missing bin for $contigI.\n";
             $scoreValue = 0;
             $stats->Add(missingBin => 1);
         } elsif (! $binJ) {
-            print "WARNING: Missing bin for $contigJ.\n";
+            print $oh "WARNING: Missing bin for $contigJ.\n";
             $scoreValue = 0;
             $stats->Add(missingBin => 1);
         } elsif ($binI->contig1 eq $binJ->contig1) {
@@ -205,7 +225,7 @@ sub ProcessScores {
         }
     }
     # Get the final list of bins.
-    print "Preparing for output.\n";
+    print $oh "Preparing for output.\n";
     my %found;
     my @bins;
     for my $contigX (keys %contig2Bin) {
@@ -217,10 +237,11 @@ sub ProcessScores {
             $stats->Add(outputBin => 1);
         }
     }
-    print scalar(@bins) . " bins output.\n";
+    print $oh scalar(@bins) . " bins output.\n";
     my @sortedBins = sort { Bin::cmp($a, $b) } @bins;
     # Return the statistics and the list of bins.
-    return ($stats, \@sortedBins);
+    return \@sortedBins;
 }
+
 
 1;

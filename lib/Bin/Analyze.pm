@@ -159,7 +159,39 @@ sub Report {
     # Get an analysis object.
     my $analyze = Bin::Analyze->new();
     # Create the return object.
-    my $stats = Stats->new();
+    my $stats =$analyze->Stats($bins);
+    # Return the statistics.
+    return $stats;
+}
+
+
+=head2 Public Methods
+
+=head3 Stats
+
+    my $stats = $analyzer->Stats(\@bins);
+
+Produce a statistical report about a list of bins. This will show the number of contigs without any BLAST hits,
+the number without universal roles, and the distribution of contig lengths, among other things.
+
+=over 4
+
+=item bins
+
+Reference to a list of L<Bin> objects.
+
+=item RETURN
+
+Returns a L<Stats> object containing useful information about the bins.
+
+=back
+
+=cut
+
+sub Stats {
+    my ($self, $bins) = @_;
+    # Create the return object.
+    my $stats = Stats->new('goodBin');
     # Loop through the bins.
     for my $bin (@$bins) {
         # Categorize the size, more or less logarithmically. So, we have a category for each
@@ -209,7 +241,7 @@ sub Report {
             }
         }
         # Check for a good bin.
-        if ($analyze->AnalyzeBin($bin)) {
+        if ($self->AnalyzeBin($bin)) {
             $stats->Add(goodBin => 1);
         } else {
             $stats->Add(notGoodBin => 1);
@@ -219,8 +251,6 @@ sub Report {
     return $stats;
 }
 
-
-=head2 Public Methods
 
 =head3 Analyze
 
