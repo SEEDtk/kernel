@@ -39,8 +39,7 @@ The contigs are represented by L<Bin> objects.
 
 The single positional parameter is the name of a working directory to contain temporary and output files.
 
-The command-line options are those found in L<ScriptUtils/ih_options> and L<Bin::Score/script_options> plus
-the following.
+The command-line options are those found in L<ScriptUtils/ih_options> and L<Bin::Score/script_options>.
 
 =over 4
 
@@ -65,21 +64,13 @@ The output files are as follows, all in the working directory.
 
 A file of L<Bin> objects in JSON format, suitable for reading by L<Bin/ReadBins>. These represent the computed bins.
 
-=item scores.tbl
-
-A tab-delimited file. Each record contains two contig IDs followed by the elements of the scoring vector for the two
-contigs. The vectors can be used to compute the final scores. If this file already exists, it will be reused.
-
 =back
 
 =cut
 
-##TODO fix to store and handle vector file
-
 # Get the command-line parameters.
 my $opt = ScriptUtils::Opts('workDirectory', ScriptUtils::ih_options(),
         Bin::Score::script_options(),
-        ['force', 'force recomputation of the scoring vectors'],
         );
 # Create the statistics object.
 my $stats = Stats->new();
@@ -101,15 +92,9 @@ if (! $workDir) {
 }
 # Create the computation object.
 my $computer = Bin::Compute->new($score);
-# Check for a vector file.
-my $vectorFile;
-if (! $opt->force) {
-    my $vectorFileName = "$workDir/scores/tbl";
-}
 # Compute the bins.
 my $start = time();
-my $bins;
-my ($subStats, $bins) = Bin::Compute::ProcessScores($binList, $score, $scoreVectors);
+my $bins = $computer->ProcessScores($binList);
 my $duration = time() - $start;
 $stats->Accumulate($subStats);
 $stats->Add(duration => int($duration + 0.5));

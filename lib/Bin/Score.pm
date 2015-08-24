@@ -127,7 +127,7 @@ sub new_for_script {
         refWeight => $opt->refweight,
         uniPenalty => $opt->unipenalty,
         uniWeight => $opt->uniweight,
-        uniTotal => ($opt->unitotal // 58),
+        uniTotal => ($opt->unitotal // 57),
         minScore => ($opt->minscore)
     };
     # Bless and return it.
@@ -237,13 +237,13 @@ that can be used in the L<ScriptUtils/Opts> method.
 
 sub script_options {
     return (
-           [ "covgweight=f", "the weight to assign to the coverage score", { default => 0.25 } ],
-           [ "tetraweight=f", "the weight to assign to the tetranucleotide score", { default => 0.25 }  ],
-           [ "refweight=f", "the weight to assign to the closest-reference-genome score", { default => 0.25 } ],
+           [ "covgweight=f", "the weight to assign to the coverage score", { default => 0.73 } ],
+           [ "tetraweight=f", "the weight to assign to the tetranucleotide score", { default => 0.42 }  ],
+           [ "refweight=f", "the weight to assign to the closest-reference-genome score", { default => 0.04 } ],
            [ "unipenalty=f", "the penalty to assign to duplicate universal roles", { default => 1 } ],
-           [ "uniweight=f", "the weight to assign to the universal role score", { default => 0.25 } ],
+           [ "uniweight=f", "the weight to assign to the universal role score", { default => 0.75 } ],
            [ "unitotal=i", "the total number of universal roles", { default => 57 } ],
-           [ "minscore=f", "the minimum acceptable score (lower scores are set to 0)", { default => 0.5 }]
+           [ "minscore=f", "the minimum acceptable score (lower scores are set to 0)", { default => 0.69 }]
     );
 }
 
