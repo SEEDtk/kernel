@@ -39,8 +39,7 @@ The contigs are represented by L<Bin> objects.
 
 The single positional parameter is the name of a working directory to contain temporary and output files.
 
-The command-line options are those found in L<ScriptUtils/ih_options> and L<Bin::Score/script_options> plus
-the following.
+The command-line options are those found in L<ScriptUtils/ih_options> and L<Bin::Score/script_options>.
 
 =over 4
 
@@ -65,11 +64,6 @@ The output files are as follows, all in the working directory.
 
 A file of L<Bin> objects in JSON format, suitable for reading by L<Bin/ReadBins>. These represent the computed bins.
 
-=item scores.tbl
-
-A tab-delimited file. Each record contains two contig IDs followed by the elements of the scoring vector for the two
-contigs. The vectors can be used to compute the final scores. If this file already exists, it will be reused.
-
 =back
 
 =cut
@@ -77,7 +71,6 @@ contigs. The vectors can be used to compute the final scores. If this file alrea
 # Get the command-line parameters.
 my $opt = ScriptUtils::Opts('workDirectory', ScriptUtils::ih_options(),
         Bin::Score::script_options(),
-        ['force', 'force recomputation of the scoring vectors'],
         );
 # Create the statistics object.
 my $stats = Stats->new();
@@ -97,35 +90,11 @@ if (! $workDir) {
 } elsif (! -d $workDir) {
     die "Invalid working directory $workDir.\n";
 }
-# Compute the scoring vectors.
-my $scoreVectors;
-my $vectorFile = "$workDir/scores.tbl";
-if ($opt->force || ! -f $vectorFile) {
-    ($subStats, $scoreVectors) = Bin::Compute::ScoreVectors($binList);
-    $stats->Accumulate($subStats);
-    # Write out the scores.
-    print "Saving score vectors to $vectorFile.\n";
-    open(my $oh, ">", $vectorFile) || die "Could not open vector output file: $!";
-    for my $scoreVector (@$scoreVectors) {
-        my ($vector, $contig1, $contig2) = @$scoreVector;
-        print $oh join("\t", $contig1, $contig2, @$vector) . "\n";
-        $stats->Add('scoreVector-written' => 1);
-    }
-} else {
-    print "Reading score vectors from $vectorFile.\n";
-    open(my $vh, "<", $vectorFile) || die "Could not open vector input file: $!";
-    while (! eof $vh) {
-        my $line = <$vh>;
-        chomp $line;
-        $stats->Add('scoreVector-read' => 1);
-        my ($contig1, $contig2, @vector) = split /\t/, $line;
-        push @$scoreVectors, [\@vector, $contig1, $contig2];
-    }
-}
+# Create the computation object.
+my $computer = Bin::Compute->new($score);
 # Compute the bins.
 my $start = time();
-my $bins;
-($subStats, $bins) = Bin::Compute::ProcessScores($binList, $score, $scoreVectors);
+my $bins = $computer->ProcessScores($binList);
 my $duration = time() - $start;
 $stats->Accumulate($subStats);
 $stats->Add(duration => int($duration + 0.5));
