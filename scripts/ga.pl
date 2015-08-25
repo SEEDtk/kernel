@@ -231,7 +231,7 @@ sub mate {
         my $v = ($i <= $cross) ? $x->[$i] : $y->[$i];
         if (rand() < 0.1)
         {
-            my $change = (rand() * 0.4) - 0.2;
+            my $change = (rand() * 0.8) - 0.4;
             $v      = $v + $change;
             if ($v < 0)    { $v = 0 }
             if ($v >= $1)  { $v = 0.999 }

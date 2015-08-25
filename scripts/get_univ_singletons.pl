@@ -75,8 +75,8 @@ foreach my $func (keys(%funcH))
     }
 }
 
-my @best = sort { $counts{$b} <=> $counts{$a} } grep { ($multis{$_} // 0)  < 10 } keys(%counts);
+my @best = sort { $counts{$b} <=> $counts{$a} } keys(%counts);
 foreach $_ (@best)
 {
-    print join("\t",($_, $counts{$_}, $funcD{$_})),"\n";
+    print join("\t",($_, $counts{$_}, ($multis{$_} // 0), $funcD{$_})),"\n";
 }
