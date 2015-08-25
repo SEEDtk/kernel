@@ -275,7 +275,7 @@ Returns a value from 0 to 1 indicating the proportion of quality bins.
 sub Analyze {
     my ($self, $bins) = @_;
     # Analyze the individual bins.
-    my @good = grep { $self->AnalyzeBin($_) } @$bins;
+    my @good = grep { $self->AnalyzeBin($_) == 2 } @$bins;
     # Return the number of good ones.
     return scalar @good;
 }
@@ -285,7 +285,7 @@ sub Analyze {
 
     my $flag = $analyze->AnalyzeBin($bin);
 
-Return TRUE if the specified bin is good, else FALSE.
+Return 2 if the specified bin is good, 1 if it has a lot of universal roles, else 0.
 
 =over 4
 
@@ -295,7 +295,8 @@ L<Bin> object to check for sufficient universal roles.
 
 =item RETURN
 
-Returns TRUE if the bin has sufficient universal roles and not too many duplicates, else FALSE.
+Returns 2 if the bin has sufficient universal roles and not too many duplicates, 1 if it has sufficient universal roles
+and too many duplicates, else 0.
 
 =back
 
@@ -304,7 +305,7 @@ Returns TRUE if the bin has sufficient universal roles and not too many duplicat
 sub AnalyzeBin {
     my ($self, $bin) = @_;
     # This will be the return value.
-    my $retVal;
+    my $retVal = 0;
     # Get this bin's universal role hash.
     my $uniRoles = $bin->uniProts;
     # Check the universal role count.
@@ -317,6 +318,8 @@ sub AnalyzeBin {
             }
         }
         if ($dups <= $self->{maxDups}) {
+            $retVal = 2;
+        } else {
             $retVal = 1;
         }
     }

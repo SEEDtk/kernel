@@ -177,8 +177,9 @@ sub new_from_json {
     # Read the object from the JSON file.
     my @parts;
     my $line = <$ih>;
-    while ($line ne "//\n") {
+    while (substr($line, 0, 2) ne "//") {
         push @parts, $line;
+        $line = <$ih>;
     }
     my $json = join("", @parts);
     my $retVal = SeedUtils::read_encoded_object(\$json);

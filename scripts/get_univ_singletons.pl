@@ -42,7 +42,7 @@ my $opt =
 my $shrub = Shrub->new_for_script($opt);
 
 my @tuples = $shrub->GetAll("Function Function2Feature",
-                            "Function2Feature(security) = ?",[2],
+                            "Function2Feature(security) = ?",[1],
                             "Function(description) Function2Feature(to-link) Function2Feature(from-link)");
 
 my %funcH;
@@ -59,18 +59,23 @@ foreach my $tuple (@tuples)
         }
     }
 }
-my %counts;
+my (%counts, %multis);
 foreach my $func (keys(%funcH))
 {
     my $genomesH = $funcH{$func};
     my @genomes = keys(%$genomesH);
     foreach my $g (keys(%$genomesH))
     {
-        if ($genomesH->{$g} == 1) { $counts{$func}++ }
+        my $occur = $genomesH->{$g};
+        if ($occur == 1) {
+            $counts{$func}++
+        } elsif ($occur > 1) {
+            $multis{$func}++;
+        }
     }
 }
 
-my @best = sort { $counts{$b} <=> $counts{$a} } keys(%counts);
+my @best = sort { $counts{$b} <=> $counts{$a} } grep { ($multis{$_} // 0)  < 10 } keys(%counts);
 foreach $_ (@best)
 {
     print join("\t",($_, $counts{$_}, $funcD{$_})),"\n";
