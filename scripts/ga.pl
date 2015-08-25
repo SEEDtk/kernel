@@ -245,17 +245,22 @@ sub mate {
 sub init_population {
     my($num_parms,$pop_sz,$cmd,$nxtP,$logD,$old) = @_;
 
-    my @old = map { chomp;
+    my @old;
+    my $pop = [];
+    my @in = map { chomp;
                     my($sc,$id,@parms) = split(/\t/,$_);
                     [$sc,$id,[@parms]] } <$old>;
-    foreach $_ (@old)
+    foreach my $input (@in)
     {
-        if ($$nxtP <= $_->[1]) { $$nxtP = $_->[1] + 1 }
+        my ($score, $id, @chrome) = @$input;
+        if ($score eq '') {
+            push @$pop, \@chrome;
+        } else {
+            if ($$nxtP <= $id) { $$nxtP = $_->[1] + 1 }
+            push @old, [$score, $id, @chrome];
+        }
     }
-    if (@old > $pop_sz) { $#old = $pop_sz -1 }
-
-    my $pop = [];
-    my $i = @old;
+    my $i = scalar(@old) + scalar(@$pop);
     while ($i < $pop_sz)
     {
         my $chromosome = [];
