@@ -42,8 +42,8 @@ Pairs are gathered into clusters.
 
 Hence, you often wish to try something like
 
-    echo 83333.1 | perl clusters.pl -m 4000 | perl ss_of_row.pl -c 1 | perl embedded_set.pl -c 2 -f tmp > clusters
-    perl function_of.pl -c 2  < tmp > clusters.in.relational.format
+    echo 83333.1 | clusters -m 4000 | ss_of_row -c 1 | embedded_set -c 2 -f tmp > clusters
+    function_of -c 2  < tmp > clusters.in.relational.format
 
 This would produce two files:
 

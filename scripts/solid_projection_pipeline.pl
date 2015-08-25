@@ -164,7 +164,7 @@ if (! -d $dataD) {
 }
 
 my @genomes;
-# Are we choose the genomes automatically?
+# Are we choosing the genomes automatically?
 if ($opt->choosegenomes) {
     # Yes. Search the database for appropriate genomes.
     @genomes = Projection::choose_genomes($shrub, $subsystem_id);
