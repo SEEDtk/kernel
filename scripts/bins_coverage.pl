@@ -46,13 +46,18 @@ Normally, the coverage is taken from the sequence ID in the FASTA file. Instead,
 sequence comments.  If so, the keyword name should be the value of this parameter. The coverage value must be connected to the
 keyword name with an equal sign and the keyword must be only letters and digits.
 
+=item nocopy
+
+Do not copy the FASTA file to the output directory. (Useful if it is already in place.)
+
 =back
 
 =cut
 
 # Get the command-line parameters.
 my $opt = ScriptUtils::Opts('sampleFile outputDir',
-        ['keyword=s', 'keyword for coverage data in the sequence comments (if any)']
+        ['keyword=s', 'keyword for coverage data in the sequence comments (if any)'],
+        ['nocopy', 'do not copy the FASTA file to the output directory']
         );
 # Get the positional parameters.
 my ($sampleFile, $outputDir) = @ARGV;
@@ -74,9 +79,12 @@ if ($keyword) {
 } else {
     print "Using standard contig ID mode.\n";
 }
-# Copy the input file to the output directory.
-print "Copying contig file.\n";
-File::Copy::Recursive::fcopy($sampleFile, "$outputDir/contigs.fasta");
+if (! $opt->nocopy) {
+    # Copy the input file to the output directory.
+    print "Copying contig file.\n";
+    File::Copy::Recursive::fcopy($sampleFile, "$outputDir/contigs.fasta");
+
+}
 # Open the input file.
 open(my $ih, '<', $sampleFile) || die "Could not open contigs input file: $!";
 # Open the output file.

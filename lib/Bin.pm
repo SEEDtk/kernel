@@ -231,6 +231,40 @@ sub new_copy {
     return $retVal;
 }
 
+=head3 new
+
+    my $bin = Bin->new($contigID);
+
+Create a new, blank bin for a single contig.
+
+=over 4
+
+=item contigID
+
+ID of the single contig to be in this bin.
+
+=back
+
+=cut
+
+sub new {
+    my ($class, $contigID) = @_;
+    # Create the object.
+    my $retVal = {
+        contigs => [$contigID],
+        len => 0,
+        coverage => [],
+        tetra => [],
+        tetraLen => 0,
+        refGenomes => [],
+        uniProts => {}
+    };
+    # Bless and return it.
+    bless $retVal, $class;
+    return $retVal;
+}
+
+
 =head3 ReadBins
 
     my $binList = Bin::ReadBins($ih);
