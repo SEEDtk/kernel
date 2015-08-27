@@ -23,6 +23,7 @@ use FIG_Config;
 use ScriptUtils;
 use Data::Dumper;
 use SeedUtils;
+use File::Copy::Recursive;
 my $have_pareach;
 eval {
     require Proc::ParallelLoop;
@@ -186,7 +187,7 @@ sub scored {
         push(@scored,[$_,$$nxtP++,$args[$i]->[1]]);
         close(TMP);
     }
-    system "rm -r $tmpD";
+    File::Copy::Recursive::pathrmdir($tmpD);
     @scored = sort { $b->[0] <=> $a->[0] } @scored;
     return \@scored;
 }
@@ -210,10 +211,12 @@ sub one_iteration {
         push(@new_pop,$pop->[$i]);
     }
     my @children;
-    for (my $i=0; ($i < (@$pop - $keep)); $i++)
+    my $rem = (@$pop - $keep);
+    for (my $i=0; $i < $rem; $i++)
     {
-        my $p1 = int(rand() * $keep);
-        my $p2 = int(rand() * $keep);
+        my $p1 = $i;
+        my $p2 = int(rand() * ($keep - 1)); # Note $keep must be > 1.
+        if ($p2 >= $p1) { $p2++ }
         push(@children,&mate($new_pop[$p1]->[2],$new_pop[$p2]->[2]));
     }
     my $children = &scored($cmd,$nxtP,\@children,$iter,$dir,$logD);
@@ -229,12 +232,12 @@ sub mate {
     for (my $i=0; ($i < @$x); $i++)
     {
         my $v = ($i <= $cross) ? $x->[$i] : $y->[$i];
-        if (rand() < 0.1)
+        if (rand() < 0.2)
         {
-            my $change = (rand() * 0.8) - 0.4;
+            my $change = (rand() * 0.4) - 0.2;
             $v      = $v + $change;
             if ($v < 0)    { $v = 0 }
-            if ($v >= $1)  { $v = 0.999 }
+            if ($v >= 1)  { $v = 0.999 }
             $v = sprintf("%0.3f",$v);
         }
         push(@chrome,$v);
