@@ -95,7 +95,7 @@ standard output can be used as input to a new run of the program to get improved
 
 # usage: ga -p PopSz -n Interations
 my $opt = ScriptUtils::Opts(
-    '',
+    '', ScriptUtils::ih_options(),
     [ 'command|c=s','Command to score a set of K-values"', { required => 1 }],
     [ 'kn|k=i','number K values in chromosome',{ default => 6 }],
     [ 'pop_size|p=i','population size',{ default => 50 }],
@@ -114,7 +114,7 @@ my $iterations = $opt->iterations;
 my $nxt = 1;
 mkdir($logD,0777);
 
-my $old = \*STDIN;
+my $old = ScriptUtils::IH($opt->input);
 my $pop = &init_population($parms,$pop_sz,$cmd,\$nxt,$logD,$old);
 my $iter;
 for ($iter=1; ($iter <= $iterations); $iter++)
@@ -252,12 +252,12 @@ sub init_population {
                     [$sc,$id,[@parms]] } <$old>;
     foreach my $input (@in)
     {
-        my ($score, $id, @chrome) = @$input;
+        my ($score, $id, $chrome) = @$input;
         if ($score eq '') {
-            push @$pop, \@chrome;
+            push @$pop, $chrome;
         } else {
-            if ($$nxtP <= $id) { $$nxtP = $_->[1] + 1 }
-            push @old, [$score, $id, @chrome];
+            if ($$nxtP <= $id) { $$nxtP = $id + 1 }
+            push @old, [$score, $id, $chrome];
         }
     }
     my $i = scalar(@old) + scalar(@$pop);
