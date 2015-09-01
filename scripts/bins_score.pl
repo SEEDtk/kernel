@@ -96,7 +96,8 @@ roles. A negative values is changed to zero.
 
 =item minScore
 
-The minimum acceptable score. Lower scores are set to 0.
+The minimum acceptable score. Lower scores are set to 0. This value comes in between 0 and 1. We scale it to between
+the 40% and 80% of the total of the four main weights.
 
 =back
 
@@ -129,7 +130,10 @@ my $opt = ScriptUtils::Opts('workDirectory logFile covgWeight tetraWeight refWei
         );
 # Get the command-line parameters.
 my ($workDir, $logFile, @scores) = @ARGV;
-my ($covgWeight, $tetraWeight, $refWeight, $uniPenalty, $uniWeight, $minScore) = @scores;
+my ($covgWeight, $tetraWeight, $refWeight, $uniPenalty, $uniWeight, $inMinScore) = @scores;
+# Scale the minimum score.
+my $minScore = (1 + $inMinScore) * 0.4 * ($covgWeight + $tetraWeight + $refWeight + $uniWeight);
+# Check the working directory.
 if (! $workDir) {
     die "No working directory specified.";
 } elsif (! -d $workDir) {
