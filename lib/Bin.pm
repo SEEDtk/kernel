@@ -446,6 +446,29 @@ sub coverage {
     return $self->{coverage};
 }
 
+=head3 meanCoverage
+
+    my $covgMean = $bin->meanCoverage
+
+Mean coverage value for this bin.
+
+=cut
+
+sub meanCoverage {
+    my ($self) = @_;
+    my $retVal = 0;
+    my ($tot, $count) = (0, 0);
+    my $coverages = $self->coverage;
+    for my $coverage (@$coverages) {
+        $tot += $coverage;
+        $count++;
+    }
+    if ($count) {
+        $retVal = $tot / $count;
+    }
+    return $retVal;
+}
+
 =head3 tetra
 
     my $tetraL = $bin->tetra;

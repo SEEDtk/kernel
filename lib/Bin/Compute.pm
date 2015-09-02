@@ -159,11 +159,9 @@ sub ProcessScores {
     print $logh "$binCount input contigs specified for score processing.\n";
     print $logh $score->Show();
     $stats->Add(contigsRead => $binCount);
-    # Select only the bins with reference genomes.
-    my @selectedBins = grep { $_->hasHits } @$binList;
-    my $filteredCount = scalar @selectedBins;
+    my $filteredCount = scalar @$binList;
     my $totalScores = $filteredCount * ($filteredCount + 1) / 2;
-    print $logh "$filteredCount useful contigs found in input. $totalScores scores required.\n";
+    print $logh "$filteredCount contigs found in input. $totalScores scores required.\n";
     # This list contains 3-tuples for each pair of contigs containing the contig IDs and the comparison vector.
     my @scores;
     # This will count our progress.
@@ -180,7 +178,7 @@ sub ProcessScores {
             my $scoreValue = $score->ScoreV(\@vector);
             $stats->Add(pairsScored => 1);
             $scoresComputed++;
-            if ($scoresComputed % 1000000 == 0) {
+            if ($scoresComputed % 100000 == 0) {
                 print $logh "$scoresComputed of $totalScores scores computed.\n";
             }
             if ($scoreValue > 0) {
@@ -193,10 +191,10 @@ sub ProcessScores {
         my ($i, $j);
         # Now the nested loop.
         for ($i = 0; $i < $filteredCount; $i++) {
-            my $binI = $selectedBins[$i];
+            my $binI = $binList->[$i];
             my $contigI = $binI->contig1;
             for ($j = $i + 1; $j < $filteredCount; $j++) {
-                my $binJ = $selectedBins[$j];
+                my $binJ = $binList->[$j];
                 my $contigJ = $binJ->contig1;
                 my $scoreValue = $score->Score($binI, $binJ);
                 $scoresComputed++;
