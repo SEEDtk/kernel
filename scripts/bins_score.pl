@@ -151,8 +151,11 @@ print $oh "Reading contigs from input.\n";
 open(my $ih, "<", "$workDir/contigs.bin") || die "Could not open contigs.bin file: $!";
 my $binList = Bin::ReadContigs($ih);
 close $ih;
-# Get the vector file name.
+# Get the vector file name. Insure the vector file exists.
 my $vectorFile = "$workDir/scores.tbl";
+if (! -f $vectorFile) {
+    undef $vectorFile;
+}
 # Create the score computation object.
 my $computer = Bin::Compute->new($score, logFile => $oh);
 my $bins = $computer->ProcessScores($binList, $vectorFile);
