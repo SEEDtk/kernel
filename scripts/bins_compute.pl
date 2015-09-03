@@ -41,14 +41,6 @@ The single positional parameter is the name of a working directory to contain te
 
 The command-line options are those found in L<ScriptUtils/ih_options> and L<Bin::Score/script_options>.
 
-=over 4
-
-=item force
-
-If specified, the scoring vectors will be recomputed even if the vector file already exists.
-
-=back
-
 =head2 Input File
 
 The input file contains one or more L<Bin> objects sequentially in the format described by L<Bin/Bin Exchange Format>.

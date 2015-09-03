@@ -247,6 +247,49 @@ sub script_options {
     );
 }
 
+=head3 scale_min
+
+    my $minScore = Bin::Score::scale_min($covgWeight, $tetraWeight, $refWeight, $uniWeight, $inMinScore);
+
+Scale a minimum score in the range from 0 to 1 to be proportional to the sum of the weights. This is used to convert
+a parameter chromosome from L<ga.pl> to actual scoring parameters.
+
+=over 4
+
+=item covgWeight
+
+The weight to assign to the coverage score.
+
+=item tetraWeight
+
+The weight to assign to the tetranucleotide score.
+
+=item refWeight
+
+The weight to assign to the reference genome score.
+
+=item uniWeight
+
+The weight to assign to the universal role score.
+
+=item inMinScore
+
+The unscaled minimum acceptable score.
+
+=item RETURN
+
+Returns the scaled minimum acceptable score.
+
+=back
+
+=cut
+
+sub scale_min {
+    my ($covgWeight, $tetraWeight, $refWeight, $uniWeight, $inMinScore) = @_;
+    my $retVal = (1 + $inMinScore) * 0.4 * ($covgWeight + $tetraWeight + $refWeight + $uniWeight);
+    return $retVal;
+}
+
 =head3 Vector
 
     my $vector = Bin::Score::Vector($bin1, $bin2);
@@ -366,6 +409,52 @@ sub Vector {
 
 
 =head2 Public Manipulation Methods
+
+=head3 Reset
+
+    $score->Reset($covgweight, $tetraweight, $refweight, $unipenalty, $uniweight, $minscore);
+
+Set the scoring weights to new values.
+
+=over 4
+
+=item covgweight
+
+The weight to assign to the coverage score.
+
+=item tetraweight
+
+The weight to assign to the tetranucleotide score.
+
+=item refweight
+
+The weight to assign to the reference genome score.
+
+=item unipenalty
+
+The penalty for universal roles in common.
+
+=item uniweight
+
+The weight to assign to the universal role score.
+
+=item minscore
+
+The minimum acceptable score. (Lower scores are set to 0.)
+
+=back
+
+=cut
+
+sub Reset {
+    my ($self, $covgweight, $tetraweight, $refweight, $unipenalty, $uniweight, $minscore) = @_;
+    $self->{covgWeight} = $covgweight;
+    $self->{tetraWeight} = $tetraweight;
+    $self->{refWeight} = $refweight;
+    $self->{uniPenalty} = $unipenalty;
+    $self->{uniWeight} = $uniweight;
+    $self->{minScore} = $minscore;
+}
 
 =head3 ScoreV
 

@@ -209,11 +209,68 @@ sub ProcessScores {
             }
         }
     }
+    # Use the score vector to cluster the contigs.
+    my $retVal = $self->ClusterContigs($binList, \@scores);
+    return $retVal;
+}
+
+
+=head3 ClusterContigs
+
+    my $bins = $computer->ClusterContigs($binList, $scores, %options);
+
+Cluster contigs into bins based on a score list. Essentially, any two contigs that should go together
+should have a score in the score list. We attempt to make the largest bins we can out of the scored
+connections.
+
+Two multi-contig bins are normally re-scored to see if they should be combined. If the C<closed> option
+is specified, there is no rescoring and bins are always combined.
+
+=over 4
+
+=item binList
+
+A reference to a list of L<Bin> objects containing the input contigs, one per bin.
+
+=item scores
+
+A reference to a list of 3-tuples, each tuple consisting of (0) a first contig ID, (1) a second contig ID for
+a contig that may belong with the first, and (2) a score for the combination.
+
+=item options
+
+A hash of options.
+
+=over 8
+
+=item closed
+
+If TRUE, then bins are not re-scored before being combined. The incoming pairs are assumed to imply transitivity.
+
+=back
+
+=item RETURN
+
+Returns a list of bins in order from most to least interesting.
+
+=back
+
+=cut
+
+sub ClusterContigs {
+    my ($self, $binList, $scores, %options) = @_;
+    # Get the statistics object.
+    my $stats = $self->{stats};
+    # Get the scoring object and the log file handle.
+    my $score = $self->{score};
+    my $logh = $self->{logh};
+    # Get the option on whether or not we re-score.
+    my $open = ! $options{closed};
     # We must loop through the contigs, comparing them. This hash tells us which bin
     # contains each contig.
     my %contig2Bin = map { $_->contig1 => $_ } @$binList;
-    print $logh "Sorting " . scalar(@scores) . " scores.\n";
-    @scores = sort { $b->[2] <=> $a->[2] } @scores;
+    print $logh "Sorting " . scalar(@$scores) . " scores.\n";
+    my @scores = sort { $b->[2] <=> $a->[2] } @$scores;
     print $logh "Merging bins.\n";
     for my $scoreTuple (@scores) {
         # Get the bins.
@@ -233,7 +290,7 @@ sub ProcessScores {
             # Here the contigs are already in the same bin.
             $scoreValue = 0;
             $stats->Add(binsAlreadyMerged => 1);
-        } elsif ($binI->contigCount > 1 || $binJ->contigCount > 1) {
+        } elsif ($open && ($binI->contigCount > 1 || $binJ->contigCount > 1)) {
             # The bins are not singletons. We have to re-compute the score.
             $stats->Add(complexBinMatch => 1);
             $scoreValue = $score->Score($binI, $binJ);
