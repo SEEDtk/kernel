@@ -295,7 +295,7 @@ sub Analyze {
         my $quality = $self->AnalyzeBin($bin);
         if ($quality == 1) {
             $retVal += 0.1;
-        } else {
+        } elsif ($quality == 2) {
             $retVal += 1;
         }
     }
