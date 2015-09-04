@@ -292,7 +292,7 @@ sub Analyze {
     # Analyze the individual bins.
     my $retVal = 0;
     for my $bin (@$bins) {
-        my $quality = $self->AnalyzeBin($_);
+        my $quality = $self->AnalyzeBin($bin);
         if ($quality == 1) {
             $retVal += 0.1;
         } else {
