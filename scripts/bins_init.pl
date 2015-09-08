@@ -320,9 +320,9 @@ if (scalar(@sortedRefs) > $opt->maxrefs) {
     @realRefs = @sortedRefs;
 }
 # Prepare to write what we decided to keep.
-open(my $oh, ">", $refsFile) || die "Could not open reference genome save file: $!";
+open(my $orh, ">", $refsFile) || die "Could not open reference genome save file: $!";
 for my $refGenome (@sortedRefs) {
-    print $oh "$refGenome\t$refGenomeH->{$refGenome}\n";
+    print $orh "$refGenome\t$refGenomeH->{$refGenome}\n";
 }
 print scalar(@realRefs) . " reference genomes qualified.\n";
 # Finally, we do the BLASTing.
