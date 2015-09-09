@@ -82,6 +82,10 @@ successful chromosomes of the previous generation.
 
 Number of parallel processes to use (Unix only).
 
+=item rescore
+
+If specified, chromosomes in the standard input will be rescored even if a score is already present.
+
 =back
 
 =head2 Standard Input and Output
@@ -103,7 +107,8 @@ my $opt = ScriptUtils::Opts(
     [ 'directory|d=s','Directory of Precomputed Data',{ required => 1 }],
     [ 'log|l=s','Log Directory',{ required => 1 }],
     [ 'iterations|n=i','number of iterations',{ default => 100 }],
-    [ 'workers|w=i', 'number of work processes', { default => 8 }]
+    [ 'workers|w=i', 'number of work processes', { default => 8 }],
+    [ 'rescore|r', 'rescore input chromosomes'],
 );
 
 my $cmd        = $opt->command;
@@ -112,11 +117,12 @@ my $dir        = $opt->directory;
 my $logD       = $opt->log;
 my $pop_sz     = $opt->pop_size;
 my $iterations = $opt->iterations;
+my $rescore    = $opt->rescore;
 my $nxt = 1;
 mkdir($logD,0777);
 
 my $old = ScriptUtils::IH($opt->input);
-my $pop = &init_population($parms,$pop_sz,$cmd,\$nxt,$logD,$old);
+my $pop = &init_population($parms,$pop_sz,$cmd,\$nxt,$logD,$old,$rescore);
 my $iter;
 for ($iter=1; ($iter <= $iterations); $iter++)
 {
@@ -246,7 +252,7 @@ sub mate {
 }
 
 sub init_population {
-    my($num_parms,$pop_sz,$cmd,$nxtP,$logD,$old) = @_;
+    my($num_parms,$pop_sz,$cmd,$nxtP,$logD,$old,$rescore) = @_;
 
     my @old;
     my $pop = [];
@@ -256,7 +262,7 @@ sub init_population {
     foreach my $input (@in)
     {
         my ($score, $id, $chrome) = @$input;
-        if ($score eq '') {
+        if ($score eq '' || $rescore) {
             push @$pop, $chrome;
         } else {
             if ($$nxtP <= $id) { $$nxtP = $id + 1 }

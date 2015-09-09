@@ -69,6 +69,14 @@ Minimum permissible length for a BLAST match. The default is C<150>.
 
 Tetranucleotide computation scheme. The default is C<dual>.
 
+=item lenFiter
+
+Minimum contig length for a contig to be considered meaningful. Only meaningful contigs are retained.
+
+=item covgFilter
+
+Minimum mean coverage amount for a contig to be considered meaningful. Only meaningful contigs are retained.
+
 =over 8
 
 =item raw
@@ -120,6 +128,10 @@ The maximum number of kmer occurrences that can be found before a kmer is consid
 
 The protein kmer size.
 
+=item maxrefs
+
+The maximum number of reference genomes to keep for BLASTing purposes.
+
 =back
 
 =head2 Working Files
@@ -131,6 +143,8 @@ directory can be used for multiple communities.
 The C<ref.counts.tbl> file contains the IDs of the reference genomes to be used for the analysis of the sample.
 If it exists and the C<force> option is not specified, it is read to get the final reference genome IDs. Otherwise,
 it is computed. This is stored in the sample directory.
+
+The C<sample.fasta> file contains the sequences for the meaningful contigs in the sample.
 
 =cut
 
@@ -148,13 +162,18 @@ my $opt = ScriptUtils::Opts('sampleDir outputFile',
                 ['minhits=i',    'minimum number of kmer hits for a genome to be considered useful', { default => 400 }],
                 ['maxfound=i',   'maximum number of kmer occurrences before it is considered common', { default => 10 }],
                 ['kmersize|k=i', 'kmer size (protein)', { default => 10 }],
+                ['lenFilter=i',  'minimum contig length', { default => 10000 }],
+                ['covgFilter=f',  'minimum contig mean coverage', { default => 10}],
+                ['maxrefs=i',    'maximum number of reference genomes to use', { default => 10 }],
         );
 # Create the loader object.
 my $loader = Loader->new();
 # Get the statistics object.
 my $stats = $loader->stats;
-# Save the force-flag.
+# Save the force-flag and the filter options.
 my $force = $opt->force // 0;
+my $lenFilter = $opt->lenfilter;
+my $covgFilter = $opt->covgfilter;
 # Check the working directory.
 my $workDir = $opt->workdir;
 if (! -d $workDir) {
@@ -167,7 +186,8 @@ if (! $sampleDir) {
 } elsif (! -d $sampleDir) {
     die "Invalid sample directory $sampleDir.";
 }
-my ($contigFile, $vectorFile) = map { "$sampleDir/$_" } qw(contigs.fasta output.contigs2reads.txt);
+my ($contigFile, $vectorFile, $reducedFastaFile) =
+        map { "$sampleDir/$_" } qw(contigs.fasta output.contigs2reads.txt sample.fasta);
 if (! -f $contigFile) {
     die "Contig file $contigFile not found.";
 } elsif (! -f $vectorFile) {
@@ -198,57 +218,29 @@ my $tetra = Bin::Tetra->new($opt->tetra);
 my $uniRoles = $loader->GetNamesFromFile(uniRoles => $opt->unis);
 my $uniCount = scalar @$uniRoles;
 print "$uniCount universal roles found.\n";
-# Do we need to find the reference genomes?
-my @realRefs;
-my $refsFile = "$sampleDir/ref.counts.tbl";
-if (-f $refsFile && ! $force) {
-    # No, just read them in.
-    my $refsList = $loader->GetNamesFromFile(finalRefGenomes => $refsFile);
-    @realRefs = @$refsList;
-} else {
-    # Get the list of representative role IDs.
-    my $repRoles = $loader->GetNamesFromFile(repRoles => $opt->reps);
-    my $repCount = scalar @$repRoles;
-    print "$repCount representative roles found.\n";
-    # Create the KMER database.
-    print "Creating KMER database.\n";
-    my $kmers = Bin::Kmers->new($shrub, $workDir, $repRoles, force => $force, kmerSize => $opt->kmersize, minHits => $opt->minhits,
-            maxFound => $opt->maxfound);
-    # Compute the list of genomes to BLAST. First we find the relevant genomes.
-    print "Computing reference genomes.\n";
-    my $refGenomeH = $kmers->FindGenomes($contigFile);
-    my $closeCount = scalar keys %$refGenomeH;
-    $stats->Add(closeRefGenome => $closeCount);
-    print "$closeCount close genomes found.\n";
-    # Prepare to write what we decide to keep.
-    open(my $oh, ">", $refsFile) || die "Could not open reference genome save file: $!";
-    # Filter by the known representatives.
-    for my $refGenome (@$refs) {
-        my $count = $refGenomeH->{$refGenome};
-        if ($count) {
-            push @realRefs, $refGenome;
-            $stats->Add(keptRefGenome => 1);
-            print $oh "$refGenome\t$count\n";
-        }
-    }
-}
-print scalar(@realRefs) . " reference genomes selected.\n";
-# Now loop through the contig input file.
+# Now loop through the contig input file, filtering by length.
 print "Processing tetranucleotide data.\n";
 my $fh = $loader->OpenFasta(contig => $contigFile);
 my $fields = $loader->GetLine(contig => $fh);
 while (defined $fields) {
     my ($contig, undef, $seq) = @$fields;
-    # Create a new bin for this contig.
-    my $bin = Bin->new($contig);
+    # Get the sequence length.
     my $len = length $seq;
-    $bin->set_len($len);
-    $stats->Add(contigLetters => $len);
-    # Save it in the contig hash.
-    $contigs{$contig} = $bin;
-    # Compute the tetranucleotide vector.
-    my $contigTetra = $tetra->ProcessString($seq);
-    $bin->set_tetra($contigTetra);
+    # Is this sequence long enough to be meaningful?
+    if ($len < $lenFilter) {
+        $stats->Add(contigTooShort => 1);
+    } else {
+        $stats->Add(contigLongEnough => 1);
+        # Yes. Create a new bin for this contig.
+        my $bin = Bin->new($contig);
+        $bin->set_len($len);
+        $stats->Add(contigLetters => $len);
+        # Save it in the contig hash.
+        $contigs{$contig} = $bin;
+        # Compute the tetranucleotide vector.
+        my $contigTetra = $tetra->ProcessString($seq);
+        $bin->set_tetra($contigTetra);
+    }
     # Get the next line.
     $fields = $loader->GetLine(contig => $fh);
 }
@@ -274,8 +266,67 @@ while (! eof $vh) {
 }
 # Close the vector input file.
 close $vh;
+# Discard low-coverage bins.
+for my $contig (keys %contigs) {
+    my $bin = $contigs{$contig};
+    if ($bin->meanCoverage < $covgFilter) {
+        delete $contigs{$contig};
+        $stats->Add(contigDeletedForCoverage => 1);
+    }
+}
+print "Final count is " . scalar(keys %contigs) . " sample contigs kept.\n";
+# Create a file of the selected contigs. We need to re-open the input file and extract the
+# contigs we want to keep.
+open(my $ofh, '>', $reducedFastaFile) || die "Could not open FASTA output file: $!";
+$fh = $loader->OpenFasta(contig => $contigFile);
+$fields = $loader->GetLine(contig => $fh);
+while (defined $fields) {
+    my ($contig, undef, $seq) = @$fields;
+    if (exists $contigs{$contig}) {
+        print $ofh ">$contig\n$seq\n";
+    }
+    $fields = $loader->GetLine(contig => $fh);
+}
+close $ofh;
+my $refsFile = "$sampleDir/ref.counts.tbl";
+# Get the list of representative role IDs.
+my $repRoles = $loader->GetNamesFromFile(repRoles => $opt->reps);
+my $repCount = scalar @$repRoles;
+print "$repCount representative roles found.\n";
+# Create the KMER database.
+print "Creating KMER database.\n";
+my $kmers = Bin::Kmers->new($shrub, $workDir, $repRoles, force => $force, kmerSize => $opt->kmersize, minHits => $opt->minhits,
+        maxFound => $opt->maxfound);
+# Compute the list of genomes to BLAST. First we find the relevant genomes.
+print "Computing reference genomes.\n";
+my $refGenomeH = $kmers->FindGenomes($reducedFastaFile);
+my $closeCount = scalar keys %$refGenomeH;
+$stats->Add(closeRefGenome => $closeCount);
+print "$closeCount close genomes found.\n";
+# Filter the complete list of genomes by the known representatives.
+my @filtered;
+for my $refGenome (@$refs) {
+    my $count = $refGenomeH->{$refGenome};
+    if ($count) {
+        push @filtered, $refGenome;
+        $stats->Add(keptRefGenome => 1);
+    }
+}
+my @sortedRefs = sort { $refGenomeH->{$b} <=> $refGenomeH->{$a} } @filtered;
+my @realRefs;
+if (scalar(@sortedRefs) > $opt->maxrefs) {
+    @realRefs = @sortedRefs[0 .. $opt->maxrefs];
+} else {
+    @realRefs = @sortedRefs;
+}
+# Prepare to write what we decided to keep.
+open(my $orh, ">", $refsFile) || die "Could not open reference genome save file: $!";
+for my $refGenome (@sortedRefs) {
+    print $orh "$refGenome\t$refGenomeH->{$refGenome}\n";
+}
+print scalar(@realRefs) . " reference genomes qualified.\n";
 # Finally, we do the BLASTing.
-my $blastStats = Bin::Blast::Process($shrub, $sampleDir, \@realRefs, \%contigs, $contigFile, $uniRoles,
+my $blastStats = Bin::Blast::Process($shrub, $sampleDir, \@realRefs, \%contigs, $reducedFastaFile, $uniRoles,
         minsim => $opt->minsim, minlen => $opt->minlen);
 $stats->Accumulate($blastStats);
 # Open the output file.
