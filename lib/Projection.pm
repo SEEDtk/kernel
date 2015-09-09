@@ -38,7 +38,7 @@ sub relevant_projection_data
     my %func_to_pegs;
     my %peg2loc;
     my %funcMap;
-    my %role_map = map { chomp; ( split )[0,1] } `cat ~disz/roles.unique`; #role_map{role}= "domain1,domain2,..." 
+    my %role_map = map { ( split )[0,1] } SeedUtils::file_read("$FIG_Config::global/roles_cdd.tbl"); #role_map{role}= "domain1,domain2,..."
     my %ss_role_domain;
 
     foreach my $tuple (@tuples)
