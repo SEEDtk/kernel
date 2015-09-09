@@ -38,6 +38,8 @@ sub relevant_projection_data
     my %func_to_pegs;
     my %peg2loc;
     my %funcMap;
+    my %role_map = map { chomp; ( split )[0,1] } `cat ~disz/roles.unique`; #role_map{role}= "domain1,domain2,..." 
+    my %ss_role_domain;
 
     foreach my $tuple (@tuples)
     {
@@ -49,13 +51,17 @@ sub relevant_projection_data
         $to_func{$peg}                   = $funID;
         $func_to_pegs{$funID}->{$peg} = 1;
         $peg2loc{$peg}                   = [ $contig, $begin, $strand ];
+        $ss_role_domain{$funID} = $role_map{$funID};
     }
+    print "SS $subsystem_id ";
+    print Dumper \%ss_role_domain;
     $state->{by_vc}        = \%by_vc;
     $state->{seqs}         = \%seqs;
     $state->{to_func}      = \%to_func;
     $state->{func_to_pegs} = \%func_to_pegs;
     $state->{peg2loc}      = \%peg2loc;
     $state->{func_map}     = \%funcMap;
+    $state->{role_domain} = \%ss_role_domain;
     return $state;
 }
 
@@ -220,6 +226,7 @@ sub create_recognition_parameters
     $parms->{length_stats} = &length_stats_by_family($state);
     $parms->{blast_parms}  = &get_blast_cutoffs($state);
     $parms->{vc_patterns}  = &vc_requirements($state);
+    $parms->{role_domain} = $state->{role_domain};
 
     return $parms;
 }
