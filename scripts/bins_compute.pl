@@ -48,6 +48,10 @@ The command-line options are those found in L<ScriptUtils/ih_options> and L<Bin:
 An output file from L<ga.pl> containing parameters to use for multiple runs. If this option is present, the
 L<Bin::Score> options will be ignored.
 
+=item id
+
+If no C<parmfile> is specified, the ID to assign to this run. The default is C<1>.
+
 =back
 
 =head2 Input File
@@ -78,7 +82,8 @@ A log file from the run with ID I<X>.
 # Get the command-line parameters.
 my $opt = ScriptUtils::Opts('workDirectory', ScriptUtils::ih_options(),
         Bin::Score::script_options(),
-        ['parmfile=s', 'input parameter file for multiple runs']
+        ['parmfile=s', 'input parameter file for multiple runs'],
+        ['id=i', 'run identifier', { default => 1 }]
         );
 # Create the statistics object.
 my $stats = Stats->new();
@@ -99,7 +104,7 @@ if (! $workDir) {
 # Create the list of scoring objects.
 my %runs;
 if (! $opt->parmfile) {
-    $runs{1} = Bins::Score->new_for_script($opt);
+    $runs{$opt->id} = Bin::Score->new_for_script($opt);
 } else {
     open(my $ih, '<', $opt->parmfile) || die "Could not open parm file: $!";
     while (! eof $ih) {
