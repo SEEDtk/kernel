@@ -33,7 +33,7 @@ Produce a report of the quality bins in a bin list.
 
 =head2 Parameters
 
-The input file is a list of bins,  in JSON format, with the good bins at the top.
+The input file is a list of bins,  in JSON format.
 
 The command-line options are those found in L<Shrub::script_options> and L<ScriptUtils/ih_options> plus the following.
 

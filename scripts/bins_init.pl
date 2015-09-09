@@ -65,17 +65,19 @@ Minimum permissible percent identity score for a BLAST result. The default is C<
 
 Minimum permissible length for a BLAST match. The default is C<150>.
 
-=item tetra
-
-Tetranucleotide computation scheme. The default is C<dual>.
-
 =item lenFiter
 
-Minimum contig length for a contig to be considered meaningful. Only meaningful contigs are retained.
+Minimum contig length for a contig to be considered meaningful. Only meaningful contigs are retained. The default
+is C<10000>.
 
 =item covgFilter
 
-Minimum mean coverage amount for a contig to be considered meaningful. Only meaningful contigs are retained.
+Minimum mean coverage amount for a contig to be considered meaningful. Only meaningful contigs are retained. The
+default is C<10>.
+
+=item tetra
+
+Tetranucleotide computation scheme. The default is C<dual>.
 
 =over 8
 
@@ -95,7 +97,7 @@ Each tetranucleotide is counted once, and is considered identical to its reverse
 
 =item workDir
 
-Working directory to contain the intermediate files.
+Working directory to contain the intermediate files. If omitted, the sample directory is assumed.
 
 =item refs
 
@@ -141,8 +143,7 @@ working directory by L<Bin::Blast> and L<Bin::Kmers>. These are independent of t
 directory can be used for multiple communities.
 
 The C<ref.counts.tbl> file contains the IDs of the reference genomes to be used for the analysis of the sample.
-If it exists and the C<force> option is not specified, it is read to get the final reference genome IDs. Otherwise,
-it is computed. This is stored in the sample directory.
+This is stored in the sample directory.
 
 The C<sample.fasta> file contains the sequences for the meaningful contigs in the sample.
 
@@ -154,7 +155,7 @@ my $opt = ScriptUtils::Opts('sampleDir outputFile',
                 ['minsim=f',     'minimum percent identity score for BLAST results', { 'default' => 0.9 }],
                 ['minlen=i',     'minimum length for an acceptable BLAST match', { 'default' => 150 }],
                 ['tetra=s',      'tetranucleotide counting algorithm', { 'default' => 'dual' }],
-                ['workDir|D=s',  'working directory for intermediate files', { required => 1 }],
+                ['workDir|D=s',  'working directory for intermediate files'],
                 ['refs=s',       'reference genome list file'],
                 ['unis=s',       'universal role file', { default => "$FIG_Config::data/Global/uni_roles.tbl" }],
                 ['reps=s',       'representative role file', { default => "$FIG_Config::data/Global/rep_roles.tbl" }],
@@ -174,11 +175,6 @@ my $stats = $loader->stats;
 my $force = $opt->force // 0;
 my $lenFilter = $opt->lenfilter;
 my $covgFilter = $opt->covgfilter;
-# Check the working directory.
-my $workDir = $opt->workdir;
-if (! -d $workDir) {
-    die "Invalid working directory $workDir.";
-}
 # Check the file names.
 my ($sampleDir, $outputFile) = @ARGV;
 if (! $sampleDir) {
@@ -194,6 +190,13 @@ if (! -f $contigFile) {
     die "Vector file $vectorFile not found.";
 } elsif (! $outputFile) {
     die "Output file name missing.";
+}
+# Check the working directory.
+my $workDir = $opt->workdir;
+if (! $workDir) {
+    $workDir = $sampleDir;
+} elsif (! -d $workDir) {
+    die "Invalid working directory $workDir.";
 }
 # Connect to the database.
 print "Connecting to database.\n";
