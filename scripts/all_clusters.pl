@@ -53,8 +53,7 @@ This would produce two files:
 
 =head2 Parameters
 
-The command-line options are those found in L<Shrub/script_options> and
-L<ScriptUtils/ih_options> plus the following.
+The command-line options are those found in L<Shrub/script_options>  plus the following.
 
 -m MaxGapBetweenGenesInCluster
 
@@ -65,23 +64,24 @@ L<ScriptUtils/ih_options> plus the following.
 # Get the command-line parameters.
 my $opt =
   ScriptUtils::Opts( '',
-                     Shrub::script_options(), ScriptUtils::ih_options(),
+                     Shrub::script_options(),
                      [ 'maxgap|m=i', 'maximum gap allowed between features in a cluster', { default => 4000 } ]
     );
 
 my $max_gap    = $opt->maxgap;
 my $shrub      = Shrub->new_for_script($opt);
-my $ih         = ScriptUtils::IH($opt->input);
 my @genomes    =  $shrub->GetFlat('Genome','',[],'Genome(id)');
 foreach my $genome (sort { $a <=> $b } @genomes)
 {
     my $peg_to_subsys_row = &Clusters::subsys_mems($genome,$shrub);
-    my @fidPairs   = grep { $_->[1] } map { [$_,$shrub->loc_of($_)] } keys(%$peg_to_subsys_row);
-    my @sorted     = sort { BasicLocation::Cmp($a->[1], $b->[1]) } @fidPairs;
-    my @clusters = &Clusters::cluster_subsys_fids($max_gap,\@sorted,$peg_to_subsys_row);
-    foreach my $cluster (@clusters)
-    {
-        &print_cluster($cluster);
+    if (keys %$peg_to_subsys_row) {
+        my @fidPairs   = grep { $_->[1] } map { [$_,$shrub->loc_of($_)] } keys(%$peg_to_subsys_row);
+        my @sorted     = sort { BasicLocation::Cmp($a->[1], $b->[1]) } @fidPairs;
+        my @clusters = &Clusters::cluster_subsys_fids($max_gap,\@sorted,$peg_to_subsys_row);
+        foreach my $cluster (@clusters)
+        {
+            &print_cluster($cluster);
+        }
     }
     print STDERR "completed $genome\n";
 }
