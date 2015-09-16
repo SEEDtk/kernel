@@ -24,7 +24,7 @@ use Shrub;
 use ScriptUtils;
 use Bin::Blast;
 use Bin::Tetra;
-use Bin::Kmers;
+use KmerRepGenomes;
 use Bin;
 use Stats;
 use Loader;
@@ -139,7 +139,7 @@ The maximum number of reference genomes to keep for BLASTing purposes.
 =head2 Working Files
 
 This script produces intermediate working files that are re-used if they already exist. Many files are output in the
-working directory by L<Bin::Blast> and L<Bin::Kmers>. These are independent of the contigs input, so the same working
+working directory by L<Bin::Blast> and L<KmerRepGenomes>. These are independent of the contigs input, so the same working
 directory can be used for multiple communities.
 
 The C<ref.counts.tbl> file contains the IDs of the reference genomes to be used for the analysis of the sample.
@@ -157,8 +157,8 @@ my $opt = ScriptUtils::Opts('sampleDir outputFile',
                 ['tetra=s',      'tetranucleotide counting algorithm', { 'default' => 'dual' }],
                 ['workDir|D=s',  'working directory for intermediate files'],
                 ['refs=s',       'reference genome list file'],
-                ['unis=s',       'universal role file', { default => "$FIG_Config::data/Global/uni_roles.tbl" }],
-                ['reps=s',       'representative role file', { default => "$FIG_Config::data/Global/rep_roles.tbl" }],
+                ['unis=s',       'universal role file', { default => "$FIG_Config::global/uni_roles.tbl" }],
+                ['reps=s',       'representative role file', { default => "$FIG_Config::global/rep_roles.tbl" }],
                 ['force',        'force a rebuild of the BLAST and KMER databases'],
                 ['minhits=i',    'minimum number of kmer hits for a genome to be considered useful', { default => 400 }],
                 ['maxfound=i',   'maximum number of kmer occurrences before it is considered common', { default => 10 }],
@@ -298,7 +298,8 @@ my $repCount = scalar @$repRoles;
 print "$repCount representative roles found.\n";
 # Create the KMER database.
 print "Creating KMER database.\n";
-my $kmers = Bin::Kmers->new($shrub, $workDir, $repRoles, force => $force, kmerSize => $opt->kmersize, minHits => $opt->minhits,
+my $kmers = KmerRepGenomes->new($shrub, "$workDir/rep_kmers.json", $repRoles,
+        force => $force, kmerSize => $opt->kmersize, minHits => $opt->minhits,
         maxFound => $opt->maxfound);
 # Compute the list of genomes to BLAST. First we find the relevant genomes.
 print "Computing reference genomes.\n";
@@ -315,7 +316,7 @@ for my $refGenome (@$refs) {
         $stats->Add(keptRefGenome => 1);
     }
 }
-my @sortedRefs = sort { $refGenomeH->{$b} <=> $refGenomeH->{$a} } @filtered;
+my @sortedRefs = sort { $refGenomeH->{$b}[0] <=> $refGenomeH->{$a}[0] } @filtered;
 my @realRefs;
 if (scalar(@sortedRefs) > $opt->maxrefs) {
     @realRefs = @sortedRefs[0 .. $opt->maxrefs];
@@ -324,8 +325,8 @@ if (scalar(@sortedRefs) > $opt->maxrefs) {
 }
 # Prepare to write what we decided to keep.
 open(my $orh, ">", $refsFile) || die "Could not open reference genome save file: $!";
-for my $refGenome (@sortedRefs) {
-    print $orh "$refGenome\t$refGenomeH->{$refGenome}\n";
+for my $refGenome (@realRefs) {
+    print $orh join("\t", $refGenome, @{$refGenomeH->{$refGenome}}) . "\n";
 }
 print scalar(@realRefs) . " reference genomes qualified.\n";
 # Finally, we do the BLASTing.

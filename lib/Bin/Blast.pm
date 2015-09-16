@@ -30,7 +30,7 @@ package Bin::Blast;
 
 This object creates a BLAST database for a community sample, then uses it to find the closest reference genomes
 to each contig in the sample. It accepts as input a selected list of reference genomes to use. It is presumed
-the L<Bin::Kmers> object has been used to select reference genomes likely to produce a hit. The method is
+the L<KmerRepGenomes> object has been used to select reference genomes likely to produce a hit. The method is
 also responsible for returning the universal roles found in each contig.
 
 Because there are so many more contigs than reference genomes, a BLAST database is created for the contigs and
