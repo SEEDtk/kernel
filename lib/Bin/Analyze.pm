@@ -26,8 +26,8 @@ package Bin::Analyze;
 
 This object computes a quality score for a set of bins computed by the L<Bin::Compute> algorithm. A bin will be considered
 of good quality if it has a specified minimum number of the universal roles and a specified maximum number of duplicate roles.
-It will be considered a medium-good bin if it has more than a second specified minimum number of universal roles.
-The quality score is the number of good bins times one-tenth the number of medium-good bins.
+The quality score for a bin is 1 if it is a good bin and zero if it is not, plus the number of non-duplicate universal roles
+divided by the total number of universal roles.
 
 This object has the following fields.
 
@@ -37,13 +37,13 @@ This object has the following fields.
 
 The minimum number of universal roles necessary to be considered a good bin.
 
-=item goodUnis
-
-Minimum number of universal roles necessary to be considered a medium-good bin.
-
 =item maxDups
 
 The maximum number of duplicate universal roles allowed in a good bin.
+
+=item totUnis
+
+The total number of universal roles. The default is C<57>.
 
 =back
 
@@ -67,13 +67,13 @@ Hash of tuning options.
 
 Minimum number of universal roles necessary to be considered a good bin. The default is C<30>.
 
-=item goodUnis
-
-Minimum number of universal roles necessary to be considered a medium-good bin. The default is C<20>.
-
 =item maxDups
 
 Maximum number of duplicate universal roles allowed in a good bin. The default is C<4>.
+
+=item totUnis
+
+The total number of universal roles.
 
 =back
 
@@ -85,13 +85,13 @@ sub new {
     my ($class, %options) = @_;
     # Get the options.
     my $minUnis = $options{minUnis} // 30;
-    my $goodUnis = $options{goodUnis} // 20;
     my $maxDups = $options{maxDups} // 4;
+    my $totUnis = $options{totUnis} // 57;
     # Create the analysis object.
     my $retVal = {
         minUnis => $minUnis,
-        goodUnis => $goodUnis,
-        maxDups => $maxDups
+        maxDups => $maxDups,
+        totUnis => $totUnis
     };
     # Bless and return it.
     bless $retVal, $class;
@@ -253,10 +253,10 @@ sub Stats {
         }
         # Check for a good bin.
         my $quality = $self->AnalyzeBin($bin);
-        if ($quality >= 2) {
+        if ($quality >= 1) {
             $stats->Add(greatBin => 1);
         }
-        if ($quality) {
+        if ($quality > 0.5) {
             $stats->Add(goodBin => 1)
         } else {
             $stats->Add(notGoodBin => 1);
@@ -308,7 +308,7 @@ sub Analyze {
 
     my $flag = $analyze->AnalyzeBin($bin);
 
-Return 2 if the specified bin is good, 1 if it has a lot of universal roles, else 0.
+Return the quality score for the bin.
 
 =over 4
 
@@ -318,8 +318,7 @@ L<Bin> object to check for sufficient universal roles.
 
 =item RETURN
 
-Returns 2 if the bin has sufficient universal roles and not too many duplicates, 1 if it has sufficient universal roles
-and too many duplicates or has a slightly lower number of universal roles, else 0.
+Returns the number of non-duplicate universal roles divided by the total number of universal roles, plus 1 if the bin is good.
 
 =back
 
@@ -332,23 +331,19 @@ sub AnalyzeBin {
     # Get this bin's universal role hash.
     my $uniRoles = $bin->uniProts;
     my $uniCount = scalar(keys %$uniRoles);
+    # Count the number of duplicates.
+    my $dups = 0;
+    for my $uniRole (keys %$uniRoles) {
+        if ($uniRoles->{$uniRole} > 1) {
+            $dups++;
+        }
+    }
     # Check the universal role count.
-    if ($uniCount >= $self->{minUnis}) {
-        # It's good. Count the number of duplicates.
-        my $dups = 0;
-        for my $uniRole (keys %$uniRoles) {
-            if ($uniRoles->{$uniRole} > 1) {
-                $dups++;
-            }
-        }
-        if ($dups <= $self->{maxDups}) {
-            $retVal = 2;
-        } else {
-            $retVal = 1;
-        }
-    } elsif ($uniCount >= $self->{goodUnis}) {
+    if ($uniCount >= $self->{minUnis} && $dups <= $self->{maxDups}) {
         $retVal = 1;
     }
+    # Add the full score.
+    $retVal += ($uniCount - $dups) / $self->{totUnis};
     # Return the determination indicator.
     return $retVal;
 }
