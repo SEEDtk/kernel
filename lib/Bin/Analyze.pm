@@ -281,7 +281,7 @@ Reference to a list of L<Bin> objects.
 
 =item RETURN
 
-Returns a value from 0 to 1 indicating the proportion of quality bins.
+Returns a value from indicating the quality of the bins.
 
 =back
 
@@ -292,12 +292,7 @@ sub Analyze {
     # Analyze the individual bins.
     my $retVal = 0;
     for my $bin (@$bins) {
-        my $quality = $self->AnalyzeBin($bin);
-        if ($quality == 1) {
-            $retVal += 0.1;
-        } elsif ($quality == 2) {
-            $retVal += 1;
-        }
+        $retVal += $self->AnalyzeBin($bin);
     }
     # Return the score.
     return $retVal;
