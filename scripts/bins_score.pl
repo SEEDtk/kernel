@@ -47,19 +47,13 @@ The eight positional parameters are as follows.
 
 =item workDirectory
 
-The input directory. It must contain the following files:
+The input directory. It should contain the following files:
 
 =over 8
 
 =item contigs.bin
 
 The input file containing the contigs, in L<bin exchange format|Bin/Bin Exchange Format>.
-
-=item scores.tbl
-
-A file of comparison information between the contigs. The file is tab-delimited, each record containing (0) the
-first contig ID, (1) the second contig ID, (2) the coverage score, (3) the tetranucleotide score, (4) the closest-reference-genome
-score, (4) the number of universal roles not in common, and (5) the number of universal roles in common.
 
 =back
 
@@ -151,14 +145,9 @@ print $oh "Reading contigs from input.\n";
 open(my $ih, "<", "$workDir/contigs.bin") || die "Could not open contigs.bin file: $!";
 my $binList = Bin::ReadContigs($ih);
 close $ih;
-# Get the vector file name. Insure the vector file exists.
-my $vectorFile = "$workDir/scores.tbl";
-if (! -f $vectorFile) {
-    undef $vectorFile;
-}
 # Create the score computation object.
 my $computer = Bin::Compute->new($score, logFile => $oh);
-my $bins = $computer->ProcessScores($binList, $vectorFile);
+my $bins = $computer->ProcessScores($binList);
 my $duration = time() - $start;
 print $oh "Computation took $duration seconds.\n";
 # Analyze the bins and output the score.
