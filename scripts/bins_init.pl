@@ -169,6 +169,8 @@ my $opt = ScriptUtils::Opts('sampleDir outputFile',
                 ['covgFilter=f',  'minimum contig mean coverage', { default => 10}],
                 ['maxrefs=i',    'maximum number of reference genomes to use', { default => 10 }],
         );
+# Turn off buffering for stdout.
+$| = 1;
 # Create the loader object.
 my $loader = Loader->new();
 # Get the statistics object.
