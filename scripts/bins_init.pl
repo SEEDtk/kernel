@@ -147,6 +147,8 @@ This is stored in the sample directory.
 
 The C<sample.fasta> file contains the sequences for the meaningful contigs in the sample.
 
+The C<rejected.fasta> file contains the sequences for the non-meaningful contigs in the sample.
+
 =cut
 
 # Get the command-line parameters.
@@ -182,8 +184,8 @@ if (! $sampleDir) {
 } elsif (! -d $sampleDir) {
     die "Invalid sample directory $sampleDir.";
 }
-my ($contigFile, $vectorFile, $reducedFastaFile) =
-        map { "$sampleDir/$_" } qw(contigs.fasta output.contigs2reads.txt sample.fasta);
+my ($contigFile, $vectorFile, $reducedFastaFile, $rejectedFastaFile) =
+        map { "$sampleDir/$_" } qw(contigs.fasta output.contigs2reads.txt sample.fasta rejected.fasta);
 if (! -f $contigFile) {
     die "Contig file $contigFile not found.";
 } elsif (! -f $vectorFile) {
@@ -281,16 +283,20 @@ print "Final count is " . scalar(keys %contigs) . " sample contigs kept.\n";
 # Create a file of the selected contigs. We need to re-open the input file and extract the
 # contigs we want to keep.
 open(my $ofh, '>', $reducedFastaFile) || die "Could not open FASTA output file: $!";
+open(my $xfh, '>', $rejectedFastaFile) || die "Could not open FASTA save file: $!";
 $fh = $loader->OpenFasta(contig => $contigFile);
 $fields = $loader->GetLine(contig => $fh);
 while (defined $fields) {
     my ($contig, undef, $seq) = @$fields;
     if (exists $contigs{$contig}) {
         print $ofh ">$contig\n$seq\n";
+    } else {
+        print $xfh ">$contig\n$seq\n";
     }
     $fields = $loader->GetLine(contig => $fh);
 }
 close $ofh;
+close $xfh;
 my $refsFile = "$sampleDir/ref.counts.tbl";
 # Get the list of representative role IDs.
 my $repRoles = $loader->GetNamesFromFile(repRoles => $opt->reps);
