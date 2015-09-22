@@ -25,6 +25,7 @@ use Bin::Compute;
 use Bin::Score;
 use Bin::Analyze;
 use Stats;
+use Shrub;
 use Time::HiRes qw(time);
 
 =head1 Build Bins From Community Contigs
@@ -81,7 +82,7 @@ A log file from the run with ID I<X>.
 
 # Get the command-line parameters.
 my $opt = ScriptUtils::Opts('workDirectory', ScriptUtils::ih_options(),
-        Bin::Score::script_options(),
+        Bin::Score::script_options(), Shrub::script_options(),
         ['parmfile=s', 'input parameter file for multiple runs'],
         ['id=i', 'run identifier', { default => 1 }]
         );
@@ -115,6 +116,8 @@ if (! $opt->parmfile) {
         $runs{$id} = Bin::Score->new($covg, $tetra, $ref, $uniP, $uniW, $minscore);
     }
 }
+# Get the shrub database.
+my $shrub = Shrub->new_for_script($opt);
 # Loop through the runs.
 for my $runID (sort { $a <=> $b } keys %runs) {
     $stats->Add(runs => 1);
@@ -125,10 +128,10 @@ for my $runID (sort { $a <=> $b } keys %runs) {
     open(my $rh, '>', $logFile) || die "Could not open run log file: $!";
     my $computer = Bin::Compute->new($score, logFile => $rh);
     # Get a copy of the bin list.
-    my @startBins = map { Bin->new_copy($_) } @$binList;
+    my $startBins = $score->Copy($binList);
     # Compute the bins.
     my $start = time();
-    my $bins = $computer->ProcessScores(\@startBins);
+    my $bins = $computer->ProcessScores($startBins);
     my $duration = time() - $start;
     $stats->Accumulate($subStats);
     $stats->Add(duration => int($duration + 0.5));
@@ -140,10 +143,10 @@ for my $runID (sort { $a <=> $b } keys %runs) {
     }
     close $oh;
     # Analyze the bins.
-    my $quality = Bin::Analyze::Quality($bins);
-    print $rh "Quality score = $quality.\n";
-    my $report = Bin::Analyze::Report($bins);
-    print $rh "Quality Report\n" . $report->Show() . "\n";
+    my $uniRoles = $score->uni_hash;
+    my $totUnis = $score->uni_total;
+    my $analyzer = Bin::Analyze->new(totUnis => $totUnis, minUnis => (0.8 * $totUnis));
+    $analyzer->BinReport($rh, $shrub, $uniRoles, $bins);
     close $rh;
 }
 # Output the statistics.

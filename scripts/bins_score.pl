@@ -99,10 +99,6 @@ The command-line options are the following.
 
 =over 4
 
-=item unitotal
-
-The total number of universal roles. The default is 57.
-
 =item minunis
 
 The minimum number of universal roles for a bin to be considered good. The default is 30.
@@ -118,7 +114,7 @@ The maximum number of duplicate universal roles for a bin to be considered good.
 my $start = time();
 # Get the command-line options.
 my $opt = ScriptUtils::Opts('workDirectory logFile covgWeight tetraWeight refWeight uniPenalty uniWeight minScore',
-        ['unitotal=i', 'total number of universal roles', { default => 57}],
+        ['unifile=s', 'universal role file', { default => "$FIG_Config::global/uni_roles.tbl" }],
         ['minunis=i', 'minimum number of universal roles for a bin to be considered good', { default => 30 }],
         ['maxdups=i', 'maximum number of duplicate universal roles for a bin to be considered good', { default => 4 }]
         );
@@ -134,7 +130,7 @@ if (! $workDir) {
     die "Invalid working directory $workDir.\n";
 }
 # Create the scoring object.
-my $score = Bin::Score->new($covgWeight, $tetraWeight, $refWeight, $uniPenalty, $uniWeight, $minScore, $opt->unitotal);
+my $score = Bin::Score->new($covgWeight, $tetraWeight, $refWeight, $uniPenalty, $uniWeight, $minScore, $opt->unifile);
 # Create the analysis object.
 my $analyzer = Bin::Analyze->new(minUnis => $opt->minunis, maxDups => $opt->maxdups);
 # Open the log file.
@@ -144,6 +140,7 @@ $oh->autoflush(1);
 print $oh "Reading contigs from input.\n";
 open(my $ih, "<", "$workDir/contigs.bin") || die "Could not open contigs.bin file: $!";
 my $binList = Bin::ReadContigs($ih);
+$score->Filter($binList);
 close $ih;
 # Create the score computation object.
 my $computer = Bin::Compute->new($score, logFile => $oh);

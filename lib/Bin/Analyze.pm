@@ -27,7 +27,7 @@ package Bin::Analyze;
 This object computes a quality score for a set of bins computed by the L<Bin::Compute> algorithm. A bin will be considered
 of good quality if it has a specified minimum number of the universal roles and a specified maximum number of duplicate roles.
 The quality score for a bin is 1 if it is a good bin and zero if it is not, plus the number of non-duplicate universal roles
-divided by the total number of universal roles.
+divided by the total number of universal roles plus 0.5 if it is a big bin..
 
 This object has the following fields.
 
@@ -41,9 +41,13 @@ The minimum number of universal roles necessary to be considered a good bin.
 
 The maximum number of duplicate universal roles allowed in a good bin.
 
+=item minLen
+
+The minimum number of base pairs required for a bin to be considered big.
+
 =item totUnis
 
-The total number of universal roles. The default is C<57>.
+The total number of universal roles. The default is C<101>.
 
 =back
 
@@ -65,7 +69,7 @@ Hash of tuning options.
 
 =item minUnis
 
-Minimum number of universal roles necessary to be considered a good bin. The default is C<30>.
+Minimum number of universal roles necessary to be considered a good bin. The default is C<80>.
 
 =item maxDups
 
@@ -74,6 +78,10 @@ Maximum number of duplicate universal roles allowed in a good bin. The default i
 =item totUnis
 
 The total number of universal roles.
+
+=item minLen
+
+The minimum number of base pairs required for a bin to be considered big.
 
 =back
 
@@ -84,14 +92,16 @@ The total number of universal roles.
 sub new {
     my ($class, %options) = @_;
     # Get the options.
-    my $minUnis = $options{minUnis} // 30;
+    my $minUnis = $options{minUnis} // 80;
     my $maxDups = $options{maxDups} // 4;
-    my $totUnis = $options{totUnis} // 57;
+    my $totUnis = $options{totUnis} // 101;
+    my $minLen = $options{minLen} // 500000;
     # Create the analysis object.
     my $retVal = {
         minUnis => $minUnis,
         maxDups => $maxDups,
-        totUnis => $totUnis
+        totUnis => $totUnis,
+        minLen => $minLen
     };
     # Bless and return it.
     bless $retVal, $class;
@@ -313,7 +323,8 @@ L<Bin> object to check for sufficient universal roles.
 
 =item RETURN
 
-Returns the number of non-duplicate universal roles divided by the total number of universal roles, plus 1 if the bin is good.
+Returns the number of non-duplicate universal roles divided by the total number of universal roles, plus 1 if the bin is good,
+plus 0.5 if the bin is big.
 
 =back
 
@@ -337,11 +348,123 @@ sub AnalyzeBin {
     if ($uniCount >= $self->{minUnis} && $dups <= $self->{maxDups}) {
         $retVal = 1;
     }
+    # Check the length.
+    if ($bin->len >= $self->{minLen}) {
+        $retVal += 0.5;
+    }
     # Add the full score.
     $retVal += ($uniCount - $dups) / $self->{totUnis};
     # Return the determination indicator.
     return $retVal;
 }
 
+=head3 BinReport
+
+    $analyzer->BinReport($oh, $shrub, $uniRoles, $binList);
+
+Write a detailed report about the bins. Information about the content of the larger bins will be presented, along
+with the standard statistical report from L</Report>.
+
+=over 4
+
+=item oh
+
+Open handle for the output file.
+
+=item shrub
+
+L<Shrub> object for accessing the database.
+
+=item uniRoles
+
+Reference to a hash mapping each universal role ID to its description.
+
+=item binList
+
+Reference to a list of L<Bin> objects for which a report is desired.
+
+=back
+
+=cut
+
+sub BinReport {
+    my ($self, $oh, $shrub, $uniRoles, $binList) = @_;
+    # This will be a hash mapping each universal role to a hash of the bins it appears in. The bins will be
+    # identified by an ID number we assign.
+    my %uniBins;
+    my $binID = 0;
+    # Loop through the bins.
+    for my $bin (@$binList) {
+        # Compute the bin ID.
+        $binID++;
+        my $quality = $self->AnalyzeBin($bin);
+        print $oh "\nBIN $binID (from " . $bin->contig1 . ", " . $bin->contigCount . " contigs, " . $bin->len . " base pairs, quality $quality)\n";
+        # Only do a detail report if the bin is big.
+        if ($bin->len >= $self->{minLen}) {
+            # List the close reference genomes.
+            my @genomes = $bin->refGenomes;
+            if (@genomes) {
+                my $filter = 'Genome(id) IN (' . join(', ', map { '?' } @genomes) . ')';
+                my %gNames =  map { $_->[0] => $_->[1] } $shrub->GetAll('Genome', $filter, \@genomes, 'id name');
+                for my $genome (@genomes) {
+                    print $oh "    $genome: $gNames{$genome}\n";
+                }
+            }
+            # Compute the average coverage.
+            my $coverageV = $bin->coverage;
+            my $avg = 0;
+            for my $covg (@$coverageV) {
+                $avg += $covg;
+            }
+            $avg /= scalar @$coverageV;
+            print $oh "*** Mean coverage is $avg.\n";
+            # Finally, the universal role list. This hash helps us find the missing ones.
+            print $oh "    Universal Roles\n";
+            print $oh "    ---------------\n";
+            my %unisFound = map { $_ => 0 } keys %$uniRoles;
+            my $uniFoundCount = 0;
+            my $uniMissingCount = 0;
+            my $uniDuplCount = 0;
+            # Get the universal role hash for the bin.
+            my $binUnis = $bin->uniProts;
+            for my $uni (sort keys %$binUnis) {
+                my $count = $binUnis->{$uni};
+                if ($count) {
+                    print $oh "    $uni\t$uniRoles->{$uni}\t$count\n";
+                    $unisFound{$uni} = 1;
+                    $uniBins{$uni}{$binID} = $count;
+                    $uniFoundCount++;
+                    if ($count > 1) {
+                        $uniDuplCount++;
+                    }
+                }
+            }
+            # Now the roles not found.
+            if (! $uniFoundCount) {
+                print $oh "    NONE FOUND\n";
+            } else {
+                print $oh "    ---------------\n";
+                for my $uni (sort keys %unisFound) {
+                    if (! $unisFound{$uni}) {
+                        print $oh "    $uni\t$uniRoles->{$uni}\tmissing\n";
+                        $uniMissingCount++;
+                    }
+                }
+                print $oh "    ---------------\n";
+                print $oh "    $uniFoundCount present, $uniMissingCount missing, $uniDuplCount duplicated.\n";
+            }
+        }
+    }
+    # Now output the universal role matrix.
+    print $oh "\nUNIVERSAL ROLE MATRIX\n";
+    print $oh join("\t", 'Role', map { "bin$_" } (1 .. $binID)) . "\n";
+    for my $uni (sort keys %uniBins) {
+        print $oh join("\t", $uni, map { $uniBins{$uni}{$_} // ' ' } (1 .. $binID)) . "\n";
+    }
+    print $oh "\n\n";
+    # Finally, the bin statistics.
+    my $stats = $self->Stats($binList);
+    print $oh "FINAL REPORT\n\n" . $stats->Show();
+}
 
 1;
