@@ -59,7 +59,7 @@ The command-line options are those found in L<Shrub/script_options> plus the fol
 
 =item minsim
 
-Minimum permissible percent identity score for a BLAST result. The default is C<0.9>.
+Minimum permissible percent identity score for a BLAST result. The default is C<0.5>.
 
 =item minlen
 
@@ -154,7 +154,7 @@ The C<rejected.fasta> file contains the sequences for the non-meaningful contigs
 # Get the command-line parameters.
 my $opt = ScriptUtils::Opts('sampleDir outputFile',
                 Shrub::script_options(),
-                ['minsim=f',     'minimum percent identity score for BLAST results', { 'default' => 0.9 }],
+                ['minsim=f',     'minimum percent identity score for BLAST results', { 'default' => 0.5 }],
                 ['minlen=i',     'minimum length for an acceptable BLAST match', { 'default' => 150 }],
                 ['tetra=s',      'tetranucleotide counting algorithm', { 'default' => 'dual' }],
                 ['workDir|D=s',  'working directory for intermediate files'],

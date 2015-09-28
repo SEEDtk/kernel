@@ -28,9 +28,9 @@ package Bin::Blast;
 
 =head1 Blast Analysis Object
 
-This object creates a BLAST database for a community sample, then uses it to find the closest reference genomes
+This library creates a BLAST database for a community sample, then uses it to find the closest reference genomes
 to each contig in the sample. It accepts as input a selected list of reference genomes to use. It is presumed
-the L<KmerRepGenomes> object has been used to select reference genomes likely to produce a hit. The method is
+a prior process has been used to select reference genomes likely to produce a hit. The method is
 also responsible for returning the universal roles found in each contig.
 
 Because there are so many more contigs than reference genomes, a BLAST database is created for the contigs and
@@ -181,8 +181,8 @@ sub Process {
                 if ($oldScore < $score) {
                     $contigGenomes{$contigID}{$refGenome} = $score;
                 }
-                # If this is a universal role, count it.
-                if ($functionID) {
+                # If this is a universal role and we match over 60% of the length, count it.
+                if ($functionID && $match->[10] >= 0.6 * $match->[2]) {
                     $stats->Add(uniRoleFound => 1);
                     $contigBins->{$contigID}->add_prots($functionID);
                 }

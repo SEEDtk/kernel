@@ -28,7 +28,7 @@ use ScriptUtils;
 
 For each universal role, you have an estimate of the number of bins
 given by the number of contigs with that role.  The assumption is that
-all bins for contigs from genomes with a coverage greater than 10 will include 
+all bins for contigs from genomes with a coverage greater than 10 will include
 one hit for each universal role (which is not completely true).
 
 =cut
@@ -48,13 +48,19 @@ foreach my $contig (@$contigs)
     my $uni_protH = $contig->uniProts;
     foreach my $role (keys(%$uni_protH))
     {
-	$counts{$role}++;
+        $counts{$role}++;
     }
 }
 use Shrub;
+my %dist;
 my $shrub = Shrub->new();
 foreach my $role (sort { $counts{$b} <=> $counts{$a} } keys(%counts))
 {
     my $desc = $shrub->role_id_to_desc($role);
     print join("\t",($counts{$role},$role,$desc)),"\n";
+    $dist{$counts{$role}}++;
+}
+print "\n\nDISTRIBUTION\n\n";
+foreach my $dist (sort { $b <=> $a } keys %dist) {
+    print "$dist occurrences: $dist{$dist}\n";
 }
