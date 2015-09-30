@@ -192,7 +192,36 @@ sub new {
     return $retVal;
 }
 
-=head2 Public Methods
+=head2 Query Methods
+
+=head3 uni_hash
+
+    my $uni_hash = $blaster->uni_hash;
+
+Return the universal role hash.
+
+=cut
+
+sub uni_hash {
+    my ($self) = @_;
+    return $self->{uniRoleH};
+}
+
+=head3 uni_total
+
+    my $uni_total = $blaster->uni_total;
+
+Return the total number of universal roles.
+
+=cut
+
+sub uni_total {
+    my ($self) = @_;
+    return scalar keys %{$self->{uniRoleH}};
+}
+
+
+=head2 Public Manipulation Methods
 
 =head3 FindProtein
 
@@ -248,21 +277,7 @@ sub FindProtein {
     # resolution is processed.
     my %contigs;
     for my $match (@matches) {
-        my $contig = $match->sid;
-        if (! exists $contigs{$contig}) {
-            # First hit on this contig. Save it as a location.
-            $contigs{$contig} = [$match->sloc];
-        } else {
-            # Check to see if we belong next to the previous hit.
-            my $oldLoc = pop @{$contigs{$contig}};
-            my $newLoc = $match->sloc;
-            if ($oldLoc->Dir eq $newLoc->Dir && ($newLoc->Left - $oldLoc->Right) < $gap ) {
-                $oldLoc->Merge($newLoc);
-                push @{$contigs{$contig}}, $oldLoc;
-            } else {
-                push @{$contigs{$contig}}, $oldLoc, $newLoc;
-            }
-        }
+        $self->MergeMatch(\%contigs, $match);
     }
     # For each contig, find the largest hit location that is greater than the computed minimum DNA length.
     # This will be put in the return hash.
@@ -386,6 +401,8 @@ sub Process {
     for my $refGenome (@$refGenomes) {
         my $blasted = $stats->Add(refGenomesBlasted => 1);
         print "Processing $refGenome for BLAST ($blasted of $totalGenomes).\n";
+        # This hash will track the minimum match length of each universal role.
+        my %uniLens;
         # Create the FASTA file for this genome's query sequence.
         my $queryFileName = "$workDir/$refGenome.fa";
         open(my $oh, ">", $queryFileName) || die "Could not create FASTA output file: $!";
@@ -400,6 +417,8 @@ sub Process {
                 $function = '';
             } else {
                 $stats->Add(uniRoleProteins => 1);
+                # Track the universal role match length.
+                $uniLens{$function} = int(length($sequence) * $self->{minlen}) * 3;
             }
             print $oh ">$id $function\n$sequence\n";
             $stats->Add(genomeProteins => 1);
@@ -412,31 +431,49 @@ sub Process {
         $stats->Add(blastMatches => $matchCount);
         if ($matchCount) {
             print "$matchCount hits found.\n";
-            # Loop through the matches. Note they are pre-filtered for length and percent identity.
+            # This hash will track universal role hits. It is a double hash keyed on universal role ID followed by
+            # contig ID and maps to location objects.
+            my %uniHits = map { $_ => {} } keys %{$self->{uniRolesH}};
+            # Loop through the matches.
             for my $match (@$matches) {
                 # Get the pieces of the HSP object.
                 my $functionID = $match->qdef;
                 my $contigID = $match->sid;
-                my $score = $match->n_id / $match->n_mat;
+                # The score is percent identity first, then length of match.
+                my $score = [$match->n_id / $match->n_mat, $match->n_mat];
                 # Check to see if this is the genome's best score for this contig.
-                my $oldScore = 0;
+                my $oldScore = [0, 0];
                 if ($contigGenomes{$contigID}) {
                     $oldScore = $contigGenomes{$contigID}[1];
                 }
-                if ($oldScore < $score) {
+                if ($oldScore->[0] < $score->[0] || $oldScore->[0] == $score->[0] && $oldScore->[1] < $score->[1]) {
                     $contigGenomes{$contigID} = [$refGenome, $score];
                 }
-                # If this is a universal role and we match over 60% of the length, count it.
-                if ($functionID && $match->n_mat >= 0.6 * $match->qlen) {
+                # If this is a universal role, merge it into the hash.
+                if ($functionID) {
+                    my $uniSubHash = $uniHits{$functionID};
                     $stats->Add(uniRoleFound => 1);
-                    $contigBins->{$contigID}->add_prots($functionID);
+                    $self->Merge($uniSubHash, $match);
+                }
+            }
+            # Check for any universal role matches of sufficient length.
+            for my $role (keys %uniHits) {
+                my $contigHits = $uniHits{$role};
+                my $minLen = $uniLens{$role};
+                for my $contig (keys %$contigHits) {
+                    my $hitList = $contigHits->{$contig};
+                    for my $hit (@$hitList) {
+                        if ($hit->Length >= $minLen) {
+                            $contigBins->{$contig}->add_prots($role);
+                            $stats->Add(uniRoleAssigned => 1);
+                        }
+                    }
                 }
             }
         }
     }
-    # Now all the reference genomes have been blasted. For each contig, we need to choose the best two.
-    # Note that many contigs will not have any hits. These do not even appear in the hash, so we don't
-    # worry about skipping them.
+    # Now all the reference genomes have been blasted. For each contig, we need to assign the reference
+    # genome and any universal roles.
     print "Assigning genomes to sample contigs.\n";
     for my $contigID (keys %contigGenomes) {
         $stats->Add(contigsWithRefGenomes => 1);
@@ -448,5 +485,28 @@ sub Process {
     return $stats;
 }
 
+
+=head2 Internal Utility Methods
+
+=cut
+
+sub MergeMatch {
+    my ($self, $contigs, $match) = @_;
+    my $contig = $match->sid;
+    if (! exists $contigs->{$contig}) {
+        # First hit on this contig. Save it as a location.
+        $contigs->{$contig} = [$match->sloc];
+    } else {
+        # Check to see if we belong next to the previous hit.
+        my $oldLoc = pop @{$contigs->{$contig}};
+        my $newLoc = $match->sloc;
+        if ($oldLoc->Dir eq $newLoc->Dir && ($newLoc->Left - $oldLoc->Right) < $self->{gap} ) {
+            $oldLoc->Merge($newLoc);
+            push @{$contigs->{$contig}}, $oldLoc;
+        } else {
+            push @{$contigs->{$contig}}, $oldLoc, $newLoc;
+        }
+    }
+}
 
 1;

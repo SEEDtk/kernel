@@ -24,6 +24,7 @@ use Shrub;
 use ScriptUtils;
 use Bin::Blast;
 use Bin::Tetra;
+use Bin::Analyze;
 use Bin;
 use Stats;
 use Loader;
@@ -125,8 +126,15 @@ The C<bins.found.tbl> file contains the locations hit by the universal protein u
 
 The C<ref.genomes.tbl> file contains the reference genomes for each bin.
 
-The C<contigs.bin> file contains bin information for each contig considered to be meaningful, in bin exchange format.
+The C<contigs.bins> file contains bin information for each contig considered to be meaningful, in bin exchange format.
 It does not include universal roles or reference genomes.
+
+The C<contigs.ref.bins> file contains bin information for each contig considered to be meaningful, in bin exchange format.
+It includes reference genomes and (at the current time) a crude approximation of universal roles.
+
+The C<bins.json> file contains the output bins, in json format.
+
+The C<bins.report.txt> file contains a summary of the output bins.
 
 =cut
 
@@ -318,7 +326,7 @@ if ($force || ! -s $refGenomeFile) {
 } else {
     # Read the hash from the reference genome file.
     my $ih = $loader->OpenFile(refGenomes => $refGenomeFile);
-    while (my $refFields = $loader->GetLine(refGenoems => $ih)) {
+    while (my $refFields = $loader->GetLine(refGenomes => $ih)) {
         my ($contig, $genome, $gName) = @$refFields;
         $contigHash->{$contig} = [$genome, $gName];
     }
@@ -340,13 +348,14 @@ if ($force || ! -s $refBinFile) {
 } else {
     # Read the augmented contig information.
     %contigs = ();
-    my $binList = Bin::ReadContigs($binFile);
+    my $binList = Bin::ReadContigs($refBinFile);
     for my $bin (@$binList) {
         $contigs{$bin->contig1} = $bin;
     }
 }
 # Now run through the augmented contigs, forming them into bins by reference genome. The following hash is keyed
 # by reference genome and will contain each genome's bin. The list will contain the leftover bins.
+print "Assembling bins.\n";
 my (%binHash, @binList);
 for my $bin (values %contigs) {
     my ($refGenome) = $bin->refGenomes;
@@ -362,6 +371,22 @@ for my $bin (values %contigs) {
         $stats->Add(contigNewBin => 1);
     }
 }
-
+# Output the bins.
+my @sorted = sort { Bin::cmp($a, $b) } (values %binHash, @binList);
+print "Writing bins to output.\n";
+open(my $oh, ">$workDir/bins.json") || die "Could not open bins.json file: $!";
+for my $bin (@sorted) {
+    $bin->Write($oh);
+}
+close $oh;
+# Get the universal role information.
+print "Producing report.\n";
+my $uniRoles = $blaster->uni_hash;
+my $totUnis = $blaster->uni_total;
+# Produce the bin report.
+open(my $rh, ">$workDir/bins.report.txt") || die "Could not open report file: $!";
+my $analyzer = Bin::Analyze->new(totUnis => $totUnis, minUnis => (0.8 * $totUnis));
+$analyzer->BinReport($rh, $shrub, $uniRoles, \@sorted);
+close $rh;
 # All done.
 print "All done.\n" . $stats->Show();
