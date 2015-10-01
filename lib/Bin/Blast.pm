@@ -170,7 +170,7 @@ sub new {
     if ($pathFasta ne $pathWorkDir) {
         my $newName = "$workDir/$nameFasta";
         print "Copying $contigFasta to $newName.\n";
-        File::Copy::Recursive($contigFasta, $newName);
+        File::Copy::Recursive::fcopy($contigFasta, $newName);
         $blastFasta = $newName;
     }
     # Create the BLAST database for the sample contigs. If it already exists, it will be reused.
@@ -386,7 +386,7 @@ sub Process {
     # Get the working directory.
     my $workDir = $self->{workDir};
     # Get the universal role hash.
-    my $uniRoles = $self->{uniRolesH};
+    my $uniRoles = $self->{uniRoleH};
     # Get the shrub database object.
     my $shrub = $self->{shrub};
     # Get the options.
@@ -424,6 +424,7 @@ sub Process {
             $stats->Add(genomeProteins => 1);
         }
         close $oh;
+        print scalar(keys %uniLens) . " universal roles found in $refGenome.\n";
         # Blast this genome against the sample contigs.
         my $matches = gjo::BlastInterface::blast($queryFileName, $self->{blastDb}, 'tblastn',
             { outForm => 'hsp', maxE => $maxE });
@@ -433,9 +434,9 @@ sub Process {
             print "$matchCount hits found.\n";
             # This hash will track universal role hits. It is a double hash keyed on universal role ID followed by
             # contig ID and maps to location objects.
-            my %uniHits = map { $_ => {} } keys %{$self->{uniRolesH}};
+            my %uniHits = map { $_ => {} } keys %uniLens;
             # Loop through the matches.
-            for my $match (@$matches) {
+            for my $match (sort { ($a->sid cmp $b->sid) or ($a->s1 <=> $b->s1) } @$matches) {
                 # Get the pieces of the HSP object.
                 my $functionID = $match->qdef;
                 my $contigID = $match->sid;
@@ -453,10 +454,13 @@ sub Process {
                 if ($functionID) {
                     my $uniSubHash = $uniHits{$functionID};
                     $stats->Add(uniRoleFound => 1);
-                    $self->Merge($uniSubHash, $match);
+                    if ($self->MergeMatch($uniSubHash, $match)) {
+                        $stats->Add(uniRoleMerged => 1);
+                    }
                 }
             }
             # Check for any universal role matches of sufficient length.
+            my $roleMatches = 0;
             for my $role (keys %uniHits) {
                 my $contigHits = $uniHits{$role};
                 my $minLen = $uniLens{$role};
@@ -464,12 +468,14 @@ sub Process {
                     my $hitList = $contigHits->{$contig};
                     for my $hit (@$hitList) {
                         if ($hit->Length >= $minLen) {
-                            $contigBins->{$contig}->add_prots($role);
+                            $contigBins->{$contig}->merge_prots($role);
                             $stats->Add(uniRoleAssigned => 1);
+                            $roleMatches++;
                         }
                     }
                 }
             }
+            print "$roleMatches universal role hits found by $refGenome BLAST.\n";
         }
     }
     # Now all the reference genomes have been blasted. For each contig, we need to assign the reference
@@ -488,10 +494,36 @@ sub Process {
 
 =head2 Internal Utility Methods
 
+=head3 MergeMatch
+
+    my $flag = $blaster->MergeMatch(\%contigs, $match);
+
+Store the location of a hit against a contig. The incoming hash should contain a list of hit locations for a specific
+protein, keyed by contig ID. The incoming match should be located to the right of all previous hits. This is a very
+specialized function that helps us to merge adjacent hits into a single hit.
+
+=over 4
+
+=item contigs
+
+Reference to a hash keyed on contig ID that maps each to a list of L<BasicLocation> objects for hits.
+
+=item match
+
+An L<Hsp> object representing a new hit.
+
+=item RETURN
+
+Returns TRUE if the hits were merged, else FALSE.
+
+=back
+
 =cut
 
 sub MergeMatch {
     my ($self, $contigs, $match) = @_;
+    # Declare the return value. This will be set to TRUE if we merge.
+    my $retVal;
     my $contig = $match->sid;
     if (! exists $contigs->{$contig}) {
         # First hit on this contig. Save it as a location.
@@ -501,12 +533,16 @@ sub MergeMatch {
         my $oldLoc = pop @{$contigs->{$contig}};
         my $newLoc = $match->sloc;
         if ($oldLoc->Dir eq $newLoc->Dir && ($newLoc->Left - $oldLoc->Right) < $self->{gap} ) {
+            # Yes we do.
             $oldLoc->Merge($newLoc);
             push @{$contigs->{$contig}}, $oldLoc;
+            $retVal = 1;
         } else {
             push @{$contigs->{$contig}}, $oldLoc, $newLoc;
         }
     }
+    # Return the merge flag.
+    return $retVal;
 }
 
 1;

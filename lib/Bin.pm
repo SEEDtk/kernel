@@ -684,7 +684,7 @@ Increment the counts for the specified universal proteins.
 
 =over 4
 
-=item add_prots
+=item prots
 
 List of universal protein role IDs.
 
@@ -699,6 +699,34 @@ sub add_prots {
     # Loop through the incoming proteins.
     for my $prot (@prots) {
         $uniProts->{$prot}++;
+    }
+}
+
+=head3 merge_prots
+
+    $bin->merge_prots(@prots);
+
+Denote that the bin contains the specified universal proteins. Unlike L</add_prots>, this does not increment counts, it
+sets them to C<1>. Use this method when we are BLASTing multiple reference genomes against a single contig, because we
+expect to get hits from multiple genomes against the same protein.
+
+=over 4
+
+=item prots
+
+List of universal protein role IDs.
+
+=back
+
+=cut
+
+sub merge_prots {
+    my ($self, @prots) = @_;
+    # Get the universal protein hash.
+    my $uniProts = $self->{uniProts};
+    # Loop through the incoming proteins.
+    for my $prot (@prots) {
+        $uniProts->{$prot} = 1;
     }
 }
 
