@@ -149,16 +149,16 @@ The C<bins.report.txt> file contains a summary of the output bins.
 # Get the command-line parameters.
 my $opt = ScriptUtils::Opts('sampleDir workDir',
                 Shrub::script_options(),
-                ['minsim=f',     'minimum percent identity score for BLAST results', { 'default' => 0.5 }],
-                ['minlen=i',     'minimum length for an acceptable BLAST match', { 'default' => 150 }],
-                ['tetra=s',      'tetranucleotide counting algorithm', { 'default' => 'dual' }],
-                ['refs=s',       'reference genome list file'],
-                ['unifile=s',    'universal role file', { default => "$FIG_Config::global/uni_roles.tbl" }],
-                ['lenFilter=i',  'minimum contig length', { default => 1000 }],
-                ['covgFilter=f', 'minimum contig mean coverage', { default => 10}],
-                ['force',        'force re-creation of all intermediate files'],
-                ['seedrole=s',   'ID of the universal role to seed the bins', { default => 'PhenTrnaSyntAlph' }],
-                ['seedgenome=s', 'ID of the genome to seed the bins', { default => '83333.1' }],
+                ['minsim=f',       'minimum percent identity score for BLAST results', { 'default' => 0.5 }],
+                ['minlen=i',       'minimum length for an acceptable BLAST match', { 'default' => 150 }],
+                ['tetra=s',        'tetranucleotide counting algorithm', { 'default' => 'dual' }],
+                ['refs=s',         'reference genome list file'],
+                ['unifile=s',      'universal role file', { default => "$FIG_Config::global/uni_roles.tbl" }],
+                ['lenFilter=i',    'minimum contig length', { default => 1000 }],
+                ['covgFilter=f',   'minimum contig mean coverage', { default => 10}],
+                ['force',          'force re-creation of all intermediate files'],
+                ['seedrole|R=s',   'ID of the universal role to seed the bins', { default => 'PhenTrnaSyntAlph' }],
+                ['seedgenome|G=s', 'ID of the genome to seed the bins', { default => '83333.1' }],
         );
 # Turn off buffering for stdout.
 $| = 1;
