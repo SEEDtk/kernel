@@ -111,6 +111,14 @@ occurrence counts in the second, and role names in the third.
 
 If specified, all of the data and intermediate files will be re-created.
 
+=item seedrole
+
+The ID of the universal role to use for seeding the bin assignment. The default is C<PhenTrnaSyntAlph>.
+
+=item seedgenome
+
+The ID of the genome to use for seeing the bin assignment. The default is E coli K12-- C<83333.1>.
+
 =back
 
 =head2 Working Files
@@ -124,7 +132,7 @@ The C<rejected.fasta> file contains the sequences for the non-meaningful contigs
 
 The C<bins.found.tbl> file contains the locations hit by the universal protein used to seed the process.
 
-The C<ref.genomes.tbl> file contains the reference genomes for each bin.
+The C<ref.genomes.tbl> file contains the reference genome for each bin.
 
 The C<contigs.bins> file contains bin information for each contig considered to be meaningful, in bin exchange format.
 It does not include universal roles or reference genomes.
@@ -148,7 +156,9 @@ my $opt = ScriptUtils::Opts('sampleDir workDir',
                 ['unifile=s',    'universal role file', { default => "$FIG_Config::global/uni_roles.tbl" }],
                 ['lenFilter=i',  'minimum contig length', { default => 1000 }],
                 ['covgFilter=f', 'minimum contig mean coverage', { default => 10}],
-                ['force',        'force re-creation of all intermediate files']
+                ['force',        'force re-creation of all intermediate files'],
+                ['seedrole=s',   'ID of the universal role to seed the bins', { default => 'PhenTrnaSyntAlph' }],
+                ['seedgenome=s', 'ID of the genome to seed the bins', { default => '83333.1' }],
         );
 # Turn off buffering for stdout.
 $| = 1;
@@ -281,8 +291,11 @@ my $binsFoundFile = "$workDir/bins.found.tbl";
 my $matches = {};
 # Do we have a bins-found file?
 if ($force || ! -s $binsFoundFile) {
-    # No. Search for the default universal protein to create the initial bins.
-    $matches = $blaster->FindProtein();
+    # No. Search for the specified universal protein to create the initial bins.
+    my $prot = $opt->seedrole;
+    my $genome = $opt->seedgenome;
+    print "Seeding bin process with $prot from $genome.\n";
+    $matches = $blaster->FindProtein($prot, $genome);
     # Save the matches to a work file.
     open(my $oh, ">$binsFoundFile") || die "Could not open bins found output file: $!";
     for my $contig (sort keys %$matches) {
