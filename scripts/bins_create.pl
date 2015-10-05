@@ -195,6 +195,9 @@ print "Connecting to database.\n";
 my $shrub = Shrub->new_for_script($opt);
 # This will be set to TRUE if we want to force file creation at any point.
 my $force = $opt->force;
+# Get the seeding parameters.
+my $prot = $opt->seedrole;
+my $genome = $opt->seedgenome;
 # This hash will contain all the contigs, it maps each contig ID to a bin object describing the contig's properties.
 my %contigs;
 if ($force || ! -s $reducedFastaFile || ! -s $binFile) {
@@ -292,10 +295,8 @@ my $matches = {};
 # Do we have a bins-found file?
 if ($force || ! -s $binsFoundFile) {
     # No. Search for the specified universal protein to create the initial bins.
-    my $prot = $opt->seedrole;
-    my $genome = $opt->seedgenome;
     print "Seeding bin process with $prot from $genome.\n";
-    $matches = $blaster->FindProtein($prot, $genome);
+    $matches = $blaster->FindProtein($genome, $prot);
     # Save the matches to a work file.
     open(my $oh, ">$binsFoundFile") || die "Could not open bins found output file: $!";
     for my $contig (sort keys %$matches) {
@@ -328,7 +329,7 @@ if ($force || ! -s $refGenomeFile) {
             $seqHash{$contig} = substr($seq, $match->Left, $match->Length);
         }
     }
-    $contigHash = $blaster->MatchProteins(\%seqHash);
+    $contigHash = $blaster->MatchProteins(\%seqHash, $prot);
     # Save the contig list to the reference-genomes file.
     open(my $oh, ">$refGenomeFile") || die "Could not open reference genome output file: $!";
     for my $contig (sort keys %$contigHash) {
