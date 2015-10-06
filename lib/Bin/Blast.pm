@@ -112,15 +112,15 @@ A hash of options. These include
 
 Privilege level for computing the functions of the feature. The default is C<1>.
 
-=item maxE
-
-The maximum accetable E-value. The default is C<1e-50>.
-
 =item uniRoles
 
 Name of a tab-delimited file containing the universal roles. Each record must contain (0) a universal role ID, (1) the
 number of times it was found in the database, and (2) the role's description. The default is C<uni_roles.tbl> in the
 global data directory.
+
+=item maxE
+
+The maximum acceptable E-value. The default is C<1e-50>.
 
 =item gap
 

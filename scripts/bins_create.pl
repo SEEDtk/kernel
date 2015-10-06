@@ -58,14 +58,6 @@ The command-line options are those found in L<Shrub/script_options> plus the fol
 
 =over 4
 
-=item minsim
-
-Minimum permissible percent identity score for a BLAST result. The default is C<0.5>.
-
-=item minlen
-
-Minimum permissible length for a BLAST match. The default is C<150>.
-
 =item lenFiter
 
 Minimum contig length for a contig to be considered meaningful. Only meaningful contigs are retained. The default
@@ -96,12 +88,7 @@ Each tetranucleotide is counted once, and is considered identical to its reverse
 
 =back
 
-=item refs
-
-The name of a file containing the IDs of the reference genomes. If omitted, all prokaryotic genomes will be
-used. The file is tab-delimited, with the genome IDs in the first column.
-
-=item unis
+=item unifile
 
 The name of a file containing the IDs of the universal roles. If omitted, the file C<uni_roles.tbl> in the C<Global>
 subdirectory of the data directory will be used. The file is tab-delimited, with the role IDs in the first column,
@@ -118,6 +105,20 @@ The ID of the universal role to use for seeding the bin assignment. The default 
 =item seedgenome
 
 The ID of the genome to use for seeing the bin assignment. The default is E coli K12-- C<83333.1>.
+
+=item maxE
+
+The maximum acceptable E-value. The default is C<1e-50>.
+
+=item gap
+
+The maximum permissible gap between BLAST hits that are to be merged. BLAST hits on the same contig in the same
+direction that are closer than this number of base pairs are merged into a single hit. The default is C<600>.
+
+=item minlen
+
+The minimum fraction length for a BLAST hit. A BLAST hit that matches less than this fraction of a protein's
+length will be discarded. This is done after the gap-merging (see C<gap>). The default is C<0.50>.
 
 =back
 
@@ -149,16 +150,16 @@ The C<bins.report.txt> file contains a summary of the output bins.
 # Get the command-line parameters.
 my $opt = ScriptUtils::Opts('sampleDir workDir',
                 Shrub::script_options(),
-                ['minsim=f',       'minimum percent identity score for BLAST results', { 'default' => 0.5 }],
-                ['minlen=i',       'minimum length for an acceptable BLAST match', { 'default' => 150 }],
                 ['tetra=s',        'tetranucleotide counting algorithm', { 'default' => 'dual' }],
-                ['refs=s',         'reference genome list file'],
                 ['unifile=s',      'universal role file', { default => "$FIG_Config::global/uni_roles.tbl" }],
                 ['lenFilter=i',    'minimum contig length', { default => 1000 }],
                 ['covgFilter=f',   'minimum contig mean coverage', { default => 10}],
                 ['force',          'force re-creation of all intermediate files'],
                 ['seedrole|R=s',   'ID of the universal role to seed the bins', { default => 'PhenTrnaSyntAlph' }],
                 ['seedgenome|G=s', 'ID of the genome to seed the bins', { default => '83333.1' }],
+                ['gap|g=i',        'maximum permissible gap between blast hits for merging', { default => 600 }],
+                ['maxE|e=f',       'maximum acceptable e-value for blast hits', { default => 1e-5 }],
+                ['minlen|p=f',     'minimum fraction of the protein that must match in a blast hit', { default => 0.5 }]
         );
 # Turn off buffering for stdout.
 $| = 1;
@@ -288,7 +289,8 @@ if ($force || ! -s $reducedFastaFile || ! -s $binFile) {
     }
 }
 # Create the blaster.
-my $blaster = Bin::Blast->new($shrub, $workDir, $reducedFastaFile, uniRoles => $opt->unifile);
+my $blaster = Bin::Blast->new($shrub, $workDir, $reducedFastaFile, uniRoles => $opt->unifile,
+        maxE => $opt->maxe, minlen => $opt->minlen, gap => $opt->gap);
 # First, we need the list of bins and the locations where they hit the primary universal protein.
 my $binsFoundFile = "$workDir/bins.found.tbl";
 my $matches = {};
