@@ -322,16 +322,8 @@ my $refGenomeFile = "$workDir/ref.genomes.tbl";
 if ($force || ! -s $refGenomeFile) {
     # No. Create a hash mapping each contig ID to the DNA sequence representing the hit. We do this by reading
     # the reduced FASTA file and applying the matches hash.
-    my %seqHash;
-    my $fh = $loader->OpenFasta(contigsInput => $reducedFastaFile);
-    while (my $fields = $loader->GetLine(contigsInput => $fh)) {
-        my ($contig, undef, $seq) = @$fields;
-        if (exists $matches->{$contig}) {
-            my $match = $matches->{$contig};
-            $seqHash{$contig} = substr($seq, $match->Left, $match->Length);
-        }
-    }
-    $contigHash = $blaster->MatchProteins(\%seqHash, $prot);
+    my $seqHash = $loader->GetDNA($matches, $reducedFastaFile);
+    $contigHash = $blaster->MatchProteins($seqHash, $prot);
     # Save the contig list to the reference-genomes file.
     open(my $oh, ">$refGenomeFile") || die "Could not open reference genome output file: $!";
     for my $contig (sort keys %$contigHash) {

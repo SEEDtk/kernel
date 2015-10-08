@@ -731,6 +731,32 @@ sub merge_prots {
 }
 
 
+=head3 replace_prots
+
+    $bin->replace_prots(@prots);
+
+Denote that the bin contains the specified universal proteins. This completely erases the current universal protein data
+and replaces it with the new protein list.
+
+=over 4
+
+=item prots
+
+List of universal protein role IDs.
+
+=back
+
+=cut
+
+sub replace_prots {
+    my ($self, @prots) = @_;
+    # Create a new universal protein hash.
+    my %uniProts = map { $_ => 1 } @prots;
+    # Save it in this object.
+    $self->{uniProts} = \%uniProts;
+}
+
+
 =head2 Output Methods
 
 =head3 Write

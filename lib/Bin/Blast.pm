@@ -223,6 +223,193 @@ sub uni_total {
 
 =head2 Public Manipulation Methods
 
+=head3 BestProteinHits
+
+    my $hitHash = $blaster->BestProteinHits($refGenome, $binFasta);
+
+Find the best hit in the specified bin for each universal protein in the specified reference genome.
+
+=over 4
+
+=item refGenome
+
+ID of the reference genome whose universal proteins are to be analyzed.
+
+=item binFasta
+
+Name of a DNA FASTA file for the bin's contigs.
+
+=item RETURN
+
+Returns a reference to a hash mapping each universal protein to its best hit in the bin.
+
+=back
+
+=cut
+
+sub BestProteinHits {
+    my ($self, $refGenome, $binFasta) = @_;
+    # Declare the return variable.
+    my %retVal;
+    # Get the options.
+    my $gap = $self->{gap};
+    # Get the universal protein FASTA.
+    my ($queryFileName, $uniLens) = $self->GetRefGenomeFasta($refGenome, uniOnly => 1);
+    # Get the list of hits.
+    my @matches = sort { ($a->sid cmp $b->sid) or ($a->s1 <=> $b->s1) }
+            gjo::BlastInterface::blast($queryFileName, $binFasta, 'tblastn',
+            { outForm => 'hsp', maxE => $self->{maxE} });
+    # Now we track the matches for each universal protein. The matches come back in the form of Hsp objects.
+    # We want the match with the best percentage (defined as the identity count over the match length). If two
+    # matches have the same percentage, we pick the longer one. We also need to merge matches to compensate for
+    # frame shifts. In this case, the percentages are combined. Our approach will be to do the merging and then
+    # throw out all but the best for each protein. This hash lists the matches for each protein. Each match is
+    # stored in here in the form [location, n_id];
+    my %uniMatches;
+    for my $match (@matches) {
+        my $prot = $match->qdef;
+        if (! exists $uniMatches{$prot}) {
+            $uniMatches{$prot} = [[$match->sloc, $match->n_id]];
+        } else {
+            my $protMatches = $uniMatches{$prot};
+            # Now we have a list of the matches for this protein. If the new match belongs with an old one, it will
+            # belong with the last.
+            my $oldMatch = pop @$protMatches;
+            my ($oldLoc, $old_n_id) = @$oldMatch;
+            my $newLoc = $match->sloc;
+            if ($oldLoc->Dir eq $newLoc->Dir && ($newLoc->Left - $oldLoc->Right) < $self->{gap} ) {
+                # We belong to the previous hit.
+                $oldLoc->Merge($newLoc);
+                $old_n_id += $match->n_id;
+                push @$protMatches, [$oldLoc, $old_n_id];
+            } else {
+                # We are a new hit.
+                push @$protMatches, $oldMatch, [$newLoc, $match->n_id];
+            }
+        }
+    }
+    # Now select the best hit for each protein and put it in the return hash. Only hits greater than the minimum length are
+    # even considered.
+    for my $prot (keys %uniMatches) {
+        my $protMatches = $uniMatches{$prot};
+        my ($bestMatch, $bestScore) = (undef, 0);
+        for my $protMatch (@$protMatches) {
+            my ($matchLoc, $match_n_id) = @$protMatch;
+            # Compute this match's score.
+            my $newScore = $match_n_id / $matchLoc->Length;
+            if ($newScore > $bestScore || $newScore == $bestScore && $matchLoc->Length > $bestMatch->Length) {
+                # Here we have a new best.
+                $bestMatch = $matchLoc;
+                $bestScore = $newScore;
+            }
+        }
+        if ($bestMatch) {
+            $retVal{$prot} = $bestMatch;
+        }
+    }
+    # Return the hash of best matches.
+    return \%retVal;
+}
+
+=head3 BestDnaHits
+
+    my $bestHitHash = $blaster->BestDnaHits(\%seqHash, $fastaFile);
+
+Find the best protein hits for a set of DNA sequences. The DNA sequences will be passed in via a hash that maps IDs to
+sequences. The output hash will return, for each ID, the ID and definition string for the protein in the specified FASTA
+file that represents the corresponding DNA sequence's best hit.
+
+=over 4
+
+=item seqHash
+
+Reference to a hash that maps identifiers to DNA sequences.
+
+=item fastaFile
+
+The name of a FASTA file containing protein sequences.
+
+=item RETURN
+
+Returns a hash mapping each sequence identifier to a 2-tuple consisting of (0) the id and (1) the definition string of the
+best-hit protein.
+
+=back
+
+=cut
+
+sub BestDnaHits {
+    my ($self, $seqHash, $fastaFile) = @_;
+    # Create a FASTA triples object for use by the blast interface software.
+    my @triples = map { [$_, '', $seqHash->{$_}] } keys %$seqHash;
+    # BLAST to get the matches.
+    my $matches = gjo::BlastInterface::blast(\@triples, $fastaFile, 'blastx',
+            { maxE => $self->{maxE}, tmp_dir => $self->{workDir}, outForm => 'hsp' });
+    # The matches come back in the order of best match to worst. For each match, the query sequence
+    # ID will be the identifier from $seqHash, and the subject sequence ID will be a protein ID. The
+    # first hit found for each query sequence will be the best.
+    my %retVal;
+    for my $match (@$matches) {
+        my $seqID = $match->qid;
+        if (! exists $retVal{$seqID}) {
+            my $found = [$match->sid, $match->sdef // ''];
+            $retVal{$seqID} = $found;
+        }
+    }
+    # Return the result hash.
+    return \%retVal;
+}
+
+
+=head3 FilterBestHits
+
+    my $bbhitHash = $blaster->FilterBestHits(\%hitHash, $refGenome);
+
+This method filters out the hits from L<BestProteinHits> and only keeps the bidirectional best hits.
+Each protein is associated with a location in the bin. We blast that DNA's location back against the complete
+set of proteins in the genome and verify that the first hit for each location (the best) is the correct protein.
+
+=over 4
+
+=item hitHash
+
+Reference to a hash mapping protein role IDs to their best hit sequences.
+
+=item refGenome
+
+ID of the reference genome against which the sequences are to be blasted.
+
+=item RETURN
+
+Returns a reference to a hash whose keys are the universal roles whose best hits are bidirectional.
+
+=back
+
+=cut
+
+sub FilterBestHits {
+    my ($self, $hitHash, $refGenome) = @_;
+    # Get the working directory.
+    my $workDir = $self->{workDir};
+    # Get the shrub database object.
+    my $shrub = $self->{shrub};
+    # Create a FASTA file for the reference genome.
+    my ($fastaFileName) = $self->GetRefGenomeFasta($refGenome);
+    # This will be the return hash.
+    my %retVal;
+    # Perform the DNA blast.
+    my $bestDnaHits = $self->BestDnaHits($hitHash, $fastaFileName);
+    # Return the DNA hits back to the same protein.
+    for my $prot (keys %$bestDnaHits) {
+        my ($hitID, $hitProt) = @{$bestDnaHits->{$prot}};
+        if ($hitProt eq $prot) {
+            $retVal{$prot} = 1;
+        }
+    }
+    # Return the result.
+    return \%retVal;
+}
+
 =head3 FindProtein
 
     my $hitHash = $blaster->FindProtein($sampleGenome, $funID);
@@ -254,7 +441,6 @@ sub FindProtein {
     # Declare the return variable.
     my %retVal;
     # Get the options.
-    my $gap = $self->{gap};
     my $minlen = $self->{minlen};
     # Process the defaults.
     $sampleGenome //= '83333.1';
@@ -332,24 +518,15 @@ sub MatchProteins {
                 'Feature(id) Protein(sequence)');
         print $oh join("\n", map { ">$_->[0]\n$_->[1]" } @prots) . "\n";
     }
-    # Create a FASTA triples object for use by the blast interface software.
-    my @triples = map { [$_, '', $seqHash->{$_}] } keys %$seqHash;
-    # BLAST to get the matches.
-    my $matches = gjo::BlastInterface::blast(\@triples, $protFastaFile, 'blastx',
-            { maxE => $self->{maxE}, tmp_dir => $self->{workDir}, outForm => 'hsp' });
-    # The matches come back in the order of best match to worst. For each match, the query sequence
-    # ID will be the contig ID, and the subject sequence ID will be a FIG feature ID. We extract the
-    # genome ID from the FIG feature ID. The first hit found for each contig will be the best, and that
-    # is the genome ID we keep.
+    # Get the matches.
+    my $foundHash = $self->BestDnaHits($seqHash, $protFastaFile);
+    # Convert the matches found to genome IDs.
     my %retVal;
-    for my $match (@$matches) {
-        my $contigID = $match->qid;
-        if (! exists $retVal{$contigID}) {
-            my $fid = $match->sid;
-            my $genome = SeedUtils::genome_of($fid);
-            my ($gName) = $shrub->GetEntityValues(Genome => $genome, ['name']);
-            $retVal{$contigID} = [$genome, $gName];
-        }
+    for my $contigID (keys %$foundHash) {
+        my $fid = $foundHash->{$contigID}[0];
+        my $genome = SeedUtils::genome_of($fid);
+        my ($gName) = $shrub->GetEntityValues(Genome => $genome, ['name']);
+        $retVal{$contigID} = [$genome, $gName];
     }
     # Return the hash of contig IDs to genome information.
     return \%retVal;
@@ -402,29 +579,8 @@ sub Process {
         my $blasted = $stats->Add(refGenomesBlasted => 1);
         print "Processing $refGenome for BLAST ($blasted of $totalGenomes).\n";
         # This hash will track the minimum match length of each universal role.
-        my %uniLens;
-        # Create the FASTA file for this genome's query sequence.
-        my $queryFileName = "$workDir/$refGenome.fa";
-        open(my $oh, ">", $queryFileName) || die "Could not create FASTA output file: $!";
-        # Get the sequences and functions for all of this genome's proteins.
-        my @tuples = $shrub->GetAll('Feature Protein AND Feature Feature2Function', 'Feature(id) LIKE ? AND Feature2Function(security) = ?',
-            ["fig|$refGenome.peg.%", $priv], 'Feature(id) Feature2Function(to-link) Protein(sequence)');
-        # Write them in FASTA format.
-        for my $tuple (@tuples) {
-            my ($id, $function, $sequence) = @$tuple;
-            # Only keep the function if it is a universal role.
-            if (! $uniRoles->{$function}) {
-                $function = '';
-            } else {
-                $stats->Add(uniRoleProteins => 1);
-                # Track the universal role match length.
-                $uniLens{$function} = int(length($sequence) * $self->{minlen}) * 3;
-            }
-            print $oh ">$id $function\n$sequence\n";
-            $stats->Add(genomeProteins => 1);
-        }
-        close $oh;
-        print scalar(keys %uniLens) . " universal roles found in $refGenome.\n";
+        my ($queryFileName, $uniLens) = $self->GetRefGenomeFasta($refGenome);
+        print scalar(keys %$uniLens) . " universal roles found in $refGenome.\n";
         # Blast this genome against the sample contigs.
         my $matches = gjo::BlastInterface::blast($queryFileName, $self->{blastDb}, 'tblastn',
             { outForm => 'hsp', maxE => $maxE });
@@ -434,7 +590,7 @@ sub Process {
             print "$matchCount hits found.\n";
             # This hash will track universal role hits. It is a double hash keyed on universal role ID followed by
             # contig ID and maps to location objects.
-            my %uniHits = map { $_ => {} } keys %uniLens;
+            my %uniHits = map { $_ => {} } keys %$uniLens;
             # Loop through the matches.
             for my $match (sort { ($a->sid cmp $b->sid) or ($a->s1 <=> $b->s1) } @$matches) {
                 # Get the pieces of the HSP object.
@@ -463,7 +619,7 @@ sub Process {
             my $roleMatches = 0;
             for my $role (keys %uniHits) {
                 my $contigHits = $uniHits{$role};
-                my $minLen = $uniLens{$role};
+                my $minLen = $uniLens->{$role};
                 for my $contig (keys %$contigHits) {
                     my $hitList = $contigHits->{$contig};
                     for my $hit (@$hitList) {
@@ -493,6 +649,79 @@ sub Process {
 
 
 =head2 Internal Utility Methods
+
+=head3 GetRefGenomeFasta
+
+    my ($queryFileName, \%uniLens) = $blaster->GetRefGenomeFasta($refGenome, %options);
+
+Create a FASTA file containing all the proteins in a reference genome. The universal roles will have comments
+identifying which universal role is assigned to a protein.
+
+=over 4
+
+=item refGenome
+
+ID of the target reference genome.
+
+=item options
+
+A hash containing zero or more of the following keys.
+
+=over 8
+
+=item uniOnly
+
+If TRUE, only proteins with universal roles will be included.
+
+=back
+
+=item RETURN
+
+Returns a two-element list consisting of (0) the name of the file created and (1) a reference to a hash mapping each
+universal role ID to the minimum length required to match it.
+
+=back
+
+=cut
+
+sub GetRefGenomeFasta {
+    my ($self, $refGenome, %options) = @_;
+    # Get the working directory.
+    my $workDir = $self->{workDir};
+    # Get the shrub database object.
+    my $shrub = $self->{shrub};
+    # Get the universal role hash.
+    my $uniRoles = $self->{uniRoleH};
+    # Get the options.
+    my $uniOnly = $options{uniOnly} // 0;
+    # Create the FASTA file for this genome's query sequence.
+    # Get the options.
+    my $priv = $self->{priv};
+    my $uniMod = ($uniOnly ? '.uni' : '');
+    my $queryFileName = "$workDir/$refGenome$uniMod.fa";
+    open(my $oh, ">", $queryFileName) || die "Could not create FASTA output file: $!";
+    # This hash will track the minimum match length for each universal role.
+    my %uniLens;
+    # Get the sequences and functions for all of this genome's proteins.
+    my @tuples = $shrub->GetAll('Feature Protein AND Feature Feature2Function', 'Feature(id) LIKE ? AND Feature2Function(security) = ?',
+        ["fig|$refGenome.peg.%", $priv], 'Feature(id) Feature2Function(to-link) Protein(sequence)');
+    # Write them in FASTA format.
+    for my $tuple (@tuples) {
+        my ($id, $function, $sequence) = @$tuple;
+        # Only keep the function if it is a universal role.
+        if (! $uniRoles->{$function}) {
+            $function = '';
+        } else {
+            # Track the universal role match length.
+            $uniLens{$function} = int(length($sequence) * $self->{minlen}) * 3;
+        }
+        if ($function || ! $uniOnly) {
+            print $oh ">$id $function\n$sequence\n";
+        }
+    }
+    close $oh;
+    return ($queryFileName, \%uniLens);
+}
 
 =head3 MergeMatch
 
@@ -544,5 +773,6 @@ sub MergeMatch {
     # Return the merge flag.
     return $retVal;
 }
+
 
 1;
