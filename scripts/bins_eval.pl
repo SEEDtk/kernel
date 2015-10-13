@@ -54,6 +54,20 @@ The name of a file containing the IDs of the universal roles. If omitted, the fi
 subdirectory of the data directory will be used. The file is tab-delimited, with the role IDs in the first column,
 occurrence counts in the second, and role names in the third.
 
+=item maxE
+
+The maximum acceptable E-value. The default is C<1e-30>.
+
+=item gap
+
+The maximum permissible gap between BLAST hits that are to be merged. BLAST hits on the same contig in the same
+direction that are closer than this number of base pairs are merged into a single hit. The default is C<600>.
+
+=item minlen
+
+The minimum fraction length for a BLAST hit. A BLAST hit that matches less than this fraction of a protein's
+length will be discarded. This is done after the gap-merging (see C<gap>). The default is C<0.50>.
+
 =back
 
 =cut
@@ -62,7 +76,7 @@ occurrence counts in the second, and role names in the third.
 my $opt = ScriptUtils::Opts('parms', Shrub::script_options(),
                 ['unifile=s',      'universal role file', { default => "$FIG_Config::global/uni_roles.tbl" }],
                 ['gap|g=i',        'maximum permissible gap between blast hits for merging', { default => 600 }],
-                ['maxE|e=f',       'maximum acceptable e-value for blast hits', { default => 1e-5 }],
+                ['maxE|e=f',       'maximum acceptable e-value for blast hits', { default => 1e-30 }],
                 ['minlen|p=f',     'minimum fraction of the protein that must match in a blast hit', { default => 0.5 }]
         );
 # Create the loader object and get the statistics.

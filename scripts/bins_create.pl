@@ -96,7 +96,9 @@ occurrence counts in the second, and role names in the third.
 
 =item force
 
-If specified, all of the data and intermediate files will be re-created.
+If C<all>, all of the data and intermediate files will be recomputed. If C<parms>, the initial bin files will be
+reused, but everything else will be recomputed. (Use this last one if you have changed the parameters but not the
+input data.) If omitted, nothing will be recomputed.
 
 =item seedrole
 
@@ -104,11 +106,12 @@ The ID of the universal role to use for seeding the bin assignment. The default 
 
 =item seedgenome
 
-The ID of the genome to use for seeing the bin assignment. The default is E coli K12-- C<83333.1>.
+The ID of the genome to use for seeing the bin assignment. The default is E coli K12-- C<83333.1>. To
+specify more than one genome, use a comma-delimited list (e.g. C<83333.1,224324.1,300852.3>).
 
 =item maxE
 
-The maximum acceptable E-value. The default is C<1e-50>.
+The maximum acceptable E-value. The default is C<1e-20>.
 
 =item gap
 
@@ -119,6 +122,10 @@ direction that are closer than this number of base pairs are merged into a singl
 
 The minimum fraction length for a BLAST hit. A BLAST hit that matches less than this fraction of a protein's
 length will be discarded. This is done after the gap-merging (see C<gap>). The default is C<0.50>.
+
+=item refsPerBin
+
+The number of reference genomes to keep for each bin when doing the initial assignments.
 
 =back
 
@@ -154,12 +161,13 @@ my $opt = ScriptUtils::Opts('sampleDir workDir',
                 ['unifile=s',      'universal role file', { default => "$FIG_Config::global/uni_roles.tbl" }],
                 ['lenFilter=i',    'minimum contig length', { default => 1000 }],
                 ['covgFilter=f',   'minimum contig mean coverage', { default => 10}],
-                ['force',          'force re-creation of all intermediate files'],
+                ['force=s',        'force re-creation of all intermediate files'],
                 ['seedrole|R=s',   'ID of the universal role to seed the bins', { default => 'PhenTrnaSyntAlph' }],
                 ['seedgenome|G=s', 'ID of the genome to seed the bins', { default => '83333.1' }],
                 ['gap|g=i',        'maximum permissible gap between blast hits for merging', { default => 600 }],
-                ['maxE|e=f',       'maximum acceptable e-value for blast hits', { default => 1e-5 }],
-                ['minlen|p=f',     'minimum fraction of the protein that must match in a blast hit', { default => 0.5 }]
+                ['maxE|e=f',       'maximum acceptable e-value for blast hits', { default => 1e-20 }],
+                ['minlen|p=f',     'minimum fraction of the protein that must match in a blast hit', { default => 0.5 }],
+                ['refsPerBin=i',   'number of reference genomes to keep per bin', { default => 1 }]
         );
 # Turn off buffering for stdout.
 $| = 1;
@@ -195,7 +203,8 @@ my ($reducedFastaFile, $rejectedFastaFile, $binFile) = map { "$workDir/$_" } qw(
 print "Connecting to database.\n";
 my $shrub = Shrub->new_for_script($opt);
 # This will be set to TRUE if we want to force file creation at any point.
-my $force = $opt->force;
+my $forceType = $opt->force // 'none';
+my $force = ($forceType eq 'all');
 # Get the seeding parameters.
 my $prot = $opt->seedrole;
 my $genome = $opt->seedgenome;
@@ -288,6 +297,8 @@ if ($force || ! -s $reducedFastaFile || ! -s $binFile) {
         $contigs{$bin->contig1} = $bin;
     }
 }
+# Turn on forcing if force = parms.
+$force ||= ($forceType eq 'parms');
 # Create the blaster.
 my $blaster = Bin::Blast->new($shrub, $workDir, $reducedFastaFile, uniRoles => $opt->unifile,
         maxE => $opt->maxe, minlen => $opt->minlen, gap => $opt->gap);
@@ -296,9 +307,19 @@ my $binsFoundFile = "$workDir/bins.found.tbl";
 my $matches = {};
 # Do we have a bins-found file?
 if ($force || ! -s $binsFoundFile) {
-    # No. Search for the specified universal protein to create the initial bins.
-    print "Seeding bin process with $prot from $genome.\n";
-    $matches = $blaster->FindProtein($genome, $prot);
+    # No. we must search for the specified universal protein to create the initial bins.
+    # Get the list of genomes.
+    my @genomes = split /,/, $genome;
+    my $string = $genome;
+    if (scalar(@genomes) == 2) {
+        $string = join(" and ", @genomes);
+    } elsif (scalar(@genomes) > 2) {
+        my @sorted = sort @genomes;
+        my $last = pop @sorted;
+        $string = join(", ", @sorted) . ", and $last";
+    }
+    print "Seeding bin process with $prot from $string.\n";
+    $matches = $blaster->FindProtein(\@genomes, $prot);
     # Save the matches to a work file.
     open(my $oh, ">$binsFoundFile") || die "Could not open bins found output file: $!";
     for my $contig (sort keys %$matches) {
@@ -315,7 +336,9 @@ if ($force || ! -s $binsFoundFile) {
         $matches->{$contig} = BasicLocation->new($contig, $begin, $dir, $len);
     }
 }
-# Next, we need a hash of contig IDs to reference genomes.
+# Next, we need a hash of contig IDs to reference genomes. This is only for the contigs that represent the
+# starting bins. We are essentially finding the best N reference genome DNA matches for each of the
+# protein fragments identified in the first step.
 my $contigHash;
 # Do we have a reference genome file.
 my $refGenomeFile = "$workDir/ref.genomes.tbl";
@@ -323,7 +346,8 @@ if ($force || ! -s $refGenomeFile) {
     # No. Create a hash mapping each contig ID to the DNA sequence representing the hit. We do this by reading
     # the reduced FASTA file and applying the matches hash.
     my $seqHash = $loader->GetDNA($matches, $reducedFastaFile);
-    $contigHash = $blaster->MatchProteins($seqHash, $prot);
+    # Now BLAST against a database of the seed protein.
+    $contigHash = $blaster->MatchProteins($seqHash, $prot, $opt->refsperbin);
     # Save the contig list to the reference-genomes file.
     open(my $oh, ">$refGenomeFile") || die "Could not open reference genome output file: $!";
     for my $contig (sort keys %$contigHash) {
@@ -335,15 +359,34 @@ if ($force || ! -s $refGenomeFile) {
     # Read the hash from the reference genome file.
     my $ih = $loader->OpenFile(refGenomes => $refGenomeFile);
     while (my $refFields = $loader->GetLine(refGenomes => $ih)) {
-        my ($contig, $genome, $gName) = @$refFields;
-        $contigHash->{$contig} = [$genome, $gName];
+        my ($contig, @genomes) = @$refFields;
+        $contigHash->{$contig} = \@genomes;
+    }
+}
+# Our final list of bins goes in here.
+my @binList;
+# Find out which reference genomes uniquely identify a bin.
+my %rgHash;
+for my $contig (keys %$contigHash) {
+    my $rgList = $contigHash->{$contig};
+    for my $rg (@$rgList) {
+        $rgHash{$rg}++;
+    }
+}
+my @refGenomes = grep { $rgHash{$_} == 1 } keys %rgHash;
+# We can now create a map from reference genomes to bins. We will also
+# put the starter bins in the bin list.
+my %binHash;
+for my $contig (keys %$contigHash) {
+    my $bin = $contigs{$contig};
+    push @binList, $bin;
+    for my $rg (@{$contigHash->{$contig}}) {
+        $binHash{$rg} = $contigs{$contig};
     }
 }
 # The next step is to assign reference genomes to the bins. We cache this information in a file.
 my $refBinFile = "$workDir/contigs.ref.bins";
 if ($force || ! -s $refBinFile) {
-    # Get the reference genome IDs.
-    my @refGenomes = map { $contigHash->{$_}[0] } keys %$contigHash;
     # Blast the reference genomes against the community contigs to assign them.
     my $subStats = $blaster->Process(\%contigs, \@refGenomes);
     $stats->Accumulate($subStats);
@@ -364,7 +407,6 @@ if ($force || ! -s $refBinFile) {
 # Now run through the augmented contigs, forming them into bins by reference genome. The following hash is keyed
 # by reference genome and will contain each genome's bin. The list will contain the leftover bins.
 print "Assembling bins.\n";
-my (%binHash, @binList);
 for my $bin (values %contigs) {
     my ($refGenome) = $bin->refGenomes;
     if (! $refGenome) {
@@ -372,15 +414,18 @@ for my $bin (values %contigs) {
         $stats->Add(contigNoRefGenome => 1);
     } elsif (exists $binHash{$refGenome}) {
         my $oldBin = $binHash{$refGenome};
-        $oldBin->Merge($bin);
-        $stats->Add(contigMerged => 1);
+        if ($oldBin ne $bin) {
+            $oldBin->Merge($bin);
+            $stats->Add(contigMerged => 1);
+        }
     } else {
         $binHash{$refGenome} = $bin;
+        push @binList, $bin;
         $stats->Add(contigNewBin => 1);
     }
 }
-# Output the bins.
-my @sorted = sort { Bin::cmp($a, $b) } (values %binHash, @binList);
+# Sort the bins and create the report.
+my @sorted = sort { Bin::cmp($a, $b) } @binList;
 print "Writing bins to output.\n";
 open(my $oh, ">$workDir/bins.json") || die "Could not open bins.json file: $!";
 for my $bin (@sorted) {

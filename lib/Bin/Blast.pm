@@ -412,16 +412,17 @@ sub FilterBestHits {
 
 =head3 FindProtein
 
-    my $hitHash = $blaster->FindProtein($sampleGenome, $funID);
+    my $hitHash = $blaster->FindProtein(\@sampleGenomes, $funID);
 
 Return a list of hits representing the best occurrences of a particular role in the sample contigs.
 At most one hit per contig will be returned.
 
 =over 4
 
-=item sampleGenome
+=item sampleGenomes
 
-ID of the genome from which to take the prototype version of the role. If omitted, C<83333.1> will be assumed.
+Reference to a list of the IDs of the genomes from which to take the prototype versions of the role. If
+omitted, C<83333.1> will be assumed.
 
 =item funID
 
@@ -437,26 +438,39 @@ describing the location that is the best match for the specified protein.
 =cut
 
 sub FindProtein {
-    my ($self, $sampleGenome, $funID, %options) = @_;
+    my ($self, $sampleGenomes, $funID, %options) = @_;
     # Declare the return variable.
     my %retVal;
     # Get the options.
     my $minlen = $self->{minlen};
     # Process the defaults.
-    $sampleGenome //= '83333.1';
+    $sampleGenomes //= ['83333.1'];
     $funID //= $self->{defaultRole};
-    # Get the query protein sequence.
-    my ($prot) = $self->{shrub}->GetFlat('Function2Feature Feature Feature2Genome AND Feature Protein',
-            'Function2Feature(from-link) = ? AND Feature2Genome(to-link) = ? AND Function2Feature(security) = ?',
-            [$funID, $sampleGenome, $self->{priv}], 'Protein(sequence)');
-    if (! $prot) {
-        die "Protein $funID not found in $sampleGenome.";
+    # Insure we have a list reference for the genomes.
+    if (! ref $sampleGenomes) {
+        $sampleGenomes = [$sampleGenomes];
     }
-    # Compute the minimum match length.
-    my $minDnaLen = int($minlen * length($prot)) * 3;
+    # Get the query protein sequences. Note that the query will return a set of FASTA triples such as would be
+    # expected by BlastInterface.
+    my @in = map { '?' } @$sampleGenomes;
+    my $filter = "(" . join(", ", @in) . ")";
+    my (@prots) = $self->{shrub}->GetAll('Function2Feature Feature Feature2Genome AND Feature Protein',
+            "Function2Feature(from-link) = ? AND Function2Feature(security) = ? AND Feature2Genome(to-link) IN $filter",
+            [$funID, $self->{priv}, @$sampleGenomes], 'Feature(id) Function2Feature(from-link) Protein(sequence)');
+    if (! @prots) {
+        die "Protein $funID not found in any sample genomes.";
+    }
+    # Compute the minimum match length by taking the mean of all the proteins found.
+    my ($protLen, $protCount) = (0, 0);
+    for my $prot (@prots) {
+        my $len = length($prot->[2]);
+        $protLen += $len;
+        $protCount++;
+    }
+    my $minDnaLen = int($minlen * $protLen / $protCount) * 3;
     # Look for matches.
     my @matches = sort { ($a->sid cmp $b->sid) or ($a->s1 <=> $b->s1) }
-            gjo::BlastInterface::blast([$funID, '', $prot], $self->{blastDb}, 'tblastn',
+            gjo::BlastInterface::blast(\@prots, $self->{blastDb}, 'tblastn',
             { outForm => 'hsp', maxE => $self->{maxE} });
     # The matches are in the form of Hsp objects. They are sorted by start position within contig.
     # We condense the matches into location objects in the following hash. This is where the gap
@@ -479,7 +493,7 @@ sub FindProtein {
 
 =head3 MatchProteins
 
-    my $contigHash = $blaster->MatchProteins($seqHash, $funID);
+    my $contigHash = $blaster->MatchProteins($seqHash, $funID, $count);
 
 BLAST contig sequences against all occurrences of a protein in the Shrub database. The protein is identified by its
 functional assignment ID.
@@ -494,39 +508,50 @@ Reference to a hash mapping each contig ID to a DNA sequence.
 
 ID of the desired function. If omitted, the default universal role is used.
 
+=item count
+
+Number of reference genomes to keep for each bin. If omitted, the default is C<1>.
+
 =item RETURN
 
-Returns a reference to a hash mapping each incoming contig ID to a 2-tuple consisting of the ID and name of its best reference genome.
+Returns a reference to a hash mapping each incoming contig ID to a reference to a list of reference genome IDs.
 
 =back
 
 =cut
 
 sub MatchProteins {
-    my ($self, $seqHash, $funID) = @_;
-    # Get the default protein.
+    my ($self, $seqHash, $funID, $count) = @_;
+    # Get the defaults.
     $funID //= $self->{defaultRole};
+    $count //= 1;
     # Get the database.
     my $shrub = $self->{shrub};
     # Create the BLAST database for the protein.
     my $protFastaFile = $self->{workDir} . "/$funID.fa";
     if (! -s $protFastaFile) {
         # Here it does not exist, so we must create it.
-        open(my $oh, ">$protFastaFile") || die "Could not open protein FASTA output file: $!";
-        my @prots = $shrub->GetAll('Function2Feature Feature Protein',
-                'Function2Feature(from-link) = ? AND Function2Feature(security) = ?', [$funID, $self->{priv}],
-                'Feature(id) Protein(sequence)');
-        print $oh join("\n", map { ">$_->[0]\n$_->[1]" } @prots) . "\n";
+        $self->ProtDnaDatabase($funID, $protFastaFile);
     }
-    # Get the matches.
-    my $foundHash = $self->BestDnaHits($seqHash, $protFastaFile);
-    # Convert the matches found to genome IDs.
+    # Create a list of FASTA triplets from the matched sequences.
+    my @triples = map { [$_, '', $seqHash->{$_}] } keys %$seqHash;
+    # BLAST to get the matches against the protein DNA from the database.
+    my $matches = gjo::BlastInterface::blast(\@triples, $protFastaFile, 'blastn',
+            { maxE => $self->{maxE}, tmp_dir => $self->{workDir}, outForm => 'hsp' });
+    # The query sequence IDs are sample contigs representing bins. The subject sequence IDs are
+    # genome IDs. Save the best N genomes for each sample contig.
     my %retVal;
-    for my $contigID (keys %$foundHash) {
-        my $fid = $foundHash->{$contigID}[0];
-        my $genome = SeedUtils::genome_of($fid);
-        my ($gName) = $shrub->GetEntityValues(Genome => $genome, ['name']);
-        $retVal{$contigID} = [$genome, $gName];
+    for my $match (@$matches) {
+        my ($contig, $genome) = ($match->qid, $match->sid);
+        if (! $retVal{$contig}) {
+            $retVal{$contig} = [$genome];
+        } else {
+            my $gList = $retVal{$contig};
+            # If this is a new genome and we do not already have too many, keep it.
+            if (! (grep { $_ eq $genome } @$gList) && scalar(@$gList) < $count) {
+                push @$gList, $genome;
+            }
+        }
     }
     # Return the hash of contig IDs to genome information.
     return \%retVal;
@@ -649,6 +674,95 @@ sub Process {
 
 
 =head2 Internal Utility Methods
+
+=head3 ProtDnaDatabase
+
+    $blaster->ProtDnaDatabase($funID, $fileName);
+
+Create a FASTA file of all the DNA sequences for the specified function. The function is presumed to be a universal protein, so
+we expect only one occurrence in each genome having a single location. The code is optimized for this assumption.
+
+=over 4
+
+=item funID
+
+ID of the function for the protein of interest.
+
+=item fileName
+
+Name of the FASTA output file.
+
+=back
+
+=cut
+
+sub ProtDnaDatabase {
+    my ($self, $funID, $fileName) = @_;
+    # Get the shrub database.
+    my $shrub = $self->{shrub};
+    # Get the DNA repo directory.
+    my $dnaDir = $shrub->DNArepo();
+    # Get the function privilege level.
+    my $priv = $self->{priv};
+    # Get all the occurrences of the function in the database.
+    my @funTuples = $shrub->GetAll('Function2Feature Feature Feature2Contig AND Feature Genome',
+            'Function2Feature(from-link) = ? AND Function2Feature(security) = ? ORDER BY Feature2Contig(from-link), Feature2Contig(ordinal)',
+            [$funID, $priv], 'Feature2Contig(from-link) Genome(id) Genome(contig-file) Feature2Contig(to-link) Feature2Contig(begin) Feature2Contig(dir) Feature2Contig(len)');
+    # This hash will contain the DNA sequences found for each genome.
+    my %genomeDNA;
+    # This hash contains the feature ID for each genome. It is used to detect multi-occurring proteins.
+    my %genomeF;
+    # Loop through the tuples.
+    for my $tuple (@funTuples) {
+        my ($fid, $genome, $dnaFile, $contig, $beg, $dir, $len) = @$tuple;
+        # Is this feature a duplicate?
+        if (! $genomeF{$genome} || $genomeF{$genome} eq $fid) {
+            # No. Save the feature ID.
+            $genomeF{$genome} = $fid;
+            # Open the DNA file.
+            open(my $fh, "<$dnaDir/$dnaFile") || die "Could not open FASTA file for $genome: $!";
+            # Find the contig.
+            my $found;
+            while (! eof $fh && ! $found) {
+                my $line = <$fh>;
+                if ($line =~ />(\S+)/) {
+                    $found = ($1 eq $contig);
+                }
+            }
+            # At this point, we should have just read the contig header.
+            if (! $found) {
+                die "Could not find $contig in $genome FASTA file $dnaFile.";
+            }
+            my @dna;
+            while (! eof $fh && $found) {
+                my $line = <$fh>;
+                chomp $line;
+                if (substr($line, 0, 1) eq '>') {
+                    $found = 0;
+                } else {
+                    push @dna, $line;
+                }
+            }
+            # Get the DNA and adjust for direction.
+            my $dna = substr(join("", @dna), $beg-1, $len);
+            if ($dir eq '-') {
+                SeedUtils::rev_comp(\$dna);
+            }
+            # Save it.
+            if (exists $genomeDNA{$genome}) {
+                $genomeDNA{$genome} .= $dna;
+            } else {
+                $genomeDNA{$genome} = $dna;
+            }
+        }
+    }
+    # Create the output file.
+    open(my $ofh, ">$fileName") || die "Could not open FASTA output file: $!";
+    for my $genome (sort keys %genomeDNA) {
+        print $ofh ">$genome\n";
+        print $ofh "$genomeDNA{$genome}\n";
+    }
+}
 
 =head3 GetRefGenomeFasta
 
