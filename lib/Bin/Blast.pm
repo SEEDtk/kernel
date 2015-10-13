@@ -223,6 +223,95 @@ sub uni_total {
 
 =head2 Public Manipulation Methods
 
+=head3 GoodProteinHits
+
+    my $hitHash = $blaster->GoodProteinHits($refGenome, $binFasta);
+
+Find the hits in the specified bin for each protein in the specified reference genome.
+
+=over 4
+
+=item refGenome
+
+ID of the reference genome whose universal proteins are to be analyzed.
+
+=item binFasta
+
+Name of a DNA FASTA file for the bin's contigs.
+
+=item RETURN
+
+Returns a reference to a hash mapping each universal protein to a sorted list of its hits in the bin.
+
+=back
+
+=cut
+
+sub GoodProteinHits {
+    my ($self, $refGenome, $binFasta) = @_;
+    # Declare the return variable.
+    my %retVal;
+    # Get the options.
+    my $gap = $self->{gap};
+    # Get the universal protein FASTA.
+    my ($queryFileName, $uniLens) = $self->GetRefGenomeFasta($refGenome, uniOnly => 1);
+    # Get the list of hits.
+    my @matches = sort { ($a->sid cmp $b->sid) or ($a->s1 <=> $b->s1) }
+            gjo::BlastInterface::blast($queryFileName, $binFasta, 'tblastn',
+            { outForm => 'hsp', maxE => $self->{maxE} });
+    # Now we track the matches for each universal protein. The matches come back in the form of Hsp objects.
+    # We want the sort the matches by percentage (defined as the identity count over the match length). If two
+    # matches have the same percentage, we prefer the longer one. We also need to merge matches to compensate for
+    # frame shifts. In this case, the percentages are combined. Our approach will be to do the merging and then
+    # throw out all but the best for each protein. This hash lists the matches for each protein. Each match is
+    # stored in here in the form [location, n_id];
+    my %uniMatches;
+    for my $match (@matches) {
+        my $prot = $match->qdef;
+        if (! exists $uniMatches{$prot}) {
+            $uniMatches{$prot} = [[$match->sloc, $match->n_id]];
+        } else {
+            my $protMatches = $uniMatches{$prot};
+            # Now we have a list of the matches for this protein. If the new match belongs with an old one, it will
+            # belong with the last.
+            my $oldMatch = pop @$protMatches;
+            my ($oldLoc, $old_n_id) = @$oldMatch;
+            my $newLoc = $match->sloc;
+            if ($oldLoc->Dir eq $newLoc->Dir && ($newLoc->Left - $oldLoc->Right) < $self->{gap} ) {
+                # We belong to the previous hit.
+                $oldLoc->Merge($newLoc);
+                $old_n_id += $match->n_id;
+                push @$protMatches, [$oldLoc, $old_n_id];
+            } else {
+                # We are a new hit.
+                push @$protMatches, $oldMatch, [$newLoc, $match->n_id];
+            }
+        }
+    }
+    # Now sort the hits for each protein. Only hits greater than the minimum length are even considered.
+    for my $prot (keys %uniMatches) {
+        # Get the matches for this protein.
+        my $protMatches = $uniMatches{$prot};
+        # Remember the minimum match length.
+        my $minLen = $uniLens->{$prot};
+        # Get a list of all the good matches with their associated percentages.
+        my @matchList;
+        for my $protMatch (@$protMatches) {
+            my ($matchLoc, $match_n_id) = @$protMatch;
+            # Only proceed if it's long enough.
+            if ($matchLoc->Length >= $minLen) {
+                # Compute this match's score.
+                my $score = $match_n_id / $matchLoc->Length;
+                push @matchList, [$matchLoc, $score];
+            }
+        }
+        my @sorted = map { $_->[0] } sort { ($b->[1] <=> $a->[1]) or ($b->[0]->Length <=> $a->[0]->Length) } @matchList;
+        $retVal{$prot} = \@sorted;
+    }
+    # Return the hash of matches.
+    return \%retVal;
+}
+
 =head3 BestProteinHits
 
     my $hitHash = $blaster->BestProteinHits($refGenome, $binFasta);
@@ -251,61 +340,11 @@ sub BestProteinHits {
     my ($self, $refGenome, $binFasta) = @_;
     # Declare the return variable.
     my %retVal;
-    # Get the options.
-    my $gap = $self->{gap};
-    # Get the universal protein FASTA.
-    my ($queryFileName, $uniLens) = $self->GetRefGenomeFasta($refGenome, uniOnly => 1);
-    # Get the list of hits.
-    my @matches = sort { ($a->sid cmp $b->sid) or ($a->s1 <=> $b->s1) }
-            gjo::BlastInterface::blast($queryFileName, $binFasta, 'tblastn',
-            { outForm => 'hsp', maxE => $self->{maxE} });
-    # Now we track the matches for each universal protein. The matches come back in the form of Hsp objects.
-    # We want the match with the best percentage (defined as the identity count over the match length). If two
-    # matches have the same percentage, we pick the longer one. We also need to merge matches to compensate for
-    # frame shifts. In this case, the percentages are combined. Our approach will be to do the merging and then
-    # throw out all but the best for each protein. This hash lists the matches for each protein. Each match is
-    # stored in here in the form [location, n_id];
-    my %uniMatches;
-    for my $match (@matches) {
-        my $prot = $match->qdef;
-        if (! exists $uniMatches{$prot}) {
-            $uniMatches{$prot} = [[$match->sloc, $match->n_id]];
-        } else {
-            my $protMatches = $uniMatches{$prot};
-            # Now we have a list of the matches for this protein. If the new match belongs with an old one, it will
-            # belong with the last.
-            my $oldMatch = pop @$protMatches;
-            my ($oldLoc, $old_n_id) = @$oldMatch;
-            my $newLoc = $match->sloc;
-            if ($oldLoc->Dir eq $newLoc->Dir && ($newLoc->Left - $oldLoc->Right) < $self->{gap} ) {
-                # We belong to the previous hit.
-                $oldLoc->Merge($newLoc);
-                $old_n_id += $match->n_id;
-                push @$protMatches, [$oldLoc, $old_n_id];
-            } else {
-                # We are a new hit.
-                push @$protMatches, $oldMatch, [$newLoc, $match->n_id];
-            }
-        }
-    }
-    # Now select the best hit for each protein and put it in the return hash. Only hits greater than the minimum length are
-    # even considered.
-    for my $prot (keys %uniMatches) {
-        my $protMatches = $uniMatches{$prot};
-        my ($bestMatch, $bestScore) = (undef, 0);
-        for my $protMatch (@$protMatches) {
-            my ($matchLoc, $match_n_id) = @$protMatch;
-            # Compute this match's score.
-            my $newScore = $match_n_id / $matchLoc->Length;
-            if ($newScore > $bestScore || $newScore == $bestScore && $matchLoc->Length > $bestMatch->Length) {
-                # Here we have a new best.
-                $bestMatch = $matchLoc;
-                $bestScore = $newScore;
-            }
-        }
-        if ($bestMatch) {
-            $retVal{$prot} = $bestMatch;
-        }
+    # Get the hits.
+    my $hitHash = $self->GoodProteinHits($refGenome, $binFasta);
+    # Return only the first hit of each protein.
+    for my $prot (keys %$hitHash) {
+        $retVal{$prot} = $hitHash->{$prot}[0];
     }
     # Return the hash of best matches.
     return \%retVal;

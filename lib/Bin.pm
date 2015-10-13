@@ -702,6 +702,34 @@ sub add_prots {
     }
 }
 
+=head3 incr_prot
+
+    $bin->incr_prot($prot, $count);
+
+Add the specified number of hits for the specified universal protein.
+
+=over 4
+
+=item prot
+
+Universal protein ID.
+
+=item count
+
+Hit count to add.
+
+=back
+
+=cut
+
+sub incr_prot {
+    my ($self, $prot, $count) = @_;
+    # Get the universal protein hash.
+    my $uniProts = $self->{uniProts};
+    # Update this protein.
+    $uniProts->{$prot} += $count;
+}
+
 =head3 merge_prots
 
     $bin->merge_prots(@prots);

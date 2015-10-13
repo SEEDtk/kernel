@@ -147,19 +147,17 @@ for (my $id = 0; $id < scalar(@goodBins); $id++) {
     my ($genome) = $bin->refGenomes;
     # Find the universal roles that match bin DNA.
     print "Searching for best unirole hits in $binFasta.\n";
-    my $protHitHash = $blaster->BestProteinHits($genome, $binFasta);
+    my $protHitHash = $blaster->GoodProteinHits($genome, $binFasta);
     my $protsFound = scalar(keys %$protHitHash);
     print "$protsFound uniroles found.\n";
     $stats->Add(proteinsFound => $protsFound);
-    # Insure they are bidirectional best hits.
-    print "Extracting DNA sequences.\n";
-    my $protHitDna = $loader->GetDNA($protHitHash, $binFasta);
-    print "Filtering for bidirectional best hits.\n";
-    my $filtered = $blaster->FilterBestHits($protHitDna, $genome);
-    my $count = scalar(keys %$filtered);
-    print "$count final roles found.\n";
-    # Store the new universal role list.
-    $bin->replace_prots(keys %$filtered);
+    # Clear the bin's universal protein list.
+    $bin->replace_prots();
+    # Store the new counts.
+    for my $prot (keys %$protHitHash) {
+        my $hitList = $protHitHash->{$prot};
+        $bin->incr_prot($prot => scalar @$hitList);
+    }
 }
 print "Writing new bins.\n";
 open(my $oh, ">$binDir/bins.new.json") || die "Could not open bins output file: $!";
