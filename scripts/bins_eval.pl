@@ -76,7 +76,7 @@ length will be discarded. This is done after the gap-merging (see C<gap>). The d
 my $opt = ScriptUtils::Opts('parms', Shrub::script_options(),
                 ['unifile=s',      'universal role file', { default => "$FIG_Config::global/uni_roles.tbl" }],
                 ['gap|g=i',        'maximum permissible gap between blast hits for merging', { default => 600 }],
-                ['maxE|e=f',       'maximum acceptable e-value for blast hits', { default => 1e-30 }],
+                ['maxE|e=f',       'maximum acceptable e-value for blast hits', { default => 1e-50 }],
                 ['minlen|p=f',     'minimum fraction of the protein that must match in a blast hit', { default => 0.5 }]
         );
 # Create the loader object and get the statistics.
