@@ -163,7 +163,7 @@ my $opt = ScriptUtils::Opts('sampleDir workDir',
                 ['covgFilter=f',   'minimum contig mean coverage', { default => 10}],
                 ['force=s',        'force re-creation of all intermediate files'],
                 ['seedrole|R=s',   'ID of the universal role to seed the bins', { default => 'PhenTrnaSyntAlph' }],
-                ['seedgenome|G=s', 'ID of the genome to seed the bins', { default => '83333.1' }],
+                ['seedgenome|G=s', 'ID of the genome to seed the bins', { default => '83333.1,36870.1,224308.1,1148.1,64091.1,69014.3,83332.12,115711.7,187420.1,224326.1,243273.1,4932.3' }],
                 ['gap|g=i',        'maximum permissible gap between blast hits for merging', { default => 600 }],
                 ['maxE|e=f',       'maximum acceptable e-value for blast hits', { default => 1e-20 }],
                 ['minlen|p=f',     'minimum fraction of the protein that must match in a blast hit', { default => 0.5 }],
@@ -375,10 +375,12 @@ for my $contig (keys %$contigHash) {
 }
 my @refGenomes = grep { $rgHash{$_} == 1 } keys %rgHash;
 # We can now create a map from reference genomes to bins. We will also
-# put the starter bins in the bin list.
+# put the starter bins in the bin list and remove them from the master
+# contig map. We don't want to process them again.
 my %binHash;
 for my $contig (keys %$contigHash) {
     my $bin = $contigs{$contig};
+    delete $contigs{$contig};
     push @binList, $bin;
     for my $rg (@{$contigHash->{$contig}}) {
         $binHash{$rg} = $contigs{$contig};
@@ -424,7 +426,7 @@ for my $bin (values %contigs) {
         $stats->Add(contigNewBin => 1);
     }
 }
-# Sort the bins and create the report.
+# Sort the bins and create the initial report.
 my @sorted = sort { Bin::cmp($a, $b) } @binList;
 print "Writing bins to output.\n";
 open(my $oh, ">$workDir/bins.json") || die "Could not open bins.json file: $!";
