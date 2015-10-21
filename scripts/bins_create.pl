@@ -365,22 +365,23 @@ if ($force || ! -s $refGenomeFile) {
 }
 # Our final list of bins goes in here.
 my @binList;
-# Find out which reference genomes uniquely identify a bin.
+# Find out which reference genomes uniquely identify a bin and insure the reference genoems
+# are stored in the starter bins.
 my %rgHash;
 for my $contig (keys %$contigHash) {
     my $rgList = $contigHash->{$contig};
+    my $bin = $contigs{$contig};
     for my $rg (@$rgList) {
         $rgHash{$rg}++;
+        $bin->add_ref($rg);
     }
 }
 my @refGenomes = grep { $rgHash{$_} == 1 } keys %rgHash;
 # We can now create a map from reference genomes to bins. We will also
-# put the starter bins in the bin list and remove them from the master
-# contig map. We don't want to process them again.
+# put the starter bins in the bin list.
 my %binHash;
 for my $contig (keys %$contigHash) {
     my $bin = $contigs{$contig};
-    delete $contigs{$contig};
     push @binList, $bin;
     for my $rg (@{$contigHash->{$contig}}) {
         $binHash{$rg} = $contigs{$contig};
@@ -406,8 +407,7 @@ if ($force || ! -s $refBinFile) {
         $contigs{$bin->contig1} = $bin;
     }
 }
-# Now run through the augmented contigs, forming them into bins by reference genome. The following hash is keyed
-# by reference genome and will contain each genome's bin. The list will contain the leftover bins.
+# Now we want to run through the augmented contigs, forming them into bins by reference genome.
 print "Assembling bins.\n";
 for my $bin (values %contigs) {
     my ($refGenome) = $bin->refGenomes;

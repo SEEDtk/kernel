@@ -699,13 +699,17 @@ sub Process {
         }
     }
     # Now all the reference genomes have been blasted. For each contig, we need to assign the reference
-    # genome and any universal roles.
+    # genome and any universal roles. Note that if a contig already has reference genome information we
+    # ignore our results here.
     print "Assigning genomes to sample contigs.\n";
     for my $contigID (keys %contigGenomes) {
         $stats->Add(contigsWithRefGenomes => 1);
         my $genome = $contigGenomes{$contigID}[0];
-        # Add the genome found to the contig's bin.
-        $contigBins->{$contigID}->add_ref($genome);
+        my $bin = $contigBins->{$contigID};
+        if (! $bin->refGenomes) {
+            # Add the genome found to the contig's bin.
+            $contigBins->{$contigID}->add_ref($genome);
+        }
     }
     # Return the statistics.
     return $stats;
