@@ -22,9 +22,9 @@ use warnings;
 use FIG_Config;
 use Shrub;
 use ScriptUtils;
-use Bin::Blast;
+use Bin::Compute;
 use Bin::Tetra;
-use Bin::Kmers;
+use KmerRepGenomes;
 use Bin;
 use Stats;
 use Loader;
@@ -139,13 +139,15 @@ The maximum number of reference genomes to keep for BLASTing purposes.
 =head2 Working Files
 
 This script produces intermediate working files that are re-used if they already exist. Many files are output in the
-working directory by L<Bin::Blast> and L<Bin::Kmers>. These are independent of the contigs input, so the same working
+working directory by L<Bin::Blast> and L<KmerRepGenomes>. These are independent of the contigs input, so the same working
 directory can be used for multiple communities.
 
 The C<ref.counts.tbl> file contains the IDs of the reference genomes to be used for the analysis of the sample.
 This is stored in the sample directory.
 
 The C<sample.fasta> file contains the sequences for the meaningful contigs in the sample.
+
+The C<rejected.fasta> file contains the sequences for the non-meaningful contigs in the sample.
 
 =cut
 
@@ -157,8 +159,8 @@ my $opt = ScriptUtils::Opts('sampleDir outputFile',
                 ['tetra=s',      'tetranucleotide counting algorithm', { 'default' => 'dual' }],
                 ['workDir|D=s',  'working directory for intermediate files'],
                 ['refs=s',       'reference genome list file'],
-                ['unis=s',       'universal role file', { default => "$FIG_Config::data/Global/uni_roles.tbl" }],
-                ['reps=s',       'representative role file', { default => "$FIG_Config::data/Global/rep_roles.tbl" }],
+                ['unifile=s',    'universal role file', { default => "$FIG_Config::global/uni_roles.tbl" }],
+                ['reps=s',       'representative role file', { default => "$FIG_Config::global/rep_roles.tbl" }],
                 ['force',        'force a rebuild of the BLAST and KMER databases'],
                 ['minhits=i',    'minimum number of kmer hits for a genome to be considered useful', { default => 400 }],
                 ['maxfound=i',   'maximum number of kmer occurrences before it is considered common', { default => 10 }],
@@ -167,6 +169,8 @@ my $opt = ScriptUtils::Opts('sampleDir outputFile',
                 ['covgFilter=f',  'minimum contig mean coverage', { default => 10}],
                 ['maxrefs=i',    'maximum number of reference genomes to use', { default => 10 }],
         );
+# Turn off buffering for stdout.
+$| = 1;
 # Create the loader object.
 my $loader = Loader->new();
 # Get the statistics object.
@@ -182,8 +186,8 @@ if (! $sampleDir) {
 } elsif (! -d $sampleDir) {
     die "Invalid sample directory $sampleDir.";
 }
-my ($contigFile, $vectorFile, $reducedFastaFile) =
-        map { "$sampleDir/$_" } qw(contigs.fasta output.contigs2reads.txt sample.fasta);
+my ($contigFile, $vectorFile, $reducedFastaFile, $rejectedFastaFile) =
+        map { "$sampleDir/$_" } qw(contigs.fasta output.contigs2reads.txt sample.fasta rejected.fasta);
 if (! -f $contigFile) {
     die "Contig file $contigFile not found.";
 } elsif (! -f $vectorFile) {
@@ -281,16 +285,20 @@ print "Final count is " . scalar(keys %contigs) . " sample contigs kept.\n";
 # Create a file of the selected contigs. We need to re-open the input file and extract the
 # contigs we want to keep.
 open(my $ofh, '>', $reducedFastaFile) || die "Could not open FASTA output file: $!";
+open(my $xfh, '>', $rejectedFastaFile) || die "Could not open FASTA save file: $!";
 $fh = $loader->OpenFasta(contig => $contigFile);
 $fields = $loader->GetLine(contig => $fh);
 while (defined $fields) {
     my ($contig, undef, $seq) = @$fields;
     if (exists $contigs{$contig}) {
         print $ofh ">$contig\n$seq\n";
+    } else {
+        print $xfh ">$contig\n$seq\n";
     }
     $fields = $loader->GetLine(contig => $fh);
 }
 close $ofh;
+close $xfh;
 my $refsFile = "$sampleDir/ref.counts.tbl";
 # Get the list of representative role IDs.
 my $repRoles = $loader->GetNamesFromFile(repRoles => $opt->reps);
@@ -298,7 +306,8 @@ my $repCount = scalar @$repRoles;
 print "$repCount representative roles found.\n";
 # Create the KMER database.
 print "Creating KMER database.\n";
-my $kmers = Bin::Kmers->new($shrub, $workDir, $repRoles, force => $force, kmerSize => $opt->kmersize, minHits => $opt->minhits,
+my $kmers = KmerRepGenomes->new($shrub, "$workDir/rep_kmers.json", $repRoles,
+        force => $force, kmerSize => $opt->kmersize, minHits => $opt->minhits,
         maxFound => $opt->maxfound);
 # Compute the list of genomes to BLAST. First we find the relevant genomes.
 print "Computing reference genomes.\n";
@@ -315,7 +324,7 @@ for my $refGenome (@$refs) {
         $stats->Add(keptRefGenome => 1);
     }
 }
-my @sortedRefs = sort { $refGenomeH->{$b} <=> $refGenomeH->{$a} } @filtered;
+my @sortedRefs = sort { $refGenomeH->{$b}[0] <=> $refGenomeH->{$a}[0] } @filtered;
 my @realRefs;
 if (scalar(@sortedRefs) > $opt->maxrefs) {
     @realRefs = @sortedRefs[0 .. $opt->maxrefs];
@@ -324,12 +333,12 @@ if (scalar(@sortedRefs) > $opt->maxrefs) {
 }
 # Prepare to write what we decided to keep.
 open(my $orh, ">", $refsFile) || die "Could not open reference genome save file: $!";
-for my $refGenome (@sortedRefs) {
-    print $orh "$refGenome\t$refGenomeH->{$refGenome}\n";
+for my $refGenome (@realRefs) {
+    print $orh join("\t", $refGenome, @{$refGenomeH->{$refGenome}}) . "\n";
 }
 print scalar(@realRefs) . " reference genomes qualified.\n";
 # Finally, we do the BLASTing.
-my $blastStats = Bin::Blast::Process($shrub, $sampleDir, \@realRefs, \%contigs, $reducedFastaFile, $uniRoles,
+my $blastStats = Bin::Compute::ProcessBlast($shrub, $sampleDir, \@realRefs, \%contigs, $reducedFastaFile, $uniRoles,
         minsim => $opt->minsim, minlen => $opt->minlen);
 $stats->Accumulate($blastStats);
 # Open the output file.

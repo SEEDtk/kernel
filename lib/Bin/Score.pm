@@ -19,6 +19,7 @@
 package Bin::Score;
 
     use strict;
+    use FIG_Config;
     use warnings;
 
 =head1 Community Bin Scoring Object
@@ -58,13 +59,17 @@ The weight to assign to the universal role score. This is equal to the number of
 bins less the C<uniPenalty> times the number of universal roles in both bins, all scaled by the total number of universal
 roles. A negative values is changed to zero.
 
-=item uniTotal
+=item uniHash
 
-The total number of universal roles.
+A reference to a hash keyed on universal role ID.
 
 =item minScore
 
 The minimum acceptable score. Lower scores are set to 0.
+
+=item uniTotal
+
+The total number of universal roles.
 
 =back
 
@@ -108,9 +113,10 @@ The weight to assign to the universal role score.
 
 The minimum acceptable score. (Lower scores are set to 0.)
 
-=item unitotal
+=item unifile
 
-The total number of universal roles. This is the only value with a default-- C<58>.
+The name of a tab-delimited file containing the universal role IDs in the first column. The default is C<uni_roles.tbl> in
+the global data directory.
 
 =back
 
@@ -120,6 +126,8 @@ The total number of universal roles. This is the only value with a default-- C<5
 
 sub new_for_script {
     my ($class, $opt) = @_;
+    # Compute the universal role hash.
+    my $uniHash = ReadUniHash($opt->unifile);
     # Create the object.
     my $retVal = {
         covgWeight => $opt->covgweight,
@@ -127,9 +135,11 @@ sub new_for_script {
         refWeight => $opt->refweight,
         uniPenalty => $opt->unipenalty,
         uniWeight => $opt->uniweight,
-        uniTotal => ($opt->unitotal // 57),
+        uniHash => $uniHash,
         minScore => ($opt->minscore)
     };
+    # Compute the number of universal roles.
+    $retVal->{uniTotal} = scalar keys %$uniHash;
     # Bless and return it.
     bless $retVal, $class;
     return $retVal;
@@ -137,7 +147,7 @@ sub new_for_script {
 
 =head3 new
 
-    my $score = Bin::Score->new($covgweight, $tetraweight, $refweight, $unipenalty, $uniweight, $minscore, $unitotal);
+    my $score = Bin::Score->new($covgweight, $tetraweight, $refweight, $unipenalty, $uniweight, $minscore, $unifile);
 
 Create a scoring object from specified scoring values.
 
@@ -167,16 +177,19 @@ The weight to assign to the universal role score.
 
 The minimum acceptable score. (Lower scores are set to 0.)
 
-=item unitotal (optional)
+=item unifile (optional)
 
-The total number of universal roles. If omitted, C<57> is assumed.
+The name of a tab-delimited file containing the universal role IDs in the first column. The default is C<uni_roles.tbl> in
+the global data directory.
 
 =back
 
 =cut
 
 sub new {
-    my ($class, $covgweight, $tetraweight, $refweight, $unipenalty, $uniweight, $minscore, $unitotal) = @_;
+    my ($class, $covgweight, $tetraweight, $refweight, $unipenalty, $uniweight, $minscore, $unifile) = @_;
+    # Compute the universal role hash.
+    my $uniHash = ReadUniHash($unifile);
     # Create the object.
     my $retVal = {
         covgWeight => $covgweight,
@@ -184,9 +197,11 @@ sub new {
         refWeight => $refweight,
         uniPenalty => $unipenalty,
         uniWeight => $uniweight,
-        uniTotal => ($unitotal // 57),
+        uniHash => $uniHash,
         minScore => $minscore
     };
+    # Compute the number of universal roles.
+    $retVal->{uniTotal} = scalar keys %$uniHash;
     # Bless and return it.
     bless $retVal, $class;
     return $retVal;
@@ -220,9 +235,10 @@ The penalty for universal roles in common.
 
 The weight to assign to the universal role score.
 
-=item unitotal
+=item unifile
 
-The total number of universal roles. If omitted, C<58> is assumed.
+The name of a tab-delimited file containing the universal role IDs in the first column. The default is C<uni_roles.tbl> in
+the global data directory.
 
 =item minscore
 
@@ -237,13 +253,13 @@ that can be used in the L<ScriptUtils/Opts> method.
 
 sub script_options {
     return (
-           [ "covgweight=f", "the weight to assign to the coverage score", { default => 0.73 } ],
-           [ "tetraweight=f", "the weight to assign to the tetranucleotide score", { default => 0.42 }  ],
-           [ "refweight=f", "the weight to assign to the closest-reference-genome score", { default => 0.04 } ],
-           [ "unipenalty=f", "the penalty to assign to duplicate universal roles", { default => 1 } ],
-           [ "uniweight=f", "the weight to assign to the universal role score", { default => 0.75 } ],
-           [ "unitotal=i", "the total number of universal roles", { default => 57 } ],
-           [ "minscore=f", "the minimum acceptable score (lower scores are set to 0)", { default => 0.69 }]
+           [ "covgweight=f",  "the weight to assign to the coverage score", { default => 0.717 } ],
+           [ "tetraweight=f", "the weight to assign to the tetranucleotide score", { default => 0.593 }  ],
+           [ "refweight=f",   "the weight to assign to the closest-reference-genome score", { default => 0.255 } ],
+           [ "unipenalty=f",  "the penalty to assign to duplicate universal roles", { default => 0.970 } ],
+           [ "uniweight=f",   "the weight to assign to the universal role score", { default => 0.856 } ],
+           [ "unifile=s",     "file containing the universal roles", { default => "$FIG_Config::global/uni_roles.tbl" } ],
+           [ "minscore=f",    "the minimum acceptable score (lower scores are set to 0)", { default => 1.15 }]
     );
 }
 
@@ -407,6 +423,48 @@ sub Vector {
     return \@retVal;
 }
 
+=head3 ReadUniHash
+
+    my $uniHash = ReadUniHash($unifile);
+
+Read the universal role file and produce a hash keyed by universal role
+ID. If no file name is provided, the default will be used.
+
+=over 4
+
+=item unifile
+
+The name of a tab-delimited file containing the universal roles. The first column must contain the universal role ID and the
+third should contain the role description. If this parameter is omitted, the default file C<uni_roles.tbl> in the global
+data directory will be used.
+
+=item RETURN
+
+Returns a reference to a hash mapping each universal role ID to its description.
+
+=back
+
+=cut
+
+sub ReadUniHash {
+    # Get the parameters.
+    my ($unifile) = @_;
+    # Declare the return variable.
+    my %retVal;
+    # Open the file for input.
+    my $file = ($unifile // "$FIG_Config::global/uni_roles.tbl");
+    open(my $ih, '<', $file) || die "Could not open universal role file: $!";
+    # Read the roles.
+    while (! eof $ih) {
+        my $line = <$ih>;
+        chomp $line;
+        my ($id, undef, $name) = split /\t/, $line;
+        $retVal{$id} = $name;
+    }
+    # Return the result.
+    return \%retVal;
+}
+
 
 =head2 Public Manipulation Methods
 
@@ -525,6 +583,31 @@ sub Score {
     return $self->ScoreV($vector);
 }
 
+=head3 uni_hash
+
+    my $uniHash = $score->uni_hash;
+
+Return the universal role hash.
+
+=cut
+
+sub uni_hash {
+    my ($self) = @_;
+    return $self->{uniHash};
+}
+
+=head3 uni_total
+
+    my $uniTotal = $score->uni_total;
+
+Return the total number of universal roles.
+
+=cut
+
+sub uni_total {
+    my ($self) = @_;
+    return $self->{uniTotal};
+}
 
 =head3 Show
 
@@ -538,9 +621,98 @@ sub Show {
     my ($self) = @_;
     my @retVal;
     for my $parm (keys %$self) {
-        push @retVal, "$parm = $self->{$parm}";
+        my $value = $self->{$parm};
+        if (! ref $value) {
+            push @retVal, "$parm = $self->{$parm}";
+        }
     }
     return join("\n", "** SCORING PARAMETERS", @retVal, "", "");
+}
+
+
+=head3 FilterBin
+
+    $score->FilterBin($bin);
+
+Process a bin object to remove the universal roles not active in this scoring environment.
+
+=over 4
+
+=item bin
+
+A L<Bin> object to be updated.
+
+=back
+
+=cut
+
+sub FilterBin {
+    my ($self, $bin) = @_;
+    # Get the bin's universal role hash.
+    my $uniProtH = $bin->uniProts;
+    # Delete the roles not in our role list.
+    my $uniHash = $self->{uniHash};
+    for my $role (keys %$uniProtH) {
+        if (! $uniHash->{$role}) {
+            delete $uniProtH->{$role};
+        }
+    }
+}
+
+
+=head3 Filter
+
+    $score->Filter($binList);
+
+Filter all the bins in the specified list to remove universal roles not used by this scoring method.
+
+=over 4
+
+=item binList
+
+A reference to a list of L<Bin> objects to be filtered.
+
+=back
+
+=cut
+
+sub Filter {
+    my ($self, $binList) = @_;
+    # Loop through the bins, filtering them.
+    for my $bin (@$binList) {
+        $self->FilterBin($bin);
+    }
+}
+
+
+=head3 Copy
+
+    my $newBinList = $score->Copy($binList);
+
+Create filtered copies of all the bins in the specified list.
+
+=over 4
+
+=item binList
+
+A reference to a list of L<Bin> objects to be filtered.
+
+=item RETURN
+
+Returns a reference to a list of filtered copies of the incoming L<Bin> objects.
+
+=back
+
+=cut
+
+sub Copy {
+    my ($self, $binList) = @_;
+    # Create the return list by copying the bins.
+    my @retVal = map { Bin->new_copy($_) } @$binList;
+    # Filter the bins.
+    $self->Filter(\@retVal);
+    # Return the result.
+    return \@retVal;
 }
 
 1;

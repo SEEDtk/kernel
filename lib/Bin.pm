@@ -684,7 +684,7 @@ Increment the counts for the specified universal proteins.
 
 =over 4
 
-=item add_prots
+=item prots
 
 List of universal protein role IDs.
 
@@ -700,6 +700,88 @@ sub add_prots {
     for my $prot (@prots) {
         $uniProts->{$prot}++;
     }
+}
+
+=head3 incr_prot
+
+    $bin->incr_prot($prot, $count);
+
+Add the specified number of hits for the specified universal protein.
+
+=over 4
+
+=item prot
+
+Universal protein ID.
+
+=item count
+
+Hit count to add.
+
+=back
+
+=cut
+
+sub incr_prot {
+    my ($self, $prot, $count) = @_;
+    # Get the universal protein hash.
+    my $uniProts = $self->{uniProts};
+    # Update this protein.
+    $uniProts->{$prot} += $count;
+}
+
+=head3 merge_prots
+
+    $bin->merge_prots(@prots);
+
+Denote that the bin contains the specified universal proteins. Unlike L</add_prots>, this does not increment counts, it
+sets them to C<1>. Use this method when we are BLASTing multiple reference genomes against a single contig, because we
+expect to get hits from multiple genomes against the same protein.
+
+=over 4
+
+=item prots
+
+List of universal protein role IDs.
+
+=back
+
+=cut
+
+sub merge_prots {
+    my ($self, @prots) = @_;
+    # Get the universal protein hash.
+    my $uniProts = $self->{uniProts};
+    # Loop through the incoming proteins.
+    for my $prot (@prots) {
+        $uniProts->{$prot} = 1;
+    }
+}
+
+
+=head3 replace_prots
+
+    $bin->replace_prots(@prots);
+
+Denote that the bin contains the specified universal proteins. This completely erases the current universal protein data
+and replaces it with the new protein list.
+
+=over 4
+
+=item prots
+
+List of universal protein role IDs.
+
+=back
+
+=cut
+
+sub replace_prots {
+    my ($self, @prots) = @_;
+    # Create a new universal protein hash.
+    my %uniProts = map { $_ => 1 } @prots;
+    # Save it in this object.
+    $self->{uniProts} = \%uniProts;
 }
 
 

@@ -36,13 +36,13 @@ The command-line options are those found in L<Shrub/script_options>.
 # Get the command-line parameters.
 my $opt =
   ScriptUtils::Opts( '', Shrub::script_options(),
-    [] );
+    ['priv|p=i', 'privilege level for functions', { default => 2 }] );
 
 # Connect to the database.
 my $shrub = Shrub->new_for_script($opt);
 
 my @tuples = $shrub->GetAll("Function Function2Feature",
-                            "Function2Feature(security) = ?",[1],
+                            "Function2Feature(security) = ?",[$opt->priv],
                             "Function(description) Function2Feature(to-link) Function2Feature(from-link)");
 
 my %funcH;
@@ -78,5 +78,5 @@ foreach my $func (keys(%funcH))
 my @best = sort { $counts{$b} <=> $counts{$a} } keys(%counts);
 foreach $_ (@best)
 {
-    print join("\t",($_, $counts{$_}, ($multis{$_} // 0), $funcD{$_})),"\n";
+    print join("\t",($_, $counts{$_}, $funcD{$_}, ($multis{$_} // 0))),"\n";
 }

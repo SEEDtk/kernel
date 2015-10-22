@@ -57,93 +57,17 @@ my $opt = ScriptUtils::Opts('', ScriptUtils::ih_options(),
 my $ih = ScriptUtils::IH($opt->input);
 my $binList;
 # Read in the universal roles.
-open(my $uh, '<', $opt->unis) || die "Could not open universal role file: $!";
-my %uniRoles;
-while (! eof $uh) {
-    my $line = <$uh>;
-    chomp $line;
-    my ($roleID, undef, $roleName) = split /\t/, $line;
-    $uniRoles{$roleID} = $roleName;
-}
+my $uniRoles = Bin::Score::ReadUniHash($opt->unifile);
 # Get the analysis object.
 my $analyzer = Bin::Analyze->new();
 # Connect to the database.
 my $shrub = Shrub->new_for_script($opt);
-# This will be a hash mapping each universal role to a hash of the bins it appears in. The bins will be
-# identified by an ID number we assign.
-my %uniBins;
-my $binID = 0;
 # This will contain a list of bins for the final statistical report.
 my @bins;
-# Loop through the bins, producing reports on relatively good ones.
-my $done;
-while (! eof $ih && ! $done) {
+# Loop through the bins, collecting them in memory.
+while (! eof $ih) {
     my $bin = Bin->new_from_json($ih);
-    my $quality = $analyzer->AnalyzeBin($bin);
     push @bins, $bin;
-    # Compute the bin ID.
-    $binID++;
-    print "\nBIN $binID (from " . $bin->contig1 . ", " . $bin->contigCount . " contigs, " . $bin->len . " base pairs, quality $quality)\n";
-    # List the close reference genomes.
-    my @genomes = $bin->refGenomes;
-    if (@genomes) {
-        my $filter = 'Genome(id) IN (' . join(', ', map { '?' } @genomes) . ')';
-        my %gNames =  map { $_->[0] => $_->[1] } $shrub->GetAll('Genome', $filter, \@genomes, 'id name');
-        for my $genome (@genomes) {
-            print "    $genome: $gNames{$genome}\n";
-        }
-    }
-    # Compute the average coverage.
-    my $coverageV = $bin->coverage;
-    my $avg = 0;
-    for my $covg (@$coverageV) {
-        $avg += $covg;
-    }
-    $avg /= scalar @$coverageV;
-    print "*** Mean coverage is $avg.\n";
-    # Finally, the universal role list. This hash helps us find the missing ones.
-    print "    Universal Roles\n";
-    print "    ---------------\n";
-    my %unisFound = map { $_ => 0 } keys %uniRoles;
-    my $uniFoundCount = 0;
-    my $uniMissingCount = 0;
-    my $uniDuplCount = 0;
-    # Get the universal role hash for the bin.
-    my $binUnis = $bin->uniProts;
-    for my $uni (sort keys %$binUnis) {
-        my $count = $binUnis->{$uni};
-        if ($count) {
-            print "    $uni\t$uniRoles{$uni}\t$count\n";
-            $unisFound{$uni} = 1;
-            $uniBins{$uni}{$binID} = $count;
-            $uniFoundCount++;
-            if ($count > 1) {
-                $uniDuplCount++;
-            }
-        }
-    }
-    # Now the roles not found.
-    if (! $uniFoundCount) {
-        print "    NONE FOUND\n";
-    } else {
-        print "    ---------------\n";
-        for my $uni (sort keys %unisFound) {
-            if (! $unisFound{$uni}) {
-                print "    $uni\t$uniRoles{$uni}\tmissing\n";
-                $uniMissingCount++;
-            }
-        }
-        print "    ---------------\n";
-        print "    $uniFoundCount present, $uniMissingCount missing, $uniDuplCount duplicated.\n";
-    }
 }
-# Now output the universal role matrix.
-print "\nUNIVERSAL ROLE MATRIX\n";
-print join("\t", 'Role', map { "bin$_" } (1 .. $binID)) . "\n";
-for my $uni (sort keys %uniBins) {
-    print join("\t", $uni, map { $uniBins{$uni}{$_} // ' ' } (1 .. $binID)) . "\n";
-}
-print "\n\n";
-# Finally, the bin statistics.
-my $stats = $analyzer->Stats(\@bins);
-print "FINAL REPORT\n\n" . $stats->Show();
+# Output the report.
+$analyzer->Report(\*STDOUT, $shrub, $uniRoles, \@bins);

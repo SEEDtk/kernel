@@ -47,19 +47,13 @@ The eight positional parameters are as follows.
 
 =item workDirectory
 
-The input directory. It must contain the following files:
+The input directory. It should contain the following files:
 
 =over 8
 
 =item contigs.bin
 
 The input file containing the contigs, in L<bin exchange format|Bin/Bin Exchange Format>.
-
-=item scores.tbl
-
-A file of comparison information between the contigs. The file is tab-delimited, each record containing (0) the
-first contig ID, (1) the second contig ID, (2) the coverage score, (3) the tetranucleotide score, (4) the closest-reference-genome
-score, (4) the number of universal roles not in common, and (5) the number of universal roles in common.
 
 =back
 
@@ -105,17 +99,9 @@ The command-line options are the following.
 
 =over 4
 
-=item unitotal
+=item unifile
 
-The total number of universal roles. The default is 57.
-
-=item minunis
-
-The minimum number of universal roles for a bin to be considered good. The default is 30.
-
-=item maxdups
-
-The maximum number of duplicate universal roles for a bin to be considered good. The default is 4.
+Name of a tab-delimited file containing the universal roles.
 
 =back
 
@@ -124,9 +110,7 @@ The maximum number of duplicate universal roles for a bin to be considered good.
 my $start = time();
 # Get the command-line options.
 my $opt = ScriptUtils::Opts('workDirectory logFile covgWeight tetraWeight refWeight uniPenalty uniWeight minScore',
-        ['unitotal=i', 'total number of universal roles', { default => 57}],
-        ['minunis=i', 'minimum number of universal roles for a bin to be considered good', { default => 30 }],
-        ['maxdups=i', 'maximum number of duplicate universal roles for a bin to be considered good', { default => 4 }]
+        ['unifile=s', 'universal role file', { default => "$FIG_Config::global/uni_roles.tbl" }],
         );
 # Get the command-line parameters.
 my ($workDir, $logFile, @scores) = @ARGV;
@@ -140,9 +124,10 @@ if (! $workDir) {
     die "Invalid working directory $workDir.\n";
 }
 # Create the scoring object.
-my $score = Bin::Score->new($covgWeight, $tetraWeight, $refWeight, $uniPenalty, $uniWeight, $minScore, $opt->unitotal);
+my $score = Bin::Score->new($covgWeight, $tetraWeight, $refWeight, $uniPenalty, $uniWeight, $minScore, $opt->unifile);
 # Create the analysis object.
-my $analyzer = Bin::Analyze->new(minUnis => $opt->minunis, maxDups => $opt->maxdups);
+my $totUnis = $score->uni_total;
+my $analyzer = Bin::Analyze->new(totUnis => $totUnis, minUnis => (0.8 * $totUnis));
 # Open the log file.
 my $oh = IO::File->new(">$logFile");
 $oh->autoflush(1);
@@ -150,15 +135,11 @@ $oh->autoflush(1);
 print $oh "Reading contigs from input.\n";
 open(my $ih, "<", "$workDir/contigs.bin") || die "Could not open contigs.bin file: $!";
 my $binList = Bin::ReadContigs($ih);
+$score->Filter($binList);
 close $ih;
-# Get the vector file name. Insure the vector file exists.
-my $vectorFile = "$workDir/scores.tbl";
-if (! -f $vectorFile) {
-    undef $vectorFile;
-}
 # Create the score computation object.
 my $computer = Bin::Compute->new($score, logFile => $oh);
-my $bins = $computer->ProcessScores($binList, $vectorFile);
+my $bins = $computer->ProcessScores($binList);
 my $duration = time() - $start;
 print $oh "Computation took $duration seconds.\n";
 # Analyze the bins and output the score.

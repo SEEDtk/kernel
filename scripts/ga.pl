@@ -176,7 +176,7 @@ sub scored {
         my $chromosome = $pop->[$n];
         push(@args,[$cmd,$chromosome,$iter,$dir,$logD,$n,$tmpD]);
     }
-    if ($have_pareach) {
+    if ($have_pareach && $opt->workers > 1) {
         Proc::ParallelLoop::pareach(\@args,\&run,{ Max_Workers => $opt->workers });
     } else {
         for my $arg (@args) {
