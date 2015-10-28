@@ -24,12 +24,12 @@ use ScriptUtils;
 use File::Copy::Recursive;
 use Stats;
 
-=head1 Process Single-Assembly Metagenomes
+=head1 Produce Metagenoem Coverage Data
 
     bins_coverage [ options ] sampleFile outputDir
 
-This script generates the coverage file (C<output.contigs2reads.txt>) for a single-sample metagenome. The coverage data is
-taken from information in the FASTA file and used to create the output file.
+This script generates the coverage file (C<output.contigs2reads.txt>) for a metagenome. The coverage data is
+taken from information in the FASTA file or assembly data files and used to create the output file.
 
 =head2 Parameters
 
@@ -56,15 +56,23 @@ is C<0>.
 Minimum mean coverage amount for a contig to be considered meaningful. Only meaningful contigs are retained. The
 default is C<0>.
 
+=item covgFiles
+
+If specified, a filename pattern for assembly data files. All the files matching this pattern will be parsed for
+coverage data. The files are presumed to be tab-delimited, with the contig ID in the first column and the coverage
+values in the second. The first line is treated as a header and discarded. The filename pattern must include the
+directory path; otherwise the current directory is assumed.
+
 =back
 
 =cut
 
 # Get the command-line parameters.
 my $opt = ScriptUtils::Opts('sampleFile outputDir',
-        ['keyword=s', 'keyword for coverage data in the sequence comments (if any)'],
-                ['lenFilter=i',  'minimum contig length', { default => 0 }],
-                ['covgFilter=f',  'minimum contig mean coverage', { default => 0}],
+        ['keyword=s',    'keyword for coverage data in the sequence comments (if any)'],
+        ['covgFiles=s',  'coverage data files (if any)'],
+        ['lenFilter=i',  'minimum contig length', { default => 0 }],
+        ['covgFilter=f', 'minimum contig mean coverage', { default => 0}],
         );
 # Get the positional parameters.
 my ($sampleFile, $outputDir) = @ARGV;
@@ -79,12 +87,55 @@ if (! $sampleFile) {
 }
 # Create the statistics object.
 my $stats = Stats->new();
-# Get the keyword parm.
+# Figure out how we are computing coverage.
 my $keyword = $opt->keyword;
+my $covgFiles = $opt->covgfiles;
 if ($keyword) {
+    if ($covgFiles) {
+        die "covgFiles and keyword are mutually exclusive."
+    }
     print "Using keyword mode.\n";
+} elsif ($covgFiles) {
+    print "Using coverage file mode.\n";
 } else {
     print "Using standard contig ID mode.\n";
+}
+# This hash will contain coverage vectors if we are in file mode.
+my %covgVectors;
+# If in fact we are in file mode, we compute the coverage data here.
+if ($covgFiles) {
+    # Loop through the coverage files.
+    my @files = grep { -f $_ } glob($covgFiles);
+    my $pos = 0;
+    for my $file (@files) {
+        $stats->Add(covgFileIn => 1);
+        open(my $ih, "<$file") || die "Could not open coverage file $file: $!";
+        # Discard the header record.
+        my $line = <$ih>;
+        # Run through the other records, putting the coverage values at the current vector position.
+        while (! eof $ih) {
+            $line = <$ih>;
+            chomp $line;
+            $stats->Add(covgLineIn => 1);
+            my ($contig, $covgValue) = split /\t/, $line;
+            $covgVectors{$contig}[$pos] = $covgValue;
+        }
+        # Move to the next vector position.
+        $pos++;
+    }
+    if (! $pos) {
+        die "No coverage files found matching pattern $covgFiles.";
+    }
+    # Insure all the gaps are filled in.
+    for my $contig (keys %covgVectors) {
+        my $covgVector = $covgVectors{$contig};
+        for (my $i = 0; $i < $pos; $i++) {
+            if (! defined $covgVector->[$i]) {
+                $stats->Add(covgGap => 1);
+                $covgVector->[$i] = 0;
+            }
+        }
+    }
 }
 # Open the input file.
 open(my $ih, '<', $sampleFile) || die "Could not open contigs input file: $!";
@@ -92,11 +143,11 @@ open(my $ih, '<', $sampleFile) || die "Could not open contigs input file: $!";
 open(my $oh, '>', "$outputDir/output.contigs2reads.txt") || die "Could not open coverage output file: $!";
 # Open the FASTA output file.
 open(my $fh, '>', "$outputDir/contigs.fasta") || die "Could not open FASTA output file: $!";
-print "Computing coverage.\n";
+print "Reading FASTA input.\n";
 # This will track bad coverage data.
 my $errors = 0;
 # These will track the coverage of the current contig.
-my ($covg);
+my ($covg, $covgMean);
 # These will track the ID, comment, and sequence of the current contig.
 my ($contigID, $comment, $seq);
 # Loop through the input.
@@ -109,14 +160,26 @@ while (! eof $ih) {
         my ($newContigID, $newComment) = ($1, $2);
         $stats->Add(contigsFound => 1);
         # Process the previous contig.
-        ProcessContig($fh, $stats, $contigID, $comment, $seq, $covg);
+        ProcessContig($fh, $stats, $contigID, $comment, $seq, $covgMean);
         # Initialize for the new contig.
         ($contigID, $comment, $seq) = ($newContigID, $newComment, "");
         # Look for the coverage.
-        $covg = 0;
-        if ($keyword) {
+        ($covg, $covgMean) = (0, 0);
+        if ($covgFiles) {
+            $covg = $covgVectors{$contigID};
+            if (! defined $covg) {
+                $stats->Add(contigNotFound => 1);
+                $covg = 0;
+                $errors++;
+            } else {
+                map { $covgMean += $_ } @$covg;
+                $covgMean /= scalar @$covg;
+                $covg = join("\t", $covg);
+            }
+        } elsif ($keyword) {
             if ($comment =~ /\b$keyword=([0-9.]+)/) {
                 $covg = $1;
+                $covgMean = $covg;
             } else {
                 $stats->Add(missingKeyword => 1);
                 $errors++;
@@ -124,6 +187,7 @@ while (! eof $ih) {
         } else {
             if ($contigID =~ /cov(?:erage|g)?_([0-9.]+)/) {
                 $covg = $1;
+                $covgMean = $covg;
             } else {
                 $stats->Add(badContigID => 1);
                 $errors++;
@@ -135,9 +199,9 @@ while (! eof $ih) {
             $stats->Add(coverageOut => 1);
             # Produce the statistical analysis of the coverage.
             my $covgCat;
-            if ($covg >= 20) {
+            if ($covgMean >= 20) {
                 $covgCat = '2X';
-            } elsif ($covg >= 10) {
+            } elsif ($covgMean >= 10) {
                 $covgCat = '1X';
             } else {
                 $covgCat = '0X';
@@ -152,7 +216,7 @@ while (! eof $ih) {
     }
 }
 # Process the last contig.
-ProcessContig($fh, $stats, $contigID, $comment, $seq, $covg);
+ProcessContig($fh, $stats, $contigID, $comment, $seq, $covgMean);
 close $ih;
 close $oh;
 close $fh;

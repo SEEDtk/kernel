@@ -127,6 +127,14 @@ length will be discarded. This is done after the gap-merging (see C<gap>). The d
 
 The number of reference genomes to keep for each bin when doing the initial assignments.
 
+=item dna
+
+Use DNA blasting to match reference genomes to sample contigs.
+
+=item prot
+
+Use protein blasting to match reference genomes to sample contigs.
+
 =back
 
 =head2 Working Files
@@ -166,8 +174,9 @@ my $opt = ScriptUtils::Opts('sampleDir workDir',
                 ['seedgenome|G=s', 'ID of the genome to seed the bins', { default => '83333.1,36870.1,224308.1,1148.1,64091.1,69014.3,83332.12,115711.7,187420.1,224326.1,243273.1,4932.3' }],
                 ['gap|g=i',        'maximum permissible gap between blast hits for merging', { default => 600 }],
                 ['maxE|e=f',       'maximum acceptable e-value for blast hits', { default => 1e-20 }],
-                ['minlen|p=f',     'minimum fraction of the protein that must match in a blast hit', { default => 0.5 }],
-                ['refsPerBin=i',   'number of reference genomes to keep per bin', { default => 1 }]
+                ['minlen|l=f',     'minimum fraction of the protein that must match in a blast hit', { default => 0.5 }],
+                ['refsPerBin=i',   'number of reference genomes to keep per bin', { default => 1 }],
+                ['mode' => hidden => { one_of => [ ['dna|n' => 'use DNA blasting'], ['prot|p' => 'use protein blasting'] ] }]
         );
 # Turn off buffering for stdout.
 $| = 1;
@@ -208,6 +217,13 @@ my $force = ($forceType eq 'all');
 # Get the seeding parameters.
 my $prot = $opt->seedrole;
 my $genome = $opt->seedgenome;
+# Compute the mode.
+my $blastMode = $opt->mode // 'prot';
+if ($blastMode eq 'dna') {
+    $blastMode = 'n';
+} else {
+    $blastMode = 'p'
+}
 # This hash will contain all the contigs, it maps each contig ID to a bin object describing the contig's properties.
 my %contigs;
 if ($force || ! -s $reducedFastaFile || ! -s $binFile) {
@@ -391,7 +407,7 @@ for my $contig (keys %$contigHash) {
 my $refBinFile = "$workDir/contigs.ref.bins";
 if ($force || ! -s $refBinFile) {
     # Blast the reference genomes against the community contigs to assign them.
-    my $subStats = $blaster->Process(\%contigs, \@refGenomes);
+    my $subStats = $blaster->Process(\%contigs, \@refGenomes, $blastMode);
     $stats->Accumulate($subStats);
     # Checkpoint our results.
     open(my $oh, ">$refBinFile") || die "Could not open augmented contig bin output file: $!";
