@@ -456,8 +456,8 @@ my $uniRoles = $blaster->uni_hash;
 my $totUnis = $blaster->uni_total;
 # Produce the bin report.
 open(my $rh, ">$workDir/bins.report.txt") || die "Could not open report file: $!";
-my $analyzer = Bin::Analyze->new(totUnis => $totUnis, minUnis => (0.8 * $totUnis));
-$analyzer->BinReport($rh, $shrub, $uniRoles, \@sorted);
+my $analyzer = Bin::Analyze->new($shrub, totUnis => $totUnis, minUnis => (0.8 * $totUnis));
+$analyzer->BinReport($rh, $uniRoles, \@sorted);
 close $rh;
 # All done.
 print "All done.\n" . $stats->Show();

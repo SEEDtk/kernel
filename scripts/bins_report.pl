@@ -58,10 +58,10 @@ my $ih = ScriptUtils::IH($opt->input);
 my $binList;
 # Read in the universal roles.
 my $uniRoles = Bin::Score::ReadUniHash($opt->unifile);
-# Get the analysis object.
-my $analyzer = Bin::Analyze->new();
 # Connect to the database.
 my $shrub = Shrub->new_for_script($opt);
+# Get the analysis object.
+my $analyzer = Bin::Analyze->new($shrub);
 # This will contain a list of bins for the final statistical report.
 my @bins;
 # Loop through the bins, collecting them in memory.
@@ -70,4 +70,4 @@ while (! eof $ih) {
     push @bins, $bin;
 }
 # Output the report.
-$analyzer->Report(\*STDOUT, $shrub, $uniRoles, \@bins);
+$analyzer->Report(\*STDOUT, $uniRoles, \@bins);
