@@ -27,20 +27,49 @@ use ScriptUtils;
 
     genome_fasta.pl [ options ] genome_id
 
-Display the name of a genome's FASTA file.
+Display the name or content of a genome's FASTA file.
 
 =head2 Parameters
 
 The single positional parameter is the genome ID.
 
-The command-line options are those found in L<Shrub/script_options>.
+The command-line options are those found in L<Shrub/script_options> plus the following.
+
+=over 4
+
+=item pipe
+
+If specified, the FASTA data will be written to the standard output instead of the file name.
+
+=back
+
 =cut
 
 # Get the command-line parameters.
 my $opt = ScriptUtils::Opts('genome_id',
                 Shrub::script_options(),
+                ['pipe|p', 'write FASTA data to standard output']
         );
 # Connect to the database.
 my $shrub = Shrub->new_for_script($opt);
-my $fasta = $shrub->genome_fasta($ARGV[0]);
-print "$fasta\n";
+# Get the genome ID.
+my ($genome) = @ARGV;
+if (! $genome) {
+    die "A genome ID is required.";
+}
+# Get the FASTA file name.
+my $fasta = $shrub->genome_fasta($genome);
+if (! $fasta) {
+    die "Genome $genome not found.";
+}
+if ($opt->pipe) {
+    # Here we are writing the FASTA data to the output stream.
+    open(my $ih, "<$fasta") || die "Could not open fasta file: $!";
+    while (! eof $ih) {
+        my $line = <$ih>;
+        print $line;
+    }
+} else {
+    # Here we just want the name.
+    print "$fasta\n";
+}
