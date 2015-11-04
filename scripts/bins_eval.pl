@@ -73,7 +73,7 @@ length will be discarded. This is done after the gap-merging (see C<gap>). The d
 =cut
 
 # Get the command-line parameters.
-my $opt = ScriptUtils::Opts('parms', Shrub::script_options(),
+my $opt = ScriptUtils::Opts('binDirectory', Shrub::script_options(),
                 ['unifile=s',      'universal role file', { default => "$FIG_Config::global/uni_roles.tbl" }],
                 ['gap|g=i',        'maximum permissible gap between blast hits for merging', { default => 600 }],
                 ['maxE|e=f',       'maximum acceptable e-value for blast hits', { default => 1e-50 }],
@@ -170,7 +170,7 @@ my $uniRoles = $blaster->uni_hash;
 my $totUnis = $blaster->uni_total;
 # Produce the bin report.
 open(my $rh, ">$binDir/bins.report.good.txt") || die "Could not open report file: $!";
-my $analyzer = Bin::Analyze->new(totUnis => $totUnis, minUnis => (0.8 * $totUnis));
-$analyzer->BinReport($rh, $shrub, $uniRoles, \@goodBins);
+my $analyzer = Bin::Analyze->new($shrub, totUnis => $totUnis, minUnis => (0.8 * $totUnis));
+$analyzer->BinReport($rh, $uniRoles, \@goodBins);
 close $rh;
 print "All done.\n" . $stats->Show();

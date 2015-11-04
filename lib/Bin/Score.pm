@@ -423,9 +423,47 @@ sub Vector {
     return \@retVal;
 }
 
+
+=head3 Cmp
+
+    my $cmp = Bin::Score::Cmp($a, $b);
+
+Compare two scoring vectors for sort purposes. The sort is by highest coverage score, then highest tetranucleotide score,
+then highest reference-genome score, highest unique-universal score, lowest common-universal score.
+
+=over 4
+
+=item a
+
+First scoring vector to compare.
+
+=item b
+
+Second scoring vector to compare.
+
+=item RETURN
+
+Returns a number indicating the sort order of the two vectors.
+
+=back
+
+=cut
+
+sub Cmp {
+    my ($a, $b) = @_;
+    my $retVal = ($b->[0] <=> $a->[0]) ||
+                 ($b->[1] <=> $a->[1]) ||
+                 ($b->[2] <=> $a->[2]) ||
+                 ($b->[3] <=> $a->[3]) ||
+                 ($a->[4] <=> $b->[4]);
+    return $retVal;
+}
+
+
+
 =head3 ReadUniHash
 
-    my $uniHash = ReadUniHash($unifile);
+    my $uniHash = Bin::Score::ReadUniHash($unifile);
 
 Read the universal role file and produce a hash keyed by universal role
 ID. If no file name is provided, the default will be used.

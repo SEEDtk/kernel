@@ -21,6 +21,7 @@ package Bin::Analyze;
     use strict;
     use warnings;
     use Stats;
+    use Bin::Score;
 
 =head1 Community Bin Analysis Object.
 
@@ -49,13 +50,21 @@ The minimum number of base pairs required for a bin to be considered big.
 
 The total number of universal roles. The default is C<101>.
 
+=item shrub
+
+L<Shrub> object for accessing the database.
+
+=item genomes
+
+Refererence to a hash mapping genome IDs to genome names.
+
 =back
 
 =head2 Special Methods
 
 =head3 new
 
-    my $analyzer = Bin::Analyze->new(%options);
+    my $analyzer = Bin::Analyze->new($shrub, %options);
 
 Construct a new analysis object.
 
@@ -90,7 +99,7 @@ The minimum number of base pairs required for a bin to be considered big.
 =cut
 
 sub new {
-    my ($class, %options) = @_;
+    my ($class, $shrub, %options) = @_;
     # Get the options.
     my $minUnis = $options{minUnis} // 80;
     my $maxDups = $options{maxDups} // 4;
@@ -101,7 +110,9 @@ sub new {
         minUnis => $minUnis,
         maxDups => $maxDups,
         totUnis => $totUnis,
-        minLen => $minLen
+        minLen => $minLen,
+        shrub => $shrub,
+        genomes => {}
     };
     # Bless and return it.
     bless $retVal, $class;
@@ -111,12 +122,16 @@ sub new {
 
 =head3 Quality
 
-    my $score = Bin::Analyze::Quality(\@bins, %options);
+    my $score = Bin::Analyze::Quality($shrub, \@bins, %options);
 
 Analyze a list of bins to determine a quality score. This is a non-object-oriented version that can be used for cases
 where only one list of bins is being analyzed.
 
 =over 4
+
+=item shrub
+
+L<Shrub> object for accessing the database.
 
 =item bins
 
@@ -147,8 +162,8 @@ Returns a value from indicating the number of quality bins.
 =cut
 
 sub Quality {
-    my ($bins, %options) = @_;
-    my $analyze = Bin::Analyze->new(%options);
+    my ($shrub, $bins, %options) = @_;
+    my $analyze = Bin::Analyze->new($shrub, %options);
     my $retVal = $analyze->Analyze($bins);
     return $retVal;
 }
@@ -156,12 +171,16 @@ sub Quality {
 
 =head3 Report
 
-    my $stats = Bin::Analyze::Report(\@bins);
+    my $stats = Bin::Analyze::Report($shrub, \@bins);
 
 Produce a statistical report about a list of bins. This will show the number of contigs without any BLAST hits,
 the number without universal roles, and the distribution of contig lengths, among other things.
 
 =over 4
+
+=item shrub
+
+L<Shrub> object for accessing the database.
 
 =item bins
 
@@ -176,9 +195,9 @@ Returns a L<Stats> object containing useful information about the bins.
 =cut
 
 sub Report {
-    my ($bins) = @_;
+    my ($shrub, $bins) = @_;
     # Get an analysis object.
-    my $analyze = Bin::Analyze->new();
+    my $analyze = Bin::Analyze->new($shrub);
     # Create the return object.
     my $stats =$analyze->Stats($bins);
     # Return the statistics.
@@ -360,7 +379,7 @@ sub AnalyzeBin {
 
 =head3 BinReport
 
-    $analyzer->BinReport($oh, $shrub, $uniRoles, $binList);
+    $analyzer->BinReport($oh, $uniRoles, $binList);
 
 Write a detailed report about the bins. Information about the content of the larger bins will be presented, along
 with the standard statistical report from L</Report>.
@@ -370,10 +389,6 @@ with the standard statistical report from L</Report>.
 =item oh
 
 Open handle for the output file.
-
-=item shrub
-
-L<Shrub> object for accessing the database.
 
 =item uniRoles
 
@@ -388,7 +403,9 @@ Reference to a list of L<Bin> objects for which a report is desired.
 =cut
 
 sub BinReport {
-    my ($self, $oh, $shrub, $uniRoles, $binList) = @_;
+    my ($self, $oh, $uniRoles, $binList) = @_;
+    # Get the database object.
+    my $shrub = $self->{shrub};
     # This will be a hash mapping each universal role to a hash of the bins it appears in. The bins will be
     # identified by an ID number we assign.
     my %uniBins;
@@ -397,27 +414,8 @@ sub BinReport {
     for my $bin (@$binList) {
         # Compute the bin ID.
         $binID++;
-        my $quality = $self->AnalyzeBin($bin);
-        print $oh "\nBIN $binID (from " . $bin->contig1 . ", " . $bin->contigCount . " contigs, " . $bin->len . " base pairs, quality $quality)\n";
-        # Only do a detail report if the bin is big.
-        if ($bin->len >= $self->{minLen}) {
-            # List the close reference genomes.
-            my @genomes = $bin->refGenomes;
-            if (@genomes) {
-                my $filter = 'Genome(id) IN (' . join(', ', map { '?' } @genomes) . ')';
-                my %gNames =  map { $_->[0] => $_->[1] } $shrub->GetAll('Genome', $filter, \@genomes, 'id name');
-                for my $genome (@genomes) {
-                    print $oh "    $genome: $gNames{$genome}\n";
-                }
-            }
-            # Compute the average coverage.
-            my $coverageV = $bin->coverage;
-            my $avg = 0;
-            for my $covg (@$coverageV) {
-                $avg += $covg;
-            }
-            $avg /= scalar @$coverageV;
-            print $oh "*** Mean coverage is $avg.\n";
+        my $bigBin = $self->BinHeader($bin, $oh, $binID); ##TODO
+        if ($bigBin) {
             # Finally, the universal role list. This hash helps us find the missing ones.
             print $oh "    Universal Roles\n";
             print $oh "    ---------------\n";
@@ -465,6 +463,161 @@ sub BinReport {
     # Finally, the bin statistics.
     my $stats = $self->Stats($binList);
     print $oh "FINAL REPORT\n\n" . $stats->Show();
+}
+
+=head3 ContigReport
+
+    $analyzer->ContigReport($oh, $id, $bin, \%contigBins);
+
+Write a report on the contig composition of the specified bin to the
+specified output stream. For each contig in the bin, the report will list
+its universal roles, closest genome, tetranucleotide distance, and
+coverage distance.
+
+=over 4
+
+=item oh
+
+Open output handle to which the report will be written.
+
+=item id
+
+ID number to display for this bin.
+
+=item bin
+
+L<Bin> object for the assembled bin.
+
+=item contigBins
+
+Reference to a hash mapping each contig ID to a single-contig L<Bin> object for it.
+
+=back
+
+=cut
+
+sub ContigReport {
+    # Get the parameters.
+    my ($self, $oh, $id, $bin, $contigBins) = @_;
+    # Display the header.
+    my $bigBin = $self->BinHeader($bin, $oh, $id);
+    # Only proceed if this is a big bin.
+    if ($bigBin) {
+        # Loop through the contigs, computing distances.
+        my %scoreV;
+        my @contigs = $bin->contigs;
+        for my $contig (@contigs) {
+            my $contigBin = $contigBins->{$contig};
+            $scoreV{$contig} = Bin::Score::Vector($bin, $contigBin);
+        }
+        # Sort the contigs by score.
+        my @sorted = sort { Bin::Score::Cmp($scoreV{$a}, $scoreV{$b}) } @contigs;
+        print "Contig\tcoverage\tcscore\ttetra\troles\n";
+        for my $contig (@sorted) {
+            my $score = $scoreV{$contig};
+            my $contigBin = $contigBins->{$contig};
+            print $oh join("\t", $contig, $contigBin->meanCoverage, $score->[0], $score->[1], sort keys %{$contigBin->uniProts}) . "\n";
+        }
+    }
+    print "\n\n";
+}
+
+=head2 Internal Methods
+
+=head3 BinHeader
+
+    my $bigBin = $analyzer->BinHeader($bin, $oh, $id);
+
+Write the header for a bin in a bin report. Return TRUE if the bin is big
+enough to warrant a more detailed analysis.
+
+=over 4
+
+=item bin
+
+L<Bin> object for which a report header is to be produced.
+
+=item oh
+
+Open handle for the output stream.
+
+=item id
+
+ID number to give to the bin.
+
+=item RETURN
+
+Returns TRUE if the bin is big enough for a more detailed report, else FALSE.
+
+=back
+
+=cut
+
+sub BinHeader {
+    my ($self, $bin, $oh, $id) = @_;
+    # Get the database object.
+    my $shrub = $self->{shrub};
+    # This will be set to TRUE for a big bin.
+    my $retVal;
+    # Compute the quality score.
+    my $quality = $self->AnalyzeBin($bin);
+    # Start the header.
+    print $oh "\nBIN $id (from " . $bin->contig1 . ", " . $bin->contigCount . " contigs, " . $bin->len . " base pairs, quality $quality)\n";
+    # Only do a detail report if the bin is big.
+    if ($bin->len >= $self->{minLen}) {
+        # List the close reference genomes.
+        my @genomes = $bin->refGenomes;
+        for my $genome (@genomes) {
+            print $oh "    $genome: " . $self->gName($genome) . "\n";
+        }
+        # Compute the average coverage.
+        my $coverageV = $bin->coverage;
+        my $avg = 0;
+        for my $covg (@$coverageV) {
+            $avg += $covg;
+        }
+        $avg /= scalar @$coverageV;
+        print $oh "*** Mean coverage is $avg.\n";
+        $retVal = 1;
+    }
+    return $retVal;
+}
+
+=head3 gName
+
+    my $genomeName = $analyzer->gName($genome);
+
+Return the name of the specified genome. The name will be cached for subsequent calls.
+
+=over 4
+
+=item genome
+
+ID of the genome whose name is desired.
+
+=item RETURN
+
+Returns the name of the specified genome.
+
+=back
+
+=cut
+
+sub gName {
+    my ($self, $genome) = @_;
+    # Get the genome hash.
+    my $genomeH = $self->{genomes};
+    # Look for the name.
+    my $retVal = $genomeH->{$genome};
+    if (! $retVal) {
+        # We need to look it up. Get the database.
+        my $shrub = $self->{shrub};
+        ($retVal) = $shrub->GetFlat('Genome', 'Genome(id) = ?', [$genome], 'name');
+        # Cache it for next time.
+        $genomeH->{$genome} = $retVal;
+    }
+    # Return the name.
+    return $retVal;
 }
 
 1;

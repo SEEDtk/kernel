@@ -127,6 +127,14 @@ length will be discarded. This is done after the gap-merging (see C<gap>). The d
 
 The number of reference genomes to keep for each bin when doing the initial assignments.
 
+=item dna
+
+Use DNA blasting to match reference genomes to sample contigs.
+
+=item prot
+
+Use protein blasting to match reference genomes to sample contigs.
+
 =back
 
 =head2 Working Files
@@ -166,8 +174,10 @@ my $opt = ScriptUtils::Opts('sampleDir workDir',
                 ['seedgenome|G=s', 'ID of the genome to seed the bins', { default => '83333.1,36870.1,224308.1,1148.1,64091.1,69014.3,83332.12,115711.7,187420.1,224326.1,243273.1,4932.3' }],
                 ['gap|g=i',        'maximum permissible gap between blast hits for merging', { default => 600 }],
                 ['maxE|e=f',       'maximum acceptable e-value for blast hits', { default => 1e-20 }],
-                ['minlen|p=f',     'minimum fraction of the protein that must match in a blast hit', { default => 0.5 }],
-                ['refsPerBin=i',   'number of reference genomes to keep per bin', { default => 1 }]
+                ['refMaxE=f',      'maximum acceptable e-value for reference genome blast hits', { default => 1e-20 }],
+                ['minlen|l=f',     'minimum fraction of the protein that must match in a blast hit', { default => 0.5 }],
+                ['refsPerBin=i',   'number of reference genomes to keep per bin', { default => 1 }],
+                ['mode' => hidden => { one_of => [ ['dna|n' => 'use DNA blasting'], ['prot|p' => 'use protein blasting'] ] }]
         );
 # Turn off buffering for stdout.
 $| = 1;
@@ -208,6 +218,13 @@ my $force = ($forceType eq 'all');
 # Get the seeding parameters.
 my $prot = $opt->seedrole;
 my $genome = $opt->seedgenome;
+# Compute the mode.
+my $blastMode = $opt->mode // 'prot';
+if ($blastMode eq 'dna') {
+    $blastMode = 'n';
+} else {
+    $blastMode = 'p'
+}
 # This hash will contain all the contigs, it maps each contig ID to a bin object describing the contig's properties.
 my %contigs;
 if ($force || ! -s $reducedFastaFile || ! -s $binFile) {
@@ -299,9 +316,12 @@ if ($force || ! -s $reducedFastaFile || ! -s $binFile) {
 }
 # Turn on forcing if force = parms.
 $force ||= ($forceType eq 'parms');
+# Compute the blast parameters.
+my $maxE = $opt->maxe;
+my $rMaxE = $opt->refmaxe // $maxE;
 # Create the blaster.
 my $blaster = Bin::Blast->new($shrub, $workDir, $reducedFastaFile, uniRoles => $opt->unifile,
-        maxE => $opt->maxe, minlen => $opt->minlen, gap => $opt->gap);
+        maxE => $maxE, minlen => $opt->minlen, gap => $opt->gap);
 # First, we need the list of bins and the locations where they hit the primary universal protein.
 my $binsFoundFile = "$workDir/bins.found.tbl";
 my $matches = {};
@@ -391,7 +411,7 @@ for my $contig (keys %$contigHash) {
 my $refBinFile = "$workDir/contigs.ref.bins";
 if ($force || ! -s $refBinFile) {
     # Blast the reference genomes against the community contigs to assign them.
-    my $subStats = $blaster->Process(\%contigs, \@refGenomes);
+    my $subStats = $blaster->Process(\%contigs, \@refGenomes, type => $blastMode, maxE => $rMaxE);
     $stats->Accumulate($subStats);
     # Checkpoint our results.
     open(my $oh, ">$refBinFile") || die "Could not open augmented contig bin output file: $!";
@@ -440,8 +460,8 @@ my $uniRoles = $blaster->uni_hash;
 my $totUnis = $blaster->uni_total;
 # Produce the bin report.
 open(my $rh, ">$workDir/bins.report.txt") || die "Could not open report file: $!";
-my $analyzer = Bin::Analyze->new(totUnis => $totUnis, minUnis => (0.8 * $totUnis));
-$analyzer->BinReport($rh, $shrub, $uniRoles, \@sorted);
+my $analyzer = Bin::Analyze->new($shrub, totUnis => $totUnis, minUnis => (0.8 * $totUnis));
+$analyzer->BinReport($rh, $uniRoles, \@sorted);
 close $rh;
 # All done.
 print "All done.\n" . $stats->Show();

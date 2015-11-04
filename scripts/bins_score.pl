@@ -21,6 +21,7 @@ use strict;
 use warnings;
 use FIG_Config;
 use ScriptUtils;
+use Shrub;
 use Bin::Compute;
 use Bin::Score;
 use Bin::Analyze;
@@ -95,7 +96,7 @@ the 40% and 80% of the total of the four main weights.
 
 =back
 
-The command-line options are the following.
+The command-line options are those in L<Shrub/script_options> plus the following.
 
 =over 4
 
@@ -110,8 +111,11 @@ Name of a tab-delimited file containing the universal roles.
 my $start = time();
 # Get the command-line options.
 my $opt = ScriptUtils::Opts('workDirectory logFile covgWeight tetraWeight refWeight uniPenalty uniWeight minScore',
+        Shrub::script_options(),
         ['unifile=s', 'universal role file', { default => "$FIG_Config::global/uni_roles.tbl" }],
         );
+# Connect to the database.
+my $shrub = Shrub->new_for_script($opt);
 # Get the command-line parameters.
 my ($workDir, $logFile, @scores) = @ARGV;
 my ($covgWeight, $tetraWeight, $refWeight, $uniPenalty, $uniWeight, $inMinScore) = @scores;
@@ -127,7 +131,7 @@ if (! $workDir) {
 my $score = Bin::Score->new($covgWeight, $tetraWeight, $refWeight, $uniPenalty, $uniWeight, $minScore, $opt->unifile);
 # Create the analysis object.
 my $totUnis = $score->uni_total;
-my $analyzer = Bin::Analyze->new(totUnis => $totUnis, minUnis => (0.8 * $totUnis));
+my $analyzer = Bin::Analyze->new($shrub, totUnis => $totUnis, minUnis => (0.8 * $totUnis));
 # Open the log file.
 my $oh = IO::File->new(">$logFile");
 $oh->autoflush(1);

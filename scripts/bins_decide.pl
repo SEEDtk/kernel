@@ -24,6 +24,7 @@ use ScriptUtils;
 use Bin::Compute;
 use Bin::Score;
 use Bin::Analyze;
+use Shrub;
 use Stats;
 use Time::HiRes qw(time);
 
@@ -45,7 +46,7 @@ contigs are put together.
 The positional parameters are the name of a working directory to contain temporary and output files and the
 name of a scheme file (see below).
 
-The command-line options are those found in L<ScriptUtils/ih_options> plus the following.
+The command-line options are those found in L<ScriptUtils/ih_options> and L<Shrub/script_options> plus the following.
 
 =over 4
 
@@ -92,12 +93,14 @@ by the count.
 =cut
 
 # Get the command-line parameters.
-my $opt = ScriptUtils::Opts('workDirectory schemeFile', ScriptUtils::ih_options(),
+my $opt = ScriptUtils::Opts('workDirectory schemeFile', ScriptUtils::ih_options(), Shrub::script_options(),
         ['cutoff|c=f', 'percent of schemes that must approve connecting two contigs', { default => 70 }],
         ['scoreFile|s=s', 'connection score inptu file']
         );
 # Create the statistics object.
 my $stats = Stats->new();
+# Connect to the database.
+my $shrub = Shrub->new_for_script($opt);
 # Open the input file.
 my $ih = ScriptUtils::IH($opt->input);
 # Get the list of contigs. These are read in as bins.
@@ -220,9 +223,9 @@ for my $bin (@$bins) {
 }
 close $oh;
 # Analyze the bins.
-my $quality = Bin::Analyze::Quality($bins);
+my $quality = Bin::Analyze::Quality($shrub, $bins);
 print "Quality score = $quality.\n";
-my $report = Bin::Analyze::Report($bins);
+my $report = Bin::Analyze::Report($shrub, $bins);
 print "Quality Report\n" . $report->Show() . "\n";
 # Output the statistics.
 print "All done.\n" . $stats->Show();
