@@ -173,8 +173,7 @@ while (! eof $ih) {
                 $errors++;
             } else {
                 map { $covgMean += $_ } @$covg;
-                $covgMean /= scalar @$covg;
-                $covg = join("\t", $covg);
+                $covg = join("\t", @$covg);
             }
         } elsif ($keyword) {
             if ($comment =~ /\b$keyword=([0-9.]+)/) {

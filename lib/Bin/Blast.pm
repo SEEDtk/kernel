@@ -612,9 +612,21 @@ Reference to a hash mapping each sample contig ID to a L<Bin> object which is to
 
 Reference to a list of reference genome IDs.
 
-=item type (optional)
+=item options
+
+A hash of optional parameters, including zero or more of the following.
+
+=over 8
+
+=item type
 
 BLAST type-- C<n> for DNA, C<p> for protein. The default is C<p>.
+
+=item maxE
+
+E-value for the BLAST. The default is the E-value specified in the object.
+
+=back
 
 =item RETURN
 
@@ -625,7 +637,7 @@ Returns a statistics object describing the results of the BLASTing.
 =cut
 
 sub Process {
-    my ($self, $contigBins, $refGenomes, $type) = @_;
+    my ($self, $contigBins, $refGenomes, %options) = @_;
     # This will contain the return statistics.
     my $stats = Stats->new();
     # Get the working directory.
@@ -634,6 +646,9 @@ sub Process {
     my $uniRoles = $self->{uniRoleH};
     # Get the shrub database object.
     my $shrub = $self->{shrub};
+    # Get the options.
+    my $type = $options{type} // 'p';
+    my $maxE = $options{maxE} // $self->{maxE};
     $type //= 'p';
     # The contig bins will contain the universal role information. We cannot, however, track the closest
     # genomes there because we want only the best one. This hash will map each sample contig ID to a
@@ -645,9 +660,9 @@ sub Process {
         my $blasted = $stats->Add(refGenomesBlasted => 1);
         print "Processing $refGenome for BLAST ($blasted of $totalGenomes).\n";
         if ($type eq 'n') {
-            $self->ProcessN($stats, $contigBins, $refGenome, \%contigGenomes);
+            $self->ProcessN($stats, $contigBins, $refGenome, \%contigGenomes, $maxE);
         } else {
-            $self->ProcessP($stats, $contigBins, $refGenome, \%contigGenomes);
+            $self->ProcessP($stats, $contigBins, $refGenome, \%contigGenomes, $maxE);
         }
     }
     # Now all the reference genomes have been blasted. For each contig, we need to assign the reference
@@ -672,7 +687,7 @@ sub Process {
 
 =head3 ProcessP
 
-    $self->ProcessP($stats, $contigBins, $refGenome, \%contigGenomes);
+    $self->ProcessP($stats, $contigBins, $refGenome, \%contigGenomes, $maxE);
 
 BLAST a single reference genome's proteins against the contigs. This method updates the
 universal role counts for the contig bin objects and tracks the closest reference genome
@@ -697,14 +712,17 @@ ID of the reference genome to BLAST.
 Reference to a hash mapping each contig to a 2-tuple consisting of (0) the closest reference genome
 ID and (1) its score.
 
+=item maxE
+
+Maximum permissible E-value for the BLAST.
+
 =back
 
 =cut
 
 sub ProcessP {
-    my ($self, $stats, $contigBins, $refGenome, $contigGenomes) = @_;
+    my ($self, $stats, $contigBins, $refGenome, $contigGenomes, $maxE) = @_;
     # Get the options.
-    my $maxE = $self->{maxE};
     my $priv = $self->{priv};
     # We get the reference genome's FASTA file and a hash that tracks the minimum match
     # length of each universal role.
@@ -766,7 +784,7 @@ sub ProcessP {
 
 =head3 ProcessN
 
-    $self->ProcessN($stats, $contigBins, $refGenome, \%contigGenomes);
+    $self->ProcessN($stats, $contigBins, $refGenome, \%contigGenomes, $maxE);
 
 BLAST a single reference genome's DNA against the contigs. This method updates the
 universal role counts for the contig bin objects and tracks the closest reference genome
@@ -791,14 +809,17 @@ ID of the reference genome to BLAST.
 Reference to a hash mapping each contig to a 2-tuple consisting of (0) the closest reference genome
 ID and (1) its score.
 
+=item maxE
+
+Maximum permissible E-value for the BLAST.
+
 =back
 
 =cut
 
 sub ProcessN {
-    my ($self, $stats, $contigBins, $refGenome, $contigGenomes) = @_;
+    my ($self, $stats, $contigBins, $refGenome, $contigGenomes, $maxE) = @_;
     # Get the options.
-    my $maxE = $self->{maxE};
     my $priv = $self->{priv};
     my $minlen = $self->{minlen};
     # We get the reference genome's FASTA file and a hash that helps us find universal roles.
