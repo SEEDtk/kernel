@@ -167,6 +167,74 @@ sub get_blast_cutoffs
     return $blast_cutoffs;
 }
 
+
+sub bitscore_stats_by_family
+{
+    my ($state) = @_;
+
+    my $bit_stats    = {};
+    my $func_to_pegs = $state->{func_to_pegs};
+    my @funcs        = keys(%$func_to_pegs);
+    my $seqs         = $state->{seqs};
+    my $func_descriptions = $state->{func_map};
+    my $blast_cutoffs = {};
+
+    foreach my $func (sort @funcs)
+    {
+        my $funcName = "($func) $func_descriptions->{$func}";
+        my @lengths;
+        my $pegH = $func_to_pegs->{$func};
+        if ($pegH)
+        {
+            my @pegs = keys(%$pegH);
+
+            #           print STDERR join( ",", @pegs ), "\n";
+            if ( @pegs >= 3 )    # require 3 pegs for stats
+            {
+                my @bitscores;
+                my @seq_tuples;
+                foreach my $peg (@pegs)
+                {
+                    my $tran = $seqs->{$peg};
+                    if ($tran)
+                    {
+                        push( @seq_tuples, [$peg, "", $tran ]);
+                    }
+                    else
+                    {
+                        print STDERR "no translation for $peg\n";
+                    }
+                }
+                my @output =
+                   &gjo::BlastInterface::blast( \@seq_tuples, \@seq_tuples,
+                                       'blastp', { outForm => 'sim' } );
+
+               if ( @output < 3 ) {
+                   print STDERR &Dumper( \@output, "$funcName has too few sims",
+                     \@seq_tuples );
+               } else {
+                   foreach my $sim (@output) {
+                       push(@bitscores, $sim->nbsc);
+                    }
+               }
+                my ( $mean, $stddev ) = &gjo::stat::mean_stddev(@bitscores);
+
+                $bit_stats->{$func} = [ sprintf("%0.3f", $mean), sprintf("%0.3f",$stddev) ];
+                #print STDERR "set mean=$mean stddev=$stddev for $funcName\n";
+            }
+            else
+            {
+                print STDERR "too few pegs for function $funcName\n";
+            }
+        }
+        else
+        {
+            print STDERR "no pegs for $funcName\n";
+        }
+    }
+    return $bit_stats;
+}
+
 sub length_stats_by_family
 {
     my ($state) = @_;
@@ -223,6 +291,7 @@ sub create_recognition_parameters
     my ( $state, $shrub ) = @_;
 
     my $parms = {};
+    $parms->{bitscore_stats} = &bitscore_stats_by_family($state);
     $parms->{length_stats} = &length_stats_by_family($state);
     $parms->{blast_parms}  = &get_blast_cutoffs($state);
     $parms->{vc_patterns}  = &vc_requirements($state);
@@ -503,6 +572,16 @@ sub roles_in_peg_set
     return %roles;
 }
 
+sub compute_properties_of_roles
+{
+    my ( $shrub, $subsystem_id, $genomes ) = @_;
+
+    my $state =
+      &Projection::relevant_projection_data( $subsystem_id, $genomes, $shrub );
+    my $retVal = &Projection::create_recognition_parameters( $state, $shrub );
+    return $retVal;
+}
+
 sub compute_properties_of_solid_roles
 {
     my ( $shrub, $subsystem_id, $genomes ) = @_;
@@ -569,6 +648,61 @@ sub project_solid_roles
     return @retVal;
 }
 
+sub project_roles
+{
+    my ( $shrub, $subsystem_id, $privilege, $genomes, $parms, $oh ) = @_;
+    my @retVal;
+    my @tuples = $shrub->GetAll(
+    "Subsystem2Role Role2Function Function2Feature Feature2Contig",
+        "(Subsystem2Role(from-link) = ?) AND (Function2Feature(security) = ?)",
+        [ $subsystem_id, $privilege ],
+        "Subsystem2Role(to-link) Subsystem2Role(ordinal) Function2Feature(to-link) Function2Feature(from-link)
+                              Feature2Contig(to-link) Feature2Contig(begin) Feature2Contig(dir)"
+    );
+    my %funHash;
+    my (%relevant, %sort);
+    foreach my $tuple (@tuples)
+    {
+        my ( $role, $pos, $peg, $func, $contig, $beg, $strand ) = @$tuple;
+        my $g = &SeedUtils::genome_of($peg);
+        $sort{$role} = $pos;
+        $relevant{$g}->{$peg} = [ $role, $func, [ $contig, $beg, $strand ] ];
+    }
+
+    my $state = { ( relevant => \%relevant ) };
+
+    foreach my $g ( sort { $a <=> $b } @$genomes )
+    {
+        my $projection =
+          &Projection::project_subsys_to_genome( $shrub, $g, $subsystem_id,
+            $state, $parms );
+        my $vc = $projection->{vc} ? $projection->{vc} : 'not-active';
+        my $template_genome = $projection->{template_genome} || '';
+
+        print $oh join( "\t", ( $subsystem_id, $g, $vc, $template_genome ) ), "\n";
+        my $calls = $projection->{calls} || [];
+        # print STDERR &Dumper($calls);
+        foreach my $call ( sort { &SeedUtils::by_fig_id( $a->[0], $b->[0] ) }
+            @$calls )
+        {
+            my ( $peg, $role, $func, $check ) = @$call;
+            print $oh "\t", join( "\t", ( $peg, $role, $func, $check ) ), "\n";
+        }
+        print $oh "----\n";
+        my $problems = $projection->{problematic_pegs};
+        foreach
+          my $peg ( sort { &SeedUtils::by_fig_id( $a, $b ) } keys(%$problems) )
+        {
+            print $oh join("\t",($peg,@{ $problems->{$peg} })), "\n";
+        }
+        print $oh "//\n";
+        if ( $vc ne 'not-active' )
+        {
+            push @retVal, $g;
+        }
+    }
+    return @retVal;
+}
 =head3 choose_genomes
 
     my @genomes = Projection::choose_genomes($shrub, $subsystem_id, \%badVars);

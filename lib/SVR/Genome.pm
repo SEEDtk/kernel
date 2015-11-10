@@ -30,11 +30,15 @@ This module takes as input a genome ID and returns a L<GenomeTypeObject> for tha
 
 =head3 exec
 
-    my $gto_json = SVR::Genome::exec($shrub, \%parms);
+    my $gto_json = SVR::Genome::exec($cgi, $shrub, \%parms);
 
 Return a L<GenomeTypeObject> json string for a genome.
 
 =over 4
+
+=item cgi
+
+The L<CGI> object for the current web request.
 
 =item shrub
 
@@ -61,7 +65,7 @@ Returns a json string representing the genome object.
 =cut
 
 sub exec {
-    my ($shrub, $parms) = @_;
+    my ($cgi, $shrub, $parms) = @_;
     # This will be the return value.
     my $retVal;
     # Get the genome ID.
