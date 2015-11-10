@@ -8,7 +8,7 @@ use gjoseqlib;
 use Shrub;
 use ScriptUtils;
 
-my $opt = ScriptUtils::Opt("dataDir", Shrub::script_options());
+my $opt = ScriptUtils::Opts("dataDir", Shrub::script_options());
 my $dataD = shift @ARGV;
 my $shrub = Shrub->new_for_script($opt);
 if (! -s "$dataD/input")  { die "usage: syn_mg_samples_pipeline DataD" }
