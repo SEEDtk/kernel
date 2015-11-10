@@ -141,6 +141,8 @@ if ($covgFiles) {
 open(my $ih, '<', $sampleFile) || die "Could not open contigs input file: $!";
 # Open the coverage output file.
 open(my $oh, '>', "$outputDir/output.contigs2reads.txt") || die "Could not open coverage output file: $!";
+# Write the header.
+print $oh "Contig ID\tCoverages\n";
 # Open the FASTA output file.
 open(my $fh, '>', "$outputDir/contigs.fasta") || die "Could not open FASTA output file: $!";
 print "Reading FASTA input.\n";
