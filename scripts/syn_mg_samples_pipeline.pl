@@ -1,5 +1,3 @@
-#!/usr/bin/env /vol/ross/FIGdisk/bin/run_perl
-
 use strict;
 use Data::Dumper;
 use Carp;
@@ -49,7 +47,7 @@ sub read_input {
                 split(/\n/,$x);
                 $input->{'Samples'} = \@samples;
             }
-            elsif ($k eq "Mutations")
+            elsif ($k eq "Mutations")   ### NOT IMPLEMENTED (AND PROBABLY SHOULD NOT BE)
             {
                 my @mutations = map { ($_ =~ /^\s*(\d+)\s*-\s*(\S.*\S)/) ? [$1,&split_parms($2)] : () }
                 split(/\n/,$x);
@@ -61,7 +59,7 @@ sub read_input {
                 split(/\n/,$x);
                 $input->{'Reads'} = \@reads;
             }
-            elsif ($k eq "Breaks")
+            elsif ($k eq "Breaks") ### NOT IMPLEMENTED (AND PROBABLY SHOULD NOT BE)
             {
                 my @breaks = map { ($_ =~ /^\s*(\d+)\s*-\s*(\S.*\S)/) ? [$1,&split_parms($2)] : () }
                 split(/\n/,$x);
@@ -150,20 +148,50 @@ sub make_mutated_reads {
         my $last_pos = $contig_len - $len;
         my $num_reads = int(($contig_len * $coverage) / $len);
         my $nxt = 1;
-        &write_mutated_read($sample,$contig_id,\$seq,0,$len,$nxt++,$fh);
-        &write_mutated_read($sample,$contig_id,\$seq,$last_pos,$len,$nxt++,$fh);
+        &write_mutated_read($sample,$contig_id,\$seq,0,$len,$nxt++,$fh,$mutation_rate);
+        &write_mutated_read($sample,$contig_id,\$seq,$last_pos,$len,$nxt++,$fh,$mutation_rate);
         for (my $i=0; ($i < ($num_reads-2)); $i++)
         {
             my $pos = int(rand() * ($last_pos-1));
-            &write_mutated_read($sample,$contig_id,\$seq,$pos,$len,$nxt++,$fh);
+            &write_mutated_read($sample,$contig_id,\$seq,$pos,$len,$nxt++,$fh,$mutation_rate);
         }
     }
 }
 
 sub write_mutated_read {
-    my($sample,$contig_id,$seqP,$pos,$len,$idN,$fh) = @_;
+    my($sample,$contig_id,$seqP,$pos,$len,$idN,$fh,$mutation_rate) = @_;
 
-    print $fh ">$sample:$contig_id:$idN\n",substr($$seqP,$pos,$len),"\n";
+    my $seq = substr($$seqP,$pos,$len);
+    my $mutations = int($mutation_rate * $len / 100);
+    for (my $i=0; ($i < $mutations); $i++)
+    {
+        my $p = int(rand() * $len);
+        my $c = &mutated(substr($seq,$p,1));
+        substr($seq,$p,1) = $c;
+    }
+    print $fh ">$sample:$contig_id:$idN\n",$seq,"\n";
+}
+
+# maintains GC ratio
+sub mutated {
+    my($c) = @_;
+
+    if    (($c eq 'a') || ($c eq 'A'))
+    {
+        return 'T';
+    }
+    elsif (($c eq 'c') || ($c eq 'C'))
+    {
+        return 'G';
+    }
+    elsif (($c eq 'g') || ($c eq 'G'))
+    {
+        return 'C';
+    }
+    else
+    {
+        return 'A';
+    }
 }
 
 sub length_of_contigs {

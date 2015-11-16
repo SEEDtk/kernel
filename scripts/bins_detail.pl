@@ -29,13 +29,10 @@ use Loader;
 
 =head1 Evaluate Community Bins
 
-    bins_eval.pl [ options ] binDir
+    bins_detail.pl [ options ] binDir
 
-This program computes a more realistic appraisal of the universal roles occurring in a bin. For each major bin, we take the
-first reference genome and extract the proteins for its universal roles. These are BLASTed against the DNA for the bin.
-The best hit for each protein is then blasted against the proteins for the entire genome. Any bidirectional best hit is
-kept and considered a valid universal protein. The modified json file is then written back to disk and a report is written
-to the standard output.
+This program displays a report on the contigs in each bin, listing the closest genome, tetranucleotide distance, and coverage
+distance for each genome in the bin.
 
 =head2 Parameters
 

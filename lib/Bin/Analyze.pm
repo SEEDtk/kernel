@@ -563,8 +563,8 @@ sub BinHeader {
     my $quality = $self->AnalyzeBin($bin);
     # Start the header.
     print $oh "\nBIN $id (from " . $bin->contig1 . ", " . $bin->contigCount . " contigs, " . $bin->len . " base pairs, quality $quality)\n";
-    # Only do a detail report if the bin is big.
-    if ($bin->len >= $self->{minLen}) {
+    # Only do a detail report if the bin has multiple contigs.
+    if ($bin->contigCount > 1) {
         # List the close reference genomes.
         my @genomes = $bin->refGenomes;
         for my $genome (@genomes) {
@@ -578,7 +578,10 @@ sub BinHeader {
         }
         $avg /= scalar @$coverageV;
         print $oh "*** Mean coverage is $avg.\n";
-        $retVal = 1;
+        # Determine if the bin is bin.
+        if ($bin->len >= $self->{minLen}) {
+            $retVal = 1;
+        }
     }
     return $retVal;
 }
