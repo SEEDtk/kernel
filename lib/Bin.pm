@@ -450,21 +450,16 @@ sub coverage {
 
     my $covgMean = $bin->meanCoverage
 
-Mean coverage value for this bin.
+Mean coverage value for this bin. This is actually computed by totalling the coverages.
 
 =cut
 
 sub meanCoverage {
     my ($self) = @_;
     my $retVal = 0;
-    my ($tot, $count) = (0, 0);
     my $coverages = $self->coverage;
     for my $coverage (@$coverages) {
-        $tot += $coverage;
-        $count++;
-    }
-    if ($count) {
-        $retVal = $tot / $count;
+        $retVal += $coverage;
     }
     return $retVal;
 }

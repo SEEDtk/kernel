@@ -32,6 +32,7 @@ use Bin::Score;
 This program performs an audit of the major bins in a binning run, where a major bin is defined here as one with
 multiple contigs. For each such bin, it displays the mean and standard deviation of the coverage for the bin, the
 coverage of the bin's seed contig, and a list of the missing universal roles.
+
 =head2 Parameters
 
 The two positional parameters are the name of a contigs file (C<contigs.ref.bins> or C<contigs.bins>) and the name of

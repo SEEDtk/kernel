@@ -113,6 +113,15 @@ specify more than one genome, use a comma-delimited list (e.g. C<83333.1,224324.
 
 The maximum acceptable E-value. The default is C<1e-20>.
 
+=item refMaxE
+
+The maximum acceptable E-value for blasting to determine the best reference genome for a seed contig. Each seed
+contig eventually forms a bin. The default is C<1e-10>.
+
+=item binMaxE
+
+The maximum acceptable E-value for blasting to determine which bin a contig belongs in. The default is C<1e-30>.
+
 =item gap
 
 The maximum permissible gap between BLAST hits that are to be merged. BLAST hits on the same contig in the same
@@ -122,10 +131,6 @@ direction that are closer than this number of base pairs are merged into a singl
 
 The minimum fraction length for a BLAST hit. A BLAST hit that matches less than this fraction of a protein's
 length will be discarded. This is done after the gap-merging (see C<gap>). The default is C<0.50>.
-
-=item refsPerBin
-
-The number of reference genomes to keep for each bin when doing the initial assignments.
 
 =item dna
 
@@ -174,7 +179,8 @@ my $opt = ScriptUtils::Opts('sampleDir workDir',
                 ['seedgenome|G=s', 'ID of the genome to seed the bins', { default => '83333.1,36870.1,224308.1,1148.1,64091.1,69014.3,83332.12,115711.7,187420.1,224326.1,243273.1,4932.3' }],
                 ['gap|g=i',        'maximum permissible gap between blast hits for merging', { default => 600 }],
                 ['maxE|e=f',       'maximum acceptable e-value for blast hits', { default => 1e-20 }],
-                ['refMaxE=f',      'maximum acceptable e-value for reference genome blast hits', { default => 1e-20 }],
+                ['refMaxE=f',      'maximum acceptable e-value for reference genome blast hits', { default => 1e-10 }],
+                ['binMaxE=f',      'maximum acceptable e-value for bin selection blast hits', { default => 1e-30 }],
                 ['minlen|l=f',     'minimum fraction of the protein that must match in a blast hit', { default => 0.5 }],
                 ['refsPerBin=i',   'number of reference genomes to keep per bin', { default => 1 }],
                 ['mode' => hidden => { one_of => [ ['dna|n' => 'use DNA blasting'], ['prot|p' => 'use protein blasting'] ] }]
@@ -319,6 +325,7 @@ $force ||= ($forceType eq 'parms');
 # Compute the blast parameters.
 my $maxE = $opt->maxe;
 my $rMaxE = $opt->refmaxe // $maxE;
+my $bMaxE = $opt->binmaxe // $maxE;
 # Create the blaster.
 my $blaster = Bin::Blast->new($shrub, $workDir, $reducedFastaFile, uniRoles => $opt->unifile,
         maxE => $maxE, minlen => $opt->minlen, gap => $opt->gap);
@@ -367,7 +374,7 @@ if ($force || ! -s $refGenomeFile) {
     # the reduced FASTA file and applying the matches hash.
     my $seqHash = $loader->GetDNA($matches, $reducedFastaFile);
     # Now BLAST against a database of the seed protein.
-    $contigHash = $blaster->MatchProteins($seqHash, $prot, $opt->refsperbin);
+    $contigHash = $blaster->MatchProteins($seqHash, $prot, 1, $rMaxE);
     # Save the contig list to the reference-genomes file.
     open(my $oh, ">$refGenomeFile") || die "Could not open reference genome output file: $!";
     for my $contig (sort keys %$contigHash) {
@@ -385,33 +392,30 @@ if ($force || ! -s $refGenomeFile) {
 }
 # Our final list of bins goes in here.
 my @binList;
-# Find out which reference genomes uniquely identify a bin and insure the reference genoems
-# are stored in the starter bins.
-my %rgHash;
-for my $contig (keys %$contigHash) {
-    my $rgList = $contigHash->{$contig};
-    my $bin = $contigs{$contig};
-    for my $rg (@$rgList) {
-        $rgHash{$rg}++;
-        $bin->add_ref($rg);
-    }
-}
-my @refGenomes = grep { $rgHash{$_} == 1 } keys %rgHash;
-# We can now create a map from reference genomes to bins. We will also
-# put the starter bins in the bin list.
+# Create a bin for each reference genome found, and fill it with the starter contigs.
+# We also put these bins in the bin list.
 my %binHash;
 for my $contig (keys %$contigHash) {
+    my $rgList = $contigHash->{$contig};
+    my ($rg) = @$rgList;
     my $bin = $contigs{$contig};
-    push @binList, $bin;
-    for my $rg (@{$contigHash->{$contig}}) {
-        $binHash{$rg} = $contigs{$contig};
+    $bin->add_ref($rg);
+    my $gBin = $binHash{$rg};
+    if ($gBin) {
+        $gBin->Merge($bin);
+        $stats->Add(starterBinCombined => 1);
+    } else {
+        $binHash{$rg} = $bin;
+        push @binList, $bin;
+        $stats->Add(starterBinCreated => 1);
     }
 }
+my @refGenomes = sort keys %binHash;
 # The next step is to assign reference genomes to the bins. We cache this information in a file.
 my $refBinFile = "$workDir/contigs.ref.bins";
 if ($force || ! -s $refBinFile) {
     # Blast the reference genomes against the community contigs to assign them.
-    my $subStats = $blaster->Process(\%contigs, \@refGenomes, type => $blastMode, maxE => $rMaxE);
+    my $subStats = $blaster->Process(\%contigs, \@refGenomes, type => $blastMode, maxE => $bMaxE);
     $stats->Accumulate($subStats);
     # Checkpoint our results.
     open(my $oh, ">$refBinFile") || die "Could not open augmented contig bin output file: $!";

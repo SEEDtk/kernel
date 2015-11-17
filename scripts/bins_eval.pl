@@ -34,9 +34,6 @@ use Loader;
 
 This program computes a more realistic appraisal of the universal roles occurring in a bin. For each major bin, we take the
 first reference genome and extract the proteins for its universal roles. These are BLASTed against the DNA for the bin.
-The best hit for each protein is then blasted against the proteins for the entire genome. Any bidirectional best hit is
-kept and considered a valid universal protein. The modified json file is then written back to disk and a report is written
-to the standard output.
 
 =head2 Parameters
 

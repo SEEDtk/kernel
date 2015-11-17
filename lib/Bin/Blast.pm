@@ -551,6 +551,10 @@ ID of the desired function. If omitted, the default universal role is used.
 
 Number of reference genomes to keep for each bin. If omitted, the default is C<1>.
 
+=item maxE
+
+Maximum E-value to use for BLASTing.
+
 =item RETURN
 
 Returns a reference to a hash mapping each incoming contig ID to a reference to a list of reference genome IDs.
@@ -560,7 +564,7 @@ Returns a reference to a hash mapping each incoming contig ID to a reference to 
 =cut
 
 sub MatchProteins {
-    my ($self, $seqHash, $funID, $count) = @_;
+    my ($self, $seqHash, $funID, $count, $maxE) = @_;
     # Get the defaults.
     $funID //= $self->{defaultRole};
     $count //= 1;
@@ -570,18 +574,19 @@ sub MatchProteins {
     my $protFastaFile = $self->{workDir} . "/$funID.fa";
     if (! -s $protFastaFile) {
         # Here it does not exist, so we must create it.
-        $self->ProtDnaDatabase($funID, $protFastaFile);
+        $self->ProtDatabase($funID, $protFastaFile);
     }
     # Create a list of FASTA triplets from the matched sequences.
     my @triples = map { [$_, '', $seqHash->{$_}] } keys %$seqHash;
     # BLAST to get the matches against the protein DNA from the database.
-    my $matches = gjo::BlastInterface::blast(\@triples, $protFastaFile, 'blastn',
-            { maxE => $self->{maxE}, tmp_dir => $self->{workDir}, outForm => 'hsp' });
+    my $matches = gjo::BlastInterface::blast(\@triples, $protFastaFile, 'blastx',
+            { maxE => $maxE, tmp_dir => $self->{workDir}, outForm => 'hsp' });
     # The query sequence IDs are sample contigs representing bins. The subject sequence IDs are
     # genome IDs. Save the best N genomes for each sample contig.
     my %retVal;
     for my $match (@$matches) {
-        my ($contig, $genome) = ($match->qid, $match->sid);
+        my ($contig, $fid) = ($match->qid, $match->sid);
+        my $genome = SeedUtils::genome_of($fid);
         if (! $retVal{$contig}) {
             $retVal{$contig} = [$genome];
         } else {
@@ -595,6 +600,8 @@ sub MatchProteins {
     # Return the hash of contig IDs to genome information.
     return \%retVal;
 }
+
+
 
 =head3 Process
 
@@ -869,6 +876,44 @@ sub ProcessN {
     }
 }
 
+
+=head3 ProtDatabase
+
+    $blaster->ProtDatabase($funID, $fileName);
+
+Create a FASTA file of all the protein sequences for the specified function.
+
+=over 4
+
+=item funID
+
+ID of the function for the protein of interest.
+
+=item fileName
+
+Name of the FASTA output file.
+
+=back
+
+=cut
+
+sub ProtDatabase {
+    my ($self, $funID, $fileName) = @_;
+    # Get the shrub database.
+    my $shrub = $self->{shrub};
+    # Get the function privilege level.
+    my $priv = $self->{priv};
+    # Get all the occurrences of the function in the database.
+    my @funTuples = $shrub->GetAll('Function2Feature Feature Protein',
+            'Function2Feature(from-link) = ? AND Function2Feature(security) = ?',
+            [$funID, $priv], 'Feature(id) Protein(sequence)');
+    # Create a FASTA file from them.
+    open(my $oh, ">$fileName") || die "Could not open FASTA output $fileName: $!";
+    for my $funTuple (@funTuples) {
+        my ($id, $seq) = @$funTuple;
+        print $oh ">$id\n$seq\n";
+    }
+}
 
 =head3 ProtDnaDatabase
 

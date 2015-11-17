@@ -38,7 +38,7 @@ genome from which the synthetic reads were generated is displayed.
 
 There is one positional parameter-- the directory containing the bin information. The json file containing the bin data structures
 must be named C<bins.json>. This is output by L<bins_create.pl>. The original FASTA file for the sample contigs must be in
-C<cross.contigs>. This is output by the synthesizing process.
+C<contigs.fasta>. This is output by L<bins_coverage.pl>.
 
 The command-line options are those found in L<Shrub/script_options>.
 
@@ -68,7 +68,7 @@ print "Reading bins.\n";
 $binList = Bin::ReadBins($jsonFileName);
 # Read in the contig FASTA file and extract the source genome IDs.
 my %contigs2Source;
-my $fh = $loader->OpenFasta(sampleContigs => "$binDir/cross.contigs");
+my $fh = $loader->OpenFasta(sampleContigs => "$binDir/contigs.fasta");
 while (my $triple = $loader->GetLine(sampleContigs => $fh)) {
     my ($id, $comment) = @$triple;
     # Extract the source genome ID.
