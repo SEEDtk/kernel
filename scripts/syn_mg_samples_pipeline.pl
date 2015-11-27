@@ -1,3 +1,89 @@
+#!/usr/bin/env perl
+#
+# Copyright (c) 2003-2015 University of Chicago and Fellowship
+# for Interpretations of Genomes. All Rights Reserved.
+#
+# This file is part of the SEED Toolkit.
+#
+# The SEED Toolkit is free software. You can redistribute
+# it and/or modify it under the terms of the SEED Toolkit
+# Public License.
+#
+# You should have received a copy of the SEED Toolkit Public License
+# along with this program; if not write to the University of Chicago
+# at info@ci.uchicago.edu or the Fellowship for Interpretation of
+# Genomes at veronika@thefig.info or download a copy from
+# http://www.theseed.org/LICENSE.TXT.
+#
+
+
+=head1 Generate Synthetic Metagenome Data
+
+    syn_mg_samples_pipeline [ options ] dataDir
+
+This script generates synthetic reads for L<bins_create.pl> tests. The synthetic reads are generated according to instructions
+present in an input file.
+
+=head2 Parameters
+
+There is one positional parameter-- the name of the data directory. This directory must contain an input file named C<input>.
+The output is placed in subdirectories called C<Genomes> and C<Samples>.
+
+The command-line options are those found in L<Shrub/script_options>.
+
+=head2 Input File Format
+
+The input file is a text file. Lines beginning with a pound sign (C<#>) are treated as comments.
+
+The file contains three sections. Each section is preceded by a header that begins in the first column and consists of the
+section name followed by a colon (C<:>).
+
+=over 4
+
+=item Genomes
+
+This section should contain one line for each source genome. Each line contains a tab, the genome ID, one or more whitespace
+characters, and the genome name.
+
+=item Samples
+
+This section should contain one line for each sample. Each line contains a tab, a sample ID, a hyphen (surrounded by
+optional whitespace) and then one or more coverage specifications, space-delimited. Each coverage specification
+consists of a genome ID, a comma, and a level of coverage.
+
+=item Reads
+
+This section should contain one line for each sample. Each line contains a tab, a sample ID, a hyphen (surrounded by
+optional whitespace) and then one or more sampling specifications, space-delimited. Each sampling specification consists
+of a genome ID, a comma, a read length, a second comma, and a percent mutation rate.
+
+=back
+
+So, for example, the following file generates data from E Coli and Strep pyogenes.
+
+  Genomes:
+        83333.1  Escherichia coli K12
+        160490.1 Streptococcus pyogenes M1 GAS
+
+  Samples:
+        1 - 83333.1,20 160490.1,50
+        2 - 83333.1,5  160490.1,100
+
+  Reads:
+        1 - 83333.1,500,5  160490.1,500,5
+        2 - 83333.1,500,5  160490.1,500,5
+
+The first sample has E coli at coverage 20 and Strep pyogenes at coverage 50. The second sample has E coli at coverage 5
+and Strep pyogenes at coverage 100. When generating the reads, each read will have a length of 500 and a 5% mutation rate.
+
+=head2 Output Files
+
+There are several working directories and files produced. The primary output files are called C<all.reads>, underneath the
+C<Samples> subdirectory of the data directory specified on the command line. Each sample's read file will be in a subdirectory
+of C<Samples> with the same name as the sample ID number.
+
+=cut
+
 use strict;
 use Data::Dumper;
 use Carp;
@@ -5,31 +91,49 @@ use SeedUtils;
 use gjoseqlib;
 use Shrub;
 use ScriptUtils;
+use File::Copy::Recursive;
 
-my $opt = ScriptUtils::Opts("dataDir", Shrub::script_options());
+
+my $opt = ScriptUtils::Opts("dataDir", Shrub::script_options(),
+            ['post', 'post-process the reads into assemblies']);
 my $dataD = shift @ARGV;
 my $shrub = Shrub->new_for_script($opt);
 if (! -s "$dataD/input")  { die "usage: syn_mg_samples_pipeline DataD" }
 
 my $input   = &read_input("$dataD/input");
+print "Copying genomes.\n";
 &generate_genomes($dataD,$input);
 
 my $samples = $input->{Samples};
 foreach my $sampleS (sort { $a->[0] <=> $b->[0] } @$samples)
 {
     my $sample = $sampleS->[0];
+    print "Generating sample $sample.\n";
     &generate_data_for_sample($sampleS,$input,$dataD);
-    &SeedUtils::run("cat $dataD/Samples/$sample/Reads/* > $dataD/Samples/$sample/all.reads");
+    # Combine all reads into all.reads.
+    print "Combining reads for $sample.\n";
+    open(my $oh, ">$dataD/Samples/$sample/all.reads") || die "Could not open all.reads for $sample: $!";
+    my $sampleDir = "$dataD/Samples/$sample/Reads";
+    openDir(my $dh, $sampleDir) || die "Could not open reads directory for $sample: $!";
+    my @readFiles = grep { $_ =~ /^\d+\.\d+$/ } readdir $dh;
+    for my $readFile (@readFiles) {
+        open(my $ih, "<$sampleDir/$readFile") || die "Could not open read file $readFile in $sampleDir: $!";
+        while (! eof $ih) {
+            my $line = <$ih>;
+            print $oh, $line;
+        }
+    }
 }
 
 sub read_input {
     my($file) = @_;
 
     my $input = {};
-    open(INPUT,"grep -v '^#' $file |") || die "could not open $file";
+    open(INPUT,"<") || die "could not open $file";
     $/ = "\n\n";
     while ($_ = <INPUT>)
     {
+        $_ =~ s/^#.+?\n//gm;
         chomp;
         if ($_ =~ /^(\S+):\n\s*(\S.*\S)/s)
         {
@@ -88,7 +192,9 @@ sub generate_data_for_sample {
             mkdir("$dataD/Samples",0777) || die "could not make $dataD/Samples";
         }
         mkdir("$dataD/Samples/$sample",0777) || die "could not make $dataD/Samples/$sample";
+        print "Generating close genomes for $sample.\n";
         &generate_close_genomes($dataD,$sample,$input);
+        print "Generating reads genomes for $sample.\n";
         &generate_reads($dataD,$sample,$input);
     }
 }
@@ -239,7 +345,7 @@ sub mutations {
 sub get_contigs {
     my($genome,$file) = @_;
     my $fname = $shrub->genome_fasta($genome);
-    &SeedUtils::run("cp $fname $file");
+    File::Copy::Recursive($fname, $file);
 }
 
 sub get_peg_locs {

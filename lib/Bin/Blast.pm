@@ -678,11 +678,15 @@ sub Process {
     print "Assigning genomes to sample contigs.\n";
     for my $contigID (keys %contigGenomes) {
         $stats->Add(contigsWithRefGenomes => 1);
-        my $genome = $contigGenomes{$contigID}[0];
+        my ($genome, $score) = @{$contigGenomes{$contigID}};
         my $bin = $contigBins->{$contigID};
         if (! $bin->refGenomes) {
             # Add the genome found to the contig's bin.
             $contigBins->{$contigID}->add_ref($genome);
+            if (! ref $score) {
+                $score = [$score, $bin->len];
+            }
+            # print join("\t", $contigID, $genome, @$score) . "\n";
         }
     }
     # Return the statistics.
@@ -839,25 +843,17 @@ sub ProcessN {
     $stats->Add(blastMatches => $matchCount);
     if ($matchCount) {
         print "$matchCount hits found.\n";
-        # This hash will track hits on contigs. It is later used to check for universal roles.
-        my %contigHits;
-        # Track the universal role matches.
+        # This hash accumulates the number of matched characters for each contig.
+        my %contigScore;
+        # Count the universal role matches.
         my $roleMatches = 0;
         # Loop through the matches.
         for my $match (sort { ($a->sid cmp $b->sid) or ($a->s1 <=> $b->s1) } @$matches) {
             # Get the pieces of the HSP object.
             my $gContigID = $match->qid;
             my $contigID = $match->sid;
-            # The score is percent identity first, then length of match.
-            my $score = [$match->n_id / $match->n_mat, $match->n_mat];
-            # Check to see if this is the genome's best score for this contig.
-            my $oldScore = [0, 0];
-            if ($contigGenomes->{$contigID}) {
-                $oldScore = $contigGenomes->{$contigID}[1];
-            }
-            if ($oldScore->[0] < $score->[0] || $oldScore->[0] == $score->[0] && $oldScore->[1] < $score->[1]) {
-                $contigGenomes->{$contigID} = [$refGenome, $score];
-            }
+            # Accumulate the score.
+            $contigScore{$contigID} += $match->n_id;
             # Check for a universal role hit.
             my $uniThing = $uniProts->{$gContigID};
             if ($uniThing) {
@@ -873,6 +869,17 @@ sub ProcessN {
             }
         }
         print "$roleMatches universal role hits found by $refGenome BLAST.\n";
+        # Check to see if this genome is the best for any contig.
+        for my $contigID (keys %contigScore) {
+            my $score = $contigScore{$contigID};
+            my $oldScore = 0;
+            if ($contigGenomes->{$contigID}) {
+                $oldScore = $contigGenomes->{$contigID}[1];
+            }
+            if ($score > $oldScore) {
+                $contigGenomes->{$contigID} = [$refGenome, $score];
+            }
+        }
     }
 }
 
