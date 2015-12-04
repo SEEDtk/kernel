@@ -134,7 +134,7 @@ length will be discarded. This is done after the gap-merging (see C<gap>). The d
 
 =item dna
 
-Use DNA blasting to match reference genomes to sample contigs.
+Use DNA blasting to match reference genomes to sample contigs. This is the default.
 
 =item prot
 
@@ -225,11 +225,11 @@ my $force = ($forceType eq 'all');
 my $prot = $opt->seedrole;
 my $genome = $opt->seedgenome;
 # Compute the mode.
-my $blastMode = $opt->mode // 'prot';
-if ($blastMode eq 'dna') {
-    $blastMode = 'n';
+my $blastMode = $opt->mode // 'dna';
+if ($blastMode eq 'prot') {
+    $blastMode = 'p';
 } else {
-    $blastMode = 'p'
+    $blastMode = 'n'
 }
 # This hash will contain all the contigs, it maps each contig ID to a bin object describing the contig's properties.
 my %contigs;

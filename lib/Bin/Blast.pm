@@ -26,6 +26,7 @@ package Bin::Blast;
     use File::Spec;
     use File::Copy::Recursive;
     use BasicLocation;
+    use Shrub::Contigs;
 
 =head1 Blast Analysis Object
 
@@ -627,7 +628,7 @@ A hash of optional parameters, including zero or more of the following.
 
 =item type
 
-BLAST type-- C<n> for DNA, C<p> for protein. The default is C<p>.
+BLAST type-- C<n> for DNA, C<p> for protein. The default is C<n>.
 
 =item maxE
 
@@ -654,7 +655,7 @@ sub Process {
     # Get the shrub database object.
     my $shrub = $self->{shrub};
     # Get the options.
-    my $type = $options{type} // 'p';
+    my $type = $options{type} // 'n';
     my $maxE = $options{maxE} // $self->{maxE};
     $type //= 'p';
     # The contig bins will contain the universal role information. We cannot, however, track the closest
@@ -665,12 +666,8 @@ sub Process {
     # Loop through the reference genomes.
     for my $refGenome (@$refGenomes) {
         my $blasted = $stats->Add(refGenomesBlasted => 1);
-        print "Processing $refGenome for BLAST ($blasted of $totalGenomes).\n";
-        if ($type eq 'n') {
-            $self->ProcessN($stats, $contigBins, $refGenome, \%contigGenomes, $maxE);
-        } else {
-            $self->ProcessP($stats, $contigBins, $refGenome, \%contigGenomes, $maxE);
-        }
+        print "Processing $refGenome for BLAST$type ($blasted of $totalGenomes).\n";
+        $self->ProcessBlast($type, $stats, $contigBins, $refGenome, \%contigGenomes, $maxE);
     }
     # Now all the reference genomes have been blasted. For each contig, we need to assign the reference
     # genome and any universal roles. Note that if a contig already has reference genome information we
@@ -696,15 +693,19 @@ sub Process {
 
 =head2 Internal Utility Methods
 
-=head3 ProcessP
+=head3 ProcessBlast
 
-    $self->ProcessP($stats, $contigBins, $refGenome, \%contigGenomes, $maxE);
+    $self->ProcessBlast($type, $stats, $contigBins, $refGenome, \%contigGenomes, $maxE);
 
 BLAST a single reference genome's proteins against the contigs. This method updates the
 universal role counts for the contig bin objects and tracks the closest reference genome
 to each contig.
 
 =over 4
+
+=item type
+
+Type of BLASt-- C<p> for protein, C<n> for DNA.
 
 =item stats
 
@@ -731,16 +732,23 @@ Maximum permissible E-value for the BLAST.
 
 =cut
 
-sub ProcessP {
-    my ($self, $stats, $contigBins, $refGenome, $contigGenomes, $maxE) = @_;
+sub ProcessBlast {
+    my ($self, $type, $stats, $contigBins, $refGenome, $contigGenomes, $maxE) = @_;
     # Get the options.
     my $priv = $self->{priv};
     # We get the reference genome's FASTA file and a hash that tracks the minimum match
-    # length of each universal role.
-    my ($queryFileName, $uniLens) = $self->GetRefGenomeFasta($refGenome);
+    # length of each universal role. We also need the blast program name.
+    my ($queryFileName, $uniLens, $blaster);
+    if ($type eq 'p') {
+        ($queryFileName, $uniLens) = $self->GetRefGenomeFasta($refGenome);
+        $blaster = 'tblastn';
+    } else {
+        ($queryFileName, $uniLens) = $self->GetRefGenomeDna($refGenome);
+        $blaster = 'blastn';
+    }
     print scalar(keys %$uniLens) . " universal roles found in $refGenome.\n";
     # Blast this genome against the sample contigs.
-    my $matches = gjo::BlastInterface::blast($queryFileName, $self->{blastDb}, 'tblastn',
+    my $matches = gjo::BlastInterface::blast($queryFileName, $self->{blastDb}, $blaster,
         { outForm => 'hsp', maxE => $maxE });
     my $matchCount = scalar @$matches;
     $stats->Add(blastMatches => $matchCount);
@@ -749,21 +757,15 @@ sub ProcessP {
         # This hash will track universal role hits. It is a double hash keyed on universal role ID followed by
         # contig ID and maps to location objects.
         my %uniHits = map { $_ => {} } keys %$uniLens;
+        # This hash accumulates the score for each contig.
+        my %contigScore;
         # Loop through the matches.
         for my $match (sort { ($a->sid cmp $b->sid) or ($a->s1 <=> $b->s1) } @$matches) {
             # Get the pieces of the HSP object.
             my $functionID = $match->qdef;
             my $contigID = $match->sid;
-            # The score is percent identity first, then length of match.
-            my $score = [$match->n_id / $match->n_mat, $match->n_mat];
-            # Check to see if this is the genome's best score for this contig.
-            my $oldScore = [0, 0];
-            if ($contigGenomes->{$contigID}) {
-                $oldScore = $contigGenomes->{$contigID}[1];
-            }
-            if ($oldScore->[0] < $score->[0] || $oldScore->[0] == $score->[0] && $oldScore->[1] < $score->[1]) {
-                $contigGenomes->{$contigID} = [$refGenome, $score];
-            }
+            # Merge the score.
+            $contigScore{$contigID} += $match->n_id;
             # If this is a universal role, merge it into the hash.
             if ($functionID) {
                 my $uniSubHash = $uniHits{$functionID};
@@ -771,6 +773,17 @@ sub ProcessP {
                 if ($self->MergeMatch($uniSubHash, $match)) {
                     $stats->Add(uniRoleMerged => 1);
                 }
+            }
+        }
+        # Check to see if this genome is the best for any contig.
+        for my $contigID (keys %contigScore) {
+            my $score = $contigScore{$contigID};
+            my $oldScore = 0;
+            if ($contigGenomes->{$contigID}) {
+                $oldScore = $contigGenomes->{$contigID}[1];
+            }
+            if ($score > $oldScore) {
+                $contigGenomes->{$contigID} = [$refGenome, $score];
             }
         }
         # Check for any universal role matches of sufficient length.
@@ -790,96 +803,6 @@ sub ProcessP {
             }
         }
         print "$roleMatches universal role hits found by $refGenome BLAST.\n";
-    }
-}
-
-=head3 ProcessN
-
-    $self->ProcessN($stats, $contigBins, $refGenome, \%contigGenomes, $maxE);
-
-BLAST a single reference genome's DNA against the contigs. This method updates the
-universal role counts for the contig bin objects and tracks the closest reference genome
-to each contig.
-
-=over 4
-
-=item stats
-
-L<Stats> object for tracking statistics of this run.
-
-=item contigBins
-
-Reference to a hash mapping each contig ID to its associated L<Bin> object.
-
-=item refGenome
-
-ID of the reference genome to BLAST.
-
-=item contigGenomes
-
-Reference to a hash mapping each contig to a 2-tuple consisting of (0) the closest reference genome
-ID and (1) its score.
-
-=item maxE
-
-Maximum permissible E-value for the BLAST.
-
-=back
-
-=cut
-
-sub ProcessN {
-    my ($self, $stats, $contigBins, $refGenome, $contigGenomes, $maxE) = @_;
-    # Get the options.
-    my $priv = $self->{priv};
-    my $minlen = $self->{minlen};
-    # We get the reference genome's FASTA file and a hash that helps us find universal roles.
-    my ($queryFileName, $uniProts, $uniList) = $self->GetRefGenomeDna($refGenome);
-    print scalar(@$uniList) . " universal roles found in $refGenome.\n";
-    # Blast this genome against the sample contigs.
-    my $matches = gjo::BlastInterface::blast($queryFileName, $self->{blastDb}, 'blastn',
-        { outForm => 'hsp', maxE => $maxE });
-    my $matchCount = scalar @$matches;
-    $stats->Add(blastMatches => $matchCount);
-    if ($matchCount) {
-        print "$matchCount hits found.\n";
-        # This hash accumulates the number of matched characters for each contig.
-        my %contigScore;
-        # Count the universal role matches.
-        my $roleMatches = 0;
-        # Loop through the matches.
-        for my $match (sort { ($a->sid cmp $b->sid) or ($a->s1 <=> $b->s1) } @$matches) {
-            # Get the pieces of the HSP object.
-            my $gContigID = $match->qid;
-            my $contigID = $match->sid;
-            # Accumulate the score.
-            $contigScore{$contigID} += $match->n_id;
-            # Check for a universal role hit.
-            my $uniThing = $uniProts->{$gContigID};
-            if ($uniThing) {
-                my $gLoc = $match->qloc;
-                for my $uniTuple (@$uniThing) {
-                    my ($uniLoc, $uniRole) = @$uniTuple;
-                    if ($uniLoc->Overlap($gLoc->Left, $gLoc->Right) >= $uniLoc->Length * $minlen) {
-                        $contigBins->{$match->sid}->merge_prots($uniRole);
-                        $stats->Add(uniRoleAssigned => 1);
-                        $roleMatches++;
-                    }
-                }
-            }
-        }
-        print "$roleMatches universal role hits found by $refGenome BLAST.\n";
-        # Check to see if this genome is the best for any contig.
-        for my $contigID (keys %contigScore) {
-            my $score = $contigScore{$contigID};
-            my $oldScore = 0;
-            if ($contigGenomes->{$contigID}) {
-                $oldScore = $contigGenomes->{$contigID}[1];
-            }
-            if ($score > $oldScore) {
-                $contigGenomes->{$contigID} = [$refGenome, $score];
-            }
-        }
     }
 }
 
@@ -1086,10 +1009,10 @@ sub GetRefGenomeFasta {
 
 =head3 GetRefGenomeDna
 
-    my ($queryFileName, \%uniprots, \@uniList) = $blaster->GetRefGenomeDna($refGenome);
+    my ($queryFileName, \%uniLens) = $blaster->GetRefGenomeDna($refGenome);
 
-Locate the FASTA file containing all the DNA in a reference genome. Also returns a hash that can be used to find
-universal roles.
+Locate the FASTA file containing all the protein-encoding DNA in a reference genome. Each universal role will have the
+role name encoded in the FASTA comment.
 
 =over 4
 
@@ -1099,12 +1022,11 @@ ID of the target reference genome.
 
 =item RETURN
 
-Returns a three-element list consisting of (0) the name of the DNA FASTA file, (1) a reference to a hash mapping
-each contig ID to a data structure that can be used to find universal roles, and (2) a reference to a list of the
-IDs of the universal roles found. That hash structure maps each contig ID to an ordered list of 2-tuples,
-each tuple consisting of (0) a location object and (1) the ID of the universal role at that location.
+Returns a two-element list consisting of (0) the name of the file created and (1) a reference to a hash mapping each
+universal role ID to the minimum length required to match it.
 
 =back
+
 
 =cut
 
@@ -1114,48 +1036,53 @@ sub GetRefGenomeDna {
     my $workDir = $self->{workDir};
     # Get the shrub database object.
     my $shrub = $self->{shrub};
+    # Get the function privilege level.
+    my $priv = $self->{priv};
     # Get the universal role hash.
     my $uniRoles = $self->{uniRoleH};
-    # Locate the DNA file for this genome.
-    my $repo = $shrub->DNArepo;
-    my ($contigPath, $geneticCode) = $shrub->GetEntityValues(Genome => $refGenome, 'contig-file genetic-code');
-    my $queryFileName = "$repo/$contigPath";
-    # Get the options.
-    my $priv = $self->{priv};
-    # Now we need to create the universal role structures.
-    my %uniProts;
-    my %uniListH;
-    # Get the location of each universal role.
-    my @roles = keys %$uniRoles;
-    # Get the locations of the universal roles.
-    my $filter = 'Feature(id) LIKE ? AND Feature2Function(security) = ? AND Feature2Function(to-link) IN (' .
-            join(', ', map { '?' } @roles) . ')';
-    my @locTuples = $shrub->GetAll('Feature Feature2Function AND Feature Feature2Contig', $filter, ["fig|$refGenome.peg.%", $priv, @roles],
-            'Feature2Function(to-link) Feature2Contig(to-link) Feature2Contig(begin) Feature2Contig(dir) Feature2Contig(len)');
-    # Build a hash mapping universal roles to locations.
-    my %uniLocs;
-    for my $locTuple (@locTuples) {
-        my ($role, $contig, $beg, $dir, $len) = @$locTuple;
-        $uniListH{$role} = 1;
-        my $newLoc = BasicLocation->new($contig, $beg, $dir, $len);
-        if (! $uniLocs{$role}) {
-            $uniLocs{$role} = $newLoc;
-        } else {
-            $uniLocs{$role}->Merge($newLoc);
+    # For each feature, we need its DNA locations and its function. These are stored in the following hashes.
+    my (%pegLocs, %pegFun);
+    # This tracks the universal role lengths. The lengths are in base pairs.
+    my %uniLens;
+    # Loop through the feature data.
+    my $q = $shrub->Get('Feature Feature2Contig AND Feature Feature2Function',
+            'Feature(id) LIKE ? AND Feature2Function(security) = ? ORDER BY Feature2Contig(from-link), Feature2Contig(ordinal)',
+            ["fig|$refGenome.peg.%", $priv],
+            'Feature(id) Feature2Contig(ordinal) Feature2Contig(to-link) Feature2Contig(begin) Feature2Contig(dir) Feature2Contig(len) Feature2Function(to-link)');
+    while (my $record = $q->Fetch()) {
+        # Get the fields for this record.
+        my ($fid, $contig, $begin, $dir, $len, $fun) = $record->Values(['Feature(id)', 'Feature2Contig(to-link)', 'Feature2Contig(begin)',
+                'Feature2Contig(dir)', 'Feature2Contig(len)', 'Feature2Function(to-link)']);
+        # Is this a universal role?
+        if ($uniRoles->{$fun}) {
+            # Yes. Save it for this feature.
+            $pegFun{$fid} = $fun;
         }
+        # Add the location to the feature's location list.
+        my $loc = BasicLocation->new($contig, $begin, $dir, $len);
+        push @{$pegLocs{$fid}}, $loc;
     }
-    # Create a sorted location list for each contig.
-    for my $role (keys %uniLocs) {
-        my $loc = $uniLocs{$role};
-        my $contig = $loc->Contig;
-        push @{$uniProts{$contig}}, [$loc, $role];
+    # Now, loop through the peg DNA hash. For each feature, we output its DNA to a fasta file. If it is a universal
+    # role, we remember the DNA length. First, we need to create the FASTA output file.
+    my $queryFileName = "$workDir/$refGenome.dna.fa";
+    open(my $oh, ">", $queryFileName) || die "Could not create FASTA output file: $!";
+    # Load the DNA for this genome.
+    my $contigs = Shrub::Contigs->new($shrub, $refGenome);
+    # Loop through the pegs.
+    for my $fid (keys %pegLocs) {
+        my $locList = $pegLocs{$fid};
+        my $dna = $contigs->dna(@$locList);
+        my $fun = $pegFun{$fid} || '';
+        if ($fun) {
+            # Here we have a universal role. Save the match length.
+            $uniLens{$fun} = int(length($dna) * $self->{minlen})
+        }
+        # Output the FASTA record.
+        print $oh ">$fid $fun\n$dna\n";
     }
-    for my $contig (keys %uniProts) {
-        my $list = $uniProts{$contig};
-        $uniProts{$contig} = [sort { BasicLocation::Cmp($a->[0], $b->[0]) } @$list];
-    }
-    return ($queryFileName, \%uniProts, [ sort keys %uniListH ]);
+    return ($queryFileName, \%uniLens);
 }
+
 
 =head3 MergeMatch
 
