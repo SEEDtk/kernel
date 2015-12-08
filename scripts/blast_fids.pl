@@ -142,19 +142,8 @@ if ($opt->fasta) {
     # Here the query features are input as a FASTA file.
     @query = gjoseqlib::read_fasta($ih);
 } else {
-    # Here we are expecting feature IDs.
-    my $col = $opt->col;
-    my @fids;
-    while (! eof $ih) {
-        my $line = <$ih>;
-        chomp $line;
-        my @flds = split /\t/, $line;
-        if ($col) {
-            push @fids, $flds[$col - 1];
-        } else {
-            push @fids, pop @flds;
-        }
-    }
+    # Here we are expecting feature IDs. Get them from the input.
+    my @fids = ScriptUtils::get_col($ih, $opt->col);
     # What we do next depends on whether we are processing DNA or proteins.
     if ($mode eq 'prot') {
         # Proteins are easy. Just get the sequence for each feature.
