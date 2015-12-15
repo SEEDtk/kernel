@@ -72,7 +72,7 @@ if ($opt->closedata) {
     $genomeH = $closeData->{genomes};
 } elsif ($opt->repgenomes) {
     my $genomes = $opt->repgenomes;
-    $genomeH = { map { ($_ =~ /^(\d+\.\d+)/) ? ($1 => 1) : () } File::Slurp::read_file($genomes) };
+    $genomeH = { map { ($_ =~ /^(\d+\.\d+)\s+(.+)/) ? ($1 => $2) : () } File::Slurp::read_file($genomes) };
     # Connect to the database.
     my $shrub = Shrub->new_for_script($opt);
 
