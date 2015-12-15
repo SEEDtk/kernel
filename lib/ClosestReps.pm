@@ -37,7 +37,6 @@ sub process_contigs {
 
     my %hits;
     &add_hits( $contigs, $kmer_hash, $k, \%hits );
-    print STDERR "Processing response.\n";
     my $response = &response( \%hits, $gh );
     return $response;
 }
@@ -52,11 +51,9 @@ sub add_hits
     foreach my $contig (@$contigs)
     {
         $counter++;
-        print STDERR "Processing $contig->[0] + strand ($counter of $count).\n";
         my ( $id, undef, $seq ) = @$contig;
         $seq = uc $seq;
         &add_hits1( $seq, $kmer_hash, $k, $hits, $code );
-        print STDERR "Processing $contig->[0] - strand.\n";
         my $seqR = &SeedUtils::rev_comp($seq);
         &add_hits1( $seqR, $kmer_hash, $k, $hits, $code );
     }
