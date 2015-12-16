@@ -45,9 +45,25 @@ The L<Shrub> database object used to access the data.
 
 =head3 new
 
-    my $helper = STKServices->new($opt);
+    my $helper = STKServices->new();
 
 Construct a new SEEDtk services helper.
+
+=cut
+
+sub new {
+    my ($class, $opt) = @_;
+    my $retVal = {
+    };
+    bless $retVal, $class;
+    return $retVal;
+}
+
+=head3 connect_db
+
+    $helper->connect_db($opt);
+
+Connect this object to the Shrub database.
 
 =over 4
 
@@ -60,14 +76,25 @@ the correct database.
 
 =cut
 
-sub new {
-    my ($class, $opt) = @_;
+sub connect_db {
+    my ($self, $opt) = @_;
+    # Connect to the database.
     my $shrub = Shrub->new_for_script($opt);
-    my $retVal = {
-        shrub => $shrub
-    };
-    bless $retVal, $class;
-    return $retVal;
+    # Store it in this object.
+    $self->{shrub} = $shrub;
+}
+
+=head3 script_options
+
+    my @options = $helper->script_options();
+
+Return a list of the command-line option specifiers for this object. These options are only used if we need
+to connect to the database. They should be in the format expected by L<Getopt::Long::Descriptive::describe_options>.
+
+=cut
+
+sub script_options {
+    return Shrub::script_options();
 }
 
 =head2 Service Methods
