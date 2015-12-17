@@ -3,7 +3,7 @@ use Data::Dumper;
 use gjoseqlib;
 use SeedUtils;
 use ScriptUtils;
-use gjo::BlastInterface;
+use BlastInterface;
 
 use Shrub;
 use Shrub::GTO;
@@ -34,7 +34,7 @@ my $maxE     = $opt->maxexpect;
 my @potential_orgs =
   grep { substr( $_->[0], 0, 2 ) ne '//' && $_->[0] >= $min_hits }
   map { chop; [ split( /\t/, $_ ) ] } <$ih>;
-gjo::BlastInterface::verify_db( $contigF, 'n' );
+BlastInterface::verify_db( $contigF, 'n' );
 &pull_ref_contigs( \@potential_orgs, $contigF, $refD );
 
 sub pull_ref_contigs
@@ -56,7 +56,7 @@ sub pull_ref_contigs
         {
             $obj //= Shrub::GTO->new($shrub, $g);
             $obj->write_contigs_to_file("$giD/reference.contigs");
-            my @matches = gjo::BlastInterface::blastn("$giD/reference.contigs", $contigF, { dust => 'no', maxE => $maxE });
+            my @matches = BlastInterface::blastn("$giD/reference.contigs", $contigF, { dust => 'no', maxE => $maxE });
             open(SIMS, ">$giD/blast.out.dna") || die "Could not open $giD/blast.out.dna: $!";
             foreach my $m (@matches) {
                 print SIMS $m->as_line;
@@ -68,7 +68,7 @@ sub pull_ref_contigs
             $obj //= Shrub::GTO->new($shrub, $g);
             # Get protein translation FASTA.
             $obj->write_protein_translations_to_file("$giD/reference.translations");
-            my @matches = gjo::BlastInterface::tblastn("$giD/reference.translations", $contigF, { maxE => $maxE });
+            my @matches = BlastInterface::tblastn("$giD/reference.translations", $contigF, { maxE => $maxE });
             open(SIMS, ">$giD/blast.out.protein") || die "Could not open $giD/blast.out.protein: $!";
             foreach my $m (@matches) {
                 print SIMS $m->as_line;

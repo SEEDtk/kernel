@@ -3,7 +3,7 @@ package Projection;
 use strict;
 use warnings;
 use gjo::stat;
-use gjo::BlastInterface;
+use BlastInterface;
 use Data::Dumper;
 
 sub relevant_projection_data
@@ -104,7 +104,7 @@ sub get_blast_cutoffs
                     }
                 }
                 my @output =
-                  &gjo::BlastInterface::blast( \@seq_tuples, \@seq_tuples,
+                  &BlastInterface::blast( \@seq_tuples, \@seq_tuples,
                     'blastp', { outForm => 'sim' } );
 
                 my %best;
@@ -206,7 +206,7 @@ sub bitscore_stats_by_family
                     }
                 }
                 my @output =
-                   &gjo::BlastInterface::blast( \@seq_tuples, \@seq_tuples,
+                   &BlastInterface::blast( \@seq_tuples, \@seq_tuples,
                                        'blastp', { outForm => 'sim' } );
 
                if ( @output < 3 ) {
@@ -217,7 +217,7 @@ sub bitscore_stats_by_family
                        push(@bitscores, $sim->nbsc);
                     }
                }
-                my ( $mean, $stddev ) = &gjo::stat::mean_stddev(@bitscores);
+                my ( $mean, $stddev ) = &stat::mean_stddev(@bitscores);
 
                 $bit_stats->{$func} = [ sprintf("%0.3f", $mean), sprintf("%0.3f",$stddev) ];
                 #print STDERR "set mean=$mean stddev=$stddev for $funcName\n";
@@ -268,7 +268,7 @@ sub length_stats_by_family
                         print STDERR "no translation for $peg\n";
                     }
                 }
-                my ( $mean, $stddev ) = &gjo::stat::mean_stddev(@lengths);
+                my ( $mean, $stddev ) = &stat::mean_stddev(@lengths);
 
                 $len_stats->{$func} = [ int($mean), sprintf("%0.3f",$stddev) ];
                 #print STDERR "set mean=$mean stddev=$stddev for $funcName\n";
@@ -491,7 +491,7 @@ sub bad_sims
     if ( !$blast_parms ) { return undef }
     my ( $worst, $seq_tuples ) = @{$blast_parms};
 
-    my @sims = &gjo::BlastInterface::blast( [ $peg, '', $seq ],
+    my @sims = &BlastInterface::blast( [ $peg, '', $seq ],
         $seq_tuples, 'blastp', { outForm => 'sim' } );
     my $sim;
     while ( ( $sim = shift @sims ) && ( $sim->id2 eq $peg ) ) { }

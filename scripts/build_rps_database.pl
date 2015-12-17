@@ -22,7 +22,7 @@ use warnings;
 use FIG_Config;
 use ScriptUtils;
 use SeedUtils;
-use gjo::BlastInterface;
+use BlastInterface;
 use Cwd;
 use File::Spec;
 use Shrub;
@@ -129,7 +129,7 @@ my $dbfile = "$out_directory/$db_prefix.rps.db";
 if (-s $dbfile ) {
     unlink $dbfile;
 } else {
-    gjo::BlastInterface::build_rps_db(\@aligns, $dbfile, { pseudo_master => 1, title => $db_prefix } )
+    BlastInterface::build_rps_db(\@aligns, $dbfile, { pseudo_master => 1, title => $db_prefix } )
         || die "Could not build RPS database";
 }
 

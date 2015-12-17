@@ -416,7 +416,7 @@ sub Process {
         $blastFasta = $newName;
     }
     # Create the BLAST database for the sample contigs. If it already exists, it will be reused.
-    my $blastDbName = gjo::BlastInterface::get_db($blastFasta, 'tblastn', $workDir);
+    my $blastDbName = BlastInterface::get_db($blastFasta, 'tblastn', $workDir);
     print "BLAST database found at $blastDbName.\n";
     # The contig bins will contain the universal role information. We cannot, however, track the closest
     # genomes there because we want only the best two. This hash will map each sample contig ID to a
@@ -447,7 +447,7 @@ sub Process {
         }
         close $oh;
         # Blast this genome against the sample contigs.
-        my $matches = gjo::BlastInterface::blast($queryFileName, $blastDbName, 'tblastn',
+        my $matches = BlastInterface::blast($queryFileName, $blastDbName, 'tblastn',
             { outForm => 'hsp', minIden => $minsim, minLen => $minlen, maxE => $maxE });
         my $matchCount = scalar @$matches;
         $stats->Add(blastMatches => $matchCount);
