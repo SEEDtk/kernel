@@ -1,4 +1,4 @@
-npackage Anno;
+package Anno;
 
 use strict;
 use Stats;
