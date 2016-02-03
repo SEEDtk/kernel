@@ -132,7 +132,6 @@ sub compute {
     # This hash tracks the number of times each genome was the best.
     my %hits;
     # Loop through the contigs.
-    ## TODO This process needs to be done after each pass, with the genomes already chosen removed from consideration.
     for my $contigID (keys %$contigHash) {
         # Get the scoring hash for this contig.
         my $contig = $contigHash->{$contigID};

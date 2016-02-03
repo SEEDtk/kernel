@@ -24,8 +24,6 @@ package Projection::Analyze;
     use SEEDClient;
     use SeedUtils;
 
-## TODO: output the json of this object. Create a CGI to verify against core seed and only produce stuff still relevant (genome not in subsystem, peg has same function)
-
 =head1 Methods for Analyzing Projection Output
 
 This object analyzes the output of a projection run (see L<solid_projection_engine.pl>). It will read the

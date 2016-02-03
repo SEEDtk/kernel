@@ -92,5 +92,3 @@ while (! eof $nh) {
     }
 }
 print "All done.\n" . $stats->Show();
-
-## TODO process the input to produce the output.
