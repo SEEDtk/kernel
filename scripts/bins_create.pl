@@ -140,6 +140,11 @@ Use DNA blasting to match reference genomes to sample contigs. This is the defau
 
 Use protein blasting to match reference genomes to sample contigs.
 
+=item unassembled
+
+Skip the final assembly step. The result will be that we have identified the bins, but we have not put contigs
+into them.
+
 =back
 
 =head2 Working Files
@@ -154,6 +159,8 @@ The C<rejected.fasta> file contains the sequences for the non-meaningful contigs
 The C<bins.found.tbl> file contains the locations hit by the universal protein used to seed the process.
 
 The C<ref.genomes.tbl> file contains the reference genome for each bin.
+
+The C<ref.genomes.scores.tbl> file contains the blast score for each reference genome and each bin.
 
 The C<contigs.bins> file contains bin information for each contig considered to be meaningful, in bin exchange format.
 It does not include universal roles or reference genomes.
@@ -183,6 +190,7 @@ my $opt = ScriptUtils::Opts('sampleDir workDir',
                 ['binMaxE=f',      'maximum acceptable e-value for bin selection blast hits', { default => 1e-30 }],
                 ['minlen|l=f',     'minimum fraction of the protein that must match in a blast hit', { default => 0.5 }],
                 ['refsPerBin=i',   'number of reference genomes to keep per bin', { default => 1 }],
+                ['unassembled',    'identify the bins, but do not assign contigs and create the final output file'],
                 ['mode' => hidden => { one_of => [ ['dna|n' => 'use DNA blasting'], ['prot|p' => 'use protein blasting'] ] }]
         );
 # Turn off buffering for stdout.
@@ -369,16 +377,26 @@ if ($force || ! -s $binsFoundFile) {
 my $contigHash;
 # Do we have a reference genome file.
 my $refGenomeFile = "$workDir/ref.genomes.tbl";
+my $refScoreFile = "$workDir/ref.genomes.scores.tbl";
 if ($force || ! -s $refGenomeFile) {
     # No. Create a hash mapping each contig ID to the DNA sequence representing the hit. We do this by reading
     # the reduced FASTA file and applying the matches hash.
     my $seqHash = $loader->GetDNA($matches, $reducedFastaFile);
     # Now BLAST against a database of the seed protein.
     $contigHash = $blaster->MatchProteins($seqHash, $prot, 1, $rMaxE);
-    # Save the contig list to the reference-genomes file.
+    # Save the contig list to the reference-genomes files.
     open(my $oh, ">$refGenomeFile") || die "Could not open reference genome output file: $!";
+    open(my $sh, ">$refScoreFile") || die "Could not open referecne genome score file: $!";
     for my $contig (sort keys %$contigHash) {
-        print $oh join("\t", $contig, @{$contigHash->{$contig}}) . "\n";
+        my @genomes;
+        for my $genomeData (@{$contigHash->{$contig}}) {
+            my ($genome, $score) = @$genomeData;
+            print $sh join("\t", $contig, $genome, $score) . "\n";
+            push @genomes, $genome;
+        }
+        print $oh join("\t", $contig, @genomes) . "\n";
+        # Remove the scores from the contig hash.
+        $contigHash->{$contig} = \@genomes;
         $stats->Add('refGenomes-lineOut' => 1);
     }
     $force = 1;
@@ -432,40 +450,44 @@ if ($force || ! -s $refBinFile) {
     }
 }
 # Now we want to run through the augmented contigs, forming them into bins by reference genome.
-print "Assembling bins.\n";
-for my $bin (values %contigs) {
-    my ($refGenome) = $bin->refGenomes;
-    if (! $refGenome) {
-        push @binList, $bin;
-        $stats->Add(contigNoRefGenome => 1);
-    } elsif (exists $binHash{$refGenome}) {
-        my $oldBin = $binHash{$refGenome};
-        if ($oldBin ne $bin) {
-            $oldBin->Merge($bin);
-            $stats->Add(contigMerged => 1);
+if ($opt->unassembled) {
+    print "Skipping assembly step.\n";
+} else {
+    print "Assembling bins.\n";
+    for my $bin (values %contigs) {
+        my ($refGenome) = $bin->refGenomes;
+        if (! $refGenome) {
+            push @binList, $bin;
+            $stats->Add(contigNoRefGenome => 1);
+        } elsif (exists $binHash{$refGenome}) {
+            my $oldBin = $binHash{$refGenome};
+            if ($oldBin ne $bin) {
+                $oldBin->Merge($bin);
+                $stats->Add(contigMerged => 1);
+            }
+        } else {
+            $binHash{$refGenome} = $bin;
+            push @binList, $bin;
+            $stats->Add(contigNewBin => 1);
         }
-    } else {
-        $binHash{$refGenome} = $bin;
-        push @binList, $bin;
-        $stats->Add(contigNewBin => 1);
     }
+    # Sort the bins and create the initial report.
+    my @sorted = sort { Bin::cmp($a, $b) } @binList;
+    print "Writing bins to output.\n";
+    open(my $oh, ">$workDir/bins.json") || die "Could not open bins.json file: $!";
+    for my $bin (@sorted) {
+        $bin->Write($oh);
+    }
+    close $oh;
+    # Get the universal role information.
+    print "Producing report.\n";
+    my $uniRoles = $blaster->uni_hash;
+    my $totUnis = $blaster->uni_total;
+    # Produce the bin report.
+    open(my $rh, ">$workDir/bins.report.txt") || die "Could not open report file: $!";
+    my $analyzer = Bin::Analyze->new($shrub, totUnis => $totUnis, minUnis => (0.8 * $totUnis));
+    $analyzer->BinReport($rh, $uniRoles, \@sorted);
+    close $rh;
 }
-# Sort the bins and create the initial report.
-my @sorted = sort { Bin::cmp($a, $b) } @binList;
-print "Writing bins to output.\n";
-open(my $oh, ">$workDir/bins.json") || die "Could not open bins.json file: $!";
-for my $bin (@sorted) {
-    $bin->Write($oh);
-}
-close $oh;
-# Get the universal role information.
-print "Producing report.\n";
-my $uniRoles = $blaster->uni_hash;
-my $totUnis = $blaster->uni_total;
-# Produce the bin report.
-open(my $rh, ">$workDir/bins.report.txt") || die "Could not open report file: $!";
-my $analyzer = Bin::Analyze->new($shrub, totUnis => $totUnis, minUnis => (0.8 * $totUnis));
-$analyzer->BinReport($rh, $uniRoles, \@sorted);
-close $rh;
 # All done.
 print "All done.\n" . $stats->Show();

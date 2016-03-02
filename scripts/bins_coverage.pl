@@ -157,9 +157,11 @@ while (! eof $ih) {
     my $line = <$ih>;
     $stats->Add(fastaLineIn => 1);
     # Is this an ID line?
-    if ($line =~ /^>(\S+)\s+(.+)/) {
+    if ($line =~ /^>(\S+)(?:\s+(.+))?/) {
         # Yes. Get the ID and the comment.
         my ($newContigID, $newComment) = ($1, $2);
+        # Insure we have a comment.
+        $newComment //= '';
         $stats->Add(contigsFound => 1);
         # Process the previous contig.
         ProcessContig($fh, $stats, $contigID, $comment, $seq, $covgMean);

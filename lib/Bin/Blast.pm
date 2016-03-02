@@ -558,7 +558,8 @@ Maximum E-value to use for BLASTing.
 
 =item RETURN
 
-Returns a reference to a hash mapping each incoming contig ID to a reference to a list of reference genome IDs.
+Returns a reference to a hash mapping each incoming contig ID to a list of 2-tuples, each 2-tuple consisting of
+(0) a reference genome ID and (1) a BLAST score.
 
 =back
 
@@ -586,15 +587,15 @@ sub MatchProteins {
     # genome IDs. Save the best N genomes for each sample contig.
     my %retVal;
     for my $match (@$matches) {
-        my ($contig, $fid) = ($match->qid, $match->sid);
+        my ($contig, $fid, $score) = ($match->qid, $match->sid, $match->scr);
         my $genome = SeedUtils::genome_of($fid);
         if (! $retVal{$contig}) {
-            $retVal{$contig} = [$genome];
+            $retVal{$contig} = [[$genome, $score]];
         } else {
             my $gList = $retVal{$contig};
             # If this is a new genome and we do not already have too many, keep it.
             if (! (grep { $_ eq $genome } @$gList) && scalar(@$gList) < $count) {
-                push @$gList, $genome;
+                push @$gList, [$genome, $score];
             }
         }
     }
