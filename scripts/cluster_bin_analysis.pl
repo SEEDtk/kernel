@@ -25,7 +25,7 @@ use Bin;
 use Stats;
 use Cwd;
 
-=head1 Analyze Clustering Results Again Bins
+=head1 Analyze Clustering Results Against Bins
 
     cluster_bin_analysis.pl [ options ] binfile workDir
 
