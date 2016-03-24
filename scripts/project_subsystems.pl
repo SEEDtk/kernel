@@ -43,7 +43,8 @@ L<ScriptUtils/ih_options> plus the following.
 =item json
 
 If specified, the input is presumed to be a L<GenomeTypeObject> in JSON format rather than a tab-delimited file
-with genome IDs.
+with genome IDs. If specified with a value of C<output>, the output will be a JSON-format GenomeTypeObject with
+the subsystems included.
 
 =item col
 
@@ -66,7 +67,7 @@ there will be many more output rows than input rows.
 
 # Get the command-line parameters.
 my $opt = ScriptUtils::Opts('', Shrub::script_options(), ScriptUtils::ih_options(),
-        ['json', 'input is JSON-form GenomeTypeObject'],
+        ['json:s', 'input is JSON-form GenomeTypeObject, if =out, so is the output'],
         ['col|c=i', 'index (1-based) of input column', { default => 0 }],
         ['priv|p=i', 'functional assignment privilege level', { default => 0 }]
         );
@@ -77,15 +78,16 @@ my $ih = ScriptUtils::IH($opt->input);
 # This hash will hold the projection data for each genome.
 my %results;
 # This list will contain [genomeID, inputLine] couplets.
-my @inputs; 
+my @inputs;
+my ($gto, $genomeID);
 # Determine our course of action.
 if ($opt->json) {
     # Here we have a GenomeTypeObject. We read using SeedUtils in case it's a kbase one, which is
     # incompatible. The projection code is smart enough to handle both, but the GenomeTypeObject code
     # can't be so flexible.
-    my $gto = SeedUtils::read_encoded_object($ih);
+    $gto = SeedUtils::read_encoded_object($ih);
     # Simulate getting the genome ID from the input file.
-    my $genomeID = ServicesUtils::json_field($gto, 'id');
+    $genomeID = ServicesUtils::json_field($gto, 'id');
     push @inputs, [$genomeID, [$genomeID]];
     # Compute the projection.
     $results{$genomeID} = Shrub::Subsystems::ProjectForGto($shrub, $gto);
@@ -105,16 +107,33 @@ if ($opt->json) {
     }
 }
 # Output the results.
-for my $input (@inputs) {
-    my ($genomeID, $line) = @$input;
+if ($opt->json eq 'out') {
     my $subData = $results{$genomeID};
-    if ($subData) {
-        for my $sub (sort keys %$subData) {
-            my $projectionData = $subData->{$sub};
-            my ($variant, $subRow) = @$projectionData;
-            for my $subCell (@$subRow) {
-                my ($role, $fid) = @$subCell;
-                print join("\t", @$line, $sub, $variant, $role, $fid) . "\n";
+    my %subs;
+    for my $sub (keys %$subData) {
+        my $projectionData = $subData->{$sub};
+        my ($variant, $subRow) = @$projectionData;
+        my %cells;
+        for my $subCell (@$subRow) {
+            my ($role, $fid) = @$subCell;
+            push @{$cells{$role}}, $fid; 
+        }
+        $subs{$sub} = [$variant, \%cells];
+    }
+    $gto->{subsystems} = \%subs;
+    SeedUtils::write_encoded_object($gto, \*STDOUT);
+} else {
+    for my $input (@inputs) {
+        my ($genomeID, $line) = @$input;
+        my $subData = $results{$genomeID};
+        if ($subData) {
+            for my $sub (sort keys %$subData) {
+                my $projectionData = $subData->{$sub};
+                my ($variant, $subRow) = @$projectionData;
+                for my $subCell (@$subRow) {
+                    my ($role, $fid) = @$subCell;
+                    print join("\t", @$line, $sub, $variant, $role, $fid) . "\n";
+                }
             }
         }
     }
