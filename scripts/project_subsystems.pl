@@ -80,8 +80,18 @@ my %results;
 # This list will contain [genomeID, inputLine] couplets.
 my @inputs;
 my ($gto, $genomeID);
+# Get the json options. We do some dancing here. We want a string that is TRUE
+# if we are in json mode and 'out' if we are in json output mode. In fact, we get
+# a null string in json mode and undefined in non-json mode. These are translated
+# to 'in' and null-string respectively.
+my $json = $opt->json;
+if (! defined $json) {
+    $json = '';
+} elsif (! $json) {
+    $json = 'in';
+}
 # Determine our course of action.
-if ($opt->json) {
+if ($json) {
     # Here we have a GenomeTypeObject. We read using SeedUtils in case it's a kbase one, which is
     # incompatible. The projection code is smart enough to handle both, but the GenomeTypeObject code
     # can't be so flexible.
@@ -89,8 +99,13 @@ if ($opt->json) {
     # Simulate getting the genome ID from the input file.
     $genomeID = ServicesUtils::json_field($gto, 'id');
     push @inputs, [$genomeID, [$genomeID]];
+    # Check for the store option.
+    my %options;
+    if ($json eq 'out') {
+        $options{store} = 1;
+    }
     # Compute the projection.
-    $results{$genomeID} = Shrub::Subsystems::ProjectForGto($shrub, $gto);
+    $results{$genomeID} = Shrub::Subsystems::ProjectForGto($shrub, $gto, %options);
 } else {
     # Here we have a tab-delimited input file. Get the privilege level.
     my $priv = $opt->priv;
@@ -107,20 +122,7 @@ if ($opt->json) {
     }
 }
 # Output the results.
-if ($opt->json eq 'out') {
-    my $subData = $results{$genomeID};
-    my %subs;
-    for my $sub (keys %$subData) {
-        my $projectionData = $subData->{$sub};
-        my ($variant, $subRow) = @$projectionData;
-        my %cells;
-        for my $subCell (@$subRow) {
-            my ($role, $fid) = @$subCell;
-            push @{$cells{$role}}, $fid; 
-        }
-        $subs{$sub} = [$variant, \%cells];
-    }
-    $gto->{subsystems} = \%subs;
+if ($json eq 'out') {
     SeedUtils::write_encoded_object($gto, \*STDOUT);
 } else {
     for my $input (@inputs) {
