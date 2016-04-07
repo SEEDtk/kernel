@@ -522,6 +522,28 @@ sub ContigReport {
     print "\n\n";
 }
 
+=head3 SetGenomes
+
+    $analyzer->SetGenomes(\%genomes);
+
+Specify a hash containing the IDs and names of all the reference genomes.
+
+=over 4
+
+=item genomes
+
+Reference to a hash mapping each genome ID to its name.
+
+=back
+
+=cut
+
+sub SetGenomes {
+    my ($self, $genomes) = @_;
+    $self->{genomes} = $genomes;
+}
+
+
 =head2 Internal Methods
 
 =head3 BinHeader

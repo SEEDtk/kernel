@@ -106,7 +106,12 @@ sub AddGenome {
     # Loop through the proteins for the GTO, converting them to kmers.
     my $flist = $gto->{features};
     for my $fdata (@$flist) {
-        $self->AddSequence($bin, $fdata->{protein_translation});
+        # Insure we have a protein for this feature.
+        my $sequence = $fdata->{protein_translation};
+        if ($sequence) {
+            # We do, get kmers from it.
+            $self->AddSequence($bin, $sequence);
+        }
     }
 }
 

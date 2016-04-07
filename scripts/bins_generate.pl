@@ -25,6 +25,7 @@ use ScriptUtils;
 use Bin::Blast;
 use Bin::Tetra;
 use Bin::Analyze;
+use Bin::Kmer;
 use Bin;
 use Stats;
 use Loader;
@@ -193,8 +194,6 @@ The number of kmer matches required to place a contig into a bin. The default is
 
 Kmer length for placing unbinned contigs. The default is C<50>.
 
-
-
 =back
 
 =head2 Working Files
@@ -219,6 +218,8 @@ where I<XXXXXXX> is the genome ID.
 The C<bins.kmer.json> file contains the first set of output bins (based on protein kmers) in json format.
 
 The C<bins.unplaced.bin> file contains the unplaced contig bins from the protein kmer processing, in json format.
+
+The C<unplaced.fa> file contains the contigs (in FASTA format) that were not placed by the protein kmer processing. 
 
 The C<bins.json> file contains the output bins, in json format.
 
@@ -292,6 +293,7 @@ my $prot = $opt->seedrole;
 my $genome = $opt->seedgenome;
 # This hash will contain all the contigs, it maps each contig ID to a bin object describing the contig's properties.
 my %contigs;
+# Do we already have the initial contig bins?
 if ($force || ! -s $reducedFastaFile || ! -s $binFile) {
     # We must process the raw contigs to create the contig bin objects and the sample FASTA file.
     # Create the tetranucleotide object.
@@ -415,6 +417,7 @@ if ($force || ! -s $binsFoundFile) {
     $force = 1;
 } else {
     # Yes. Read the initial bin information from the bins-found file.
+    print "Reading bin definitions from $binsFoundFile.\n";
     my $ih = $loader->OpenFile(binsFound => $binsFoundFile);
     while (my $binFields = $loader->GetLine(binsFound => $ih)) {
         my ($contig, $begin, $dir, $len) = @$binFields;
@@ -425,7 +428,9 @@ if ($force || ! -s $binsFoundFile) {
 # Next, we need a hash of contig IDs to reference genomes. This is only for the contigs that represent the
 # starting bins. We find the best match for each region found in the previous step.
 my $contigHash;
-# Do we have a reference genome file.
+# This hash will contain the IDs and names of the reference genomes.
+my %genomes;
+# Do we have a reference genome file?
 my $refScoreFile = "$workDir/ref.genomes.scores.tbl";
 if ($force || ! -s $refScoreFile) {
     # No. Create a hash mapping each contig ID to the DNA sequence representing the hit. We do this by reading
@@ -436,21 +441,22 @@ if ($force || ! -s $refScoreFile) {
     # Save the contig list to the reference-genome score file.
     open(my $sh, ">$refScoreFile") || die "Could not open reference genome score file: $!";
     for my $contig (sort keys %$contigHash) {
-        my @genomes;
         for my $genomeData (@{$contigHash->{$contig}}) {
             my ($genome, $score, $name) = @$genomeData;
             print $sh join("\t", $contig, $genome, $score, $name) . "\n";
-            push @genomes, $genome;
+            $genomes{$genome} = $name;
         }
         $stats->Add('refGenomes-lineOut' => 1);
     }
     $force = 1;
 } else {
     # Read the hash from the reference genome file.
+    print "Reading reference genomes from $refScoreFile.\n";
     my $ih = $loader->OpenFile(refGenomes => $refScoreFile);
     while (my $refFields = $loader->GetLine(refGenomes => $ih)) {
         my ($contig, $genome, $score, $name) = @$refFields;
-        $contigHash->{$contig} = [$genome, $score, $name];
+        push @{$contigHash->{$contig}}, [$genome, $score, $name];
+        $genomes{$genome} = $name;
     }
 }
 # Our final list of bins goes in here.
@@ -461,6 +467,8 @@ my %rg;
 # We also put these bins in the bin list.
 my %binHash;
 for my $contig (keys %$contigHash) {
+    # MatchProteins returns a list of results for each contig, but we have set up the parms to insure
+    # each list is a singleton.
     my $genomeData = $contigHash->{$contig}[0];
     my ($genome, $score, $name) = @$genomeData;
     # Compute the genus and species for this genome.
@@ -553,10 +561,12 @@ if ($opt->unassembled) {
     my $contigFile = "$workDir/bins.unplaced.bin";
     if (-s $kmerBinFile && -f $contigFile) {
         # Yes. Read it in.
+        print "Reading bin status from $kmerBinFile\n";
         my $binsTemp = Bin::ReadBins($kmerBinFile);
         @binList = @$binsTemp;
         %binHash = map { $_->contig1 => $_ } @binList;
         %contigs = ();
+        print "Reading contig status from $contigFile\n";
         $binsTemp = Bin::ReadContigs($contigFile);
         for my $bin (@$binsTemp) {
             $contigs{$bin->contig1} = $bin;
@@ -571,11 +581,14 @@ if ($opt->unassembled) {
             }
         }
         # Loop through the contigs, placing the unplaced ones.
+        my ($contigCount, $placeCount) = (0, 0);
+        print "Processing sample contigs.\n";
         my $fh = $loader->OpenFasta(sample => $sampleFastaFile);
         my $fields = $loader->GetLine(contig => $fh);
         while (defined $fields) {
             my ($contig, $comment, $sequence) = @$fields;
             if ($contigs{$contig}) {
+                $contigCount++;
                 my $binID = $kmerDB->ComputeBin($sequence, translate => 11);
                 if ($binID) {
                     # We found a bin, so place this contig.
@@ -583,11 +596,16 @@ if ($opt->unassembled) {
                     my $bin = $binHash{$binID};
                     $bin->Merge($contigs{$contig});
                     delete $contigs{$contig};
+                    $placeCount++;
                 } else {
                     # No definite bin. Leave the contig unplaced.
                     $stats->Add(unplacedContigKmer => 1);
                 }
+                if ($contigCount % 1000 == 0) {
+                    print "$contigCount contigs processed, $placeCount placed.\n";
+                }
             }
+            $fields = $loader->GetLine(contig => $fh);
         }
         # Checkpoint the bins.
         print "Writing unplaced contigs.\n";
@@ -598,18 +616,79 @@ if ($opt->unassembled) {
         close $ch;
         print "Writing kmer-based bins.\n";
         my @sorted = sort { Bin::cmp($a, $b) } @binList;
-        print "Writing bins to output.\n";
         open(my $oh, ">$kmerBinFile") || die "Could not open bins.json checkpoint file: $!";
         for my $bin (@sorted) {
             $bin->Write($oh);
         }
         close $oh;
     }
-    ## TODO dangling kmer stuff
+    # Now we need to look for mobile elements. We want to create a kmer database for long DNA kmers in the
+    # binned contigs and use it to classify the unplaced contigs. While we are doing this, we put
+    # the unplaced contigs in a FASTA file so we can process them faster. To facilitate this process,
+    # we start with a hash that maps the IDs of the placed contigs to their bins.
+    print "Cataloging binned contigs.\n";
+    my %contig2Bin;
+    for my $bin (@binList) {
+        my $binID = $bin->contig1;
+        my @contigs = $bin->contigs;
+        for my $contig (@contigs) {
+            $contig2Bin{$contig} = $binID;
+        }
+    }
+    print "Building mobile element kmer database.\n";
+    $kmerDB = Bin::Kmer->new(kmerSize => $opt->danglen, binStrength => 1);
+    my $fh = $loader->OpenFasta(sample => $sampleFastaFile);
+    my $unplacedFastaFile = "$workDir/unplaced.fasta";
+    open(my $oh, '>', $unplacedFastaFile) || die "Could not open unplaced sequence output file: $!";
+    my $fields = $loader->GetLine(contig2 => $fh);
+    my ($contigCount, $placeCount) = (0, 0);
+    while (defined $fields) {
+        my ($contig, undef, $sequence) = @$fields;
+        my $binID = $contig2Bin{$contig};
+        if (! $binID) {
+            print $oh ">$contig\n$sequence\n";
+        } else {
+            $kmerDB->AddSequence($binID, $sequence);
+            $placeCount++;
+        }
+        $contigCount++;
+        if ($contigCount % 1000 == 0) {
+            print "$placeCount of $contigCount sequences processed for mobile element kmers.\n";
+        }
+        $fields = $loader->GetLine(contig2 => $fh);
+    }
+    print "Finalizing mobile element kmers from $placeCount sequences.\n";
+    $kmerDB->Finalize();
+    close $oh;
+    # Now read the unplaced contigs and try to place them with the mobile elements.
+    print "Processing unplaced contigs for mobile elements.\n";
+    ($contigCount, $placeCount) = (0, 0);
+    $fh = $loader->OpenFasta(unplaced => $unplacedFastaFile);
+    $fields = $loader->GetLine(unplaced => $fh);
+    while (defined $fields) {
+        my ($contig, $comment, $sequence) = @$fields;
+        $contigCount++;
+        my $binID = $kmerDB->ComputeBin($sequence);
+        if ($binID) {
+            # We found a bin, so place this contig.
+            $stats->Add(placedContigMobile => 1);
+            my $bin = $binHash{$binID};
+            $bin->Merge($contigs{$contig});
+            $placeCount++;
+        } else {
+            # No definite bin. Leave the contig unplaced.
+            $stats->Add(unplacedContigMobile => 1);
+        }
+        if ($contigCount % 1000 == 0) {
+            print "$contigCount contigs processed, $placeCount placed.\n";
+        }
+        $fields = $loader->GetLine(unplaced => $fh);
+    }
     # Sort the bins and create the initial report.
     my @sorted = sort { Bin::cmp($a, $b) } @binList;
     print "Writing bins to output.\n";
-    open(my $oh, ">$workDir/bins.json") || die "Could not open bins.json file: $!";
+    undef $oh;
+    open($oh, ">$workDir/bins.json") || die "Could not open bins.json file: $!";
     for my $bin (@sorted) {
         $bin->Write($oh);
     }
@@ -621,6 +700,7 @@ if ($opt->unassembled) {
     # Produce the bin report.
     open(my $rh, ">$workDir/bins.report.txt") || die "Could not open report file: $!";
     my $analyzer = Bin::Analyze->new($shrub, totUnis => $totUnis, minUnis => (0.8 * $totUnis));
+    $analyzer->SetGenomes(\%genomes);
     $analyzer->BinReport($rh, $uniRoles, \@sorted);
     close $rh;
 }
@@ -640,5 +720,5 @@ sub SaveGTOs {
     }
     # Release the GTO memory.
     $gtosToSave = {};
-    $gtos = []
+    $gtos = [];
 }
