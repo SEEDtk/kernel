@@ -28,7 +28,7 @@ use Stats;
 use Shrub;
 use Time::HiRes qw(time);
 
-=head1 Build Bins From Community Contigs
+=head1 Build Bins From Community Contigs (Algorithm 2)
 
     bins_compute [ options ] workDirectory <contigFile
 

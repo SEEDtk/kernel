@@ -30,7 +30,7 @@ use Stats;
 use Loader;
 use SeedUtils;
 
-=head1 Create Bins From Community Contigs
+=head1 Create Bins From Community Contigs (Algorithm 3)
 
     bins_create.pl [ options ] sampleDir workDir
 

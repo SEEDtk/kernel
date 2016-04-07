@@ -533,7 +533,7 @@ sub FindProtein {
 
 =head3 MatchProteins
 
-    my $contigHash = $blaster->MatchProteins($seqHash, $funID, $count);
+    my $contigHash = $blaster->MatchProteins($seqHash, $funID, $count, $maxE, %options);
 
 BLAST contig sequences against all occurrences of a protein in the Shrub database. The protein is identified by its
 functional assignment ID.
@@ -556,46 +556,73 @@ Number of reference genomes to keep for each bin. If omitted, the default is C<1
 
 Maximum E-value to use for BLASTing.
 
+=item fastaFile
+
+If specified, the name of the protein FASTA file. This allows a pre-existing FASTA file to be specified.
+The comment in the file should be the genome ID followed by a tab and the genome name.
+
+=item options
+
+A hash containing zero or more of the following options.
+
+=over 8
+
+=item db
+
+If specified, the name of the protein FASTA file. This allows a pre-existing FASTA file to be specified.
+The comment in the file should be the genome ID followed by a tab and the genome name.
+
+=item type
+
+If C<prot>, then the protein FASTA file contains amino acid sequences. If C<dna>, then the protein FASTA file
+contains DNA sequences. The default is C<prot>. If C<dna> is specified, then the C<db> option is required.
+
 =item RETURN
 
-Returns a reference to a hash mapping each incoming contig ID to a list of 2-tuples, each 2-tuple consisting of
-(0) a reference genome ID and (1) a BLAST score.
+Returns a reference to a hash mapping each incoming contig ID to a list of 3-tuples, each 3-tuple consisting of
+(0) a reference genome ID, (1) a BLAST score, and (2) the genome name.
 
 =back
 
 =cut
 
 sub MatchProteins {
-    my ($self, $seqHash, $funID, $count, $maxE) = @_;
+    my ($self, $seqHash, $funID, $count, $maxE, %options) = @_;
     # Get the defaults.
     $funID //= $self->{defaultRole};
     $count //= 1;
+    my $protFastaFile = $options{db} // ($self->{workDir} . "/$funID.fa");
+    my $mode = $options{type} // 'prot';
     # Get the database.
     my $shrub = $self->{shrub};
     # Create the BLAST database for the protein.
-    my $protFastaFile = $self->{workDir} . "/$funID.fa";
     if (! -s $protFastaFile) {
-        # Here it does not exist, so we must create it.
+        # Here it does not exist, so we must create it. Currently, this is only legal for protein blasting.
+        if ($mode ne 'prot') {
+            die "Cannot create a protein database with type=dna.";
+        }
         $self->ProtDatabase($funID, $protFastaFile);
     }
     # Create a list of FASTA triplets from the matched sequences.
     my @triples = map { [$_, '', $seqHash->{$_}] } keys %$seqHash;
+    # Compute the blast type.
+    my $blastProg = ($mode eq 'dna' ? 'blastn' : 'blastx');
     # BLAST to get the matches against the protein DNA from the database.
-    my $matches = BlastInterface::blast(\@triples, $protFastaFile, 'blastx',
+    my $matches = BlastInterface::blast(\@triples, $protFastaFile, $blastProg,
             { maxE => $maxE, tmp_dir => $self->{workDir}, outForm => 'hsp' });
     # The query sequence IDs are sample contigs representing bins. The subject sequence IDs are
     # genome IDs. Save the best N genomes for each sample contig.
     my %retVal;
     for my $match (@$matches) {
-        my ($contig, $fid, $score) = ($match->qid, $match->sid, $match->scr);
-        my $genome = SeedUtils::genome_of($fid);
+        my ($contig, $fid, $score, $comment) = ($match->qid, $match->sid, $match->scr, $match->sdef);
+        my ($genome, $name) = split /\s+/, $comment, 2;
         if (! $retVal{$contig}) {
-            $retVal{$contig} = [[$genome, $score]];
+            $retVal{$contig} = [[$genome, $score, $name]];
         } else {
             my $gList = $retVal{$contig};
             # If this is a new genome and we do not already have too many, keep it.
             if (! (grep { $_ eq $genome } @$gList) && scalar(@$gList) < $count) {
-                push @$gList, [$genome, $score];
+                push @$gList, [$genome, $score, $name];
             }
         }
     }
@@ -706,7 +733,7 @@ to each contig.
 
 =item type
 
-Type of BLASt-- C<p> for protein, C<n> for DNA.
+Type of BLAST-- C<p> for protein, C<n> for DNA.
 
 =item stats
 
@@ -835,14 +862,14 @@ sub ProtDatabase {
     # Get the function privilege level.
     my $priv = $self->{priv};
     # Get all the occurrences of the function in the database.
-    my @funTuples = $shrub->GetAll('Function2Feature Feature Protein',
+    my @funTuples = $shrub->GetAll('Function2Feature Feature Protein AND Feature Genome',
             'Function2Feature(from-link) = ? AND Function2Feature(security) = ?',
-            [$funID, $priv], 'Feature(id) Protein(sequence)');
+            [$funID, $priv], 'Feature(id) Protein(sequence) Genome(id) Genome(name)');
     # Create a FASTA file from them.
     open(my $oh, ">$fileName") || die "Could not open FASTA output $fileName: $!";
     for my $funTuple (@funTuples) {
-        my ($id, $seq) = @$funTuple;
-        print $oh ">$id\n$seq\n";
+        my ($id, $seq, $genome, $name) = @$funTuple;
+        print $oh ">$id $genome\t$name\n$seq\n";
     }
 }
 
@@ -885,7 +912,7 @@ sub ProtDnaDatabase {
     my %genomeF;
     # Loop through the tuples.
     for my $tuple (@funTuples) {
-        my ($fid, $genome, $dnaFile, $contig, $beg, $dir, $len) = @$tuple;
+        my ($fid, $genome, $dnaFile, $contig, $beg, $dir, $len, $name) = @$tuple;
         # Is this feature a duplicate?
         if (! $genomeF{$genome} || $genomeF{$genome} eq $fid) {
             # No. Save the feature ID.
