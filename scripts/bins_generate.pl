@@ -464,8 +464,10 @@ my @binList;
 # And this is the full list of reference genomes.
 my %rg;
 # Create a bin for each reference genome found, and fill it with the starter contigs.
-# We also put these bins in the bin list.
+# We also compute the best genome for the bin. This is the reference genome with the highest
+# blast score.
 my %binHash;
+my %binBest;
 for my $contig (keys %$contigHash) {
     # MatchProteins returns a list of results for each contig, but we have set up the parms to insure
     # each list is a singleton.
@@ -481,10 +483,15 @@ for my $contig (keys %$contigHash) {
     if ($gBin) {
         $gBin->Merge($bin);
         $stats->Add(starterBinCombined => 1);
+        my $oldScore = $binBest{$title}[1];
+        if ($score > $oldScore) {
+            $binBest{$title} = [$genome, $score];
+        }
     } else {
         $binHash{$title} = $bin;
         push @binList, $bin;
         $stats->Add(starterBinCreated => 1);
+        $binBest{$title} = [$genome, $score];
     }
 }
 my @refGenomes = sort keys %rg;
@@ -500,12 +507,12 @@ for my $refGenome (@refGenomes) {
         print "Reading $refGenome from web API.\n";
         $gto = $p3->gto_of($refGenome);
         $gtosToSave{$refGenome} = $gto;
-        $stats->Add(refGenomeFromFile => 1);
+        $stats->Add(refGenomeFromWeb => 1);
         $force = 1;
     } else {
         print "Reading $refGenome from $refGenomeFile.\n";
         $gto = GenomeTypeObject->create_from_file($refGenomeFile);
-        $stats->Add(refGenomeFromWeb => 1);
+        $stats->Add(refGenomeFromFile => 1);
     }
     if (! $gto) {
         die "$refGenome not found.";
@@ -513,8 +520,14 @@ for my $refGenome (@refGenomes) {
     push @gtos, $gto;
     $rg{$refGenome} = $gto;
 }
+# Get the name and taxonomy data for each bin.
+for my $title (keys %binBest) {
+    my $genome = $binBest{$title}[0];
+    my $gto = $rg{$genome};
+    $binHash{$title}->set_name("$title clonal population", $gto->{ncbi_taxonomy_id});
+}
 my $kmerDB;
-# The next step is to assign reference genomes to the bins.
+# The next step is to assign contigs to the bins.
 if ($opt->unassembled) {
     print "Skipping assembly step.\n";
     # Save the GTOs.

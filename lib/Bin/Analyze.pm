@@ -585,6 +585,9 @@ sub BinHeader {
     my $quality = $self->AnalyzeBin($bin);
     # Start the header.
     print $oh "\nBIN $id (from " . $bin->contig1 . ", " . $bin->contigCount . " contigs, " . $bin->len . " base pairs, quality $quality)\n";
+    if ($bin->{name}) {
+        print $oh "    NCBI taxon $bin->{taxonID}: $bin->{name}\n";
+    }
     # Only do a detail report if the bin has multiple contigs.
     if ($bin->contigCount > 1) {
         # List the close reference genomes.

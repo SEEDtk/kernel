@@ -69,6 +69,14 @@ contigs in the bin.
 Reference to a hash mapping each universal protein role ID to a count of the number of times the role is found in the
 bins.
 
+=item taxonID
+
+If present, the proposed taxonomy ID for the bin.
+
+=item name
+
+If present, the proposed genome name for the bin.
+
 =back
 
 =head2 Bin Exchange Format
@@ -604,6 +612,32 @@ New proposed total length for the contigs.
 sub set_len {
     my ($self, $len) = @_;
     $self->{len} = $len;
+}
+
+=head3 set_name
+
+    $bin->set_name($name, $taxonID);
+
+Store the bin's name and taxonomy ID.
+
+=over 4
+
+=item name
+
+Proposed name of the bin.
+
+=item taxonID
+
+Proposed taxonomy ID for the bin.
+
+=back
+
+=cut
+
+sub set_name {
+    my ($self, $name, $taxonID) = @_;
+    $self->{name} = $name;
+    $self->{taxonID} = $taxonID;
 }
 
 =head3 set_coverage
