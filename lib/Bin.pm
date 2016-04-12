@@ -498,6 +498,32 @@ sub tetraLen {
     return $self->{tetraLen};
 }
 
+=head3 name
+
+    my $name = $bin->name;
+
+Return the name of the bin (if any).
+
+=cut
+
+sub name {
+    my ($self) = @_;
+    return $self->{name};
+}
+
+=head3 taxonID
+
+    my $taxonID = $bin->taxonID;
+
+Return the taxonomy ID of the bin (if any).
+
+=cut
+
+sub taxonID {
+    my ($self) = @_;
+    return $self->{taxonID};
+}
+
 =head3 refGenomes
 
     my @refGenomes = $bin->refGenomes;
