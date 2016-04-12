@@ -201,6 +201,8 @@ Kmer length for placing unbinned contigs. The default is C<50>.
 This script produces intermediate working files that are re-used if they already exist. Many files are output in the
 working directory by L<Bin::Blast>.
 
+The C<sample.fasta> file contains all of the sample sequences in FASTA form. 
+
 The C<bins.found.tbl> file contains the locations hit by the universal protein used to seed the process.
 
 The C<ref.genomes.scores.tbl> file contains the best hit for each seed contig along with its blast score.

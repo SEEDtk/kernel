@@ -38,10 +38,6 @@ This object has the following fields.
 
 The minimum number of universal roles necessary to be considered a good bin.
 
-=item maxDups
-
-The maximum number of duplicate universal roles allowed in a good bin.
-
 =item minLen
 
 The minimum number of base pairs required for a bin to be considered big.
@@ -80,10 +76,6 @@ Hash of tuning options.
 
 Minimum number of universal roles necessary to be considered a good bin. The default is C<80>.
 
-=item maxDups
-
-Maximum number of duplicate universal roles allowed in a good bin. The default is C<4>.
-
 =item totUnis
 
 The total number of universal roles.
@@ -102,13 +94,11 @@ sub new {
     my ($class, $shrub, %options) = @_;
     # Get the options.
     my $minUnis = $options{minUnis} // 80;
-    my $maxDups = $options{maxDups} // 4;
     my $totUnis = $options{totUnis} // 101;
     my $minLen = $options{minLen} // 500000;
     # Create the analysis object.
     my $retVal = {
         minUnis => $minUnis,
-        maxDups => $maxDups,
         totUnis => $totUnis,
         minLen => $minLen,
         shrub => $shrub,
@@ -146,10 +136,6 @@ Hash of tuning options.
 =item minUnis
 
 Minimum number of universal roles necessary to be considered a good bin. The default is C<51>.
-
-=item maxDups
-
-Maximum number of duplicate universal roles allowed in a good bin. The default is C<4>.
 
 =back
 
@@ -364,7 +350,7 @@ sub AnalyzeBin {
         }
     }
     # Check the universal role count.
-    if ($uniCount >= $self->{minUnis} && $dups <= $self->{maxDups}) {
+    if ($uniCount >= $self->{minUnis}) {
         $retVal = 1;
     }
     # Check the length.
@@ -414,7 +400,7 @@ sub BinReport {
     for my $bin (@$binList) {
         # Compute the bin ID.
         $binID++;
-        my $bigBin = $self->BinHeader($bin, $oh, $binID); ##TODO
+        my $bigBin = $self->BinHeader($bin, $oh, $binID);
         if ($bigBin) {
             # Finally, the universal role list. This hash helps us find the missing ones.
             print $oh "    Universal Roles\n";
@@ -585,8 +571,10 @@ sub BinHeader {
     my $quality = $self->AnalyzeBin($bin);
     # Start the header.
     print $oh "\nBIN $id (from " . $bin->contig1 . ", " . $bin->contigCount . " contigs, " . $bin->len . " base pairs, quality $quality)\n";
-    if ($bin->{name}) {
-        print $oh "    NCBI taxon $bin->{taxonID}: $bin->{name}\n";
+    if ($bin->name) {
+        my $name = $bin->name;
+        my $taxonID = $bin->taxonID;
+        print $oh "    NCBI taxon $taxonID: $name\n";
     }
     # Only do a detail report if the bin has multiple contigs.
     if ($bin->contigCount > 1) {
