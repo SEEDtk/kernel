@@ -53,7 +53,7 @@ in SEEDtk, in contigs with a certain minimum coverage (default 4) and length (de
 
 =item 3
 
-Process the blast hits from step (2). BLAST them against a database of all the 
+Process the blast hits from step (2). BLAST them against a database of all the
 PATRIC instances of the default universal roles. For each one, choose the best hit.
 This is the bin's representative genome.
 
@@ -65,7 +65,7 @@ set of representative genomes associated with it and one or more initial contigs
 =item 5
 
 Pull the representative genomes from PATRIC.  Build a protein kmer database (default length 12) from them. Each input
-contig that contains more than a specified number of minimum number of occurrences of kmers from the same bin's 
+contig that contains more than a specified number of minimum number of occurrences of kmers from the same bin's
 representative genomes (default 10 kmers) goes in that bin.
 
 =item 6
@@ -150,7 +150,7 @@ The ID of the universal role to use for seeding the bin assignment. The default 
 
 =item seedgenome
 
-The ID of the genome to use for seeing the bin assignment. To specify more than one genome, use a 
+The ID of the genome to use for seeing the bin assignment. To specify more than one genome, use a
 comma-delimited list. The default is C<83333.1,36870.1,224308.1,1148.1,64091.1,69014.3,83332.12,115711.7,187420.1,224326.1,243273.1,4932.3>.
 
 =item seedfasta
@@ -206,7 +206,7 @@ The C<sample.fasta> file contains all of the sample sequences in FASTA form.
 The C<bins.found.tbl> file contains the locations hit by the universal protein used to seed the process.
 
 The C<ref.genomes.scores.tbl> file contains the best hit for each seed contig along with its blast score.
-It is a tab-delimited file containing (0) the seed contig ID, (1) the ID of the reference genome, (1) the percent identity 
+It is a tab-delimited file containing (0) the seed contig ID, (1) the ID of the reference genome, (1) the percent identity
 blast score, and (2) the scientific name of the reference genome.
 
 The C<contigs.bins> file contains bin information for each input contig, in bin exchange format.
@@ -214,14 +214,14 @@ It does not include universal roles or reference genomes.
 
 The C<kmers.json> file contains the bin-placement kmer database, in json format.
 
-The reference genomes will be stored in L<GenomeTypeObject> json format in files named C<XXXXXXX.json>, 
+The reference genomes will be stored in L<GenomeTypeObject> json format in files named C<XXXXXXX.json>,
 where I<XXXXXXX> is the genome ID.
 
 The C<bins.kmer.json> file contains the first set of output bins (based on protein kmers) in json format.
 
 The C<bins.unplaced.bin> file contains the unplaced contig bins from the protein kmer processing, in json format.
 
-The C<unplaced.fa> file contains the contigs (in FASTA format) that were not placed by the protein kmer processing. 
+The C<unplaced.fa> file contains the contigs (in FASTA format) that were not placed by the protein kmer processing.
 
 The C<bins.json> file contains the output bins, in json format.
 
@@ -249,6 +249,8 @@ my $opt = ScriptUtils::Opts('sampleDir workDir',
                 ['binstrength=i',  'number of kmer matches required to bin a contig', { default => 10 }],
                 ['danglen=i',      'kmer length for unbinned-contig DNA matches', { default => 50 }],
         );
+# Enable access to PATRIC from Argonne.
+$ENV{PERL_LWP_SSL_VERIFY_HOSTNAME} = 0;
 # Turn off buffering for stdout.
 $| = 1;
 # Create the loader object.
@@ -368,7 +370,7 @@ if ($force || ! -s $reducedFastaFile || ! -s $binFile) {
                 $stats->Add(contigRejectedCovg => 1);
             } else {
                 # Yes. Save it.\
-                print $kfh ">$contig\n$seq\n"; 
+                print $kfh ">$contig\n$seq\n";
                 $stats->Add(contigKept => 1);
             }
         }
@@ -477,7 +479,7 @@ for my $contig (keys %$contigHash) {
     my ($genome, $score, $name) = @$genomeData;
     # Compute the genus and species for this genome.
     my ($genus, $species) = split ' ', $name;
-    my $title = join(' ', $genus, $species); 
+    my $title = join(' ', $genus, $species);
     my $bin = $contigs{$contig};
     $bin->add_ref($genome);
     $rg{$genome} = 1;
