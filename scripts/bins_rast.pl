@@ -61,6 +61,10 @@ The name of a file containing the IDs of the universal roles. If omitted, the fi
 subdirectory of the data directory will be used. The file is tab-delimited, with the role IDs in the first column,
 occurrence counts in the second, and role names in the third.
 
+=item partial
+
+Only call RAST for bins for which a GTO does not yet exist. Use this to resume after a failure.
+
 =back
 
 =head2 Output
@@ -80,6 +84,7 @@ my $opt = ScriptUtils::Opts('workDir', Shrub::script_options(),
         ["password|p=s", "password for RAST access"],
         ['unifile=s', 'universal role file', { default => "$FIG_Config::global/uni_roles.tbl" }],
         ["sleep=i", "sleep interval for status polling", { default => 60 }],
+        ['partial', 'only process new bins'],
         );
 # Verify the work directory.
 my ($workDir) = @ARGV;
@@ -125,24 +130,32 @@ if (! $workDir) {
         $stats->Add(bins => 1);
         $binNum++;
         print "Processing bin $binNum - $taxonID: $name.\n";
-        my %contigs = map { $_ => 1 } $bin->contigs;
-        # Now we read the sample file and keep the contig triples.
-        my @triples;
-        my $ih = $loader->OpenFasta(sampleContigs => $contigFastaFile);
-        my $triple = $loader->GetLine(sampleContigs => $ih);
-        while (defined $triple) {
-            my $contigID = $triple->[0];
-            if ($contigs{$contigID}) {
-                $stats->Add(contigsKept => 1);
-                push @triples, $triple;
+        my $binFile = "$workDir/bin$binNum.gto";
+        my $gto;
+        if ($opt->partial && -s $binFile) {
+            print "Reading bin GTO from $binFile.\n";
+            $stats->Add(binsSkipped => 1);
+            $gto = SeedUtils::read_encoded_object($binFile);
+        } else {
+            my %contigs = map { $_ => 1 } $bin->contigs;
+            # Now we read the sample file and keep the contig triples.
+            my @triples;
+            my $ih = $loader->OpenFasta(sampleContigs => $contigFastaFile);
+            my $triple = $loader->GetLine(sampleContigs => $ih);
+            while (defined $triple) {
+                my $contigID = $triple->[0];
+                if ($contigs{$contigID}) {
+                    $stats->Add(contigsKept => 1);
+                    push @triples, $triple;
+                }
+                $triple = $loader->GetLine(sampleContigs => $ih);
             }
-            $triple = $loader->GetLine(sampleContigs => $ih);
+            my $contigCount = scalar @triples;
+            print "Submitting $binNum to RAST: $contigCount contigs.\n";
+            $gto = RASTlib::Annotate(\@triples, $taxonID, $name, %rastOpts);
+            print "Spooling genome to $workDir.\n";
+            SeedUtils::write_encoded_object($gto, "$workDir/bin$binNum.gto");
         }
-        my $contigCount = scalar @triples;
-        print "Submitting $binNum to RAST: $contigCount contigs.\n";
-        my $gto = RASTlib::Annotate(\@triples, $taxonID, $name, %rastOpts);
-        print "Spooling genome to $workDir.\n";
-        SeedUtils::write_encoded_object($gto, "$workDir/bin$binNum.gto");
         print "Searching for universal proteins.\n";
         # Search the genome for universal roles.
         my $flist = $gto->{features};
