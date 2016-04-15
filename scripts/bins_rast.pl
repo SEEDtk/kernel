@@ -157,20 +157,21 @@ if (! $workDir) {
             SeedUtils::write_encoded_object($gto, "$workDir/bin$binNum.gto");
         }
         print "Searching for universal proteins.\n";
+        # Clear the bin's current universal protein list.
+        $bin->replace_prots();
         # Search the genome for universal roles.
         my $flist = $gto->{features};
-        my %prots;
         for my $feature (@$flist) {
             my $fun = $feature->{function};
             if ($fun) {
                 my $funID = $shrub->desc_to_function($fun);
                 if ($funID && $uniRoleH{$funID}) {
-                    $prots{$funID}++;
+                    $bin->incr_prot($funID, 1);
                 }
             }
         }
-        $bin->replace_prots(keys %prots);
-        my $protCount = scalar keys %prots;
+        my $protH = $bin->uniProts;
+        my $protCount = scalar keys %$protH;
         print "$protCount universal proteins found.\n";
     }
     # Output the new bins.

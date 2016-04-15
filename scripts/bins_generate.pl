@@ -194,6 +194,10 @@ The number of kmer matches required to place a contig into a bin. The default is
 
 Kmer length for placing unbinned contigs. The default is C<50>.
 
+=item genus
+
+If specified, reference genomes will be grouped by genus instead of genus and species.
+
 =back
 
 =head2 Working Files
@@ -248,6 +252,7 @@ my $opt = ScriptUtils::Opts('sampleDir workDir',
                 ['kmer|k=i',       'kmer length for protein matches during binning', { default => 12 }],
                 ['binstrength=i',  'number of kmer matches required to bin a contig', { default => 10 }],
                 ['danglen=i',      'kmer length for unbinned-contig DNA matches', { default => 50 }],
+                ['genus',          'group by genus instead of species'],
         );
 # Enable access to PATRIC from Argonne.
 $ENV{PERL_LWP_SSL_VERIFY_HOSTNAME} = 0;
@@ -477,9 +482,9 @@ for my $contig (keys %$contigHash) {
     # each list is a singleton.
     my $genomeData = $contigHash->{$contig}[0];
     my ($genome, $score, $name) = @$genomeData;
-    # Compute the genus and species for this genome.
+    # Compute the title for this genome, depending on whether we are sorting on genus or genus/species.
     my ($genus, $species) = split ' ', $name;
-    my $title = join(' ', $genus, $species);
+    my $title = ($opt->genus ? $genus : join(' ', $genus, $species));
     my $bin = $contigs{$contig};
     $bin->add_ref($genome);
     $rg{$genome} = 1;
