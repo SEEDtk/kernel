@@ -200,3 +200,4 @@ if (! $workDir) {
     $analyzer->BinReport($rh, \%uniRoleH, \@sorted);
     close $rh;
 }
+print "All done.\n";
