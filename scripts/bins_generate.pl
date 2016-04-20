@@ -581,7 +581,7 @@ if ($opt->unassembled) {
     # Do we have a kmer-based version of the bins?
     my $kmerBinFile = "$workDir/bins.kmer.json";
     my $contigFile = "$workDir/bins.unplaced.bin";
-    if (-s $kmerBinFile && -f $contigFile) {
+    if (! $force && -s $kmerBinFile && -f $contigFile) {
         # Yes. Read it in.
         print "Reading bin status from $kmerBinFile\n";
         my $binsTemp = Bin::ReadBins($kmerBinFile);
