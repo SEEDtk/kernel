@@ -59,7 +59,7 @@ This is the bin's representative genome.
 
 =item 4
 
-Merge bins whose representative genomes belong to the same genus and species. Each bin will now have a
+Merge bins whose representative genomes belong to the same genus. Each bin will now have a
 set of representative genomes associated with it and one or more initial contigs.
 
 =item 5
@@ -194,9 +194,9 @@ The number of kmer matches required to place a contig into a bin. The default is
 
 Kmer length for placing unbinned contigs. The default is C<50>.
 
-=item genus
+=item species
 
-If specified, reference genomes will be grouped by genus instead of genus and species.
+If specified, reference genomes will be grouped by genus and species instead of genus.
 
 =back
 
@@ -252,7 +252,7 @@ my $opt = ScriptUtils::Opts('sampleDir workDir',
                 ['kmer|k=i',       'kmer length for protein matches during binning', { default => 12 }],
                 ['binstrength=i',  'number of kmer matches required to bin a contig', { default => 10 }],
                 ['danglen=i',      'kmer length for unbinned-contig DNA matches', { default => 50 }],
-                ['genus',          'group by genus instead of species'],
+                ['species',          'group by species instead of genus'],
         );
 # Enable access to PATRIC from Argonne.
 $ENV{PERL_LWP_SSL_VERIFY_HOSTNAME} = 0;
@@ -484,7 +484,7 @@ for my $contig (keys %$contigHash) {
     my ($genome, $score, $name) = @$genomeData;
     # Compute the title for this genome, depending on whether we are sorting on genus or genus/species.
     my ($genus, $species) = split ' ', $name;
-    my $title = ($opt->genus ? $genus : join(' ', $genus, $species));
+    my $title = ($opt->species ? join(' ', $genus, $species) : $genus);
     my $bin = $contigs{$contig};
     $bin->add_ref($genome);
     $rg{$genome} = 1;
