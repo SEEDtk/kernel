@@ -1140,7 +1140,8 @@ sub MergeMatch {
     my $contig = $match->sid;
     if (! exists $contigs->{$contig}) {
         # First hit on this contig. Save it as a location.
-        $contigs->{$contig} = [$match->sloc];
+        my $loc = $match->sloc;
+        $contigs->{$contig} = [$loc];
     } else {
         # Check to see if we belong next to the previous hit.
         my $oldLoc = pop @{$contigs->{$contig}};
