@@ -466,6 +466,7 @@ sub FindProtein {
     my %retVal;
     # Get the options.
     my $minlen = $self->{minlen};
+    my $workDir = $self->{workDir};
     # Process the defaults.
     $sampleGenomes //= ['83333.1'];
     $funID //= $self->{defaultRole};
@@ -491,9 +492,16 @@ sub FindProtein {
         $protCount++;
     }
     my $minDnaLen = int($minlen * $protLen / $protCount) * 3;
+    # Create a FASTA file of the triples.
+    my $protFile = "$workDir/primer.fa";
+    open(my $ofh, ">$protFile") || die "Could not open primer FASTA file.";
+    for my $prot (@prots) {
+        print $ofh ">$prot->[0] $prot->[1]\n$prot->[2]\n";
+    }
+    close $ofh;
     # Look for matches.
     my @matches = sort { ($a->sid cmp $b->sid) or ($a->s1 <=> $b->s1) }
-            BlastInterface::blast(\@prots, $self->{blastDb}, 'tblastn',
+            BlastInterface::blast($protFile, $self->{blastDb}, 'tblastn',
             { outForm => 'hsp', maxE => $self->{maxE} });
     # The matches are in the form of Hsp objects. They are sorted by start position within contig.
     # We condense the matches into location objects in the following hash. This is where the gap
