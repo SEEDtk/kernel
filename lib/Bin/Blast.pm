@@ -492,6 +492,7 @@ sub FindProtein {
         $protCount++;
     }
     my $minDnaLen = int($minlen * $protLen / $protCount) * 3;
+    print "Minimum match length is $minDnaLen.\n";
     # Create a FASTA file of the triples.
     my $protFile = "$workDir/primer.fa";
     open(my $ofh, ">$protFile") || die "Could not open primer FASTA file.";
@@ -503,6 +504,7 @@ sub FindProtein {
     my @matches = sort { ($a->sid cmp $b->sid) or ($a->s1 <=> $b->s1) }
             BlastInterface::blast($protFile, $self->{blastDb}, 'tblastn',
             { outForm => 'hsp', maxE => $self->{maxE} });
+    print scalar(@matches) . " blast results found.\n";
     # The matches are in the form of Hsp objects. They are sorted by start position within contig.
     # We condense the matches into location objects in the following hash. This is where the gap
     # resolution is processed.
@@ -514,7 +516,9 @@ sub FindProtein {
     # This will be put in the return hash.
     for my $contig (keys %contigs) {
         my ($match) = sort { $b->Length <=> $a->Length} @{$contigs{$contig}};
-        if ($match->Length >= $minDnaLen) {
+        my $matchLen = $match->Length;
+        print "Match for $contig has length $matchLen.\n"; 
+        if ($matchLen >= $minDnaLen) {
             $retVal{$contig} = $match;
         }
     }
