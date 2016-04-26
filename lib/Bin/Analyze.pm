@@ -378,7 +378,8 @@ Open handle for the output file.
 
 =item uniRoles
 
-Reference to a hash mapping each universal role ID to its description.
+Reference to a hash mapping each universal role ID to its description. If undefined, the universal roles will
+be read from the database.
 
 =item binList
 
@@ -392,6 +393,10 @@ sub BinReport {
     my ($self, $oh, $uniRoles, $binList) = @_;
     # Get the database object.
     my $shrub = $self->{shrub};
+    # Get the universal roles.
+    if (! defined $uniRoles) {
+        $uniRoles = $shrub->GetUniRoles();
+    }
     # This will be a hash mapping each universal role to a hash of the bins it appears in. The bins will be
     # identified by an ID number we assign.
     my %uniBins;

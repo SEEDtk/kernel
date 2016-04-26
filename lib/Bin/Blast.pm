@@ -113,12 +113,6 @@ A hash of options. These include
 
 Privilege level for computing the functions of the feature. The default is C<1>.
 
-=item uniRoles
-
-Name of a tab-delimited file containing the universal roles. Each record must contain (0) a universal role ID, (1) the
-number of times it was found in the database, and (2) the role's description. The default is C<uni_roles.tbl> in the
-global data directory.
-
 =item maxE
 
 The maximum acceptable E-value. The default is C<1e-50>.
@@ -146,19 +140,8 @@ sub new {
     my $maxE = $options{maxE} // 1e-5;
     my $gap = $options{gap} // 100;
     my $minlen = $options{minlen} // 0.50;
-    # This will track the best universal role.
-    my ($defaultRole, $drCount) = ('', 0);
     # Create a hash of the universal roles.
-    my %uniRoleH;
-    my $uniRoleFile = $options{uniRoles} // "$FIG_Config::global/uni_roles.tbl";
-    open(my $ih, "<$uniRoleFile") || die "Could not open universal role file: $!";
-    while (! eof $ih) {
-        my ($role, $count, $desc) = SeedUtils::fields_of($ih);
-        $uniRoleH{$role} = $desc;
-        if ($count > $drCount) {
-            ($defaultRole, $drCount) = ($role, $count);
-        }
-    }
+    my $uniRoleH = $shrub->GetUniRoles();
     # Insure we have a copy of the sample contigs in the working directory. Note we need to deal with
     # trailing-slash craziness.
     my $blastFasta = $contigFasta;
@@ -180,11 +163,11 @@ sub new {
     my $retVal = {
         priv => $priv,
         maxE => $maxE,
-        uniRoleH => \%uniRoleH,
+        uniRoleH => $uniRoleH,
         shrub => $shrub,
         blastDb => $blastDbName,
         workDir => $workDir,
-        defaultRole => $defaultRole,
+        defaultRole => 'PhenTrnaSyntAlph',
         gap => $gap,
         minlen => $minlen
     };

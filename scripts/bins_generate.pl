@@ -132,12 +132,6 @@ Each tetranucleotide is counted once, and is considered identical to its reverse
 
 =back
 
-=item unifile
-
-The name of a file containing the IDs of the universal roles. If omitted, the file C<uni_roles.tbl> in the C<Global>
-subdirectory of the data directory will be used. The file is tab-delimited, with the role IDs in the first column,
-occurrence counts in the second, and role names in the third.
-
 =item force
 
 If C<all>, all of the data and intermediate files will be recomputed. If C<parms>, the initial bin files will be
@@ -239,7 +233,6 @@ my $opt = ScriptUtils::Opts('sampleDir workDir',
                 ['lenFilter=i',    'minimum contig length', { default => 400 }],
                 ['covgFilter=f',   'minimum contig mean coverage', { default => 4}],
                 ['tetra=s',        'tetranucleotide counting algorithm', { 'default' => 'dual' }],
-                ['unifile=s',      'universal role file', { default => "$FIG_Config::global/uni_roles.tbl" }],
                 ['force=s',        'force re-creation of all intermediate files'],
                 ['seedrole|R=s',   'ID of the universal role to seed the bins', { default => 'PhenTrnaSyntAlph' }],
                 ['seedgenome|G=s', 'ID of the genome to seed the bins', { default => '83333.1,36870.1,224308.1,1148.1,64091.1,69014.3,83332.12,115711.7,187420.1,224326.1,243273.1,4932.3' }],
@@ -396,7 +389,7 @@ $force ||= ($forceType eq 'parms');
 my $maxE = $opt->maxe;
 my $rMaxE = $opt->refmaxe // $maxE;
 # Create the blaster.
-my $blaster = Bin::Blast->new($shrub, $workDir, $reducedFastaFile, uniRoles => $opt->unifile,
+my $blaster = Bin::Blast->new($shrub, $workDir, $reducedFastaFile, 
         maxE => $maxE, minlen => $opt->minlen, gap => $opt->gap);
 # First, we need the list of bins and the locations where they hit the seed protein.
 my $binsFoundFile = "$workDir/bins.found.tbl";

@@ -55,12 +55,6 @@ Password for RAST access. If omitted, the default is taken from the RASTPASS env
 
 Sleep interval in seconds while waiting for the job to complete. The default is C<60>.
 
-=item unifile
-
-The name of a file containing the IDs of the universal roles. If omitted, the file C<uni_roles.tbl> in the C<Global>
-subdirectory of the data directory will be used. The file is tab-delimited, with the role IDs in the first column,
-occurrence counts in the second, and role names in the third.
-
 =item partial
 
 Only call RAST for bins for which a GTO does not yet exist. Use this to resume after a failure.
@@ -82,7 +76,6 @@ The analysis report will be updated in C<bins.report.txt> with the universal rol
 my $opt = ScriptUtils::Opts('workDir', Shrub::script_options(),
         ["user|u=s", "user name for RAST access"],
         ["password|p=s", "password for RAST access"],
-        ['unifile=s', 'universal role file', { default => "$FIG_Config::global/uni_roles.tbl" }],
         ["sleep=i", "sleep interval for status polling", { default => 60 }],
         ['partial', 'only process new bins'],
         );
@@ -98,19 +91,12 @@ if (! $workDir) {
     if (! -s $binJsonFile || ! -s $contigFastaFile) {
         die "$workDir does not appear to contain completed bins.";
     }
-    # This will track the best universal role.
-    my ($defaultRole, $drCount) = ('', 0);
-    # Create a hash of the universal roles.
-    my %uniRoleH;
-    my $uniRoleFile = $opt->unifile;
-    open(my $ih, "<$uniRoleFile") || die "Could not open universal role file: $!";
-    while (! eof $ih) {
-        my ($role, $count, $desc) = SeedUtils::fields_of($ih);
-        $uniRoleH{$role} = $desc;
-    }
-    my $totUnis = scalar keys %uniRoleH;
-    # Create an analyzer object.
+    # Connect to the database.
     my $shrub = Shrub->new_for_script($opt);
+    # Create a hash of the universal roles.
+    my $uniRoleH = $shrub->GetUniRoles();
+    my $totUnis = scalar keys %$uniRoleH;
+    # Create an analyzer object.
     my $analyzer = Bin::Analyze->new($shrub, totUnis => $totUnis, minUnis => (0.8 * $totUnis));
     # Get the loader object.
     my $loader = Loader->new();
@@ -141,12 +127,14 @@ if (! $workDir) {
             # Now we read the sample file and keep the contig triples.
             my @triples;
             my $ih = $loader->OpenFasta(sampleContigs => $contigFastaFile);
+            open(my $oh, ">$workDir/bin$binNum.fa") || die "Could not open FASTA output file for bin $binNum.";
             my $triple = $loader->GetLine(sampleContigs => $ih);
             while (defined $triple) {
                 my $contigID = $triple->[0];
                 if ($contigs{$contigID}) {
                     $stats->Add(contigsKept => 1);
                     push @triples, $triple;
+                    print $oh ">$triple->[0] $triple->[1]\n$triple->[2]\n";
                 }
                 $triple = $loader->GetLine(sampleContigs => $ih);
             }
@@ -165,7 +153,7 @@ if (! $workDir) {
             my $fun = $feature->{function};
             if ($fun) {
                 my $funID = $shrub->desc_to_function($fun);
-                if ($funID && $uniRoleH{$funID}) {
+                if ($funID && $uniRoleH->{$funID}) {
                     $bin->incr_prot($funID, 1);
                 }
             }
@@ -188,7 +176,7 @@ if (! $workDir) {
     if (-s $refScoreFile) {
         my %genomes;
         print "Reading reference genomes from $refScoreFile.\n";
-        $ih = $loader->OpenFile(refGenomes => $refScoreFile);
+        my $ih = $loader->OpenFile(refGenomes => $refScoreFile);
         while (my $refFields = $loader->GetLine(refGenomes => $ih)) {
             my ($contig, $genome, $score, $name) = @$refFields;
             $genomes{$genome} = $name;
@@ -197,7 +185,7 @@ if (! $workDir) {
     }
     # Write the report.
     open(my $rh, ">$workDir/bins.report.txt") || die "Could not open report file: $!";
-    $analyzer->BinReport($rh, \%uniRoleH, \@sorted);
+    $analyzer->BinReport($rh, $uniRoleH, \@sorted);
     close $rh;
 }
 print "All done.\n";
