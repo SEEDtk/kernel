@@ -33,33 +33,23 @@ Produce a report of the quality bins in a bin list.
 
 =head2 Parameters
 
-The input file is a list of bins,  in JSON format.
+The input file is a list of bins in JSON format.
 
-The command-line options are those found in L<Shrub::script_options> and L<ScriptUtils/ih_options> plus the following.
-
-=over 4
-
-=item unis
-
-The name of a file containing the IDs of the universal roles. If omitted, the file C<uni_roles.tbl> in the C<Global>
-subdirectory of the data directory will be used. The file is tab-delimited, with the role IDs in the first column.
-
-=back
+The command-line options are those found in L<Shrub::script_options> and L<ScriptUtils/ih_options>.
 
 =cut
 
 # Get the command-line parameters.
 my $opt = ScriptUtils::Opts('', ScriptUtils::ih_options(),
         Shrub::script_options(),
-        ['unis=s',     'universal role file', { default => "$FIG_Config::data/Global/uni_roles.tbl" }],
         );
 # Open the input file.
 my $ih = ScriptUtils::IH($opt->input);
 my $binList;
-# Read in the universal roles.
-my $uniRoles = Bin::Score::ReadUniHash($opt->unifile);
 # Connect to the database.
 my $shrub = Shrub->new_for_script($opt);
+# Read in the universal roles.
+my $uniRoles = $shrub->GetUniRoles();
 # Get the analysis object.
 my $analyzer = Bin::Analyze->new($shrub);
 # This will contain a list of bins for the final statistical report.
