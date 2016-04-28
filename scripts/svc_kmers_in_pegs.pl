@@ -78,8 +78,11 @@ my @kmers;
 # This is the final list of pegs.
 my @pegs;
 # Loop through the batches.
-while (my @tuples = ScriptUtils::get_couplets($ih, $column, 5000)) {
-    print scalar(@tuples) . " read in this batch.\n";
+my $pegtot = 0;
+while (my @tuples = ScriptUtils::get_couplets($ih, $column, 50000)) {
+    my $pegNow = scalar(@tuples);
+    $pegtot += $pegNow;
+    print "$pegNow read in this batch. $pegtot total.\n";
     my @ids = map { $_->[0] } @tuples;
     my $seqH = $shrub->Feature2Trans(\@ids);
     print scalar(keys %$seqH) . " translations found.\n";
@@ -132,7 +135,7 @@ foreach my $id (@pegs)
     }
     print X join(",",@row),"\n";
     $pegCount++;
-    if ($pegCount % 5000 == 0) {
+    if ($pegCount % 50000 == 0) {
         print "$pegCount pegs output.\n";
     }
 }
