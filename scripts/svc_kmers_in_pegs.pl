@@ -32,6 +32,7 @@ The name of a generated directory used to classify pegs based on Kmer content
 
 =cut
 
+$| = 1;
 my $opt = ScriptUtils::Opts( '',
                  Shrub::script_options(), 
                  ScriptUtils::ih_options(),
