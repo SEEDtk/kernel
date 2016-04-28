@@ -33,11 +33,11 @@ The name of a generated directory used to classify pegs based on Kmer content
 =cut
 
 my $opt = ScriptUtils::Opts( '',
-			     Shrub::script_options(), 
-			     ScriptUtils::ih_options(),
-			     ['col|c=i', 'pegid column', { }],
+                 Shrub::script_options(), 
+                 ScriptUtils::ih_options(),
+                 ['col|c=i', 'pegid column', { }],
                  ['ksize|k=i','kmer size',{ default => 6 } ],
-			     ['dir|d=s', 'Name of generated classification directory',{required => 1}]
+                 ['dir|d=s', 'Name of generated classification directory',{required => 1}]
         );
 
 # Connect to the database.
@@ -72,38 +72,43 @@ my $kmerH = {};
 my %kmer_occurs;
 # This hash maps each function to its index in the pred.h file.
 my $funcI = {};
+# This is the final list of kmers.
+my @kmers;
+# This is the final list of pegs.
+my @pegs;
 # Loop through the batches.
 while (my @tuples = ScriptUtils::get_couplets($ih, $column, 100)) {
-	print scalar(@tuples) . " read in this batch.\n";
+    print scalar(@tuples) . " read in this batch.\n";
     my @ids = map { $_->[0] } @tuples;
     my $seqH = $shrub->Feature2Trans(\@ids);
     print scalar(keys %$seqH) . " translations found.\n";
     my $funcH = $shrub->Feature2Function(1,\@ids);
     print scalar(keys %$funcH) . " functions found.\n";
 
-    my @kmers;
+
     foreach my $id (keys(%$seqH))
     {
         print ROW $pegN++,"\t$id\n";
-		my $seq = $seqH->{$id};
+        push @pegs, $id;
+        my $seq = $seqH->{$id};
         my $func = $funcH->{$id}->[1];
-		if (! $funcI->{$func})
-		{
+        if (! $funcI->{$func})
+        {
             print FUNCS $funcN,"\t",$func,"\n";
-	    	$funcI->{$func} = $funcN++;
-		}
-		print Y $funcI->{$func},"\n";
-		my $i;
-		for ($i=0; ($i < (length($seq) - $k)); $i++)
-		{
-	    	my $kmer = uc substr($seq,$i,$k);
+            $funcI->{$func} = $funcN++;
+        }
+        print Y $funcI->{$func},"\n";
+        my $i;
+        for ($i=0; ($i < (length($seq) - $k)); $i++)
+        {
+            my $kmer = uc substr($seq,$i,$k);
             if (! $kmerH->{$kmer})
-	    	{
-				push(@kmers,$kmer);
-				$kmerH->{$kmer} = $kmerN++;
-	    	}
-	    	$kmer_occurs{$id}->{$kmer} = 1;
-		}
+            {
+                push(@kmers,$kmer);
+                $kmerH->{$kmer} = $kmerN++;
+            }
+            $kmer_occurs{$id}->{$kmer} = 1;
+        }
     }
 }
 close(ROW);
@@ -112,24 +117,24 @@ close(FUNCS);
 print "spooling kmers.\n";
 for (my $i=0; ($i < @kmers); $i++)
 {
-	print COL join("\t",($i,$kmers[$i])),"\n";
+    print COL join("\t",($i,$kmers[$i])),"\n";
 }
 close(COL);
 my $pegCount = 0;
-foreach my $id (keys(%$seqH))
+foreach my $id (@pegs)
 {
-	my @row;
-	for (my $j = 0; ($j < @kmers); $j++)
-	{
-	    my $v = $kmer_occurs{$id}->{$kmers[$j]};
-	    push(@row,$v ? 1 : 0);
-	}
-	print X join(",",@row),"\n";
-	$count++;
-	if ($count % 5000 == 0) {
-		print "$count pegs output.\n";
-	}
+    my @row;
+    for (my $j = 0; ($j < @kmers); $j++)
+    {
+        my $v = $kmer_occurs{$id}->{$kmers[$j]};
+        push(@row,$v ? 1 : 0);
+    }
+    print X join(",",@row),"\n";
+    $pegCount++;
+    if ($pegCount % 5000 == 0) {
+        print "$pegCount pegs output.\n";
+    }
 }
 
 close(X);
-print "All done. $count total pegs.\n";
+print "All done. $pegCount total pegs.\n";
