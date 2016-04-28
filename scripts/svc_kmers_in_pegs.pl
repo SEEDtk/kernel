@@ -4,6 +4,7 @@ use strict;
 use Data::Dumper;
 use Shrub;
 use ScriptUtils;
+use File::Copy::Recursive;
 
 =head1 Generate Classification Directory for Kmers in Pegs
 
@@ -38,7 +39,8 @@ my $opt = ScriptUtils::Opts( '',
                  ScriptUtils::ih_options(),
                  ['col|c=i', 'pegid column', { }],
                  ['ksize|k=i','kmer size',{ default => 6 } ],
-                 ['dir|d=s', 'Name of generated classification directory',{required => 1}]
+                 ['dir|d=s', 'Name of generated classification directory',{required => 1}],
+                 ['force|f', 'Delete old copy of work directory.']
         );
 
 # Connect to the database.
@@ -48,7 +50,15 @@ my $column = $opt->col;
 my $dir    = $opt->dir;
 my $k      = $opt->ksize;
 
-mkdir($dir,0777) || die "$dir already exits";
+if (-d $dir) {
+    if ($opt->force) {
+        File::Copy::Recursive::pathempty($dir) || die "Could not empty previous contents of $dir.";
+    } else {
+        die "$dir already exists.";
+    }
+} else {
+    mkdir($dir, 0777);
+}
 
 # X is the main array. One row for each peg, containing 1s and 0s that indicate presence or absence of a kmer
 # col.h are the column headrs (indexes of kmers)
