@@ -78,7 +78,7 @@ my @kmers;
 # This is the final list of pegs.
 my @pegs;
 # Loop through the batches.
-while (my @tuples = ScriptUtils::get_couplets($ih, $column, 100)) {
+while (my @tuples = ScriptUtils::get_couplets($ih, $column, 5000)) {
     print scalar(@tuples) . " read in this batch.\n";
     my @ids = map { $_->[0] } @tuples;
     my $seqH = $shrub->Feature2Trans(\@ids);
