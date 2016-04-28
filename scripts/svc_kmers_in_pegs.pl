@@ -106,7 +106,7 @@ while (my @tuples = ScriptUtils::get_couplets($ih, $column, 50000)) {
         push @pegs, $id;
         my $seq = $seqH->{$id};
         my $func = $funcH->{$id}->[1];
-        if (! $funcI->{$func})
+        if (! defined $funcI->{$func})
         {
             print FUNCS $funcN,"\t",$func,"\n";
             $funcI->{$func} = $funcN++;
