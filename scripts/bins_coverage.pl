@@ -63,6 +63,10 @@ coverage data. The files are presumed to be tab-delimited, with the contig ID in
 values in the second. The first line is treated as a header and discarded. The filename pattern must include the
 directory path; otherwise the current directory is assumed.
 
+=item noData
+
+If specified, then no coverage data is available. A dummy coverage of 50 is generated for each contig.
+
 =back
 
 =cut
@@ -71,6 +75,7 @@ directory path; otherwise the current directory is assumed.
 my $opt = ScriptUtils::Opts('sampleFile outputDir',
         ['keyword=s',    'keyword for coverage data in the sequence comments (if any)'],
         ['covgFiles=s',  'coverage data files (if any)'],
+        ['noData',       'no coverage data available'],
         ['lenFilter=i',  'minimum contig length', { default => 0 }],
         ['covgFilter=f', 'minimum contig mean coverage', { default => 0}],
         );
@@ -90,13 +95,21 @@ my $stats = Stats->new();
 # Figure out how we are computing coverage.
 my $keyword = $opt->keyword;
 my $covgFiles = $opt->covgfiles;
+my $noData = $opt->nodata;
 if ($keyword) {
     if ($covgFiles) {
-        die "covgFiles and keyword are mutually exclusive."
+        die "covgFiles and keyword are mutually exclusive.";
+    } elsif ($noData) {
+        die "noData and keyword are mutually exclusive.";
     }
     print "Using keyword mode.\n";
 } elsif ($covgFiles) {
+    if ($noData) {
+        die "covgFiles and noData are mutually exclusive.";
+    }
     print "Using coverage file mode.\n";
+} elsif ($noData) {
+    print "No coverage data available.\n";
 } else {
     print "Using standard contig ID mode.\n";
 }
@@ -187,6 +200,9 @@ while (! eof $ih) {
                 $stats->Add(missingKeyword => 1);
                 $errors++;
             }
+        } elsif ($noData) {
+            $covg = 50;
+            $covgMean = 50;
         } else {
             if ($contigID =~ /cov(?:erage|g)?_([0-9.]+)/) {
                 $covg = $1;
