@@ -637,6 +637,8 @@ if ($opt->unassembled) {
         }
         close $oh;
     }
+    # Release the memory for the kmers.
+    undef $kmerDB;
     # Now we need to look for mobile elements. We want to create a kmer database for long DNA kmers in the
     # binned contigs and use it to classify the unplaced contigs. While we are doing this, we put
     # the unplaced contigs in a FASTA file so we can process them faster. To facilitate this process,

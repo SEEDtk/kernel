@@ -25,10 +25,10 @@ package Bin::Kmer;
 =head1 Assign Bins via Kmer Discrimination
 
 This module is used to create a kmer discrimination database for binning. All of the bin's reference
-genomes are fed in, and kmers created from the attendant protein sequences. The kmers are then post-processed
-to identify those that occur in only one bin. A separate method uses the kmers to determine which bin
-should contain any incoming contig. Note that the incoming contigs contain DNA while the kmers are proteins, 
-so translation is necessary.
+genomes are fed in, and kmers created from the attendant protein sequences. The L</accumulate_hits>
+method is overridden to just count kmers that occur in only one bin. A separate method uses the kmers to 
+determine which bin should contain any incoming contig. Note that the incoming contigs contain DNA while 
+the kmers are proteins, so translation is necessary.
 
 In the parlance of the base class L<KmerDb>, the groups are bins, and the sources are incoming contigs.
 
@@ -120,14 +120,18 @@ sub AddGenome {
     $kmerdb->Finalize();
 
 Clean up the kmer hash to remove kmers found in more than one group. This prepares the database
-for queries, and overrides the base class method.
+for queries, and overrides the base class method. Because computing discriminators is very
+expensive, we simply mark the bin as finalized and override accumulate_hits to only count kmers in
+a single bin.
 
 =cut
 
 sub Finalize {
     my ($self) = @_;
-    $self->ComputeDiscriminators();
+    $self->{finalized} = 1;
 }
+
+
 
 =head3 ComputeBin
 
@@ -189,6 +193,47 @@ sub ComputeBin {
     }
     # Return the bin found.
     return $retVal;
+}
+
+=head2 Internal Methods
+
+=head3 accumulate_hits
+
+    $kmerdb->accumulate_hits($sequence, \%counts);
+
+Accumulate the kmer hits in a sequence. The sequence must already be translated if translation is
+needed. This is an override to the base-class method that only counts a hit if it has just a single
+target bin.
+
+=over 4
+
+=item sequence
+
+Sequence to examine for kmers.
+
+=item counts
+
+Reference to a hash mapping group IDs to hit counts.
+
+=back
+
+=cut
+
+sub accumulate_hits {
+    my ($self, $sequence, $counts) = @_;
+    # Get the kmer length and the hash.
+    my $kmerSize = $self->{kmerSize};
+    my $kmerHash = $self->{kmerHash};
+    # Loop through the kmers.
+    my $n = length($sequence) - $kmerSize;
+    for (my $i = 0; $i <= $n; $i++) {
+        my $kmer = substr($sequence, $i, $kmerSize);
+        my $groups = $kmerHash->{$kmer};
+        my ($group, @others) = keys %$groups;
+        if (! @others) {
+            $counts->{$group}++;
+        }
+    }
 }
 
 
