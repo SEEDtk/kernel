@@ -229,9 +229,11 @@ sub accumulate_hits {
     for (my $i = 0; $i <= $n; $i++) {
         my $kmer = substr($sequence, $i, $kmerSize);
         my $groups = $kmerHash->{$kmer};
-        my ($group, @others) = keys %$groups;
-        if (! @others) {
-            $counts->{$group}++;
+        if ($groups) {
+            my ($group, @others) = keys %$groups;
+            if (! @others) {
+                $counts->{$group}++;
+            }
         }
     }
 }
