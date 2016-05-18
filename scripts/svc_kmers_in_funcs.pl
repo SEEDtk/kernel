@@ -17,6 +17,7 @@ Takes a file of pegs as input.  Creates a directory
         y
         col.h
         row.h
+        y.map
 
 =head2 Parameters
 
@@ -59,7 +60,7 @@ if (-d $dir) {
 # X is the main array.
 # col.h are the column headrs (indexes of kmers)
 # row.h are the row headers (indexes of pegs)
-# pred.h are the function index
+# y.map are the function index
 # 
 # y is the array of dependent variables (the predictions)
 
@@ -165,4 +166,6 @@ for ($i=0; ($i < @functions); $i++)
     }
 }
 close(X);
+print "Copying row.h to y.map\n";
+File::Copy::Recursive::fcopy("$dir/row.h", "$dir/y.map");
 print "All done. $count total rows produced.\n";

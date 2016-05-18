@@ -63,16 +63,16 @@ if (-d $dir) {
 # X is the main array. One row for each peg, containing 1s and 0s that indicate presence or absence of a kmer
 # col.h are the column headrs (indexes of kmers)
 # row.h are the row headers (indexes of pegs)
-# pred.h are the function index (indexes of functions)
+# y.map are the function index (indexes of functions)
 # 
 # y is the array of dependent variables (the predictions), mapping pegs to function indices. This file contains
-#   one number per row. The row corresponds to the peg in row.h. The number is the index of the function in pred.h
+#   one number per row. The row corresponds to the peg in row.h. The number is the index of the function in y.map
 
 open(X,">$dir/X") || die "could not open $dir/X";
 open(Y,">$dir/y") || die "could not open $dir/y";
 open(COL,">$dir/col.h") || die "could not open $dir/col.h";
 open(ROW,">$dir/row.h") || die "could not open $dir/row.h";
-open(FUNCS,">$dir/pred.h") || die "could not open $dir/pred.h";
+open(FUNCS,">$dir/y.map") || die "could not open $dir/y.map";
 
 my $kmerN = 0;
 my $funcN = 0;
@@ -81,7 +81,7 @@ my $pegN  = 0;
 my $kmerH = {};
 # This is a two-level hash by peg ID and kmer that indicates which kmers occur in each peg.
 my %kmer_occurs;
-# This hash maps each function to its index in the pred.h file.
+# This hash maps each function to its index in the y.map file.
 my $funcI = {};
 # This is the final list of kmers.
 my @kmers;
