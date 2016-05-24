@@ -21,10 +21,6 @@ use strict;
 use warnings;
 use FIG_Config;
 use ScriptUtils;
-use RASTlib;
-use Bin;
-use Bin::Analyze;
-use Loader;
 use Shrub;
 
 =head1 Submit Bins Through RAST
@@ -93,99 +89,9 @@ if (! $workDir) {
     }
     # Connect to the database.
     my $shrub = Shrub->new_for_script($opt);
-    # Create a hash of the universal roles.
-    my $uniRoleH = $shrub->GetUniRoles();
-    my $totUnis = scalar keys %$uniRoleH;
-    # Create an analyzer object.
-    my $analyzer = Bin::Analyze->new($shrub, totUnis => $totUnis, minUnis => (0.8 * $totUnis));
-    # Get the loader object.
-    my $loader = Loader->new();
-    my $stats = $loader->stats;
-    # Read in the bins.
-    print "Reading bins from $binJsonFile.\n";
-    my $binList = Bin::ReadBins($binJsonFile);
-    # Create the RAST option hash.
-    my %rastOpts = (user => $opt->user, password => $opt->password, 'sleep' => $opt->sleep);
-    # Loop through the bins, processing them one at a time. For each bin, we read the whole sample
-    # file to get the contigs. Only one bin's worth of contigs is kept in memory at a time, at the cost of
-    # a lot of extra reading.
-    my $binNum = 0;
-    for my $bin (@$binList) {
-        my $taxonID = $bin->taxonID;
-        my $name = $bin->name;
-        $stats->Add(bins => 1);
-        $binNum++;
-        print "Processing bin $binNum - $taxonID: $name.\n";
-        my $binFile = "$workDir/bin$binNum.gto";
-        my $gto;
-        if ($opt->partial && -s $binFile) {
-            print "Reading bin GTO from $binFile.\n";
-            $stats->Add(binsSkipped => 1);
-            $gto = SeedUtils::read_encoded_object($binFile);
-        } else {
-            my %contigs = map { $_ => 1 } $bin->contigs;
-            # Now we read the sample file and keep the contig triples.
-            my @triples;
-            my $ih = $loader->OpenFasta(sampleContigs => $contigFastaFile);
-            open(my $oh, ">$workDir/bin$binNum.fa") || die "Could not open FASTA output file for bin $binNum.";
-            my $triple = $loader->GetLine(sampleContigs => $ih);
-            while (defined $triple) {
-                my $contigID = $triple->[0];
-                if ($contigs{$contigID}) {
-                    $stats->Add(contigsKept => 1);
-                    push @triples, $triple;
-                    print $oh ">$triple->[0] $triple->[1]\n$triple->[2]\n";
-                }
-                $triple = $loader->GetLine(sampleContigs => $ih);
-            }
-            my $contigCount = scalar @triples;
-            print "Submitting $binNum to RAST: $contigCount contigs.\n";
-            $gto = RASTlib::Annotate(\@triples, $taxonID, $name, %rastOpts);
-            print "Spooling genome to $workDir.\n";
-            SeedUtils::write_encoded_object($gto, "$workDir/bin$binNum.gto");
-        }
-        print "Searching for universal proteins.\n";
-        # Clear the bin's current universal protein list.
-        $bin->replace_prots();
-        # Search the genome for universal roles.
-        my $flist = $gto->{features};
-        for my $feature (@$flist) {
-            my $fun = $feature->{function};
-            if ($fun) {
-                my $funID = $shrub->desc_to_function($fun);
-                if ($funID && $uniRoleH->{$funID}) {
-                    $bin->incr_prot($funID, 1);
-                }
-            }
-        }
-        my $protH = $bin->uniProts;
-        my $protCount = scalar keys %$protH;
-        print "$protCount universal proteins found.\n";
-    }
-    # Output the new bins.
-    my $binOutputFile = "$workDir/bins.rast.json";
-    print "Spooling bins to $binOutputFile.\n";
-    my @sorted = sort { Bin::cmp($a, $b) } @$binList;
-    open(my $oh, ">$binOutputFile") || die "Could not open bins.rast.json output file: $!";
-    for my $bin (@sorted) {
-        $bin->Write($oh);
-    }
-    close $oh;
-    # Read the reference genome file. We need this for the report.
-    my $refScoreFile = "$workDir/ref.genomes.scores.tbl";
-    if (-s $refScoreFile) {
-        my %genomes;
-        print "Reading reference genomes from $refScoreFile.\n";
-        my $ih = $loader->OpenFile(refGenomes => $refScoreFile);
-        while (my $refFields = $loader->GetLine(refGenomes => $ih)) {
-            my ($contig, $genome, $score, $name) = @$refFields;
-            $genomes{$genome} = $name;
-        }
-        $analyzer->SetGenomes(\%genomes);
-    }
-    # Write the report.
-    open(my $rh, ">$workDir/bins.report.txt") || die "Could not open report file: $!";
-    $analyzer->BinReport($rh, $uniRoleH, \@sorted);
-    close $rh;
+    # Run the RAST pipeline for bins.
+    SamplePipeline::RastBins($shrub, $binJsonFile, $contigFastaFile, $workDir, user => $opt->user,
+            password => $opt->password, partial => $opt->partial, sleep => $opt->sleep);
 }
 print "All done.\n";
+

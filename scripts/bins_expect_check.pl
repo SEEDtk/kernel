@@ -25,7 +25,7 @@ use Stats;
 
 =head1 Analyze Bins Found Against Expectations
 
-    bins_patric_check.pl [ options ] binDir
+    bins_expect_check.pl [ options ] binDir
 
 This script compares the species in the expected bins to the species actually found and the species currently
 in the PhenTranSyntAlph database. There are three files of interest.
