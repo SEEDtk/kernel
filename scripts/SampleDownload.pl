@@ -35,15 +35,26 @@ presumably be done in parallel.)
 
 =head2 Parameters
 
-The command-line options are those found in L<ScriptUtils/ih_options> (for the standard input). The
-positional parameter is the name of a work directory. Each sample is loaded into a subdirectory of this 
-work directory.
+The positional parameter is the name of a work directory. Each sample is loaded into a subdirectory of this 
+work directory. The command-line options are those found in L<ScriptUtils/ih_options> (for the standard input)
+plus the following.
+
+=over 4
+
+=item force
+
+If specified, samples will be downloaded even if their directories already exist.
+
+=back 
 
 =cut
 
 # Get the command-line parameters.
 my $opt = ScriptUtils::Opts('workDir', ScriptUtils::ih_options(),
+                            ['force', 'force downloading over existing directories'],
         );
+# Get the force option.
+my $force = $opt->force;
 # Verify the work directory.
 my ($workDir) = @ARGV;
 if (! $workDir) {
@@ -66,29 +77,40 @@ while (! eof $ih) {
     $count++;
     print "Processing $count: $sample from $site.\n";
     my $sampleDir = "$workDir/$sample";
+    my $download = $force;
     if (! -d $sampleDir) {
         File::Copy::Recursive::pathmk($sampleDir);
+        $download = 1;
     }
-    # Now we have a directory into which we can put the files. Download and unpack the sample reads.
-    my $rc = system('curl', '-O', "http://downloads.hmpdacc.org/data/Illumina/$site/$sample.tar.bz2");
-    die "Error code $rc downloading sample." if $rc;
-    $rc = system('tar', '-xzvf', "$sample.tar.bz2");
-    die "Error code $rc unpacking sample." if $rc;
-    # Delete the tar file.
-    unlink "$sample.tar.bz2";
-    # Create the site file.
-    open(my $oh, '>', "$sample/site.tbl") || die "Could not open site file: $!";
-    my $siteName = join(' ', map { ucfirst $_ } split /_/, $site);
-    print $oh "HMP\t$site\t$siteName\n";
-    close $oh;
-    # Download the abundance profile.
-    chdir $sampleDir;
-    my $abundanceF = $sample . '_abundance_table.tsv.bz2';
-    $rc = system('curl', '-O', "http://downloads.hmpdacc.org/data/HMSCP/$sample/$abundanceF");
-    die "Error code $rc downloading abundance." if $rc;
-    $rc = system('tar', '-xzvf', $abundanceF);
-    die "Error code $rc downloading abundance." if $rc;
-    # Delete the tar file.
-    unlink $abundanceF;
+   # Now we have a directory into which we can put the files.
+    if (! $download) {
+        # We can skip this one.
+        print "Directory skipped.\n";
+    } else {
+        # Downloading is required. Download and unpack the sample reads.
+        print "Downloading samples.\n";
+        my $rc = system('curl', '-O', "http://downloads.hmpdacc.org/data/Illumina/$site/$sample.tar.bz2");
+        die "Error code $rc downloading sample." if $rc;
+        $rc = system('tar', '-xzvf', "$sample.tar.bz2");
+        die "Error code $rc unpacking sample." if $rc;
+        # Delete the tar file.
+        unlink "$sample.tar.bz2";
+        # Create the site file.
+        print "Creating site file.\n";
+        open(my $oh, '>', "$sample/site.tbl") || die "Could not open site file: $!";
+        my $siteName = join(' ', map { ucfirst $_ } split /_/, $site);
+        print $oh "HMP\t$site\t$siteName\n";
+        close $oh;
+        # Download the abundance profile.
+        print "Downloading profile.\n";
+        chdir $sampleDir;
+        my $abundanceF = $sample . '_abundance_table.tsv.bz2';
+        $rc = system('curl', '-O', "http://downloads.hmpdacc.org/data/HMSCP/$sample/$abundanceF");
+        die "Error code $rc downloading abundance." if $rc;
+        $rc = system('tar', '-xzvf', $abundanceF);
+        die "Error code $rc downloading abundance." if $rc;
+        # Delete the tar file.
+        unlink $abundanceF;
+    }
 }
 print "All done.\n";
