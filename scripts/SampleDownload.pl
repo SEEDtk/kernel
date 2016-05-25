@@ -71,7 +71,7 @@ my $count = 0;
 # Open the input file.
 my $ih = ScriptUtils::IH($opt->input);
 # These are our options for curl.
-my @curlOpts = ('--remote-name', '--progress-bar');
+my @curlOpts = ('--remote-name', '--silent', '--show-error');
 # Loop through the input.
 while (! eof $ih) {
     # Switch to the working directory.
@@ -97,7 +97,7 @@ while (! eof $ih) {
         print "Downloading samples.\n";
         my $rc = system('curl', @curlOpts, "http://downloads.hmpdacc.org/data/Illumina/$site/$sample.tar.bz2");
         die "Error code $rc downloading sample." if $rc;
-        $rc = system('tar', '-xzvf', "$sample.tar.bz2");
+        $rc = system('tar', '-xjvf', "$sample.tar.bz2");
         die "Error code $rc unpacking sample." if $rc;
         # Delete the tar file.
         unlink "$sample.tar.bz2";
@@ -113,7 +113,7 @@ while (! eof $ih) {
         my $abundanceF = $sample . '_abundance_table.tsv.bz2';
         $rc = system('curl', @curlOpts, "http://downloads.hmpdacc.org/data/HMSCP/$sample/$abundanceF");
         die "Error code $rc downloading abundance." if $rc;
-        $rc = system('tar', '-xzvf', $abundanceF);
+        $rc = system('tar', '-xjvf', $abundanceF);
         die "Error code $rc downloading abundance." if $rc;
         # Delete the tar file.
         unlink $abundanceF;
