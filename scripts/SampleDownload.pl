@@ -116,7 +116,7 @@ while (! eof $ih) {
         die "Error code $rc downloading abundance." if $rc;
         print "Unpacking abundance.\n";
         # Note this deletes the bz2 file automatically.
-        $rc = system('bzip2', '--decompress', $abundanceF);
+        $rc = system('bzip2', '--decompress', '--force', $abundanceF);
         die "Error code $rc unpacking abundance." if $rc;
     }
 }
