@@ -22,6 +22,7 @@ use warnings;
 use FIG_Config;
 use ScriptUtils;
 use File::Copy::Recursive;
+use File::Spec;
 
 =head1 Download Human Microbiome Samples
 
@@ -62,10 +63,15 @@ if (! $workDir) {
 } elsif (! -d $workDir) {
     die "Invalid working directory $workDir specified.";
 }
+# Get an absolute path for the working directory.
+$workDir = File::Spec->rel2abs($workDir);
+print "Absolute working directory path is $workDir.\n";
 # Count the samples.
 my $count = 0;
 # Open the input file.
 my $ih = ScriptUtils::IH($opt->input);
+# These are our options for curl.
+my @curlOpts = ('--remote-name', '--progress-bar');
 # Loop through the input.
 while (! eof $ih) {
     # Switch to the working directory.
@@ -89,7 +95,7 @@ while (! eof $ih) {
     } else {
         # Downloading is required. Download and unpack the sample reads.
         print "Downloading samples.\n";
-        my $rc = system('curl', '-O', "http://downloads.hmpdacc.org/data/Illumina/$site/$sample.tar.bz2");
+        my $rc = system('curl', @curlOpts, "http://downloads.hmpdacc.org/data/Illumina/$site/$sample.tar.bz2");
         die "Error code $rc downloading sample." if $rc;
         $rc = system('tar', '-xzvf', "$sample.tar.bz2");
         die "Error code $rc unpacking sample." if $rc;
@@ -105,7 +111,7 @@ while (! eof $ih) {
         print "Downloading profile.\n";
         chdir $sampleDir;
         my $abundanceF = $sample . '_abundance_table.tsv.bz2';
-        $rc = system('curl', '-O', "http://downloads.hmpdacc.org/data/HMSCP/$sample/$abundanceF");
+        $rc = system('curl', @curlOpts, "http://downloads.hmpdacc.org/data/HMSCP/$sample/$abundanceF");
         die "Error code $rc downloading abundance." if $rc;
         $rc = system('tar', '-xzvf', $abundanceF);
         die "Error code $rc downloading abundance." if $rc;
