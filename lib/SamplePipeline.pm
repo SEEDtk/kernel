@@ -238,8 +238,10 @@ sub Process {
     if (! $options{expect}) {
         print "No expectation file specified. Expectation check skipped.\n";
     } else {
-        my $rc = system('bins_expect_check', "--col=$eNameCol", "--dcol=$eDepthCol", '--genus', $workDir);
-        die "Error exit $rc from bins_expect_check." if $rc;
+        print "Generating expectation report.\n";
+        my @expectReport = `bins_expect_check --col=$eNameCol --dcol=$eDepthCol --genus $workDir`;
+        open(my $oh, ">", "$workDir/expect.report.txt") || die "Could not open expectation report file: $!";
+        print $oh @expectReport;
     }
 }
 
