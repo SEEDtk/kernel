@@ -52,9 +52,10 @@ One or more bins have been processed by RAST-- C<bin>I<X>C<.gto> exists for one 
 
 RAST processing completed-- C<bins.rast.json> exists.
 
-=item Expectations Computed
+=item Done
 
-Expectation processing completed-- C<expect.report.txt> exists.
+Expectation processing completed-- C<expect.report.txt> exists or C<bins.rast.json> exists and there is no
+abundance file.
 
 =back
 
@@ -81,13 +82,17 @@ print scalar(@dirs) . " subdirectories found.\n";
 for my $dir (@dirs) {
     $stats->Add(dirsTotal => 1);
     my $subDir = "$directory/$dir";
+    my $rastFound = (-s "$subDir/bins.rast.json");
     # Determine the status.
     if (-s "$subDir/expect.report.txt") {
         print "$subDir: Expectations Computed.\n";
-        $stats->Add(dirs6Expect => 1);
-    } elsif (-s "$subDir/bins.rast.json") {
+        $stats->Add(dirs6Done => 1);
+    } elsif ($rastFound && ! -s "subDir/$dir" . '_abundance_table.tsv') {
+        print "$subDir: Done (No Expectations).\n";
+        $stats->Add(dirs6Done => 1);
+    } elsif ($rastFound) {
         print "$subDir: RAST Complete.\n";
-        $stats->Add(dirs5RastDone => 1);
+        $stats->Add(dirs5RastComplete => 1);
     } elsif (-s "$subDir/bin1.gto") {
         print "$subDir: RAST in Progress.\n";
         $stats->Add(dirs4RastPartial => 1);
