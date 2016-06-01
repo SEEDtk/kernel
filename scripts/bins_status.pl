@@ -76,7 +76,7 @@ if (! $directory) {
 }
 # Loop through the subdirectories.
 opendir(my $ih, $directory) || die "Could not open directory $directory.";
-my @dirs = sort grep { substr($_,0,1) ne '.' } readdir $ih;
+my @dirs = sort grep { substr($_,0,1) ne '.' && -d "$directory/$_" } readdir $ih;
 print scalar(@dirs) . " subdirectories found.\n";
 for my $dir (@dirs) {
     $stats->Add(dirsTotal => 1);
