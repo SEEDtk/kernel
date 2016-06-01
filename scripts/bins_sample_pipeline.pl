@@ -58,8 +58,9 @@ be presumed a previous run failed in progress and it will be resumed.
 
 =cut
 
+$| = 1;
 # Get the command-line parameters.
-my $opt = ScriptUtils::Opts('sampleID workDir', 
+my $opt = ScriptUtils::Opts('sampleID workDir',
         ["user|u=s", "user name for RAST access", { default => $ENV{RASTUSER} }],
         ["password|p=s", "password for RAST access", { default => $ENV{RASTPASS} }],
         ["force", "rebuild all files"],
@@ -86,7 +87,7 @@ if (-f $f2q) {
     $options{f2} = $f2q;
 }
 if (-f $fsq) {
-    $options{fs} = $fsq; 
+    $options{fs} = $fsq;
 }
 if (-f $expectF) {
     $options{expect} = $expectF;

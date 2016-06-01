@@ -48,12 +48,12 @@ The four input files are
 
 =item pair.1.fastq
 
-The fastq file for the first set of paired reads. For an HMP microbiome, this has the name 
+The fastq file for the first set of paired reads. For an HMP microbiome, this has the name
 I<sample>C<.denovo_duplicates_marked.trimmed.1.fastq>.
 
 =item pair.2.fastq
 
-The fastq file for the second set of paired reads. For an HMP microbiome, this has the name 
+The fastq file for the second set of paired reads. For an HMP microbiome, this has the name
 I<sample>C<.denovo_duplicates_marked.trimmed.2.fastq>.
 
 =item singles.fastq
@@ -96,7 +96,7 @@ The bins report, containing statistics about the bins and their contents.
 
 =item ref.genome.score.tbl
 
-The primer protein BLAST hits in the contigs computed by the assembly. 
+The primer protein BLAST hits in the contigs computed by the assembly.
 
 =back
 
@@ -239,7 +239,7 @@ sub Process {
         print "No expectation file specified. Expectation check skipped.\n";
     } else {
         print "Generating expectation report.\n";
-        my @expectReport = `bins_expect_check --col=$eNameCol --dcol=$eDepthCol --genus $workDir`;
+        my @expectReport = `bins_expect_check --col=$eNameCol --dcol=$eDepthCol --genus --input=$options{expect} $workDir`;
         open(my $oh, ">", "$workDir/expect.report.txt") || die "Could not open expectation report file: $!";
         print $oh @expectReport;
     }
@@ -293,7 +293,7 @@ The number of seconds to sleep between polling requests to the RAST server. The 
 
 =item partial
 
-If TRUE, only bins that have not yet been submitted to RAST will be processed. Otherwise, all bins will 
+If TRUE, only bins that have not yet been submitted to RAST will be processed. Otherwise, all bins will
 be processed.
 
 =back
