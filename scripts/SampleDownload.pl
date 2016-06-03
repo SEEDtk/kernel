@@ -46,16 +46,31 @@ plus the following.
 
 If specified, samples will be downloaded even if their directories already exist.
 
+=item project
+
+The name of the project. The default is C<HMP> for the Human Microbiome project. If C<MH> is specified, then
+the samples will be presumed to be from the MetaHit project, which has a very different format.
+
 =back 
 
 =cut
 
+use constant PROJECTS => { 'HMP' => 1, 'MH' => 1 };
+
 # Get the command-line parameters.
 my $opt = ScriptUtils::Opts('workDir', ScriptUtils::ih_options(),
                             ['force', 'force downloading over existing directories'],
+                            ['project=s', 'ID of the source project', {default => 'HMP'}],
         );
 # Get the force option.
 my $force = $opt->force;
+# Determine the project.
+my $project = $opt->project;
+if (! PROJECTS->{$project}) {
+    die "Project $project not understood.";
+} else {
+    print "Project $project selected.\n";
+}
 # Verify the work directory.
 my ($workDir) = @ARGV;
 if (! $workDir) {
@@ -85,8 +100,12 @@ while (! eof $ih) {
     my $sampleDir = "$workDir/$sample";
     my $download = $force;
     if (! -d $sampleDir) {
+        # We must create the directory in this case.
         File::Copy::Recursive::pathmk($sampleDir);
         $download = 1;
+    } else {
+        # Clear the current contents to avoid download/rename/unzip errors.
+        File::Copy::Recursive::pathempty($sampleDir);
     }
    # Now we have a directory into which we can put the files.
     if (! $download) {
@@ -94,30 +113,53 @@ while (! eof $ih) {
         print "Directory skipped.\n";
     } else {
         # Downloading is required. Download and unpack the sample reads.
-        print "Downloading samples.\n";
-        my $rc = system('curl', @curlOpts, "http://downloads.hmpdacc.org/data/Illumina/$site/$sample.tar.bz2");
-        die "Error code $rc downloading sample." if $rc;
-        print "Unpacking samples.\n";
-        $rc = system('tar', '-xjvf', "$sample.tar.bz2");
-        die "Error code $rc unpacking sample." if $rc;
-        # Delete the tar file.
-        unlink "$sample.tar.bz2";
+        if ($project eq 'HMP') {
+            print "Downloading samples.\n";
+            my $rc = system('curl', @curlOpts, "http://downloads.hmpdacc.org/data/Illumina/$site/$sample.tar.bz2");
+            die "Error code $rc downloading sample." if $rc;
+            print "Unpacking samples.\n";
+            $rc = system('tar', '-xjvf', "$sample.tar.bz2");
+            die "Error code $rc unpacking sample." if $rc;
+            # Delete the tar file.
+            unlink "$sample.tar.bz2";
+        } elsif ($project eq 'MH') {
+            # For MetaHit, we need to compute the subdirectory from the project ID.
+            my $subdir = substr($sample, 0, 6);
+            # Now process the two samples. They are in separate files.
+            for my $type (qw(1 2)) {
+                print "Downloading sample $type.\n";
+                my $fileName = $sample . "_$type.fastq";
+                my $rc = system('curl', @curlOpts, "ftp://ftp.sra.ebi.ac.uk/vol1/fastq/$subdir/$sample/$fileName.gz");
+                die "Error code $rc downloading sample $type." if $rc;
+                print "Unpacking sample $type.\n";
+                # Note this deletes the gz file automatically.
+                $rc = system('gunzip', "$fileName.gz");
+                die "Error code $rc unpacking sample $type." if $rc;
+                # Convert to HMP naming conventions.
+                rename($fileName, "$sample.denovo_duplicates_marked.trimmed.$type.fastq") ||
+                    die "Failed to renamed sample $type: $!";
+            }
+        } else {
+            die "Project $project not implemented for sample download.";
+        }
         # Create the site file.
         print "Creating site file.\n";
         open(my $oh, '>', "$sample/site.tbl") || die "Could not open site file: $!";
         my $siteName = join(' ', map { ucfirst $_ } split /_/, $site);
-        print $oh "HMP\t$site\t$siteName\n";
+        print $oh "$project\t$site\t$siteName\n";
         close $oh;
-        # Download the abundance profile.
-        print "Downloading profile.\n";
-        chdir $sampleDir;
-        my $abundanceF = $sample . '_abundance_table.tsv.bz2';
-        $rc = system('curl', @curlOpts, "http://downloads.hmpdacc.org/data/HMSCP/$sample/$abundanceF");
-        die "Error code $rc downloading abundance." if $rc;
-        print "Unpacking abundance.\n";
-        # Note this deletes the bz2 file automatically.
-        $rc = system('bzip2', '--decompress', '--force', $abundanceF);
-        die "Error code $rc unpacking abundance." if $rc;
+        # Download the abundance profile (HMP only).
+        if ($project eq 'HMP') {
+            print "Downloading profile.\n";
+            chdir $sampleDir;
+            my $abundanceF = $sample . '_abundance_table.tsv.bz2';
+            my $rc = system('curl', @curlOpts, "http://downloads.hmpdacc.org/data/HMSCP/$sample/$abundanceF");
+            die "Error code $rc downloading abundance." if $rc;
+            print "Unpacking abundance.\n";
+            # Note this deletes the bz2 file automatically.
+            $rc = system('bzip2', '--decompress', '--force', $abundanceF);
+            die "Error code $rc unpacking abundance." if $rc;
+        }
     }
 }
 print "All done.\n";
