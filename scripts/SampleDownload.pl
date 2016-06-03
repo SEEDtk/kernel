@@ -125,6 +125,7 @@ while (! eof $ih) {
         } elsif ($project eq 'MH') {
             # For MetaHit, we need to compute the subdirectory from the project ID.
             my $subdir = substr($sample, 0, 6);
+            chdir $sampleDir;
             # Now process the two samples. They are in separate files.
             for my $type (qw(1 2)) {
                 print "Downloading sample $type.\n";
@@ -139,6 +140,7 @@ while (! eof $ih) {
                 rename($fileName, "$sample.denovo_duplicates_marked.trimmed.$type.fastq") ||
                     die "Failed to renamed sample $type: $!";
             }
+            chdir $workDir;
         } else {
             die "Project $project not implemented for sample download.";
         }
