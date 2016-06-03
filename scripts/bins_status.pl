@@ -83,14 +83,15 @@ for my $dir (@dirs) {
     $stats->Add(dirsTotal => 1);
     my $subDir = "$directory/$dir";
     my $rastFound = (-s "$subDir/bins.rast.json");
+    my $cleaned = (-d "$subDir/Assembly" ? "" : "  Assembly cleaned.");
     # Determine the site.
     my $site;
     if (! -s "$subDir/site.tbl") {
         $site = "Unspecified";
     } elsif (open(my $sh, '<', "$subDir/site.tbl")) {
         my $line = <$sh>;
-        if ($line =~ /(\S+)\t[^\t]+\t(.+)/) {
-            $site = "$1 $2";
+        if ($line =~ /(\S+)\t([^\t]+)\t(.+)/) {
+            $site = "$1 $3";
             $stats->Add("site-$2" => 1);
         } else {
             $site = "Invalid";
@@ -101,10 +102,10 @@ for my $dir (@dirs) {
     my $label = "$subDir ($site)";
     # Determine the status.
     if (-s "$subDir/expect.report.txt") {
-        print "$label: Expectations Computed.\n";
+        print "$label: Expectations Computed.$cleaned\n";
         $stats->Add(dirs6Done => 1);
     } elsif ($rastFound && ! -s "subDir/$dir" . '_abundance_table.tsv') {
-        print "$label: Done (No Expectations).\n";
+        print "$label: Done (No Expectations).$cleaned\n";
         $stats->Add(dirs6Done => 1);
     } elsif ($rastFound) {
         print "$label: RAST Complete.\n";
