@@ -98,7 +98,7 @@ for my $dir (@dirs) {
     } else {
         $site = "Error";
     }
-    my $label = "subDir ($site)";
+    my $label = "$subDir ($site)";
     # Determine the status.
     if (-s "$subDir/expect.report.txt") {
         print "$label: Expectations Computed.\n";
