@@ -99,14 +99,15 @@ while (! eof $ih) {
     $count++;
     print "Processing $count: $sample from $site.\n";
     my $sampleDir = "$workDir/$sample";
-    my $download = $force;
+    my $download;
     if (! -d $sampleDir) {
         # We must create the directory in this case.
         File::Copy::Recursive::pathmk($sampleDir);
         $download = 1;
-    } else {
+    } elsif ($force) {
         # Clear the current contents to avoid download/rename/unzip errors.
         File::Copy::Recursive::pathempty($sampleDir);
+        $download = 1;
     }
    # Now we have a directory into which we can put the files.
     if (! $download) {
