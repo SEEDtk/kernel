@@ -83,30 +83,46 @@ for my $dir (@dirs) {
     $stats->Add(dirsTotal => 1);
     my $subDir = "$directory/$dir";
     my $rastFound = (-s "$subDir/bins.rast.json");
+    # Determine the site.
+    my $site;
+    if (! -s "$subDir/site.tbl") {
+        $site = "Unspecified";
+    } elsif (open(my $sh, '<', "$subDir/site.tbl")) {
+        my $line = <$sh>;
+        if ($line =~ /(\S+)\t[^\t]+\t(.+)/) {
+            $site = "$1 $2";
+            $stats->Add("site-$2" => 1);
+        } else {
+            $site = "Invalid";
+        }
+    } else {
+        $site = "Error";
+    }
+    my $label = "subDir ($site)";
     # Determine the status.
     if (-s "$subDir/expect.report.txt") {
-        print "$subDir: Expectations Computed.\n";
+        print "$label: Expectations Computed.\n";
         $stats->Add(dirs6Done => 1);
     } elsif ($rastFound && ! -s "subDir/$dir" . '_abundance_table.tsv') {
-        print "$subDir: Done (No Expectations).\n";
+        print "$label: Done (No Expectations).\n";
         $stats->Add(dirs6Done => 1);
     } elsif ($rastFound) {
-        print "$subDir: RAST Complete.\n";
+        print "$label: RAST Complete.\n";
         $stats->Add(dirs5RastComplete => 1);
     } elsif (-s "$subDir/bin1.gto") {
-        print "$subDir: RAST in Progress.\n";
+        print "$label: RAST in Progress.\n";
         $stats->Add(dirs4RastPartial => 1);
     } elsif (-s "$subDir/bins.json") {
-        print "$subDir: Bins Computed.\n";
+        print "$label: Bins Computed.\n";
         $stats->Add(dirs3Binned => 1);
     } elsif (-s "$subDir/Assembly/contigs.fasta") {
-        print "$subDir: Assembled.\n";
+        print "$label: Assembled.\n";
         $stats->Add(dirs2Assembled => 1);
     } elsif (-d "$subDir/Assembly") {
-        print "$subDir: Assembling.\n";
+        print "$label: Assembling.\n";
         $stats->Add(dirs1Assembling => 1);
     } else {
-        print "$subDir: Downloaded.\n";
+        print "$label: Downloaded.\n";
         $stats->Add(dirs0Downloaded => 1);
     }
 }
