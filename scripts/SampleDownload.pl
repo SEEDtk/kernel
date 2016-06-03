@@ -57,6 +57,7 @@ the samples will be presumed to be from the MetaHit project, which has a very di
 
 use constant PROJECTS => { 'HMP' => 1, 'MH' => 1 };
 
+$| = 1;
 # Get the command-line parameters.
 my $opt = ScriptUtils::Opts('workDir', ScriptUtils::ih_options(),
                             ['force', 'force downloading over existing directories'],
