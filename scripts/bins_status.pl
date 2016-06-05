@@ -104,7 +104,7 @@ for my $dir (@dirs) {
     if (-s "$subDir/expect.report.txt") {
         print "$label: Expectations Computed.$cleaned\n";
         $stats->Add(dirs6Done => 1);
-    } elsif ($rastFound && ! -s "subDir/$dir" . '_abundance_table.tsv') {
+    } elsif ($rastFound && ! -s "$subDir/$dir" . '_abundance_table.tsv') {
         print "$label: Done (No Expectations).$cleaned\n";
         $stats->Add(dirs6Done => 1);
     } elsif ($rastFound) {
