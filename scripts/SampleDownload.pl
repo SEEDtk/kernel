@@ -34,6 +34,9 @@ sample ID in the second column (e.g. C<SRS015061>) for each sample to be downloa
 are downloaded and unpacked. They must then be fed through the pipeline individually. (This will
 presumably be done in parallel.)
 
+The script may also be used to download smaples from the MetaHit project. In this case, there are
+multiple runs per sample, so there will be additional columns containing the IDs of the runs.
+
 =head2 Parameters
 
 The positional parameter is the name of a work directory. Each sample is loaded into a subdirectory of this 
@@ -95,7 +98,7 @@ while (! eof $ih) {
     # Get the next sample.
     my $line = <$ih>;
     chomp $line;
-    my ($site, $sample) = split /\t/, $line;
+    my ($site, $sample, @runs) = split /\t/, $line;
     $count++;
     print "Processing $count: $sample from $site.\n";
     my $sampleDir = "$workDir/$sample";
@@ -125,22 +128,22 @@ while (! eof $ih) {
             # Delete the tar file.
             unlink "$sample.tar.bz2";
         } elsif ($project eq 'MH') {
-            # For MetaHit, we need to compute the subdirectory from the project ID.
-            my $subdir = substr($sample, 0, 6);
+            # Change to the sample directory. The archives from Metahit expand in place.
             chdir $sampleDir;
-            # Now process the two samples. They are in separate files.
-            for my $type (qw(1 2)) {
-                print "Downloading sample $type.\n";
-                my $fileName = $sample . "_$type.fastq";
-                my $rc = system('curl', @curlOpts, "ftp://ftp.sra.ebi.ac.uk/vol1/fastq/$subdir/$sample/$fileName.gz");
-                die "Error code $rc downloading sample $type." if $rc;
-                print "Unpacking sample $type.\n";
-                # Note this deletes the gz file automatically.
-                $rc = system('gunzip', "$fileName.gz");
-                die "Error code $rc unpacking sample $type." if $rc;
-                # Convert to HMP naming conventions.
-                rename($fileName, "$sample.denovo_duplicates_marked.trimmed.$type.fastq") ||
-                    die "Failed to renamed sample $type: $!";
+            for my $run (@runs) {
+                # For MetaHit, we need to compute the subdirectory from the project ID.
+                my $subdir = substr($run, 0, 6);
+                # Now process the two samples. They are in separate files.
+                for my $type (qw(1 2)) {
+                    print "Downloading $run sample $type.\n";
+                    my $fileName = $run . "_$type.fastq";
+                    my $rc = system('curl', @curlOpts, "ftp://ftp.sra.ebi.ac.uk/vol1/fastq/$subdir/$run/$fileName.gz");
+                    die "Error code $rc downloading sample $type." if $rc;
+                    print "Unpacking sample $type.\n";
+                    # Note this deletes the gz file automatically.
+                    $rc = system('gunzip', "$fileName.gz");
+                    die "Error code $rc unpacking sample $type." if $rc;
+                }
             }
             chdir $workDir;
         } else {
