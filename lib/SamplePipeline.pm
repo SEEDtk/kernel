@@ -123,15 +123,15 @@ A hash containing the following options.
 
 =item f1
 
-The name of the fastq file for the first set of paired reads.
+The suffix of the fastq files for a first set of paired reads.
 
 =item f2
 
-The name of the fastq file for the second set of paired reads.
+The suffix of the fastq files for a second set of paired reads.
 
 =item fs
 
-The name of the fastq file for the singleton reads.
+The suffix of the fastq file for the singleton reads.
 
 =item expect
 
@@ -166,28 +166,64 @@ The number of seconds to sleep between polling requests to the RAST server. The 
 
 =back
 
-If none of the three FASTQ files are specified, then no assembly step will be performed. The assembled contigs
-must exist in C<contigs.fasta> in the working directory and the coverage information in the same directory's
-C<output.contigs2reads.txt> file. If no expectation file is given, no expectation report will be produced.
+When specifying FASTQ files, the program will find all FASTQ files in the directory for each of the
+specified suffixes. These will then be presented in sorted order, so that paired files will match up.
+This will work so long as the first and second set for each mated pair has the same name in front of
+the suffix for all files. If L<SampleDownload.pl> is being used to download the reads, this will always
+be the case.
+
+If none of the three FASTQ suffixes are specified, then no assembly step will be performed.
+ 
+The assembled contigs must exist in C<contigs.fasta> in the working directory and the coverage information 
+in the same directory's C<output.contigs2reads.txt> file. If no expectation file is given, no expectation 
+report will be produced.
 
 =cut
 
 sub Process {
     my ($workDir, %options) = @_;
     # Extract the options.
-    my $file1q = $options{f1};
-    my $file2q = $options{f2};
-    my $filesq = $options{fs};
+    my $sfx1q = $options{f1};
+    my $sfx2q = $options{f2};
+    my $sfxsq = $options{fs};
     my $eNameCol = $options{eNameCol} // 1;
     my $eDepthCol = $options{eDepthCol} // 3;
     my %rastOptions = (user => $options{user}, password => $options{password}, 'sleep' => $options{sleep});
     my $force = $options{force} // 0;
+    # FASTQ files will go in these queues.
+    my (@f1q, @f2q, @fsq);
     # Do we need to assemble the contigs?
     my $assemble = 0;
     my $haveContigs = (-s "$workDir/contigs.fasta" && -s "$workDir/output.contigs2reads.txt");
-    if ($file1q || $file2q || $filesq) {
+    if ($sfx1q || $sfx2q || $sfxsq) {
         if ($force || ! $haveContigs) {
             $assemble = 1;
+            # Try to find the FASTQ files.
+            opendir (my $dh, $workDir) || die "Could not open directory $workDir: $!";
+            my @files = sort grep { -f "$workDir/$_" } readdir $dh;
+            close $dh;
+            my $l1q = length ($sfx1q // '');
+            my $l2q = length ($sfx2q // '');
+            my $lsq = length ($sfxsq // '');
+            my %sfxes;
+            if ($sfx1q) {
+                $sfxes{1} = [length $sfx1q, $sfx1q, \@f1q];
+            }
+            if ($sfx2q) {
+                $sfxes{2} = [length $sfx2q, $sfx2q, \@f2q];
+            }            
+            if ($sfxsq) {
+                $sfxes{s} = [length $sfxsq, $sfxsq, \@fsq];
+            }
+            for my $file (@files) {
+                for my $t (keys %sfxes) {
+                    my ($len, $sfx, $list) = @{$sfxes{$t}};
+                    if (substr($file, -$len, $len) eq $sfx) {
+                        push @$list, "$workDir/$file";
+                    }
+                }
+            }
+            # Now each of the lists
         }
     } elsif (! $haveContigs) {
         die "Contigs not assembled, and no fastq files specified.";
@@ -195,13 +231,9 @@ sub Process {
     if ($assemble) {
         # We need to assemble. Get the spades command and parameters.
         my $cmd = "spades.py";
-        my @parms;
-        my %pHash = ('-1' => $file1q, '-2' => $file2q, '-s' => $filesq);
-        for my $parm (keys %pHash) {
-            if ($pHash{$parm}) {
-                push @parms, $parm, $pHash{$parm};
-            }
-        }
+        my @parms = map { ('-1' => $_) } @f1q;
+        push @parms, map { ('-2' => $_) } @f2q;
+        push @parms, map { ('-s' => $_) } @fsq; 
         push @parms, '-o', "$workDir/Assembly", '--meta';
         # Find the command.
         my $cmdPath = SeedAware::executable_for($cmd);

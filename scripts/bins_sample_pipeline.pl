@@ -54,6 +54,11 @@ Password for RAST access. If omitted, the default is taken from the RASTPASS env
 Force rebuilding of all files, even ones that already exist. Otherwise, if files exist in the directory, it will
 be presumed a previous run failed in progress and it will be resumed.
 
+=item project
+
+The project type for this sample-- currently either C<HMP> (Human Microbiome Project, the default) or C<MH>
+(MetaHit).
+
 =back
 
 =cut
@@ -64,6 +69,7 @@ my $opt = ScriptUtils::Opts('sampleID workDir',
         ["user|u=s", "user name for RAST access", { default => $ENV{RASTUSER} }],
         ["password|p=s", "password for RAST access", { default => $ENV{RASTPASS} }],
         ["force", "rebuild all files"],
+        ["project=s", "source project type", { default => 'HMP' }],
         );
 # Get the sample name and work directory.
 my ($sampleID, $workDir) = @ARGV;
@@ -76,17 +82,29 @@ if (! $sampleID) {
 }
 # This will contain our options for the pipeline.
 my %options = (force => $opt->force, user => $opt->user, password => $opt->password);
+# Compute the file name suffixes based on the project.
+my ($f1q, $f2q, $fsq);
+my $project = $opt->project;
+if ($project eq 'HMP') {
+    $f1q = ".1.fastq";
+    $f2q = ".2.fastq";
+    $fsq = ".singleton.fastq";
+} elsif ($project eq 'MH') {
+    $f1q = "_1.fastq";
+    $f2q = "_2.fastq";
+} else {
+    die "Invalid project type $project.";
+}
 # Compute the file names for the sample.
-my ($f1q, $f2q, $fsq) = map { "$workDir/$sampleID.denovo_duplicates_marked.trimmed.$_.fastq" } qw(1 2 singleton);
 my $expectF = "$workDir/$sampleID" . "_abundance_table.tsv";
-# Check the files. Save the ones that exist as options.
-if (-f $f1q) {
+# Check the file names. Save the ones that exist as options.
+if ($f1q) {
     $options{f1} = $f1q;
 }
-if (-f $f2q) {
+if ($f2q) {
     $options{f2} = $f2q;
 }
-if (-f $fsq) {
+if ($fsq) {
     $options{fs} = $fsq;
 }
 if (-f $expectF) {
