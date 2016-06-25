@@ -61,7 +61,7 @@ abundance file.
 
 =head2 Parameters
 
-The single positional parameter is the name of the directory containing the sample sub-directories. 
+The single positional parameter is the name of the directory containing the sample sub-directories.
 
 =cut
 
@@ -77,7 +77,7 @@ if (! $directory) {
 }
 # Loop through the subdirectories.
 opendir(my $ih, $directory) || die "Could not open directory $directory.";
-my @dirs = sort grep { substr($_,0,1) ne '.' && -d "$directory/$_" } readdir $ih;
+my @dirs = sort grep { $_ && substr($_,0,1) ne '.' && -d "$directory/$_" } readdir $ih;
 print scalar(@dirs) . " subdirectories found.\n";
 for my $dir (@dirs) {
     $stats->Add(dirsTotal => 1);
