@@ -80,12 +80,6 @@ opendir(my $ih, $directory) || die "Could not open directory $directory.";
 my @dirs = sort grep { substr($_,0,1) ne '.' && -d "$directory/$_" } readdir $ih;
 print scalar(@dirs) . " subdirectories found.\n";
 for my $dir (@dirs) {
-	if (! $dir) {
-		print "Null directory.\n";
-	} else {
-		print "Processing '$dir'.\n"; ##TODO debug
-	}
-
     $stats->Add(dirsTotal => 1);
     my $subDir = "$directory/$dir";
     my $rastFound = (-s "$subDir/bins.rast.json");
@@ -106,7 +100,6 @@ for my $dir (@dirs) {
         $site = "Error";
     }
     my $label = "$subDir ($site)";
-    print "Label formed using $subDir.\n"; ##TODO: debug
     # Determine the status.
     if (-s "$subDir/expect.report.txt") {
         print "$label: Expectations Computed.$cleaned\n";
