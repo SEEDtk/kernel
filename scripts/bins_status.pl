@@ -147,7 +147,7 @@ for my $dir (@dirs) {
             # File::Copy::Recursive::pathempty("$subDir/Assembly");
             print "DELETING $subDir/Assembly.\n"; ## TODO
             opendir(my $dh, $subDir) || die "Could not open $subDir: $!";
-            my @fastqs = grep { $_ =~ /\.fastq^/ } readdir $dh;
+            my @fastqs = grep { $_ =~ /\.fastq$/ } readdir $dh;
             for my $fastq (@fastqs) {
                 # unlink "$subDir/$fastq";
                 print "DELETING $subDir/$fastq.\n"; ## TODO
