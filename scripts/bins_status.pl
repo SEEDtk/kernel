@@ -63,7 +63,6 @@ abundance file.
 =head2 Parameters
 
 The single positional parameter is the name of the directory containing the sample sub-directories.
-<<<<<<< HEAD
 
 The following command-line options are supported.
 
@@ -74,8 +73,6 @@ The following command-line options are supported.
 Remove assembly information for completed jobs.
 
 =back
-=======
->>>>>>> branch 'master' of https://github.com/SEEDtk/kernel
 
 =cut
 
