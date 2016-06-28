@@ -22,6 +22,7 @@ use warnings;
 use FIG_Config;
 use ScriptUtils;
 use Stats;
+use File::Copy::Recursive;
 
 =head1 Check Status of Bin Pipeline
 
@@ -61,12 +62,23 @@ abundance file.
 
 =head2 Parameters
 
-The single positional parameter is the name of the directory containing the sample sub-directories. 
+The single positional parameter is the name of the directory containing the sample sub-directories.
+
+The following command-line options are supported.
+
+=over 4
+
+=item clean
+
+Remove assembly information for completed jobs.
+
+=back
 
 =cut
 
 # Get the command-line parameters.
-my $opt = ScriptUtils::Opts('directory');
+my $opt = ScriptUtils::Opts('directory',
+                ['clean', 'clean up assembly information for complete samples']);
 my $stats = Stats->new();
 # Get the main directory name.
 my ($directory) = @ARGV;
@@ -75,6 +87,8 @@ if (! $directory) {
 } elsif (! -d $directory) {
     die "Invalid directory name $directory.";
 }
+# Save the options.
+my $clean = $opt->clean;
 # Loop through the subdirectories.
 opendir(my $ih, $directory) || die "Could not open directory $directory.";
 my @dirs = sort grep { substr($_,0,1) ne '.' && -d "$directory/$_" } readdir $ih;
@@ -84,6 +98,7 @@ for my $dir (@dirs) {
     my $subDir = "$directory/$dir";
     my $rastFound = (-s "$subDir/bins.rast.json");
     my $cleaned = (-d "$subDir/Assembly" ? "" : "  Assembly cleaned.");
+    my $done;
     # Determine the site.
     my $site;
     if (! -s "$subDir/site.tbl") {
@@ -102,11 +117,9 @@ for my $dir (@dirs) {
     my $label = "$subDir ($site)";
     # Determine the status.
     if (-s "$subDir/expect.report.txt") {
-        print "$label: Expectations Computed.$cleaned\n";
-        $stats->Add(dirs6Done => 1);
+        $done = "Expectations Computed.";
     } elsif ($rastFound && ! -s "$subDir/$dir" . '_abundance_table.tsv') {
-        print "$label: Done (No Expectations).$cleaned\n";
-        $stats->Add(dirs6Done => 1);
+        $done = "Done (No Expectations).";
     } elsif ($rastFound) {
         print "$label: RAST Complete.\n";
         $stats->Add(dirs5RastComplete => 1);
@@ -125,6 +138,23 @@ for my $dir (@dirs) {
     } else {
         print "$label: Downloaded.\n";
         $stats->Add(dirs0Downloaded => 1);
+    }
+    # If we are done, we process here and check for cleaning.
+    if ($done) {
+        $stats->Add(dirs6Done => 1);
+        if ($clean && ! $cleaned) {
+            $clean = "  Cleaning Assembly.";
+            # File::Copy::Recursive::pathempty("$subDir/Assembly");
+            print "DELETING $subDir/Assembly.\n"; ## TODO
+            opendir(my $dh, $subDir) || die "Could not open $subDir: $!";
+            my @fastqs = grep { $_ =~ /\.fastq^/ } readdir $dh;
+            for my $fastq (@fastqs) {
+                # unlink "$subDir/$fastq";
+                print "DELETING $subDir/$fastq.\n"; ## TODO
+            }
+            $stats->Add(dirsCleaned => 1);
+        }
+        print "$label: $done$cleaned\n";
     }
 }
 print "\nAll done:\n" . $stats->Show();
