@@ -145,6 +145,7 @@ for my $dir (@dirs) {
         if ($clean && ! $cleaned) {
             $cleaned = "  Cleaning Assembly.";
             File::Copy::Recursive::pathempty("$subDir/Assembly");
+            rmdir "$subDir/Assembly";
             opendir(my $dh, $subDir) || die "Could not open $subDir: $!";
             my @fastqs = grep { $_ =~ /\.fastq$/ } readdir $dh;
             for my $fastq (@fastqs) {
