@@ -143,14 +143,12 @@ for my $dir (@dirs) {
     if ($done) {
         $stats->Add(dirs6Done => 1);
         if ($clean && ! $cleaned) {
-            $clean = "  Cleaning Assembly.";
-            # File::Copy::Recursive::pathempty("$subDir/Assembly");
-            print "DELETING $subDir/Assembly.\n"; ## TODO
+            $cleaned = "  Cleaning Assembly.";
+            File::Copy::Recursive::pathempty("$subDir/Assembly");
             opendir(my $dh, $subDir) || die "Could not open $subDir: $!";
             my @fastqs = grep { $_ =~ /\.fastq$/ } readdir $dh;
             for my $fastq (@fastqs) {
-                # unlink "$subDir/$fastq";
-                print "DELETING $subDir/$fastq.\n"; ## TODO
+                unlink "$subDir/$fastq";
             }
             $stats->Add(dirsCleaned => 1);
         }
