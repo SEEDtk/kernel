@@ -426,7 +426,6 @@ if ($force || ! -s $binsFoundFile) {
         $matches->{$contig} = BasicLocation->new($contig, $begin, $dir, $len);
     }
 }
-# Need to blast DNA sequences against seedfasta file.a
 # Next, we need a hash of contig IDs to reference genomes. This is only for the contigs that represent the
 # starting bins. We find the best match for each region found in the previous step.
 my $contigHash;
