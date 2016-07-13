@@ -45,6 +45,10 @@ The command-line options are those found in L<Shrub/script_options> plus the fol
 
 If specified, the name of a project. Only sites from the specified project will be included.
 
+=item minunis
+
+The minimum number of universal roles required for a bin to be included. The default is C<50>.
+
 =back
 
 =cut
@@ -52,6 +56,7 @@ If specified, the name of a project. Only sites from the specified project will 
 # Get the command-line parameters.
 my $opt = ScriptUtils::Opts('', Shrub::script_options(),
         ['project=s', 'project to which the queries should be restricted'],
+        ['minunis=i', 'minimum number of universal roles required for a bin', { default => 50 }],
         );
 # Connect to the database.
 my $shrub = Shrub->new_for_script($opt);
@@ -61,8 +66,9 @@ my $project = $opt->project;
 my @sites = @ARGV;
 # Loop through the sites.
 for my $site (@sites) {
-    my @bins = $shrub->GetAll('Site2Sample Sample2Bin Bin Bin2Taxonomy TaxonomicGrouping',
-            'Site2Sample(from-link) = ?', [$site], 'Sample2Bin(from-link) Bin(id) Bin(dna-size) TaxonomicGrouping(scientific-name)');
+    my @bins = $shrub->GetAll('Site2Sample Sample Sample2Bin Bin Bin2Taxonomy TaxonomicGrouping',
+            'Site2Sample(from-link) = ? AND Bin(uni-roles) >= ?', [$site, $opt->minunis],
+            'Sample2Bin(from-link) Bin(id) Bin(dna-size) TaxonomicGrouping(scientific-name) Sample(dna-size)');
     # Get the DNA length for each sample and throw out bins from the wrong project.
     my %binLength;
     my @actualBins;
@@ -80,8 +86,8 @@ for my $site (@sites) {
     }
     # Now output the bins. We sort by sample ID followed by dna size descending
     for my $bin (sort { ($a->[0] cmp $b->[0]) || ($b->[2] <=> $a->[2]) } @bins) {
-        my ($sample, $binID, $dnaSize, $genus) = @$bin;
+        my ($sample, $binID, $dnaSize, $genus, $sampleSize) = @$bin;
         my $percent = $dnaSize * 100 / $binLength{$sample};
-        print "$sample\t$genus\t$percent\t$site\n";
+        print "$sample\t$genus\t$percent\t$site\t$dnaSize\t$binLength{$sample}\t$sampleSize\n";
     }
 }
