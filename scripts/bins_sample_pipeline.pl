@@ -59,6 +59,10 @@ be presumed a previous run failed in progress and it will be resumed.
 The project type for this sample-- currently either C<HMP> (Human Microbiome Project, the default) or C<MH>
 (MetaHit).
 
+=item reset
+
+Delete all files except the assembly results (C<contigs.fasta> and C<output.contigs2reads.txt>) to force re-binning.
+
 =back
 
 =cut
@@ -70,6 +74,7 @@ my $opt = ScriptUtils::Opts('sampleID workDir',
         ["password|p=s", "password for RAST access", { default => $ENV{RASTPASS} }],
         ["force", "rebuild all files"],
         ["project=s", "source project type", { default => 'HMP' }],
+        ["reset", "delete all files except the assembly results to force re-binning"]
         );
 # Get the sample name and work directory.
 my ($sampleID, $workDir) = @ARGV;
@@ -97,7 +102,7 @@ if ($project eq 'HMP') {
 }
 # Compute the file names for the sample.
 my $expectF = "$workDir/$sampleID" . "_abundance_table.tsv";
-# Check the file names. Save the ones that exist as options.
+# Check the file name suffixes. Save the ones that exist as options.
 if ($f1q) {
     $options{f1} = $f1q;
 }
@@ -109,6 +114,24 @@ if ($fsq) {
 }
 if (-f $expectF) {
     $options{expect} = $expectF;
+}
+# Are we resetting?
+if ($opt->reset) {
+    # Yes. Get the list of files and delete the binning stuff.
+    opendir(my $dh, $workDir) || die "Could not open work directory: $!";
+    my @files = grep { -f "$workDir/$_" } readdir $dh;
+    print "Deleting intermediate files in $workDir.\n";
+    my ($count, $total) = (0,0);
+    for my $file (@files) {
+        my $fullName = "$workDir/$file";
+        $total++;
+        unless ($fullName eq $expectF || $fullName =~ /\.fastq$/ ||
+                $file eq 'contigs.fasta' || $file eq 'output.contigs2reads.txt') {
+            unlink $fullName;
+            $count++;
+        }
+    }
+    print "$count of $total files deleted.\n";
 }
 # Process the pipeline.
 SamplePipeline::Process($workDir, %options);
