@@ -1,25 +1,32 @@
 use strict;
 use FIG_Config;
 use ScriptUtils;
-use SeedUtils;
-use Data::Dumper;
-require Proc::ParallelLoop;
+use Stats;
 
-my @inputs = qw(10 12 15 18 20 22 25 28 30 32 35 38 40 42 45 48 50 52 55 58
-                60 62 65 68 70 72 75 78 80 82 85 88 90 92 95 98 100);
-my @scores;
-print "Processing...\n";
-Proc::ParallelLoop::pareach(\@inputs, \&process);
-print scalar(@scores) . " scores found.\n";
-for my $score (@scores) {
-    print "$score ";
-}
-print "\n";
-
-
-sub process {
-    my ($a) = @_;
-    if ($a % 3 == 0) {
-        push @scores, $a
+my $stats = Stats->new();
+my $opt = ScriptUtils::Opts('mainDir', ['test', 'trace without deleting']);
+my ($mainDir) = @ARGV;
+opendir(my $wh, $mainDir) || die "Could not open main directory: $!";
+my @workDirs = grep { substr($_,0,1) ne '.' && -d "$mainDir/$_" } readdir $wh;
+close $wh;
+for my $workDir (@workDirs) {
+    $stats->Add(totalDirs => 1);
+    opendir(my $dh, $workDir) || die "Could not open work directory: $!";
+    my @files = grep { -f "$workDir/$_" } readdir $dh;
+    print "Deleting intermediate files in $workDir.\n";
+    my ($count, $total) = (0,0);
+    for my $file (@files) {
+        my $fullName = "$workDir/$file";
+        $stats->Add(totalFiles => 1);
+        unless ($file =~ /_abundance_table\.tsv$/ || $file =~ /\.fastq$/ ||
+                $file eq 'contigs.fasta' || $file eq 'output.contigs2reads.txt' || $file eq 'run.log') {
+            if ($opt->test) {
+                print "Delete $fullName\n";
+            } else {
+                unlink $fullName;
+            }
+            $stats->Add(deletedFiles => 1);
+        }
     }
 }
+print "All done.\n" . $stats->Show();
