@@ -9,8 +9,9 @@ my ($mainDir) = @ARGV;
 opendir(my $wh, $mainDir) || die "Could not open main directory: $!";
 my @workDirs = grep { substr($_,0,1) ne '.' && -d "$mainDir/$_" } readdir $wh;
 close $wh;
-for my $workDir (@workDirs) {
+for my $work (@workDirs) {
     $stats->Add(totalDirs => 1);
+    my $workDir = "$mainDir/$work";
     opendir(my $dh, $workDir) || die "Could not open work directory: $!";
     my @files = grep { -f "$workDir/$_" } readdir $dh;
     print "Deleting intermediate files in $workDir.\n";
