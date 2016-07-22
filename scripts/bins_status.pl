@@ -122,14 +122,17 @@ for my $dir (@dirs) {
         $done = "Done (No Expectations).";
     } elsif ($rastFound) {
         print "$label: RAST Complete.\n";
-        $stats->Add(dirs5RastComplete => 1);
+        $stats->Add(dirs6RastComplete => 1);
     } elsif (-s "$subDir/bin1.gto") {
         print "$label: RAST in Progress.\n";
-        $stats->Add(dirs4RastPartial => 1);
+        $stats->Add(dirs5RastPartial => 1);
     } elsif (-s "$subDir/bins.json") {
         print "$label: Bins Computed.\n";
-        $stats->Add(dirs3Binned => 1);
-    } elsif (-s "$subDir/Assembly/contigs.fasta") {
+        $stats->Add(dirs4Binned => 1);
+    } elsif (-s "$subDir/sample.fasta") {
+        print "$label: Binning in Progress.\n";
+        $stats->Add(dirs3Binning => 1);
+    } elsif (-s "$subDir/contigs.fasta") {
         print "$label: Assembled.\n";
         $stats->Add(dirs2Assembled => 1);
     } elsif (-d "$subDir/Assembly") {
@@ -141,7 +144,7 @@ for my $dir (@dirs) {
     }
     # If we are done, we process here and check for cleaning.
     if ($done) {
-        $stats->Add(dirs6Done => 1);
+        $stats->Add(dirs7Done => 1);
         if ($clean && ! $cleaned) {
             $cleaned = "  Cleaning Assembly.";
             File::Copy::Recursive::pathempty("$subDir/Assembly");
