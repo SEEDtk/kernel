@@ -5,7 +5,7 @@ use File::Copy;
 
 my $opt = ScriptUtils::Opts('sampleDir');
 my ($sampleDir) = @ARGV;
-my $inputDir = "$FIG_Config::data/InputsSamples";
+my $inputDir = "$FIG_Config::data/Inputs/Samples";
 my @subs = qw(HMP MH);
 for my $sub (@subs) {
     my $subDir = "$inputDir/$sub";
