@@ -175,6 +175,7 @@ while (! eof $ih) {
             # Note this deletes the gz file automatically.
             $rc = system('gunzip', $name);
             die "Error code $rc unpacking $name." if $rc;
+            chdir $workDir;
         } else {
             die "Project $project not implemented for sample download.";
         }
