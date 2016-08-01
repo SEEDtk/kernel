@@ -56,8 +56,8 @@ be presumed a previous run failed in progress and it will be resumed.
 
 =item project
 
-The project type for this sample-- currently either C<HMP> (Human Microbiome Project, the default) or C<MH>
-(MetaHit).
+The project type for this sample-- currently either C<HMP> (Human Microbiome Project, the default), C<MH>
+(MetaHit), or C<AG> (American Gut).
 
 =item reset
 
@@ -97,6 +97,8 @@ if ($project eq 'HMP') {
 } elsif ($project eq 'MH') {
     $f1q = "_1.fastq";
     $f2q = "_2.fastq";
+} elsif ($project eq 'AG') {
+    $fsq = ".fastq";
 } else {
     die "Invalid project type $project.";
 }

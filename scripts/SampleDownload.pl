@@ -28,14 +28,28 @@ use File::Spec;
 
     SampleDownload.pl [ options ] workDir
 
-This script downloads Human Microbiome Project samples from the NCBI web site. It accepts as input
-a tab-delimited file consisting of a site ID in the first column (e.g. C<palatine_tonsils>) and a
-sample ID in the second column (e.g. C<SRS015061>) for each sample to be downloaded. The samples
-are downloaded and unpacked. They must then be fed through the pipeline individually. (This will
-presumably be done in parallel.)
+This script downloads human microbiome samples. The input format depends on the project type, but
+in all cases it is tab-delimited, with the first column being a site ID (e.g. C<palatine_tonsils>).
 
-The script may also be used to download smaples from the MetaHit project. In this case, there are
-multiple runs per sample, so there will be additional columns containing the IDs of the runs.
+=over 4
+
+=item HMP
+
+The second column contains the ID of the sample to be downloaded.
+
+=item MH
+
+The second column contains the ID of the sample to be downloaded. The remaining columns contain the
+IDs of the runs for the sample.
+
+=item AG
+
+The second column contains the ID of the sample to be downloaded. The third column contains the FTP
+URL of the sample's FASTQ file.
+
+=back
+
+The samples are downloaded and unpacked. They must then be fed through the pipeline individually.
 
 =head2 Parameters
 
@@ -51,14 +65,14 @@ If specified, samples will be downloaded even if their directories already exist
 
 =item project
 
-The name of the project. The default is C<HMP> for the Human Microbiome project. If C<MH> is specified, then
-the samples will be presumed to be from the MetaHit project, which has a very different format.
+The name of the project. The default is C<HMP> for the Human Microbiome project. Other possibilities are C<MH> for
+the MetaHit project and C<AG> for the American Gut project.
 
 =back 
 
 =cut
 
-use constant PROJECTS => { 'HMP' => 1, 'MH' => 1 };
+use constant PROJECTS => { 'HMP' => 1, 'MH' => 1, 'AG' => 1 };
 
 $| = 1;
 # Get the command-line parameters.
@@ -146,6 +160,21 @@ while (! eof $ih) {
                 }
             }
             chdir $workDir;
+        } elsif ($project eq 'AG') {
+            # Change to the sample directory. The archives from American Gut expand in place.
+            chdir $sampleDir;
+            # The run is in fact an FTP address. Parse out the target file name.
+            my $furl = $runs[0];
+            my @pieces = split(/\//, $furl);
+            my $name = pop @pieces;
+            # Download the file.
+            print "Downloading $name.\n";
+            my $rc = system('curl', @curlOpts, $runs[0]);
+            die "Error code $rc downloading $furl." if $rc;
+            print "Unpacking sample $name.\n";
+            # Note this deletes the gz file automatically.
+            $rc = system('gunzip', $name);
+            die "Error code $rc unpacking $name." if $rc;
         } else {
             die "Project $project not implemented for sample download.";
         }
