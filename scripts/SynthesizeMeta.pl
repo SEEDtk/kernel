@@ -75,7 +75,7 @@ my $opt = ScriptUtils::Opts('genome1 genome2 ... genomeN',
         ['err|e=f',     'error rate fraction', { default => 1.0 }],
         ['len|l=i',     'simulated read length', { default => 100 }],
         ['mean|m=f',    'mean of paired end read fragment size', { default => 300}],
-        ['stdef|s=f',   'standard deviation of read fragment size', { default => 10 }],
+        ['stdev|s=f',   'standard deviation of read fragment size', { default => 10 }],
         ['dir|d=s',     'working directory', { required => 1 }]
         );
 # Connect to the database.
