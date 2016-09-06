@@ -64,6 +64,12 @@ Standard deviation of read fragment size. The default is C<10>.
 Name of the working directory. The output files (C<meta1.fq> and C<meta2.fq>) will be placed in here, as well as the
 input file created from the input genome contigs.
 
+=item gfile
+
+If specified, the name of a file containing genome IDs in the first column and optional coverage values in the second
+(replacing the C<cov> option value). If the parameter is specified without a value, the standard input is used.
+
+
 =back
 
 =cut
@@ -76,7 +82,8 @@ my $opt = ScriptUtils::Opts('genome1 genome2 ... genomeN',
         ['len|l=i',     'simulated read length', { default => 100 }],
         ['mean|m=f',    'mean of paired end read fragment size', { default => 300}],
         ['stdev|s=f',   'standard deviation of read fragment size', { default => 10 }],
-        ['dir|d=s',     'working directory', { required => 1 }]
+        ['dir|d=s',     'working directory', { required => 1 }],
+        ['gfile|f:s',   'input file containing genome IDs and coverages']
         );
 # Connect to the database.
 my $shrub = Shrub->new_for_script($opt);
@@ -99,14 +106,14 @@ for my $genome (@genomes) {
 close $oh;
 # Set up the parameters for the ART Illumina run.
 my $qs = -10 * log($opt->err)/log(10);
-my $art = "/home/fangfang/bin/art_illumina";
+my $art = "art_illumina";
 my $out = "$dir/input.fa";
 my $len = $opt->len;
 my $cov = $opt->cov;
 my $mean = $opt->mean;
 my $stdev = $opt->stdev;
-my $cmd = "$art -ss HS20 -i $dir/input.fa -l $len -f $cov -p -m $mean -s $stdev -qs $qs -qs2 $qs -na -o $out &>art.log";
-my $rc = system($cmd);
+my $cmd = "$art -ss HS20 -i $dir/input.fa -l $len -f $cov -p -m $mean -s $stdev -qs $qs -qs2 $qs -na -o $out";
+my $rc = system("RunTool $cmd");
 if ($rc) {
     die "FAILED $art: rc = $rc";
 }
