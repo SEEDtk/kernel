@@ -100,8 +100,8 @@ if ($project eq 'HMP') {
 } elsif ($project eq 'AG') {
     $fsq = ".fastq";
 } elsif ($project eq 'SYNTH') {
-    $f1q = "fa1.fq";
-    $f2q = "fa2.fq";
+    $f1q = "synth1.fq";
+    $f2q = "synth2.fq";
 } else {
     die "Invalid project type $project.";
 }
