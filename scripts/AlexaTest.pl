@@ -37,9 +37,10 @@ eval {
     # Get the command-line options.
     my $time = $jobObject->opt->time;
     # Start the loop.
-    for ($count = 1; $count <= $time; $count++) {
-        $jobObject->Progress("Starting sleep interval $count.");
+    for (my $i = 1; $i <= $time; $i++) {
+        $jobObject->Progress("Starting sleep interval $i.");
         sleep 2;
+        $count++;
     }
 };
 if ($@) {
