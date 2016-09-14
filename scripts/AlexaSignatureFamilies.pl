@@ -58,7 +58,7 @@ eval {
     my $count = (scalar @$list1) + (scalar @$list2);
     $jobObject->Progress("Read $count genomes from sets $gs1 and $gs2.");
     # Process the sets.
-    my $dataH = P3Signatures::Progress($list1, $list2, $minIn, $maxOut, $jobObject);
+    my $dataH = P3Signatures::Process($list1, $list2, $minIn, $maxOut, $jobObject);
     $familyCount = scalar keys %$dataH;
     $jobObject->Progress("Spooling families to output.");
     $jobObject->StoreTable($result, "signature families in $gs1 but not $gs2", [qw(family.family_id count1 count2 family.product)], $dataH);
