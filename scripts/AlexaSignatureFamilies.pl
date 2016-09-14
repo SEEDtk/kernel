@@ -35,8 +35,8 @@ use P3Signatures;
 
 # Parse the command line and create the job object.
 my $jobObject = Job->new('set1 set2 resultTable',
-        ['minIn=f', 'minimum fraction of set 1 genomes that must contain a signature family', { default => 0.9 }],
-        ['maxOut=f', 'maximum fraction of set 2 genomes that may contain a signature family', { default => 0.1 }]
+        ['minIn=f', 'minimum fraction of set 1 genomes that must contain a signature family', { default => 1 }],
+        ['maxOut=f', 'maximum fraction of set 2 genomes that may contain a signature family', { default => 0 }]
         );
 # This variable is needed outside the eval block.
 my $familyCount;
