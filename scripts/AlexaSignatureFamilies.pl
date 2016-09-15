@@ -8,7 +8,8 @@ intervals.
 
 =head2 Parameters
 
-The positional parameters are the two genome set names and the output table name.
+The positional parameters are the two genome set names and the output table name. Only the set/table name is specified (e.g.
+C<F> instead of C<F.tbl>).
 
 The typical command-line parameters required by Alexa jobs are supported. These are documented in the L<Job> object.
 
