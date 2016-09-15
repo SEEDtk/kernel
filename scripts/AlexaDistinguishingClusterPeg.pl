@@ -158,7 +158,6 @@ eval {
         undef $familyHash;
         # Compute the signature clusters.
         $jobObject->Progress("Computing signature clusters for iteration $iter.");
-        my $clusterFile = "$workDir/clusters.tbl";
         my @clusterLines = `p3-signature-clusters --input=$pegInfoFile`;
         # The clusters list contains entries of the form "familyID\tpeg\tfunction" for each peg in a cluster, with the
         # clusters themselves separated by double slashes. We will accumulate the current cluster in this list, in the
@@ -166,7 +165,9 @@ eval {
         $jobObject->Progress("Analyzing signature clusters for iteration $iter.");
         my @pegCluster;
         my @familyCluster;
+        open(my $ch, ">$workDir/clusters.$iter.tbl") || die "Could not open cluster output file: $!\n";
         for my $line (@clusterLines) {
+            print $ch $line;
             chomp $line;
             if ($line ne '//') {
                 my ($family, $peg) = split /\t/, $line;
@@ -196,14 +197,15 @@ eval {
                 @pegCluster = ();
             }
         }
+        # Close the cluster output file.
+        close $ch;
         # Push the position forward.
         $position = $end;
-        # Count this iteration.
-        $count++;
     }
     # Sort the pairs.
     $jobObject->Progress("Sorting family pairs.");
     my @pairs = sort { $pairCounts{$b} <=> $pairCounts{$a} } keys %pairCounts;
+    $count = scalar @pairs;
     # Output the table.
     $jobObject->StoreTable($tableO, "cluster pairs from signature families distinguishing $set1 from $set2",
         ['family1', 'family2', 'count'], \%pairCounts, \@pairs);
@@ -237,5 +239,5 @@ eval {
 if ($@) {
     $jobObject->Fail("ERROR during iteration $iter: $@");
 } else {
-    $jobObject->Finish("$count iterations completed.");
+    $jobObject->Finish("$count cluster pairs found.");
 }
