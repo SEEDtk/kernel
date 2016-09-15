@@ -19,8 +19,9 @@ The set contains the pegs of interest. The default is one peg, but multiple pegs
 
 =head2 Parameters
 
-The positional parameters are the two input genome sets, the output table, and the output set.  Only the set/table name
-is specified, not the file name (e.g. C<F> instead of C<F.tbl>).
+The positional parameters are the two input genome sets, and the output table and set.  Only the set/table name
+is specified, not the file name (e.g. C<F> instead of C<F.tbl>). A single output name is specified, but both an
+output set and an output table will be produced.
 
 The typical command-line parameters required by Alexa jobs are supported. These are documented in the L<Job> object.
 
@@ -61,7 +62,7 @@ use P3DataAPI;
 use P3Utils;
 
 # Parse the command line and create the job object.
-my $jobObject = Job->new('set1 set2 resultTable resultSet', 
+my $jobObject = Job->new('set1 set2 result', 
         ['size=i', 'number of genomes to use per set in each iteration', { default => 20 }],
         ['iterations=i', 'number of iterations to run', { default => 10 }],
         ['pegs=i', 'number of pegs to return', { default => 1 }],
@@ -84,8 +85,9 @@ eval {
     # Get the working directory.
     my $workDir = $jobObject->workDir;
     # Get sets and table.
-    my ($set1, $set2, $tableO, $setO) = @ARGV;
-    die "Insufficient parameters for job." if ! $setO;
+    my ($set1, $set2, $tableO) = @ARGV;
+    my $setO = $tableO;
+    die "Insufficient parameters for job." if ! $tableO;
     # Read the input sets.
     my $genomes1L = $jobObject->ReadSet($set1);
     my $genomes2L = $jobObject->ReadSet($set2);
