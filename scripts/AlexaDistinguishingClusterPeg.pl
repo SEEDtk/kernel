@@ -15,7 +15,7 @@ This script produces an output table and an output set. The table has three colu
 family2.family_id-- representing the number of times a family pair occurred and the two famiies in the pair. This
 table is sorted in descending order by count.
 
-The set contains the pegs of interest. The default is one peg, but multiple pegs can be requested.  
+The set contains the pegs of interest. The default is one peg, but multiple pegs can be requested.
 
 =head2 Parameters
 
@@ -49,6 +49,11 @@ Minimum fraction of genomes in set 1 that must contain a signature family.
 
 Maximum fraction of genomes in set 2 that may contain a signature family.
 
+=item distance
+
+Maximum base-pair distance between the midpoints of two features in order for them to be
+considered close. The default is 2000.
+
 =back
 
 =cut
@@ -62,12 +67,13 @@ use P3DataAPI;
 use P3Utils;
 
 # Parse the command line and create the job object.
-my $jobObject = Job->new('set1 set2 result', 
+my $jobObject = Job->new('set1 set2 result',
         ['size=i', 'number of genomes to use per set in each iteration', { default => 20 }],
         ['iterations=i', 'number of iterations to run', { default => 10 }],
         ['pegs=i', 'number of pegs to return', { default => 1 }],
         ['minIn=f', 'minimum fraction of set 1 genomes that must contain a signature family', { default => 1 }],
-        ['maxOut=f', 'maximum fraction of set 2 genomes that may contain a signature family', { default => 0 }]
+        ['maxOut=f', 'maximum fraction of set 2 genomes that may contain a signature family', { default => 0 }],
+        ['distance=i', 'minimum distance between peg midpoints for it to be considered close', { default => 2000}]
         );
 # These variables are needed outside the EVAL block.
 my $count = 0;
@@ -80,6 +86,7 @@ eval {
     my $pegs = $jobObject->opt->pegs;
     my $min_in = $jobObject->opt->minin;
     my $max_out = $jobObject->opt->maxout;
+    my $distance = $jobObject->opt->distance;
     # Connect to PATRIC.
     my $p3 = P3DataAPI->new();
     # Get the working directory.
@@ -127,78 +134,39 @@ eval {
         my @subset2 = @{$genomes2L}[$position .. ($end - 1)];
         # Compute the signature families.
         my $familyHash = P3Signatures::Process(\@subset1, \@subset2, $min_in, $max_out, $jobObject, "Iteration $iter.");
-        # Compute the fields to select.
-        my @selectList = qw(patric_id accession start end strand product);
-        # Now we create the peg-info file.
-        $jobObject->Progress("Creating peg information file for iteration $iter.");
-        my $pegInfoFile = "$workDir/peginfo.tbl";
-        open(my $oh, ">$pegInfoFile") || die "Could not open peg info file: $!";
-        print $oh join("\t", 'family.family_id', map { "feature.$_" } @selectList) . "\n";
-        # Compute the genome filter.
-        my $gFilter = ['in', 'genome_id', '(' . join(',', @subset1) . ')'];
-        # Loop through the hash, creating couplets and submitting them in batches for feature data.
-        my @couplets;
-        for my $fam (keys %$familyHash) {
-            if (scalar @couplets > 100) {
-                my $batch = P3Utils::get_data_batch($p3, feature => [$gFilter], \@selectList, \@couplets, 'plfam_id');
-                for my $line (@$batch) {
-                    P3Utils::print_cols($line, $oh);
-                }
-                @couplets = ();
-            } else {
-                push @couplets, [$fam, [$fam]];
-            }
-        }
-        my $batch = P3Utils::get_data_batch($p3, feature => [$gFilter], \@selectList, \@couplets, 'plfam_id');
-        for my $line (@$batch) {
-            P3Utils::print_cols($line, $oh);
-        }
-        close $oh;
-        # Release the family hash memory.
+        # Get the information on the family features.
+        $jobObject->Progress("Gathering peg information for iteration $iter.");
+        my $familyList = [keys %$familyHash];
         undef $familyHash;
+        my $pegInfo = P3Signatures::PegInfo($familyList, 100, \@subset1);
+        undef $familyList;
         # Compute the signature clusters.
         $jobObject->Progress("Computing signature clusters for iteration $iter.");
-        my @clusterLines = `p3-signature-clusters --input=$pegInfoFile`;
-        # The clusters list contains entries of the form "familyID\tpeg\tfunction" for each peg in a cluster, with the
-        # clusters themselves separated by double slashes. We will accumulate the current cluster in this list, in the
-        # form [family-id,peg] for each peg.
+        my $clusterSets = P3Signatures::Clusters($pegInfo, $distance);
+        # The clusters list contains multiple clusters. Each cluster contains a peg entry of the form
+        # [$pegID, $familyID, $function];
         $jobObject->Progress("Analyzing signature clusters for iteration $iter.");
-        my @pegCluster;
-        my @familyCluster;
-        open(my $ch, ">$workDir/clusters.$iter.tbl") || die "Could not open cluster output file: $!\n";
-        for my $line (@clusterLines) {
-            print $ch $line;
-            chomp $line;
-            if ($line ne '//') {
-                my ($family, $peg) = split /\t/, $line;
-                push @pegCluster, $peg;
-                push @familyCluster, $family;
-            } else {
-                # Here we have a whole cluster. Count the pairs.
-                my $n = (scalar @pegCluster);
-                # Get a safe copy of the peg list. We will be storing this in the family cluster hash.
-                my $pegList = [@pegCluster];
-                # Loop through the families, processing pairs.
-                for (my $i = 0; $i < $n; $i++) {
-                    my $family = $familyCluster[$i];
-                    # Associate the list of pegs with the  family.
-                    push @{$familyClusters{$family}}, $pegList;
-                    # Process the pairs.
-                    for (my $j = $i + 1; $j < $n; $j++) {
-                        my $family2 = $familyCluster[$j];
-                        if ($family2 ne $family) {
-                            my $pair = join("\t", sort($family, $family2));
-                            $pairCounts{$pair}++;
-                        }
+        for my $cluster (@$clusterSets) {
+            # Separate the pegs and the families.
+            my @pegCluster = map { $_->[0] } @$cluster;
+            my @familyCluster = map { $_->[1] } @$cluster;
+            # Count the pairs.
+            my $n = (scalar @pegCluster);
+            # Loop through the families, processing pairs.
+            for (my $i = 0; $i < $n; $i++) {
+                my $family = $familyCluster[$i];
+                # Associate the list of pegs with the  family.
+                push @{$familyClusters{$family}}, \@pegCluster;
+                # Process the pairs.
+                for (my $j = $i + 1; $j < $n; $j++) {
+                    my $family2 = $familyCluster[$j];
+                    if ($family2 ne $family) {
+                        my $pair = join("\t", sort($family, $family2));
+                        $pairCounts{$pair}++;
                     }
                 }
-                # Restart the cluster;
-                @familyCluster = ();
-                @pegCluster = ();
             }
         }
-        # Close the cluster output file.
-        close $ch;
         # Push the position forward.
         $position = $end;
     }
