@@ -173,9 +173,9 @@ the suffix for all files. If L<SampleDownload.pl> is being used to download the 
 be the case.
 
 If none of the three FASTQ suffixes are specified, then no assembly step will be performed.
- 
-The assembled contigs must exist in C<contigs.fasta> in the working directory and the coverage information 
-in the same directory's C<output.contigs2reads.txt> file. If no expectation file is given, no expectation 
+
+The assembled contigs must exist in C<contigs.fasta> in the working directory and the coverage information
+in the same directory's C<output.contigs2reads.txt> file. If no expectation file is given, no expectation
 report will be produced.
 
 =cut
@@ -211,7 +211,7 @@ sub Process {
             }
             if ($sfx2q) {
                 $sfxes{2} = [length $sfx2q, $sfx2q, \@f2q];
-            }            
+            }
             if ($sfxsq) {
                 $sfxes{s} = [length $sfxsq, $sfxsq, \@fsq];
             }
@@ -223,7 +223,6 @@ sub Process {
                     }
                 }
             }
-            # Now each of the lists
         }
     } elsif (! $haveContigs) {
         die "Contigs not assembled, and no fastq files specified.";
@@ -233,7 +232,7 @@ sub Process {
         my $cmd = "spades.py";
         my @parms = map { ('-1' => $_) } @f1q;
         push @parms, map { ('-2' => $_) } @f2q;
-        push @parms, map { ('-s' => $_) } @fsq; 
+        push @parms, map { ('-s' => $_) } @fsq;
         push @parms, '-o', "$workDir/Assembly", '--meta';
         # Find the command.
         my $cmdPath = SeedAware::executable_for($cmd);

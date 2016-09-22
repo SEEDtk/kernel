@@ -63,6 +63,10 @@ The project type for this sample-- currently either C<HMP> (Human Microbiome Pro
 
 Delete all files except the assembly results (C<contigs.fasta> and C<output.contigs2reads.txt>) to force re-binning.
 
+=item gz
+
+If specified, then the reads are stored in C<gz> files and must be unzipped first.
+
 =back
 
 =cut
@@ -74,7 +78,8 @@ my $opt = ScriptUtils::Opts('sampleID workDir',
         ["password|p=s", "password for RAST access", { default => $ENV{RASTPASS} }],
         ["force", "rebuild all files"],
         ["project=s", "source project type", { default => 'HMP' }],
-        ["reset", "delete all files except the assembly results to force re-binning"]
+        ["reset", "delete all files except the assembly results to force re-binning"],
+        ["gz", "unzip read files before processing"]
         );
 # Get the sample name and work directory.
 my ($sampleID, $workDir) = @ARGV;
@@ -137,6 +142,19 @@ if ($opt->reset) {
         }
     }
     print "$count of $total files deleted.\n";
+}
+# Are we unzipping?
+if ($opt->gz) {
+    # Yes. Get the list of gz files.
+    opendir(my $dh, $workDir) || die "Could not open work directory: $!";
+    my @files = grep { $_ =~ /\.gz$/ } readdir $dh;
+    my $total = scalar @files;
+    my $count = 1;
+    for my $file (@files) {
+        print "Decompressing $file ($count of $total).\n";
+        my $rc = system('gunzip', "$workDir/$file");
+        die "Gunzip failed for $file: rc = $rc." if $rc;
+    }
 }
 # Process the pipeline.
 SamplePipeline::Process($workDir, %options);
