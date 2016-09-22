@@ -154,6 +154,7 @@ if ($opt->gz) {
         print "Decompressing $file ($count of $total).\n";
         my $rc = system('gunzip', "$workDir/$file");
         die "Gunzip failed for $file: rc = $rc." if $rc;
+        $count++;
     }
 }
 # Process the pipeline.
