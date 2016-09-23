@@ -230,9 +230,16 @@ sub Process {
     if ($assemble) {
         # We need to assemble. Get the spades command and parameters.
         my $cmd = "spades.py";
-        my @parms = map { ('-1' => $_) } @f1q;
-        push @parms, map { ('-2' => $_) } @f2q;
-        push @parms, map { ('-s' => $_) } @fsq;
+        my @parms, map { ('-s' => $_) } @fsq;
+        # Specify the paired-end reads in numbered pairs.
+        my $i = 1;
+        while (scalar @f1q) {
+            my $f1 = shift @f1q;
+            my $f2 = shift @f2q;
+            push @parms, "--pe$i-1", $f1, "--pe$i-2", $f2;
+            $i++;
+        }
+        # Add the directory and the style parms.
         push @parms, '-o', "$workDir/Assembly", '--meta';
         # Find the command.
         my $cmdPath = SeedAware::executable_for($cmd);
