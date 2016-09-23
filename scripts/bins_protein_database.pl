@@ -22,7 +22,7 @@ use warnings;
 use FIG_Config;
 use Shrub;
 use ScriptUtils;
-use P3DataApi;
+use P3DataAPI;
 use Stats;
 
 =head1 Generate Seed Protein Database for Binning
@@ -33,7 +33,7 @@ This script generates the seed protein database for binning. The seed protein da
 that contains each instance of the seed protein found in PATRIC. It is used to find which PATRIC genome is
 closest to each seed protein instance, and that in turn determines the reference genome for a bin.
 
-The database is a FASTA file. The ID is a FIG feature iD. The comment contains two tab-delimited fields-- a SEED-style genome ID
+The database is a FASTA file. The ID is a FIG feature ID. The comment contains two tab-delimited fields-- a SEED-style genome ID
 and a genome name. Only genomes whose genome name matches the name of their associated genus are included, because only these are
 considered unambiguously identified.
 
@@ -55,7 +55,7 @@ The ID of the universal role to use for seeding the bin assignment. The default 
 =cut
 
 # Get the command-line parameters.
-my $opt = ScriptUtils::Opts('dbName', 
+my $opt = ScriptUtils::Opts('dbName',
                 Shrub::script_options(),
                 ['seedrole|R=s',   'ID of the universal role to seed the bins', { default => 'PhenTrnaSyntAlph' }],
         );
