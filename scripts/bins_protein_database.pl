@@ -54,6 +54,8 @@ The ID of the universal role to use for seeding the bin assignment. The default 
 
 =cut
 
+# Insure output is up-to-date.
+$| = 1;
 # Get the command-line parameters.
 my $opt = ScriptUtils::Opts('dbName',
                 Shrub::script_options(),
