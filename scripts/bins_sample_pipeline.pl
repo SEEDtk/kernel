@@ -135,7 +135,7 @@ if ($opt->reset) {
     for my $file (@files) {
         my $fullName = "$workDir/$file";
         $total++;
-        unless ($fullName eq $expectF || $fullName =~ /\.fastq$/ || $file eq 'site.tbl' ||
+        unless ($fullName eq $expectF || $fullName =~ /\.fastq$/ || $fullName =~ /\.fq/ || $file eq 'site.tbl' ||
                 $file eq 'contigs.fasta' || $file eq 'output.contigs2reads.txt' || $file eq 'run.log') {
             unlink $fullName;
             $count++;
