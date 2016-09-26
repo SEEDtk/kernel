@@ -62,6 +62,7 @@ The project type for this sample-- currently either C<HMP> (Human Microbiome Pro
 =item reset
 
 Delete all files except the assembly results (C<contigs.fasta> and C<output.contigs2reads.txt>) to force re-binning.
+If C<all> is specified, even the assembly results will be deleted to force re-assembly, too.
 
 =item gz
 
@@ -78,7 +79,7 @@ my $opt = ScriptUtils::Opts('sampleID workDir',
         ["password|p=s", "password for RAST access", { default => $ENV{RASTPASS} }],
         ["force", "rebuild all files"],
         ["project=s", "source project type", { default => 'HMP' }],
-        ["reset", "delete all files except the assembly results to force re-binning"],
+        ["reset:s", "delete all files except the assembly results to force re-binning"],
         ["gz", "unzip read files before processing"]
         );
 # Get the sample name and work directory.
@@ -128,6 +129,7 @@ if (-f $expectF) {
 # Are we resetting?
 if ($opt->reset) {
     # Yes. Get the list of files and delete the binning stuff.
+    my $resetOpt = $opt->reset;
     opendir(my $dh, $workDir) || die "Could not open work directory: $!";
     my @files = grep { -f "$workDir/$_" } readdir $dh;
     print "Deleting intermediate files in $workDir.\n";
@@ -136,9 +138,11 @@ if ($opt->reset) {
         my $fullName = "$workDir/$file";
         $total++;
         unless ($fullName eq $expectF || $fullName =~ /\.fastq$/ || $fullName =~ /\.fq/ || $file eq 'site.tbl' ||
-                $file eq 'contigs.fasta' || $file eq 'output.contigs2reads.txt' || $file eq 'run.log') {
-            unlink $fullName;
-            $count++;
+                $file eq 'run.log') {
+            if ($resetOpt || ($file ne 'contigs.fasta' && $file ne 'output.contigs2reads.txt')) {
+                unlink $fullName;
+                $count++;
+            }
         }
     }
     print "$count of $total files deleted.\n";
