@@ -15,10 +15,14 @@ while (! eof $ih) {
         $stats->Add(reads => 1);
         chomp $line;
         my $n = length($line);
-        for (my $i = 0; $i < $n; $i++) {
-            my $c = substr($line,$i,1);
-            $stats->Add("char-$c" => 1);
+        my $ns = ($line =~ tr/ACGT//);
+        if ($ns == $n) {
+            $stats->Add(goodLine => 1);
+        } elsif ($ns == 0) {
+            $stats->Add(badLine => 1);
         }
+        $stats->Add(goodChar => $ns);
+        $stats->Add(badChar => ($n - $ns));
     } else {
         if (substr($line,0,1) eq '@') {
             $mode = '@';
