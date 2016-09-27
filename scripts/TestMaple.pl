@@ -16,11 +16,16 @@ while (! eof $ih) {
         chomp $line;
         my $n = length($line);
         my $ns = ($line =~ tr/ACGT//);
+        my $xs = ($line =~ tr/N//);
         if ($ns == $n) {
             $stats->Add(goodLine => 1);
         } elsif ($ns == 0) {
             $stats->Add(badLine => 1);
         }
+        if ($xs == $n) {
+            $stats->Add(nLine => 1);
+        }
+        $stats->Add(nChar => $xs);
         $stats->Add(goodChar => $ns);
         $stats->Add(badChar => ($n - $ns));
     } else {
