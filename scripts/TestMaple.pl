@@ -28,6 +28,7 @@ while (! eof $ih) {
         $stats->Add(nChar => $xs);
         $stats->Add(goodChar => $ns);
         $stats->Add(badChar => ($n - $ns));
+        $mode = "";
     } else {
         if (substr($line,0,1) eq '@') {
             $mode = '@';
