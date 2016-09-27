@@ -228,19 +228,31 @@ sub Process {
         die "Contigs not assembled, and no fastq files specified.";
     }
     if ($assemble) {
-        # We need to assemble. Get the spades command and parameters.
+        # We need to assemble.
         my $cmd = "spades.py";
-        my @parms, map { ('-s' => $_) } @fsq;
-        # Specify the paired-end reads in numbered pairs.
-        my $i = 1;
-        while (scalar @f1q) {
-            my $f1 = shift @f1q;
-            my $f2 = shift @f2q;
-            push @parms, "--pe$i-1", $f1, "--pe$i-2", $f2;
-            $i++;
-        }
         # Add the directory and the style parms.
-        push @parms, '-o', "$workDir/Assembly", '--meta';
+        my @parms = ('-o', "$workDir/Assembly", '--meta');
+        # We must merge the read libraries.
+        my %libs = (s => \@fsq, 1 => \@f1q, 2 => \@f2q);
+        for my $t (1, 2, 's') {
+            my $libList = $libs{$t};
+            my $count = scalar @$libList;
+            if ($count == 1) {
+                push @parms, "-$t", $libList->[0];
+            } elsif ($count > 1) {
+                my $readFile = "$workDir/merge$t.fq";
+                print "Spooling $count fastq files into $readFile.\n";
+                open(my $qh, '>', $readFile) || die "Could not open merge file type $t: $!";
+                for my $qfile (@$libList) {
+                    open(my $ih, '<', $qfile) || die "Could not open read file $qfile: $!";
+                    while (! eof $ih) {
+                        my $line = <$ih>;
+                        print $qh $line;
+                    }
+                }
+                push @parms, "-$t", $readFile;
+            }
+        }
         # Find the command.
         my $cmdPath = SeedAware::executable_for($cmd);
         die "Could not find $cmd." if ! $cmdPath;
