@@ -3,6 +3,7 @@ use FIG_Config;
 use ScriptUtils;
 use Stats;
 
+$| = 1;
 my $opt = ScriptUtils::Opts('gfile');
 my ($qfile) = @ARGV;
 open(my $ih, "<$qfile") || die "Could not open $qfile: $!";
@@ -10,7 +11,8 @@ my $mode = "";
 my $stats = Stats->new();
 while (! eof $ih) {
     my $line = <$ih>;
-    $stats->Add(lines => 1);
+    my $count = $stats->Add(lines => 1);
+    print "$count lines read.\n" if ($count % 10000 == 0);
     if ($mode eq '@') {
         $stats->Add(reads => 1);
         chomp $line;
