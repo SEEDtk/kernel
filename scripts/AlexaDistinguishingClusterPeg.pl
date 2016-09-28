@@ -45,7 +45,7 @@ Number of iterations to run.
 
 =item pegs
 
-Number of output features to select.
+Number of output features to select. A value of C<0> returns them all.
 
 =item minIn
 
@@ -229,7 +229,9 @@ sub ComputeClustersSimple {
     # Loop through the pairs from which we want to output pegs. We use a splice to chop off the pairs that are
     # not of interest.
     my @retVal;
-    splice @$pairs, $pegs;
+    if ($pegs) {
+        splice @$pairs, $pegs;
+    }
     for my $pair (@$pairs) {
         # Get the first family of the pair.
         my ($family) = split /\t/, $pair;
@@ -277,6 +279,8 @@ sub ComputeClustersComplex {
     }
     # Sort the clusters by score.
     my @clusterList = sort { $clusterScores{$b} <=> $clusterScores{$a} } keys %clusterScores;
+    # Handle the zero case for the peg count.
+    $pegs ||= scalar(@clusterList);
     # Loop until we have the number of clusters we want or run out of them.
     my @retVal;
     while (scalar(@retVal) < $pegs && @clusterList) {
