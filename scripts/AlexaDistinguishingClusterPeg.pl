@@ -15,7 +15,13 @@ This script produces an output table and an output set. The table has three colu
 family2.family_id-- representing the number of times a family pair occurred and the two famiies in the pair. This
 table is sorted in descending order by count.
 
-The set contains the pegs of interest. The default is one peg, but multiple pegs can be requested.
+The set contains the pegs of interest. The default is one peg, but multiple pegs can be requested. The pegs of interest
+are computed in two ways. In C<simple> mode we find the longest cluster for one of the most commonly-paired families; in
+C<complex> mode we score each cluster by adding the pair score for each pair in the cluster, then sort them by score
+(highest to lowest). The highest-scoring cluster is chosen, and its highest-scoring pair is selected; all clusters
+containing this pair are removed, and then the new highest-scoring cluster is chosen. This process is repeated as
+necessary. The simple mode gives us a quick peak at the clusters involving the highest-scoring pairs. The complex
+mode is more thorough and attempts to eliminate redundancy.
 
 =head2 Parameters
 
@@ -54,6 +60,10 @@ Maximum fraction of genomes in set 2 that may contain a signature family.
 Maximum base-pair distance between the midpoints of two features in order for them to be
 considered close. The default is 2000.
 
+=item complex
+
+If specified, complex scoring is used to provide a better estimate of the important clusters.
+
 =back
 
 =cut
@@ -73,7 +83,8 @@ my $jobObject = Job->new('set1 set2 result',
         ['pegs=i', 'number of pegs to return', { default => 1 }],
         ['minIn=f', 'minimum fraction of set 1 genomes that must contain a signature family', { default => 1 }],
         ['maxOut=f', 'maximum fraction of set 2 genomes that may contain a signature family', { default => 0 }],
-        ['distance=i', 'minimum distance between peg midpoints for it to be considered close', { default => 2000}]
+        ['distance=i', 'minimum distance between peg midpoints for it to be considered close', { default => 2000}],
+        ['complex', 'if specified, a more thorough method is used for computing pegs of interest'],
         );
 # These variables are needed outside the EVAL block.
 my $count = 0;
@@ -111,6 +122,12 @@ eval {
     my %pairCounts;
     # This hash contains the clusters inside each family.
     my %familyClusters;
+    # This hash contains the pairs inside each cluster.
+    my %clusterPairs;
+    # This hash contain the pegs inside each cluster.
+    my %clusterPegs;
+    # This tracks the next cluster ID.
+    my $clusterN = 1;
     # Loop through the iterations.
     for ($iter = 1; $iter <= $iterations; $iter++) {
         # Do we need to reshuffle the input sets?
@@ -156,16 +173,20 @@ eval {
             for (my $i = 0; $i < $n; $i++) {
                 my $family = $familyCluster[$i];
                 # Associate the list of pegs with the  family.
-                push @{$familyClusters{$family}}, \@pegCluster;
+                $clusterPegs{$clusterN} = \@pegCluster;
+                push @{$familyClusters{$family}}, $clusterN;
                 # Process the pairs.
                 for (my $j = $i + 1; $j < $n; $j++) {
                     my $family2 = $familyCluster[$j];
                     if ($family2 ne $family) {
                         my $pair = join("\t", sort($family, $family2));
                         $pairCounts{$pair}++;
+                        push @{$clusterPairs{$clusterN}}, $pair;
                     }
                 }
             }
+            # Update the cluster ID for the next one.
+            $clusterN++;
         }
         # Push the position forward.
         $position = $end;
@@ -177,29 +198,21 @@ eval {
     # Output the table.
     $jobObject->StoreTable($tableO, "cluster pairs from signature families distinguishing $set1 from $set2",
         ['family1', 'family2', 'count'], \%pairCounts, \@pairs);
-    # Loop through the pairs from which we want to output pegs. We use a splice to chop off the pairs that are
-    # not of interest.
+    # Now we need to choose the pegs of interest.
     $jobObject->Progress("Searching for pegs of interest.");
+    my $clusters;
+    if (! $jobObject->opt->complex) {
+        $clusters = ComputeClustersSimple(\@pairs, $pegs, \%familyClusters, \%clusterPegs);
+    } else {
+        $clusters = ComputeClustersComplex(\%pairCounts, $pegs, \%familyClusters, \%clusterPairs);
+    }
+    # Select the pegs for each cluster.
     my @outPegs;
-    splice @pairs, $pegs;
-    for my $pair (@pairs) {
-        # Get the first family of the pair.
-        my ($family) = split /\t/, $pair;
-        # Get all of its clusters.
-        my $clusterList = $familyClusters{$family};
-        # Extract the longest cluster.
-        my $cluster = [];
-        my $clusterL = 0;
-        for my $clusterI (@$clusterList) {
-            my $clusterIL = scalar @$clusterI;
-            if ($clusterIL > $clusterL) {
-                $cluster = $clusterI;
-                $clusterL = $clusterIL;
-            }
-        }
-        # Get the middle peg.
-        my $peg = $cluster->[int($clusterL/2)];
-        push @outPegs, $peg;
+    for my $cluster (@$clusters) {
+        my $clusterPegList = $clusterPegs{$cluster};
+        my $clusterL = scalar @$clusterPegList;
+        my $outPeg = $clusterPegList->[int($clusterL/2)];
+        push @outPegs, $outPeg;
     }
     # Output the pegs found.
     $jobObject->StoreSet($setO, "interesting features from signature families distinguishing $set1 from $set2", \@outPegs);
@@ -208,4 +221,81 @@ if ($@) {
     $jobObject->Fail("ERROR during iteration $iter: $@");
 } else {
     $jobObject->Finish("$count cluster pairs found.");
+}
+
+# Find the interesting clusters by selecting the most commonly-paired families.
+sub ComputeClustersSimple {
+    my ($pairs, $pegs, $familyClusters, $clusterPegs, $clusterPairs) = @_;
+    # Loop through the pairs from which we want to output pegs. We use a splice to chop off the pairs that are
+    # not of interest.
+    my @retVal;
+    splice @$pairs, $pegs;
+    for my $pair (@$pairs) {
+        # Get the first family of the pair.
+        my ($family) = split /\t/, $pair;
+        # Get all of its clusters.
+        my $clusterList = $familyClusters->{$family};
+        # Extract the longest cluster.
+        my $cluster = [];
+        my $clusterL = 0;
+        for my $clusterI (@$clusterList) {
+            my $clusterPegList = $clusterPegs->{$clusterI};
+            my $clusterIL = scalar @$clusterPegList;
+            if ($clusterIL > $clusterL) {
+                $cluster = $clusterI;
+                $clusterL = $clusterIL;
+            }
+        }
+        # Remember that cluster.
+        push @retVal, $cluster
+    }
+    return \@retVal;
+}
+
+# Find the interesting clusters by selecting nonredundant clusters with the most common family pairs.
+sub ComputeClustersComplex {
+    my ($pairCounts, $pegs, $familyClusters, $clusterPairs) = @_;
+    # This hash will contain the cluster scores.
+    my %clusterScores;
+    # This hash will remember each cluster's highest-scoring pair.
+    my %clusterBestPair;
+    # Loop through the clusters, scoring them.
+    for my $cluster (keys %$clusterPairs) {
+        my $pairList = $clusterPairs->{$cluster};
+        my $clusterScore = 0;
+        my $bestPair;
+        my $bestPairScore = 0;
+        for my $pair (@$pairList) {
+            my $pairScore = $pairCounts->{$pair};
+            if ($pairScore > $bestPairScore) {
+                ($bestPair, $bestPairScore) = ($pair, $pairScore);
+            }
+            $clusterScore += $pairScore;
+        }
+        $clusterScores{$cluster} = $clusterScore;
+        $clusterBestPair{$cluster} = $bestPair;
+    }
+    # Sort the clusters by score.
+    my @clusterList = sort { $clusterScores{$b} <=> $clusterScores{$a} } keys %clusterScores;
+    # Loop until we have the number of clusters we want or run out of them.
+    my @retVal;
+    while (scalar(@retVal) < $pegs && @clusterList) {
+        # Get the next cluster.
+        my $cluster = shift @clusterList;
+        # Record it in the results.
+        push @retVal, $cluster;
+        # Get its best pair.
+        my $bestPair = $clusterBestPair{$cluster};
+        # Remove all clusters containing that pair.
+        my @newList;
+        for my $cluster2 (@clusterList) {
+            my $count = grep { $_ eq $bestPair } @{$clusterPairs->{$cluster2}};
+            if (! $count) {
+                push @newList, $cluster2
+            }
+        }
+        @clusterList = @newList;
+    }
+    # Return the clusters found.
+    return \@retVal;
 }
