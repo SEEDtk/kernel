@@ -126,10 +126,10 @@ if ($fsq) {
 if (-f $expectF) {
     $options{expect} = $expectF;
 }
+my $resetOpt = $opt->reset;
 # Are we resetting?
-if ($opt->reset) {
+if (defined $resetOpt) {
     # Yes. Get the list of files and delete the binning stuff.
-    my $resetOpt = $opt->reset;
     opendir(my $dh, $workDir) || die "Could not open work directory: $!";
     my @files = grep { -f "$workDir/$_" } readdir $dh;
     print "Deleting intermediate files in $workDir.\n";
