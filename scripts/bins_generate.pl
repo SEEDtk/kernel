@@ -104,13 +104,17 @@ The command-line options are those found in L<Shrub/script_options> plus the fol
 
 =item lenFiter
 
-Minimum contig length for a contig to be considered meaningful. Only meaningful contigs are retained. The default
-is C<400>.
+Minimum contig length for a contig to be considered meaningful. Only meaningful contigs are used for computing
+the identity of the bins. The default is C<400>.
 
 =item covgFilter
 
-Minimum mean coverage amount for a contig to be considered meaningful. Only meaningful contigs are retained. The
-default is C<4>.
+Minimum mean coverage amount for a contig to be considered meaningful. Only meaningful contigs are used for
+computing the identity of the bins. The default is C<4>.
+
+=item binLenFilter
+
+If specified, the minimum length of a contig that can be placed into a bin. The default is C<400>.
 
 =item tetra
 
@@ -199,7 +203,7 @@ If specified, reference genomes will be grouped by genus and species instead of 
 This script produces intermediate working files that are re-used if they already exist. Many files are output in the
 working directory by L<Bin::Blast>.
 
-The C<sample.fasta> file contains all of the sample sequences in FASTA form. 
+The C<sample.fasta> file contains all of the sample sequences in FASTA form.
 
 The C<bins.found.tbl> file contains the locations hit by the universal protein used to seed the process.
 
@@ -230,8 +234,9 @@ The C<bins.report.txt> file contains a summary of the output bins.
 # Get the command-line parameters.
 my $opt = ScriptUtils::Opts('sampleDir workDir',
                 Shrub::script_options(),
-                ['lenFilter=i',    'minimum contig length', { default => 400 }],
-                ['covgFilter=f',   'minimum contig mean coverage', { default => 4}],
+                ['lenFilter=i',    'minimum contig length for seed protein search', { default => 400 }],
+                ['covgFilter=f',   'minimum contig mean coverage for seed protein search', { default => 4}],
+                ['binLenFilter=i', 'minimum contig length for binning', { default => 400 }],
                 ['tetra=s',        'tetranucleotide counting algorithm', { 'default' => 'dual' }],
                 ['force=s',        'force re-creation of all intermediate files'],
                 ['seedrole|R=s',   'ID of the universal role to seed the bins', { default => 'PhenTrnaSyntAlph' }],
@@ -245,7 +250,7 @@ my $opt = ScriptUtils::Opts('sampleDir workDir',
                 ['kmer|k=i',       'kmer length for protein matches during binning', { default => 12 }],
                 ['binstrength=i',  'number of kmer matches required to bin a contig', { default => 10 }],
                 ['danglen=i',      'kmer length for unbinned-contig DNA matches', { default => 50 }],
-                ['species',          'group by species instead of genus'],
+                ['species',        'group by species instead of genus'],
         );
 # Enable access to PATRIC from Argonne.
 $ENV{PERL_LWP_SSL_VERIFY_HOSTNAME} = 0;
@@ -309,17 +314,22 @@ if ($force || ! -s $reducedFastaFile || ! -s $binFile) {
         my ($contig, undef, $seq) = @$fields;
         # Get the sequence length.
         my $len = length $seq;
-        # Create a new bin for this contig.
-        my $bin = Bin->new($contig);
-        $bin->set_len($len);
-        $stats->Add(contigLetters => $len);
-        # Save it in the contig hash.
-        $contigs{$contig} = $bin;
-        # Save a copy of the sequence.
-        print $ofh ">$contig\n$seq\n";
-        # Compute the tetranucleotide vector.
-        my $contigTetra = $tetra->ProcessString($seq);
-        $bin->set_tetra($contigTetra);
+        # Is it acceptable?
+        if ($len >= $opt->binlenfilter) {
+            # Create a new bin for this contig.
+            my $bin = Bin->new($contig);
+            $bin->set_len($len);
+            $stats->Add(contigLetters => $len);
+            # Save it in the contig hash.
+            $contigs{$contig} = $bin;
+            # Save a copy of the sequence.
+            print $ofh ">$contig\n$seq\n";
+            # Compute the tetranucleotide vector.
+            my $contigTetra = $tetra->ProcessString($seq);
+            $bin->set_tetra($contigTetra);
+        } else {
+            $stats->Add(contigTooSmallForBin => 1);
+        }
         # Get the next line.
         $fields = $loader->GetLine(contig => $fh);
     }
@@ -389,7 +399,7 @@ $force ||= ($forceType eq 'parms');
 my $maxE = $opt->maxe;
 my $rMaxE = $opt->refmaxe // $maxE;
 # Create the blaster.
-my $blaster = Bin::Blast->new($shrub, $workDir, $reducedFastaFile, 
+my $blaster = Bin::Blast->new($shrub, $workDir, $reducedFastaFile,
         maxE => $maxE, minlen => $opt->minlen, gap => $opt->gap);
 # First, we need the list of bins and the locations where they hit the seed protein.
 my $binsFoundFile = "$workDir/bins.found.tbl";
