@@ -70,7 +70,7 @@ for my $dir (@dirs) {
         my $bin = 1;
         while (-s "$subDir/bin$bin.fa") {
             $stats->Add(binsFound => 1);
-            print join("\t", $dir, $bin, 'bins_generate', "$subDir/bin$bin.fa", "$subDir/bin$bin.gto") . "\n";
+            print $oh join("\t", $dir, $bin, 'bins_generate', "$subDir/bin$bin.fa", "$subDir/bin$bin.gto") . "\n";
             $bin++;
         }
     }
