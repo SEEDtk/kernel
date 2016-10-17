@@ -21,6 +21,7 @@ use strict;
 use warnings;
 use FIG_Config;
 use ScriptUtils;
+use Stats;
 
 =head1 Create Table of Bin Data
 
