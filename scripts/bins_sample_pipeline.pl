@@ -78,10 +78,12 @@ my $opt = ScriptUtils::Opts('sampleID workDir',
         ["user|u=s", "user name for RAST access", { default => $ENV{RASTUSER} }],
         ["password|p=s", "password for RAST access", { default => $ENV{RASTPASS} }],
         ["force", "rebuild all files"],
-        ["project=s", "source project type", { default => 'HMP' }],
+        ["project=s", "source project type", { default => 'MH' }],
         ["reset:s", "delete all files except the assembly results to force re-binning"],
         ["gz", "unzip read files before processing"]
         );
+# Close STDIN so we don't hang a parent process.
+close(STDIN);
 # Get the sample name and work directory.
 my ($sampleID, $workDir) = @ARGV;
 if (! $sampleID) {

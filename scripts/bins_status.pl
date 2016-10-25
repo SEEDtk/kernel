@@ -72,13 +72,19 @@ The following command-line options are supported.
 
 Remove assembly information for completed jobs.
 
+=item run
+
+Specifies that directories in a Downloaded status should be binned. The value should be a number. That number of
+binning pipelines will be started; all subsequent directories will be left in a Downloaded state.
+
 =back
 
 =cut
 
 # Get the command-line parameters.
 my $opt = ScriptUtils::Opts('directory',
-                ['clean', 'clean up assembly information for complete samples']);
+                ['clean', 'clean up assembly information for complete samples'],
+                ['run=i', 'run binning pipeline on new directories', { default => 0 }]);
 my $stats = Stats->new();
 # Get the main directory name.
 my ($directory) = @ARGV;
@@ -89,6 +95,7 @@ if (! $directory) {
 }
 # Save the options.
 my $clean = $opt->clean;
+my $runCount = $opt->run;
 # Loop through the subdirectories.
 opendir(my $ih, $directory) || die "Could not open directory $directory.";
 my @dirs = sort grep { substr($_,0,1) ne '.' && -d "$directory/$_" } readdir $ih;
@@ -142,8 +149,17 @@ for my $dir (@dirs) {
         print "$label: Assembling.\n";
         $stats->Add(dirs1Assembling => 1);
     } else {
-        print "$label: Downloaded.\n";
-        $stats->Add(dirs0Downloaded => 1);
+        # Here the directory is downloaded. We may need to run the pipeline.
+        my $startString = "";
+        if ($runCount) {
+            system("nohup bins_sample_pipeline $dir $subDir >$subDir/run.log 2>$subDir/err.log &");
+            print "$label: Binning job started.\n";
+            $stats->Add(dirs0Started => 1);
+            $runCount--;
+        } else {
+            print "$label: Downloaded.\n";
+            $stats->Add(dirs0Downloaded => 1);
+        }
     }
     # If we are done, we process here and check for cleaning.
     if ($done) {
@@ -153,7 +169,7 @@ for my $dir (@dirs) {
             File::Copy::Recursive::pathempty("$subDir/Assembly");
             rmdir "$subDir/Assembly";
             opendir(my $dh, $subDir) || die "Could not open $subDir: $!";
-            my @fastqs = grep { $_ =~ /\.fastq$/ } readdir $dh;
+            my @fastqs = grep { $_ =~ /\.(?:fastq|fq)$/ } readdir $dh;
             for my $fastq (@fastqs) {
                 unlink "$subDir/$fastq";
             }
