@@ -137,8 +137,8 @@ for my $dir (@dirs) {
         print "$label: Bins Computed.\n";
         $stats->Add(dirs4Binned => 1);
     } elsif (-s "$subDir/bins.report.txt") {
-        print "$label: No bins found.\n";
-        $stats->Add(dirs7EmptySet => 1);
+        $stats->Add(noBinsFound => 1);
+        $done = "No bins found.";
     } elsif (-s "$subDir/sample.fasta") {
         print "$label: Binning in Progress.\n";
         $stats->Add(dirs3Binning => 1);
