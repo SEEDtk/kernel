@@ -156,8 +156,9 @@ for my $dir (@dirs) {
             opendir(my $dh, $subDir) || die "Could not open directory $subDir: $!";
             my $found = grep { $_ =~ /\.fastq\.gz$/ } readdir $dh;
             my $gz = ($found ? '--gz' : '');
-            my $rc = system("nohup bins_sample_pipeline $gz $dir $subDir >$subDir/run.log 2>$subDir/err.log &");
-            print "$label: Binning job started.\n";
+            my $cmd = "bins_sample_pipeline $gz $dir $subDir >$subDir/run.log 2>$subDir/err.log";
+            my $rc = system("nohup $cmd &");
+            print "$label: Started $cmd.\n";
             $stats->Add(dirs0Started => 1);
             $runCount--;
         } else {
