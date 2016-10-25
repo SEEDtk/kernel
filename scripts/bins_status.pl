@@ -152,7 +152,11 @@ for my $dir (@dirs) {
         # Here the directory is downloaded. We may need to run the pipeline.
         my $startString = "";
         if ($runCount) {
-            system("nohup bins_sample_pipeline $dir $subDir >$subDir/run.log 2>$subDir/err.log &");
+            # Check for gz files.
+            opendir(my $dh, $subDir) || die "Could not open directory $subDir: $!";
+            my $found = grep { $_ =~ /\.fastq\.gz$/ } readdir $dh;
+            my $gz = ($found ? '--gz' : '');
+            my $rc = system("nohup bins_sample_pipeline $gz $dir $subDir >$subDir/run.log 2>$subDir/err.log &");
             print "$label: Binning job started.\n";
             $stats->Add(dirs0Started => 1);
             $runCount--;
