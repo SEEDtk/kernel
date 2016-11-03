@@ -60,8 +60,8 @@ my $roles_index = "/homes/overbeek/Ross/BinningProjectNov1/roles.in.subsystems";
 my $roles_for_class_use = "/homes/overbeek/Ross/BinningProjectNov1/roles.to.use";
 my $trained_classifiers   = "/homes/gdpusch/Projects/Machine_Learning/Function_Validation/Accurate_Classifiers.final";
 my $tmpD = "/homes/overbeek/Ross/BinningProjectNov1/Tmp.$$";
-my $class_probs_bin = "/homes/overbeek/Ross/ClassProbs/bin";
 my $current_package;
+
 
 $echo       = 0;
 $time_cmds  = 0;
@@ -99,7 +99,7 @@ while ( (defined($req) && $req) || ((@ARGV == 0) && ($req = &get_req)) )
         {
             $package = $2 ? $2 : "$packageDir/$current_package";
             my $gto = "$package/bin.gto";
-            my $cmd = "perl $class_probs_bin/genome_consistency.pl $gto $tmpD $trained_classifiers $roles_index $roles_for_class_use > $packageDir/classifier.evaluated.roles";
+            my $cmd = "perl genome_consistency.pl $gto $tmpD $trained_classifiers $roles_index $roles_for_class_use > $packageDir/classifier.evaluated.roles";
             &SeedUtils::run ($cmd);
             die $tmpD;
         }

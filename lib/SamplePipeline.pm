@@ -428,12 +428,12 @@ sub RastBins {
         my $protCount = scalar keys %$protH;
         print "$protCount universal proteins found.\n";
     }
-    # Output the new bins.
+    # Output the new bins. Note we don't sort any more because we need to preserve the
+    # bin number.
     my $binOutputFile = "$workDir/bins.rast.json";
     print "Spooling bins to $binOutputFile.\n";
-    my @sorted = sort { Bin::cmp($a, $b) } @$binList;
     open(my $oh, ">$binOutputFile") || die "Could not open bins.rast.json output file: $!";
-    for my $bin (@sorted) {
+    for my $bin (@$binList) {
         $bin->Write($oh);
     }
     close $oh;
@@ -451,7 +451,7 @@ sub RastBins {
     }
     # Write the report.
     open(my $rh, ">$workDir/bins.report.txt") || die "Could not open report file: $!";
-    $analyzer->BinReport($rh, $uniRoleH, \@sorted);
+    $analyzer->BinReport($rh, $uniRoleH, \@$binList);
     close $rh;
 }
 
