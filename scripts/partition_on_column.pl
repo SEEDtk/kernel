@@ -6,6 +6,7 @@ use Data::Dumper;
 
 use File::Copy qw(copy);
 use File::Path qw(make_path);
+use File::Copy::Recursive;
 
 use SeedUtils;
 
@@ -15,24 +16,25 @@ my ($inDir, $outDir, $selected_column) = @ARGV;
 
 my ($out_X_fh, $out_y_fh);
 if (-d $outDir) {
-    die "Output directory '$outDir' already exists";
+    File::Copy::Recursive::pathempty($outDir);
 }
 else {
     make_path($outDir) || die "Could not create '$outDir'";
-    open($out_X_fh, ">", "$outDir/X") or die "Could not write-open '$outDir/X'";
-    open($out_y_fh, ">", "$outDir/y") or die "Could not write-open '$outDir/y'";
 }
+open($out_X_fh, ">", "$outDir/X") or die "Could not write-open '$outDir/X'";
+open($out_y_fh, ">", "$outDir/y") or die "Could not write-open '$outDir/y'";
+
 
 
 if (-s "$inDir/row.h") {
     copy("$inDir/row.h", "$outDir/row.h")
-        or die "Could not copy '$inDir/row.h' to '$outDir/row.h'";
+        or die "FATAL: Could not copy '$inDir/row.h' to '$outDir/row.h'";
 }
 
 
 if (-s "$inDir/y.map") {
     copy("$inDir/y.map", "$outDir/y.map")
-        or die "Could not copy '$inDir/y.map' to '$outDir/y.map'";
+        or die "FATAL: Could not copy '$inDir/y.map' to '$outDir/y.map'";
 }
 
 
