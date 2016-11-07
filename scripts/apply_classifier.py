@@ -41,7 +41,7 @@ clf = joblib.load(clfFilename)
 
 outDir = testDir + '/Classifiers/' + clfType
 if not os.path.isdir(outDir):
-    sys.stderr.write("making directory: %s\n" % (outDir))
+#    sys.stderr.write("making directory: %s\n" % (outDir))
     dir_util.mkpath(outDir)
 outFilename = outDir + '/y.out'
 outFile = open(outFilename,'w')
@@ -63,5 +63,5 @@ for idx in range(X.shape[0]):
 outFile.close()
 
 # <--- python2 wants pgmr to convert to float
-sys.stderr.write("Accuracy: %0.2f\n"   % (float(ncorrect)/nchecked) )
-sys.stderr.write("Total time: %0.2f\n" % (time.time()-stime) )
+#sys.stderr.write("Accuracy: %0.2f\n"   % (float(ncorrect)/nchecked) )
+#sys.stderr.write("Total time: %0.2f\n" % (time.time()-stime) )
