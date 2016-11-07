@@ -36,7 +36,7 @@ if len(y.shape) != 1:
     y = np.reshape(y, (1,))
     # sys.stderr.write("New y dimensions: %s\n", y.shape)
 
-clfFilename = trainDir + '/Classifiers/' + clfType + '/' + clfType
+clfFilename = trainDir + '/Classifiers/' + clfType
 clf = joblib.load(clfFilename)
 
 outDir = testDir + '/Classifiers/' + clfType
