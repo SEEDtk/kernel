@@ -14,10 +14,11 @@ require Proc::ParallelLoop;
 
 use SeedUtils;
 
-my ($data_dir, $output_dir, $fraction, $classifier) = @ARGV;
+my ($data_dir, $fraction, $classifier) = @ARGV;
 
+my $output_dir = "$data_dir/Predictors";
 if (!-d $output_dir) {
-    &run_safe(['cp', '-pR', $data_dir, $output_dir], \undef, \undef, \*STDERR);
+    mkdir $output_dir;
 }
 else {
     die "Output-directory '$output_dir' already exists";
