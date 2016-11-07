@@ -111,7 +111,7 @@ sub worker {
     my ($role) = @_;
 #   print STDERR "Processing '$role'\n";
 
-    my $accuracy = &SeedUtils::file_read("$trainDir/$role/Classifiers/$classifier/accuracy");
+    my $accuracy = &SeedUtils::file_read("$trainDir/Predictors/$role/Classifiers/$classifier/accuracy");
     chomp $accuracy;
 
     my @fields = split /\t/, $accuracy;
@@ -129,7 +129,7 @@ sub worker {
               \undef, \undef, \*STDERR
         );
 
-    &run_safe([ "apply_classifier", $tmpDir, "$trainDir/$role", $classifier ],
+    &run_safe([ "apply_classifier", $tmpDir, "$trainDir/Predictors/$role", $classifier ],
               \undef, \undef, \*STDERR
         ) || die "Application failed: $?, $!";
 
