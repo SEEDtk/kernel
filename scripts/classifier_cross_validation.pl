@@ -11,6 +11,7 @@ use IO::File;
 use File::Spec;
 use File::Basename qw(basename);
 use File::Path qw( make_path remove_tree );
+use FIG_Config;
 
 my $usage;
 
