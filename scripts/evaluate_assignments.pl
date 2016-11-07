@@ -123,7 +123,7 @@ sub worker {
     }
 
     my $col = $train_role_to_index{$role};
-    my $tmpDir = "/scratch/tmp.pareach_eval.$role.$$";
+    my $tmpDir = "$FIG_Config::temp/tmp.pareach_eval.$role.$$";
 
     &run_safe([ 'partition_on_column', $testDir, $tmpDir, $col ],
               \undef, \undef, \*STDERR
