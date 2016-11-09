@@ -97,7 +97,7 @@ while ( (defined($req) && $req) || ((@ARGV == 0) && ($req = &get_req)) )
         }
         else
         {
-            $package = $2 ? $2 : "$packageDir/$current_package";
+            $package = $2 || $current_package;
             my $contigs = "$packageDir/$package";
             my $cmd = "checkm lineage_wf --tmpdir $FIG_Config::temp -x fa --file $contigs/evaluate.log $contigs $contigs/EvalByCheckm";
             &SeedUtils::run ($cmd);
@@ -113,10 +113,11 @@ while ( (defined($req) && $req) || ((@ARGV == 0) && ($req = &get_req)) )
         }
         else
         {
-            $package = $2 ? $2 : "$packageDir/$current_package";
+            $package = "$packageDir/" . ($2 || $current_package);
             my $gto = "$package/bin.gto";
             my $eval = "$package/EvalBySciKit";
-            my $cmd = "gto_consistency $gto $eval $trained_classifiers $roles_index $roles_for_class_use > $packageDir/classifier.evaluated.roles";
+            print "Input is from $gto. Output is to $eval.\n";
+            my $cmd = "gto_consistency $gto $eval $trained_classifiers $roles_index $roles_for_class_use > $eval/evaluate.out";
             &SeedUtils::run ($cmd);
         }
     }
