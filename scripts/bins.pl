@@ -1,6 +1,7 @@
 use strict;
 use Data::Dumper;
 use Carp;
+use File::Copy::Recursive;
 
 # bins: a Simple tool to Support Analysis of bins/GenomePackages
 #
