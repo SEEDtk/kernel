@@ -99,7 +99,12 @@ while ( (defined($req) && $req) || ((@ARGV == 0) && ($req = &get_req)) )
         {
             $package = $2 || $current_package;
             my $contigs = "$packageDir/$package";
-            my $cmd = "checkm lineage_wf --tmpdir $FIG_Config::temp -x fa --file $contigs/evaluate.log $contigs $contigs/EvalByCheckm";
+            my $outDir = "$contigs/EvalByCheckm";
+            my $cmd = "checkm lineage_wf --tmpdir $FIG_Config::temp -x fa --file $contigs/evaluate.log $contigs $outDir";
+            if (-d $outDir) {
+                print "Erasing old $outDir.\n";
+                File::Copy::Recursive::pathempty($outDir);
+            }
             &SeedUtils::run ($cmd);
             File::Copy::Recursive::fmove("$contigs/evaluate.log", "$contigs/EvalByCheckm/evaluate.log");
         }
