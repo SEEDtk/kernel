@@ -117,8 +117,9 @@ while ( (defined($req) && $req) || ((@ARGV == 0) && ($req = &get_req)) )
             my $gto = "$package/bin.gto";
             my $eval = "$package/EvalBySciKit";
             print "Input is from $gto. Output is to $eval.\n";
-            my $cmd = "gto_consistency $gto $eval $trained_classifiers $roles_index $roles_for_class_use > $eval/evaluate.out";
+            my $cmd = "gto_consistency $gto $eval $trained_classifiers $roles_index $roles_for_class_use > $package/evaluate.out";
             &SeedUtils::run ($cmd);
+            File::Copy::Recursive::fmove("$package/evaluate.out", "$eval/evaluate.out");
         }
     }
     elsif ($req =~ /^\s*find_bad_contigs(\s+(\S+))\s*$/)
