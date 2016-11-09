@@ -54,12 +54,11 @@ use SeedUtils;
 use File::Path qw(make_path rmtree);
 
 # usage: bins [-echo] [-time] [command]
-my $packageDir = "/homes/parrello/SEEDtk/Data/GenomePackages";
-my $updatedDir = "/homes/parrello/SEEDtk/Data/GenomePackagesUpdated";
-my $roles_index = "/homes/overbeek/Ross/BinningProjectNov1/roles.in.subsystems";
-my $roles_for_class_use = "/homes/overbeek/Ross/BinningProjectNov1/roles.to.use";
-my $trained_classifiers   = "/homes/gdpusch/Projects/Machine_Learning/Function_Validation/Accurate_Classifiers.final";
-my $tmpD = "/homes/overbeek/Ross/BinningProjectNov1/Tmp.$$";
+my $packageDir = "$FIG_Config::data/GenomePackages";
+my $updatedDir = "$FIG_Config::data/GenomePackagesUpdated";
+my $roles_index = "$FIG_Config::global/roles.in.subsystems";
+my $roles_for_class_use = "$FIG_Config::global/roles.to.use";
+my $trained_classifiers   = "$FIG_Config::global/FunctionPredictors";
 my $current_package;
 
 
@@ -88,7 +87,23 @@ while ( (defined($req) && $req) || ((@ARGV == 0) && ($req = &get_req)) )
     {
         &help;
     }
-    elsif ($req =~ /^\s*eval_class(\s+(\S+))?/)
+    elsif ($req =~ /^\s*checkM(\s+(\S+))?/)
+    {
+        my $package;
+        if ((! $2) && (! $current_package))
+        {
+            print "You need to specify a package\n";
+        }
+        else
+        {
+            $package = $2 ? $2 : "$packageDir/$current_package";
+            my $contigs = "$packageDir/$package";
+            my $cmd = "checkm lineage_wf --tmpdir $FIG_Config::temp -x fa --file $contigs/evaluate.log $contigs $contigs/EvalByCheckm";
+            &SeedUtils::run ($cmd);
+            File::Copy::Recursive::fmove("$contigs/evaluate.log", "$contigs/EvalByCheckm/evaluate.log");
+        }
+    }
+    elsif ($req =~ /^\s*eval_scikit(\s+(\S+))?/)
     {
         my $package;
         if ((! $2) && (! $current_package))
@@ -99,9 +114,9 @@ while ( (defined($req) && $req) || ((@ARGV == 0) && ($req = &get_req)) )
         {
             $package = $2 ? $2 : "$packageDir/$current_package";
             my $gto = "$package/bin.gto";
-            my $cmd = "perl genome_consistency.pl $gto $tmpD $trained_classifiers $roles_index $roles_for_class_use > $packageDir/classifier.evaluated.roles";
+            my $eval = "$package/EvalBySciKit";
+            my $cmd = "gto_consistency $gto $eval $trained_classifiers $roles_index $roles_for_class_use > $packageDir/classifier.evaluated.roles";
             &SeedUtils::run ($cmd);
-            die $tmpD;
         }
     }
     elsif ($req =~ /^\s*find_bad_contigs(\s+(\S+))\s*$/)
@@ -138,6 +153,11 @@ while ( (defined($req) && $req) || ((@ARGV == 0) && ($req = &get_req)) )
             $package = $3 ? $3 : "$packageDir/$current_package";
             &pegs_on_contig($package,$contig);
         }
+    }
+    elsif ($req =~ /\s*quality_summary(\s+(\S+))?\s*$/)
+    {
+        my $package = $2 ? $2 : '';
+        &quality_report($packageDir,$package);
     }
     elsif ($req =~ /\s*set package\s+(\S+)\s*$/)
     {
@@ -221,6 +241,11 @@ sub display_packages {
     }
 }
 
+sub quality_report {
+    my($packageDir,$package) = @_;
+    ##TODO quality report
+}
+
 sub number_packages {
     my($packageDir) = @_;
 
@@ -252,13 +277,14 @@ sub help {
                                                     archiving old); resets
                                                     current package
     estimate_taxonomy [package]     Estimates taxonomy of the organism
-    eval_class [package]            Eval package using classifiers
-    eval_PATRIC_genome GenomeId     Evaluate a PATRIC genome
+    eval_scikit [package]            Eval package using SciKit classifiers
+    eval_PATRIC_scikit GenomeId     Evaluate a PATRIC genome using SciKit
     eval_tensor_flow [package]      Eval package using tensor flow predictors
     find_bad_contigs [package]      Check for Bad Contigs
     num_packages                    Number of current packages
     packages                        List current packages
     pegs_on_contig Contig [package] Display PEGs on contig
+    quality_summary [package]       Produce a quality report
     scores Package                  Show scores for Package
     set package                     Set default package
     set roles RolesFile             Set default roles from [RoleId,Role] file
