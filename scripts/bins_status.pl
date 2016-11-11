@@ -96,6 +96,14 @@ if (! $directory) {
 # Save the options.
 my $clean = $opt->clean;
 my $runCount = $opt->run;
+# Get a hash of the running subdirectories.
+my %running;
+my @jobs = `ps -AF`;
+for my $job (@jobs) {
+    if ($job =~ /bins_sample_pipeline\s+(?:--\S+\s+)*(\w+)/) {
+        $running{$1} = 1;
+    }
+}
 # Loop through the subdirectories.
 opendir(my $ih, $directory) || die "Could not open directory $directory.";
 my @dirs = sort grep { substr($_,0,1) ne '.' && -d "$directory/$_" } readdir $ih;
@@ -121,7 +129,8 @@ for my $dir (@dirs) {
     } else {
         $site = "Error";
     }
-    my $label = "$subDir ($site)";
+    my $run = ($running{$dir} ? ', running' : '');
+    my $label = "$subDir ($site$run)";
     # Determine the status.
     if (-s "$subDir/expect.report.txt") {
         $done = "Expectations Computed.";
@@ -155,6 +164,7 @@ for my $dir (@dirs) {
             # Check for gz files.
             opendir(my $dh, $subDir) || die "Could not open directory $subDir: $!";
             my $found = grep { $_ =~ /\.fastq\.gz$/ } readdir $dh;
+            closedir $dh;
             my $gz = ($found ? '--gz' : '');
             my $cmd = "bins_sample_pipeline $gz $dir $subDir >$subDir/run.log 2>$subDir/err.log";
             my $rc = system("nohup $cmd &");

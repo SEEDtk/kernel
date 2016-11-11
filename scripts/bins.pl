@@ -251,7 +251,8 @@ sub display_packages {
 
 sub quality_report {
     my($packageDir,$package) = @_;
-    ##TODO quality report
+    my $cmd = "package_report $packageDir $package";
+    system($cmd);
 }
 
 sub number_packages {
