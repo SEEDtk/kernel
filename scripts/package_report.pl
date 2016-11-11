@@ -116,7 +116,7 @@ Ref Name
 =item EvalByCheckm/evaluate.log
 
 CheckM results file. The fourth line of this file contains space-delimited fields, the first of which is the word C<bin>. The second field is the
-CheckM taxonomy classification. The twlefth is the checkM completeness and the thirteenth is the checkM contamination score.
+CheckM taxonomy classification. The thirteenth is the checkM completeness and the fourteenth is the checkM contamination score.
 
 =item EvalBySciKit/evaluate.log
 
@@ -208,9 +208,9 @@ sub produce_report {
                     my $line = <$fh>;
                     if ($line =~ /^\s+bin\s+/) {
                         my @cols = split /\s+/, $line;
-                        $checkMtaxon = $cols[1];
-                        $checkMscore = $cols[11];
-                        $checkMcontam = $cols[12];
+                        $checkMtaxon = $cols[2];
+                        $checkMscore = $cols[13];
+                        $checkMcontam = $cols[14];
                     }
                 }
             }
@@ -220,10 +220,10 @@ sub produce_report {
                 open(my $fh, '<', "$pDir/EvalBySciKit/evaluate.log") || die "Could not open scikit file for $package: $!";
                 while (! eof $fh) {
                     my $line = <$fh>;
-                    if ($line =~ /^Pct_roles=\s+(.+)/) {
+                    if ($line =~ /^Pct_roles=\s+(.+)\%/) {
                         $scikitScore = $1;
-                    } elsif ($line = /^Consistency=\s+(.+)/) {
-                        $scikitContam = 100 - $1;
+                    } elsif ($line =~ /^Consistency=\s+(.+)\%/) {
+                        $scikitContam = sprintf("%.2f", 100 - $1);
                     }
                 }
             }
