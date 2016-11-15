@@ -15,7 +15,7 @@ use Data::Dump qw(pp);
 my $opt = ScriptUtils::Opts('gto roles.in.subsystems', Shrub::script_options(),
         ['counts|count|k', 'produce counts table']);
 my ($gto, $roles_in_subsystems) = @ARGV;
-my $shrub = Shrub->new_for_script();
+my $shrub = Shrub->new_for_script($opt);
 die "Input file '$gto' does not exist" unless (-s $gto);
 die "Input file '$roles_in_subsystems' does not exist" unless (-s $roles_in_subsystems);
 my $count = $opt->counts;
