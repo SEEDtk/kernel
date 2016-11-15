@@ -55,11 +55,14 @@ if (! $outDir) {
     File::Copy::Recursive::pathempty($outDir) || die "Error clearing output directory $outDir.";
 }
 # Create the input file.
-my $cmd = "gto_to_roles --counts $gto $FIG_Config::global/roles.in.subsystems >$outDir/roles.counts";
+print "Creating counts.\n";
+my $cmd = "gto_to_roles --counts $gto $FIG_Config::global/roles.in.subsystems >$outDir/roles.counts 2>$outDir/roles.not.mapped";
 SeedUtils::run($cmd);
 # Process it.
+print "Computing predictions.\n";
 $cmd = "/homes/rbutler/ross/worknn/tfpredict.sh $outDir/roles.counts >$outDir/evaluate.tbl 2>$outDir/err.log";
 SeedUtils::run($cmd);
 # Evaluate the results.
+print "Evaluating results.\n";
 $cmd = "process_evaluation --input=$outDir/evaluate.tbl >$outDir/evaluate.log";
 SeedUtils::run($cmd);
