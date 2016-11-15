@@ -129,6 +129,45 @@ while ( (defined($req) && $req) || ((@ARGV == 0) && ($req = &get_req)) )
             }
         }
     }
+    elsif ($req =~ /^\s*eval_tensor_flow(\s+(\S+))?/)
+    {
+        my $package;
+        if ((! $2) && (! $current_package))
+        {
+            print "You need to specify a package\n";
+        }
+        else
+        {
+            my (@packages, $force);
+            $package = $2 || $current_package;
+            if ($package eq 'all') {
+                my $all = AllPackages($packageDir);
+                push @packages, @$all;
+            } else {
+                push @packages, $package;
+                $force = 1;
+            }
+            for $package (@packages) {
+                my $ok = 1;
+                my $contigs = "$packageDir/$package";
+                my $outDir = "$contigs/EvalByTF";
+                my $cmd = "eval_tensor_flow $contigs/bin.gto $outDir";
+                if (-d $outDir) {
+                    if ($force) {
+                        print "Erasing old $outDir.\n";
+                        File::Copy::Recursive::pathempty($outDir);
+                    } else {
+                        print "Tensor Flow already run for $package-- skipping.\n";
+                        $ok = 0;
+                    }
+                }
+                if ($ok) {
+                    print "Running Tensor Flow for $package.\n";
+                    &SeedUtils::run ($cmd);
+                }
+            }
+        }
+    }
     elsif ($req =~ /^\s*eval_scikit(\s+(\S+))?/)
     {
         my $package;
@@ -138,13 +177,34 @@ while ( (defined($req) && $req) || ((@ARGV == 0) && ($req = &get_req)) )
         }
         else
         {
-            $package = "$packageDir/" . ($2 || $current_package);
-            my $gto = "$package/bin.gto";
-            my $eval = "$package/EvalBySciKit";
-            print "Input is from $gto. Output is to $eval.\n";
-            my $cmd = "gto_consistency $gto $eval $trained_classifiers $roles_index $roles_for_class_use > $package/evaluate.out";
-            &SeedUtils::run ($cmd);
-            File::Copy::Recursive::fmove("$package/evaluate.out", "$eval/evaluate.out");
+            my (@packages, $force);
+            $package = $2 || $current_package;
+            if ($package eq 'all') {
+                my $all = AllPackages($packageDir);
+                push @packages, @$all;
+            } else {
+                push @packages, $package;
+                $force = 1;
+            }
+            for $package (@packages) {
+                my $ok = 1;
+                my $contigs = "$packageDir/$package";
+                my $outDir = "$contigs/EvalBySciKit";
+                my $cmd = "gto_consistency $contigs/bin.gto $outDir $FIG_Config::global/FunctionPredictors $FIG_Config::global/roles.in.subsystems $FIG_Config::global/roles.to.use";
+                if (-d $outDir) {
+                    if ($force) {
+                        print "Erasing old $outDir.\n";
+                        File::Copy::Recursive::pathempty($outDir);
+                    } else {
+                        print "SciKit already run for $package-- skipping.\n";
+                        $ok = 0;
+                    }
+                }
+                if ($ok) {
+                    print "Running SciKit for $package.\n";
+                    &SeedUtils::run ($cmd);
+                }
+            }
         }
     }
     elsif ($req =~ /^\s*find_bad_contigs(\s+(\S+))\s*$/)
