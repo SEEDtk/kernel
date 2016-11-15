@@ -31,11 +31,10 @@ my @CDSs = map {
 } grep {
     ($_->{type} eq q(CDS)) || ($_->{id} =~ m{\.peg\.})
 } $proc->features();
-
+my %counts;
 foreach my $cds (@CDSs) {
     my ($fid, $func) = @$cds;
     my @roles = &SeedUtils::roles_of_function($func);
-    my %counts;
     foreach my $role (@roles) {
         if (my $roleID = $roles_to_IDs{$role}) {
             if ($count) {
@@ -48,9 +47,9 @@ foreach my $cds (@CDSs) {
             warn "Could not map role:\t$fid\t$role\n";
         }
     }
-    if ($count) {
-        for my $roleID (sort keys %counts) {
-            print join("\t", $roleID, $counts{$roleID}) . "\n";
-        }
+}
+if ($count) {
+    for my $roleID (sort keys %counts) {
+        print join("\t", $roleID, $counts{$roleID}) . "\n";
     }
 }
