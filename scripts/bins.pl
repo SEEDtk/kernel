@@ -97,16 +97,34 @@ while ( (defined($req) && $req) || ((@ARGV == 0) && ($req = &get_req)) )
         }
         else
         {
+            my (@packages, $force);
             $package = $2 || $current_package;
-            my $contigs = "$packageDir/$package";
-            my $outDir = "$contigs/EvalByCheckm";
-            my $cmd = "checkm lineage_wf --tmpdir $FIG_Config::temp -x fa --file $contigs/evaluate.log $contigs $outDir";
-            if (-d $outDir) {
-                print "Erasing old $outDir.\n";
-                File::Copy::Recursive::pathempty($outDir);
+            if ($package eq 'all') {
+                my $all = AllPackages($packageDir);
+                push @packages, @$all;
+            } else {
+                push @packages, $package;
+                $force = 1;
             }
-            &SeedUtils::run ($cmd);
-            File::Copy::Recursive::fmove("$contigs/evaluate.log", "$contigs/EvalByCheckm/evaluate.log");
+            for $package (@packages) {
+                my $ok = 1;
+                my $contigs = "$packageDir/$package";
+                my $outDir = "$contigs/EvalByCheckm";
+                my $cmd = "checkm lineage_wf --tmpdir $FIG_Config::temp -x fa --file $contigs/evaluate.log $contigs $outDir";
+                if (-d $outDir) {
+                    if ($force) {
+                        print "Erasing old $outDir.\n";
+                        File::Copy::Recursive::pathempty($outDir);
+                    } else {
+                        print "CheckM already run for $package-- skipping.\n";
+                        $ok = 0;
+                    }
+                }
+                if ($ok) {
+                    &SeedUtils::run ($cmd);
+                    File::Copy::Recursive::fmove("$contigs/evaluate.log", "$contigs/EvalByCheckm/evaluate.log");
+                }
+            }
         }
     }
     elsif ($req =~ /^\s*eval_scikit(\s+(\S+))?/)
@@ -275,6 +293,13 @@ sub pegs_on_contig {
         print $_;
     }
     close(REP);
+}
+
+sub AllPackages {
+    my ($packageDir) = @_;
+    opendir(my $dh, $packageDir) || die "Could not open package directory: $!";
+    my @retVal = grep { $_ =~ /^\d+\.\d+$/ && -d "$packageDir/$_" } readdir $dh;
+    return \@retVal;
 }
 
 sub help {

@@ -228,3 +228,4 @@ for my $sample (@samples) {
         }
     }
 }
+print "All done.\n" . $stats->Show();
