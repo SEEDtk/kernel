@@ -44,6 +44,7 @@ use File::Copy::Recursive;
 ########################################################################
 
 ## CURRENTLY ONLY WORKS ON MAPLE
+$| = 1;
 
 my $echo       = 0;
 my $time_cmds  = 0;
@@ -121,6 +122,7 @@ while ( (defined($req) && $req) || ((@ARGV == 0) && ($req = &get_req)) )
                     }
                 }
                 if ($ok) {
+                    print "Running checkM for $package.\n";
                     &SeedUtils::run ($cmd);
                     File::Copy::Recursive::fmove("$contigs/evaluate.log", "$contigs/EvalByCheckm/evaluate.log");
                 }
@@ -298,7 +300,7 @@ sub pegs_on_contig {
 sub AllPackages {
     my ($packageDir) = @_;
     opendir(my $dh, $packageDir) || die "Could not open package directory: $!";
-    my @retVal = grep { $_ =~ /^\d+\.\d+$/ && -d "$packageDir/$_" } readdir $dh;
+    my @retVal = sort grep { $_ =~ /^\d+\.\d+$/ && -d "$packageDir/$_" } readdir $dh;
     return \@retVal;
 }
 
