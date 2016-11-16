@@ -89,6 +89,9 @@ while ( (defined($req) && $req) || ((@ARGV == 0) && ($req = &get_req)) )
     {
         &help;
     }
+    elsif ($req =~ /^\s*samples_report\s*$/) {
+        samples_report($packageDir);
+    }
     elsif ($req =~ /^\s*checkM(\s+(\S+))?/)
     {
         my $package;
@@ -305,7 +308,7 @@ sub get_req {
         $x = <STDIN>;
     }
 
-    if ((! defined($x)) || ($x =~ /^\s*[qQxX]/))
+    if ((! defined($x)) || ($x =~ /^\s*(?:q|quit|x|exit)\s*$/i))
     {
         return "";
     }
@@ -340,10 +343,9 @@ sub find_bad_contigs {
 sub display_packages {
     my($packageDir) = @_;
 
-    opendir(P,$packageDir) || die "$packageDir seems to be missing";
-    my @packages = sort grep { $_ !~ /^\./ } readdir(P);
+    my $packages = AllPackages($packageDir);
     closedir(P);
-    foreach $_ (@packages)
+    foreach $_ (@$packages)
     {
         print $_,"\n";
     }
@@ -391,9 +393,8 @@ sub good_packages {
 sub number_packages {
     my($packageDir) = @_;
 
-    opendir(P,$packageDir) || die "$packageDir seems to be missing";
-    my @packages = sort grep { $_ !~ /^\./ } readdir(P);
-    my $n = @packages;
+    my $packages = AllPackages($packageDir);
+    my $n = @$packages;
     closedir(P);
     print "$n current packages\n";
 }
@@ -427,6 +428,37 @@ sub delete_bad_contigs {
     return $retVal;
 }
 
+sub samples_report {
+    my ($packageDir) = @_;
+    my $packages = AllPackages($packageDir);
+    my @output;
+    for my $package (@$packages) {
+        my $dataFile = "$packageDir/$package/data.tbl";
+        if (-s $dataFile) {
+            open(my $ih, '<', $dataFile) || die "Could not open $package data file: $!";
+            my %data;
+            while (! eof $ih) {
+                my $line = <$ih>;
+                if ($line =~ /^([^\t]+)\t(.+)/) {
+                    $data{$1} = $2;
+                }
+            }
+            if ($data{'Sample Name'}) {
+                my $output = [$data{'Sample Name'}, $data{'Bin Number'}, $package, $data{'Ref Genome'}, $data{'Ref Name'}];
+                push @output, $output;
+            }
+        }
+    }
+    open(my $oh, '>', "$packageDir/samples.report.tbl") || die "Could not open samples report file: $!";
+    my @sorted = (['Sample', 'Bin', 'ID', 'Ref ID', 'Ref Name'], sort { ($a->[0] cmp $b->[0]) or ($a->[1] <=> $b->[1]) } @output);
+    for my $datum (@sorted) {
+        my $line = join("\t", @$datum) . "\n";
+        print $line;
+        print $oh $line;
+    }
+    close $oh;
+}
+
 sub AllPackages {
     my ($packageDir) = @_;
     opendir(my $dh, $packageDir) || die "Could not open package directory: $!";
@@ -455,5 +487,6 @@ sub help {
     scores Package                  Show scores for Package
     set package                     Set default package
     set roles RolesFile             Set default roles from [RoleId,Role] file
+    samples_report                  Display packages sorted by originating sample
 END
 }
