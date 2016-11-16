@@ -348,7 +348,7 @@ sub good_packages {
     my @report;
     # Loop through the packages. For each one, we extract the quality report and reformat it.
     print "Reading quality reports.\n";
-    my $packages = AllPackages();
+    my $packages = AllPackages($packageDir);
     for my $package (@$packages) {
         if (open(my $ih, "$packageDir/$package/quality.tbl")) {
             my $line = <$ih>;
