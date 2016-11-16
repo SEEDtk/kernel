@@ -354,13 +354,13 @@ sub good_packages {
             my $line = <$ih>;
             chomp $line;
             my ($id, $name, $contigs, $bases, $refGenome, $refName, $skScore, $tfScore, $cmScore, $cmContam, $cmTaxon) = split /\t/, $line;
-            my $outLine = [$skScore, $id, $name, $refGenome, $tfScore, $cmScore, $cmContam, $refName];
+            my $outLine = [$skScore, $id, $contigs, $refGenome, $tfScore, $cmScore, $cmContam, $refName];
             if ($skScore && $cmScore && $tfScore && $skScore >= 80 && $cmScore >= 80 && $bases >= 500000) {
                 push @report, $outLine;
             }
         }
     }
-    my $header = ['SK', 'ID', 'Name', 'RefID', 'TF', 'CheckM', 'Contam', 'RefName'];
+    my $header = ['SK', 'ID', 'Contigs', 'RefID', 'TF', 'CheckM', 'Contam', 'RefName'];
     my @sorted = ($header, sort { $b->[0] <=> $a->[0] } @report);
     open(my $oh, '>', "$packageDir/good.packages.tbl") || die "Could not open output file: $!";
     for my $row (@sorted) {
