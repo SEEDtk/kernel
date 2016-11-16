@@ -152,7 +152,7 @@ if (-d $newDir) {
 } else {
     File::Copy::Recursive::pathmk($newDir) || die "Could not create $newDir: $!";
     File::Copy::Recursive::fmove($newFa, "$newDir/bin.fa") || die "Could not copy FASTA: $!";
-    $gto->destroy_to_file("$newDir/bin.gto");
+    SeedUtils::write_encoded_object($gto, "$newDir/bin.gto");
     open($oh, '>', "$newDir/data.tbl") || die "Could not open new data.tbl: $!";
     print $oh "Genome Name\t$name\n";
     print $oh "Source Package\t$package\n";
