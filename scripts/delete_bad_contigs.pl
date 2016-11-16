@@ -107,7 +107,7 @@ my ($keep, $contigID, $comment, @rows);
 my ($contigs, $bases) = (0, 0);
 while (! eof $ih) {
     my $line = <$ih>;
-    if ($line =~ /^>(\S+)(?:\s+(.+))/) {
+    if ($line =~ /^>(\S+)(?:\s+(.+))?/) {
         # Here we are starting a new contig. Flush the old one and see if we want to keep the
         # new one.
         my ($newID, $newComment) = ($1, $2);
@@ -135,6 +135,7 @@ if ($keep) {
 }
 close $oh; undef $oh;
 close $ih; undef $ih;
+print STDERR "$contigs contigs found, $bases base pairs.\n";
 # Get the taxonomy ID and name from the old GTO.
 my ($taxonID, $name) = get_taxon($pDir);
 $name = "$name (cleaned)";
