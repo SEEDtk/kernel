@@ -216,7 +216,7 @@ while ( (defined($req) && $req) || ((@ARGV == 0) && ($req = &get_req)) )
         }
         else
         {
-            $package = $2 ? $2 : "$packageDir/$current_package";
+            $package = "$packageDir/" . ($2 ? $2 : $current_package);
             &find_bad_contigs($package);
         }
     }
@@ -238,7 +238,7 @@ while ( (defined($req) && $req) || ((@ARGV == 0) && ($req = &get_req)) )
         }
         else
         {
-            $package = $3 ? $3 : "$packageDir/$current_package";
+            $package = "$packageDir/" . ($3 ? $3 : $current_package);
             &pegs_on_contig($package,$contig);
         }
     }
