@@ -61,11 +61,11 @@ Name of closest reference genome
 
 =item 7
 
-SciKit evaluation completeness (percent)
+SciKit evaluation score (percent)
 
 =item 8
 
-SciKit evaluation contamination (percent)
+Tensor Flow evaluation score (percent)
 
 =item 9
 
@@ -121,7 +121,11 @@ CheckM taxonomy classification. The thirteenth is the checkM completeness and th
 =item EvalBySciKit/evaluate.log
 
 SciKit evaluator results file, tab-delimited. At the end of the file is a series of lines containing scores. The line beginning with C<Pct_roles=>
-contains the completeness score and the line beginning with C<Consistency=> contains the inverse of the contamination score.
+C<Consistency=> contains the score.
+
+=item EvalByTF/evaluate.log
+
+Tensor Flow evaluator results file, containing a single number--the score.
 
 =back
 
@@ -200,10 +204,11 @@ sub produce_report {
                 my ($key, $value) = split /\t/, $line;
                 $dataVals{$key} = $value;
             }
+            # This will be our handle for the score files.
+            my $fh;
             # Get the checkm scores.
             my ($checkMscore, $checkMcontam, $checkMtaxon) = ('', '', '');
-            if (-d "$pDir/EvalByCheckm") {
-                open(my $fh, '<', "$pDir/EvalByCheckm/evaluate.log") || die "Could not open checkm file for $package: $!";
+            if (-d "$pDir/EvalByCheckm" && open($fh, '<', "$pDir/EvalByCheckm/evaluate.log")) {
                 while (! eof $fh) {
                     my $line = <$fh>;
                     if ($line =~ /^\s+bin\s+/) {
@@ -213,23 +218,33 @@ sub produce_report {
                         $checkMcontam = $cols[14];
                     }
                 }
+                close $fh;
             }
-            # Get the scikit scores.
-            my ($scikitScore, $scikitContam) = ('', '');
-            if (-d "$pDir/EvalBySciKit") {
-                open(my $fh, '<', "$pDir/EvalBySciKit/evaluate.log") || die "Could not open scikit file for $package: $!";
+            undef $fh;
+            # Get the scikit score.
+            my $scikitScore = '';
+            if (-d "$pDir/EvalBySciKit" && open($fh, '<', "$pDir/EvalBySciKit/evaluate.log")) {
                 while (! eof $fh) {
                     my $line = <$fh>;
-                    if ($line =~ /^Pct_roles=\s+(.+)\%/) {
+                    if ($line =~ /^Consistency=\s+(.+)\%/) {
                         $scikitScore = $1;
-                    } elsif ($line =~ /^Consistency=\s+(.+)\%/) {
-                        $scikitContam = sprintf("%.2f", 100 - $1);
                     }
                 }
+                close $fh;
             }
+            undef $fh;
+            # Get the tensor flow score.
+            my $tfScore = '';
+            if (-d "$pDir/EvalByTF" && open($fh, '<', "$pDir/EvalByTF/evaluate.log")) {
+                my $line = <$fh>;
+                chomp $line;
+                $tfScore = $line;
+                close $fh;
+            }
+            undef $fh;
             # Assemble the output line.
             $retVal = join("\t", $package, $dataVals{'Genome Name'}, $dataVals{'Contigs'}, $dataVals{'Base pairs'},
-                    $dataVals{'Ref Genome'}, $dataVals{'Ref Name'}, $scikitScore, $scikitContam, $checkMscore, $checkMcontam, $checkMtaxon) .
+                    $dataVals{'Ref Genome'}, $dataVals{'Ref Name'}, $scikitScore, $tfScore, $checkMscore, $checkMcontam, $checkMtaxon) .
                     "\n";
             open(my $oh, '>', "$pDir/quality.tbl") || die "Could not write to quality file for $package: $!";
             print $oh $retVal;
