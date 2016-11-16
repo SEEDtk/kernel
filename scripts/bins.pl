@@ -251,6 +251,9 @@ while ( (defined($req) && $req) || ((@ARGV == 0) && ($req = &get_req)) )
     {
         $current_package = $1;
     }
+    elsif ($req =~ /\s*good_packages(\s+(force))?\s*$/) {
+        good_packages($2);
+    }
     else
     {
         print "invalid command\n";
@@ -335,6 +338,39 @@ sub quality_report {
     system($cmd);
 }
 
+sub good_packages {
+    my ($forceFlag) = @_;
+    # Insure we have a full set of quality reports.
+    print "Verifying quality reports.\n";
+    my $cmd = "package_report " . ($forceFlag ? '--force ' : '') . " --quiet $packageDir";
+    system($cmd);
+    # Our output will go in here.
+    my @report;
+    # Loop through the packages. For each one, we extract the quality report and reformat it.
+    print "Reading quality reports.\n";
+    my $packages = AllPackages();
+    for my $package (@$packages) {
+        if (open(my $ih, "$packageDir/$package/quality.tbl")) {
+            my $line = <$ih>;
+            chomp $line;
+            my ($id, $name, $contigs, $bases, $refGenome, $refName, $skScore, $tfScore, $cmScore, $cmContam, $cmTaxon) = split /\t/, $line;
+            my $outLine = [$skScore, $id, $name, $refGenome, $tfScore, $cmScore, $cmContam, $refName];
+            if ($skScore && $cmScore && $tfScore && $skScore >= 80 && $cmScore >= 80 && $bases >= 500000) {
+                push @report, $outLine;
+            }
+        }
+    }
+    my $header = ['SK', 'ID', 'Name', 'RefID', 'TF', 'CheckM', 'Contam', 'RefName'];
+    my @sorted = ($header, sort { $b->[0] <=> $a->[0] } @report);
+    open(my $oh, '>', "$packageDir/good.packages.tbl") || die "Could not open output file: $!";
+    for my $row (@sorted) {
+        my $line = join("\t", @$row) . "\n";
+        print $oh $line;
+        print $line;
+    }
+    close $oh;
+}
+
 sub number_packages {
     my($packageDir) = @_;
 
@@ -379,6 +415,7 @@ sub help {
     find_bad_contigs [package]      Check for Bad Contigs
     num_packages                    Number of current packages
     packages                        List current packages
+    good_packages                   List good packages
     pegs_on_contig Contig [package] Display PEGs on contig
     quality_summary [package]       Produce a quality report
     scores Package                  Show scores for Package

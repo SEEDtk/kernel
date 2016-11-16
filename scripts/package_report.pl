@@ -143,13 +143,18 @@ The command-line options are as follows.
 If no single package is specified, then rather than generate quality data for each package, the data from existing C<quality.tbl> files is
 used. If this option is specified, quality data is regenerated for everything.
 
+=item quiet
+
+If specified, no standard output is generated.
+
 =back
 
 =cut
 
 # Get the command-line parameters.
 my $opt = ScriptUtils::Opts('dir package',
-        ["force", 'force regeneration of quality data']
+        ["force", 'force regeneration of quality data'],
+        ["quiet", 'suppress standard output']
         );
 # Get the directory and the package.
 my ($dir, $package) = @ARGV;
@@ -174,9 +179,11 @@ if (! $dir) {
         @packages = grep { $_ =~ /^\d+\.\d+$/ } readdir $dh;
     }
     # Loop through the packages, producing output.
-    for my $package (@packages) {
-        my $line = produce_report($dir, $package, $force);
-        print $line;
+    if (! $opt->quiet) {
+        for my $package (@packages) {
+            my $line = produce_report($dir, $package, $force);
+            print $line;
+        }
     }
 }
 
