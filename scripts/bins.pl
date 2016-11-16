@@ -304,16 +304,16 @@ sub get_req {
 
 sub find_bad_contigs {
     my($package) = @_;
-
-    if (! -s "$package/classifier.evaluated.roles")
+    my $roleFile = "$package/EvalBySciKit/evaluate.out";
+    if (! -s $roleFile)
     {
         print "You need to run \"eval_class $package\" first\n";
         return;
     }
     my $gto = "$package/bin.gto";
     my $role_pred_actual = '';
-    &SeedUtils::run("find_bad_contigs --gto $gto -r $packageDir/classifier.evaluated.roles > $package/bad.contigs");
-    open(BAD,"<$package/bad.contigs") || die "Where is $package/bad.contigs";
+    &SeedUtils::run("find_bad_contigs --gto $gto -r $roleFile > $package/bad.contigs");
+    open(BAD,"<$package/bad.contigs") || die "Error in $package/bad.contigs: $!";
     my @contigs = <BAD>;
     close(BAD);
     my $n = @contigs;
