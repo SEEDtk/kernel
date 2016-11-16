@@ -220,6 +220,23 @@ while ( (defined($req) && $req) || ((@ARGV == 0) && ($req = &get_req)) )
             &find_bad_contigs($package);
         }
     }
+    elsif ($req =~ /^\s*delete_bad_contigs(\s+(\S+))\s*$/)
+    {
+        my $package;
+        if ((! $2) && (! $current_package))
+        {
+            print "You need to specify a package\n";
+        }
+        else
+        {
+            $package = ($2 ? $2 : $current_package);
+            my $newID = &delete_bad_contigs($packageDir, $package);
+            if ($newID) {
+                $current_package = $newID;
+                print "$newID selected.\n";
+            }
+        }
+    }
     elsif ($req =~ /^\s*num_packages\s*$/)
     {
         &number_packages($packageDir);
@@ -391,6 +408,23 @@ sub pegs_on_contig {
         print $_;
     }
     close(REP);
+}
+
+sub delete_bad_contigs {
+    my ($packageDir, $package) = @_;
+    my $retVal;
+    my $pDir = "$packageDir/$package";
+    my $cmd = "delete_bad_contigs $packageDir $package >$pDir/out.log";
+    my $rc = system($cmd);
+    if (! $rc) {
+        # Here a new package was created.
+        open(my $ih, '<', "$pDir/out.log") || die "Could not retrieve new genome ID: $!";
+        $retVal = <$ih>;
+        chomp $retVal;
+        close $ih;
+        unlink "$pDir/out.log";
+    }
+    return $retVal;
 }
 
 sub AllPackages {
