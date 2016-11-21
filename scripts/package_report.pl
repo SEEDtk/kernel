@@ -250,8 +250,10 @@ sub produce_report {
             }
             undef $fh;
             # Assemble the output line.
+            my $refGenome = $dataVals{'Ref Genome'} // $dataVals{'Source Package'} // $dataVals{'Source Database'} // '';
+            my $refName = $dataVals{'Ref Name'} // 'derived';
             $retVal = join("\t", $package, $dataVals{'Genome Name'}, $dataVals{'Contigs'}, $dataVals{'Base pairs'},
-                    $dataVals{'Ref Genome'}, $dataVals{'Ref Name'}, $scikitScore, $tfScore, $checkMscore, $checkMcontam, $checkMtaxon) .
+                    $refGenome, $refName, $scikitScore, $tfScore, $checkMscore, $checkMcontam, $checkMtaxon) .
                     "\n";
             open(my $oh, '>', "$pDir/quality.tbl") || die "Could not write to quality file for $package: $!";
             print $oh $retVal;
