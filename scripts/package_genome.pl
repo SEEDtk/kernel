@@ -21,12 +21,14 @@ use strict;
 use warnings;
 use FIG_Config;
 use ScriptUtils;
+use SeedUtils;
 use Bin;
 use P3DataAPI;
 use File::Copy::Recursive;
+use GenomeTypeObject;
 
 
-=head1 Create Genome Package from PATRIC Genome
+=head1 Create Genome Package from Database Genome
 
     package_genome.pl [ options ] genomeID packageDir
 
@@ -55,7 +57,7 @@ Name of the genome
 
 =item Source Database
 
-PATRIC
+PATRIC or CORE
 
 =item Contigs
 
@@ -71,7 +73,7 @@ The number of DNA base pairs in the genome's contigs.
 
 =head2 Parameters
 
-The two positional parameters are the ID of the PATRIC genome and the full name of the directory to contain the output
+The two positional parameters are the ID of the genome and the full name of the directory to contain the output
 genome packages. If the genome package already exists, it will not be overwritten.
 
 The command-line options are the following.
@@ -82,6 +84,10 @@ The command-line options are the following.
 
 If specified, existing genome packages will be overwritten.
 
+=item core
+
+If specified, the genome is considered to be a CoreSEED genome. The default is to assume a PATRIC genome.
+
 =back
 
 =cut
@@ -89,6 +95,7 @@ If specified, existing genome packages will be overwritten.
 # Get the command-line parameters.
 my $opt = ScriptUtils::Opts('genomeID packageDir',
         ['force', "overwrite existing packages"],
+        ['core', "take the genome from CORESEED"]
         );
 # Get the directories.
 my ($genomeID, $packageDir) = @ARGV;
@@ -102,54 +109,72 @@ if (! $packageDir) {
 } elsif (! -d $packageDir) {
     die "Invalid package directory $packageDir";
 }
-# Connect to the database. Note that we must do an environment hack.
-$ENV{PERL_LWP_SSL_VERIFY_HOSTNAME} = 0;
-my $d = P3DataAPI->new();
-# Get the GTO.
-my $gto = $d->gto_of($genomeID);
-if (! $gto) {
-    die "Genome $genomeID not found.";
-} else {
-    # Get the name of the genome.
-    my $name = $gto->{scientific_name};
-    # Compute the output directory name.
-    my $genomeDir = "$packageDir/$genomeID";
-    if (-d $genomeDir && ! $opt->force) {
-        print "Package already exists for $genomeID.\n";
+# The source database name will go in here.
+my $source;
+# The GTO will go in here.
+my $gto;
+if ($opt->core) {
+    require LWP::Simple;
+    my $ref_text = LWP::Simple::get( "http://core.theseed.org/FIG/genome_object.cgi?genome=$genomeID" );
+    if (! $ref_text ) {
+        die "Core genome $genomeID not found.";
     } else {
-        # Here the bin is new or we are forcing.
-        if (! -d $genomeDir) {
-            print "Creating $genomeDir.\n";
-            mkdir $genomeDir;
-        } else {
-            print "Replacing $genomeDir.\n";
-            File::Copy::Recursive::pathempty($genomeDir);
-        }
-        # Loop through the contigs, creating the FASTA file and counting contigs and DNA.
-        open(my $fh, '>', "$genomeDir/bin.fa") || die "Could not open FASTA output: $!";
-        my $contigs = $gto->{contigs};
-        my $contigCount = scalar @$contigs;
-        my $dnaLen = 0;
-        for my $contig (@$contigs) {
-            my $dna = $contig->{dna};
-            $dnaLen += length $dna;
-            print $fh ">$contig->{id}\n$dna\n";
-        }
-        close $fh;
-        # Output the GTO file.
-        $gto->destroy_to_file("$genomeDir/bin.gto");
-        # We will compute the data table values in here.
-        my %data;
-        $data{'Genome Name'} = $name;
-        $data{'Source Database'} = 'PATRIC';
-        $data{'Contigs'} = $contigCount;
-        $data{'Base pairs'} = $dnaLen;
-        # Find the closest reference genome.
-        # Write the data file.
-        open(my $oh, '>', "$genomeDir/data.tbl") || die "Could not open data table file: $!";
-        for my $key (sort keys %data) {
-            print $oh "$key\t$data{$key}\n";
-        }
-        print "All done.\n";
+        $gto = SeedUtils::read_encoded_object(\$ref_text);
+        GenomeTypeObject->initialize($gto);
+        $source = 'CORE';
     }
+} else {
+    # Here we have a PATRIC genome.
+    # Connect to the database. Note that we must do an environment hack.
+    $ENV{PERL_LWP_SSL_VERIFY_HOSTNAME} = 0;
+    my $d = P3DataAPI->new();
+    # Get the GTO.
+    my $gto = $d->gto_of($genomeID);
+    if (! $gto) {
+        die "PATRIC genome $genomeID not found.";
+    } else {
+        $source = 'PATRIC';
+    }
+}
+# Get the name of the genome.
+my $name = $gto->{scientific_name};
+# Compute the output directory name.
+my $genomeDir = "$packageDir/$genomeID";
+if (-d $genomeDir && ! $opt->force) {
+    print "Package already exists for $genomeID.\n";
+} else {
+    # Here the bin is new or we are forcing.
+    if (! -d $genomeDir) {
+        print "Creating $genomeDir.\n";
+        mkdir $genomeDir;
+    } else {
+        print "Replacing $genomeDir.\n";
+        File::Copy::Recursive::pathempty($genomeDir);
+    }
+    # Loop through the contigs, creating the FASTA file and counting contigs and DNA.
+    open(my $fh, '>', "$genomeDir/bin.fa") || die "Could not open FASTA output: $!";
+    my $contigs = $gto->{contigs};
+    my $contigCount = scalar @$contigs;
+    my $dnaLen = 0;
+    for my $contig (@$contigs) {
+        my $dna = $contig->{dna};
+        $dnaLen += length $dna;
+        print $fh ">$contig->{id}\n$dna\n";
+    }
+    close $fh;
+    # Output the GTO file.
+    $gto->destroy_to_file("$genomeDir/bin.gto");
+    # We will compute the data table values in here.
+    my %data;
+    $data{'Genome Name'} = $name;
+    $data{'Source Database'} = $source;
+    $data{'Contigs'} = $contigCount;
+    $data{'Base pairs'} = $dnaLen;
+    # Find the closest reference genome.
+    # Write the data file.
+    open(my $oh, '>', "$genomeDir/data.tbl") || die "Could not open data table file: $!";
+    for my $key (sort keys %data) {
+        print $oh "$key\t$data{$key}\n";
+    }
+    print "All done.\n";
 }
