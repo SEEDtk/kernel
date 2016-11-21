@@ -231,7 +231,7 @@ sub Process {
         # We need to assemble.
         my $cmd = "spades.py";
         # Add the directory and the style parms.
-        my @parms = ('-o', "$workDir/Assembly", '--meta');
+        my @parms = ('-o', "$workDir/Assembly", '--meta', '--threads', 8);
         # We must merge the read libraries.
         my %libs = (s => \@fsq, 1 => \@f1q, 2 => \@f2q);
         for my $t (1, 2, 's') {
