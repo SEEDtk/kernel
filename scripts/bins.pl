@@ -364,7 +364,7 @@ sub status {
     my ($packageDir) = @_;
     my $packages = AllPackages($packageDir);
     my ($tf, $sk, $cm, $tot) = (0, 0, 0, 0);
-    my %dirs = (EvalByTF => \$tf, EvalByCheckM => \$cm, EvalBySciKit => \$sk);
+    my %dirs = (EvalByTF => \$tf, EvalByCheckm => \$cm, EvalBySciKit => \$sk);
     for my $package (@$packages) {
         $tot++;
         for my $dir (keys %dirs) {
