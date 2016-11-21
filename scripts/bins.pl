@@ -92,6 +92,9 @@ while ( (defined($req) && $req) || ((@ARGV == 0) && ($req = &get_req)) )
     elsif ($req =~ /^\s*samples_report\s*$/) {
         samples_report($packageDir);
     }
+    elsif ($req =~ /^\s*status\s*$/) {
+        status($packageDir);
+    }
     elsif ($req =~ /^\s*checkM(\s+(\S+))?/)
     {
         my $package;
@@ -357,6 +360,22 @@ sub quality_report {
     system($cmd);
 }
 
+sub status {
+    my ($packageDir) = @_;
+    my $packages = AllPackages($packageDir);
+    my ($tf, $sk, $cm, $tot) = (0, 0, 0, 0);
+    my %dirs = (EvalByTF => \$tf, EvalByCheckM => \$cm, EvalBySciKit => \$sk);
+    for my $package (@$packages) {
+        $tot++;
+        for my $dir (keys %dirs) {
+            if (-d "$packageDir/$package/$dir") {
+                ${$dirs{$dir}}++;
+            }
+        }
+    }
+    print "$tot packages.\n$tf scored by SciKit.\n$cm scored by CheckM.\n$tf scored by Tensor Flow.\n";
+}
+
 sub good_packages {
     my ($forceFlag) = @_;
     # Insure we have a full set of quality reports.
@@ -488,5 +507,6 @@ sub help {
     set package                     Set default package
     set roles RolesFile             Set default roles from [RoleId,Role] file
     samples_report                  Display packages sorted by originating sample
+    status                          display statistics about the packages
 END
 }
