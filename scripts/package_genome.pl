@@ -25,7 +25,7 @@ use SeedUtils;
 use Bin;
 use P3DataAPI;
 use File::Copy::Recursive;
-use GenomeTypeObject;
+
 
 
 =head1 Create Genome Package from Database Genome
@@ -114,13 +114,13 @@ my $source;
 # The GTO will go in here.
 my $gto;
 if ($opt->core) {
-    require LWP::Simple;
-    my $ref_text = LWP::Simple::get( "http://core.theseed.org/FIG/genome_object.cgi?genome=$genomeID" );
-    if (! $ref_text ) {
+    require Shrub;
+    my $shrub = Shrub->new();
+    require Shrub::GTO;
+    $gto = Shrub::GTO->new($shrub, $genomeID);
+    if (! $gto ) {
         die "Core genome $genomeID not found.";
     } else {
-        $gto = SeedUtils::read_encoded_object(\$ref_text);
-        GenomeTypeObject->initialize($gto);
         $source = 'CORE';
     }
 } else {
@@ -129,7 +129,7 @@ if ($opt->core) {
     $ENV{PERL_LWP_SSL_VERIFY_HOSTNAME} = 0;
     my $d = P3DataAPI->new();
     # Get the GTO.
-    my $gto = $d->gto_of($genomeID);
+    $gto = $d->gto_of($genomeID);
     if (! $gto) {
         die "PATRIC genome $genomeID not found.";
     } else {
