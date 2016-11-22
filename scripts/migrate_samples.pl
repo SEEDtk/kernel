@@ -75,6 +75,7 @@ closedir $dh; undef $dh;
 print scalar(keys %existing) . " samples already in output directory.\n";
 my $moved = 0;
 my $max = $opt->max;
+print "Processing input samples.\n";
 for my $sample (@samples) { last if $moved >= $max;
     if ($existing{$sample}) {
         print "Skipping $sample.\n";
