@@ -77,11 +77,9 @@ my $moved = 0;
 my $max = $opt->max;
 print "Processing input samples.\n";
 for my $sample (@samples) { last if $moved >= $max;
-    if ($existing{$sample}) {
-        print "Skipping $sample.\n";
-    } else {
-        print "Moving $sample to $outDir. ";
-        my $numCopied = File::Copy::Recursive::dircopy("$inDir/$sample", "$outDir/$sample");
+    if (! $existing{$sample}) {
+        print "Moving $sample...\n";
+        my $numCopied = File::Copy::Recursive::dircopy("$inDir/$sample", "$outDir");
         if ($numCopied) {
             print "$numCopied items transferred.\n";
             $moved++;
