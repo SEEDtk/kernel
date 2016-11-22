@@ -65,18 +65,20 @@ if (! $inDir) {
 # Get the input samples.
 my $dh;
 opendir($dh, $inDir) || die "Could not open input directory: $!";
-my @samples = grep { substr($_,0,1) ne '.' && -d "$inDir/$_" } readdir $dh;
+my @samples = sort grep { substr($_,0,1) ne '.' && -d "$inDir/$_" } readdir $dh;
 closedir $dh; undef $dh;
 print scalar(@samples) . " input samples found.\n";
 # Get the existing samples.
 opendir($dh, $outDir) || die "Could not open output directory: $!";
 my %existing = map { $_ => 1 } grep { substr($_,0,1) ne '.' && -d "$outDir/$_" } readdir $dh;
 closedir $dh; undef $dh;
-print scalar(keys %existing) . " samples already in $outDir.\n";
+print scalar(keys %existing) . " samples already in output directory.\n";
 my $moved = 0;
 my $max = $opt->max;
 for my $sample (@samples) { last if $moved >= $max;
-    if (! $existing{$sample}) {
+    if ($existing{$sample}) {
+        print "Skipping $sample.\n";
+    } else {
         print "Moving $sample to $outDir. ";
         my $numCopied = File::Copy::Recursive::dircopy("$inDir/$sample", "$outDir/$sample");
         if ($numCopied) {
