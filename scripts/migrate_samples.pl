@@ -65,7 +65,7 @@ if (! $inDir) {
 # Get the input samples.
 my $dh;
 opendir($dh, $inDir) || die "Could not open input directory: $!";
-my @samples = sort grep { substr($_,0,1) ne '.' && -d "$inDir/$_" } readdir $dh;
+my @samples = sort grep { substr($_,0,1) eq 'S' && -d "$inDir/$_" } readdir $dh;
 closedir $dh; undef $dh;
 print scalar(@samples) . " input samples found.\n";
 # Get the existing samples.
