@@ -77,6 +77,10 @@ Remove assembly information for completed jobs.
 Specifies that directories in a Downloaded status should be binned. The value should be a number. That number of
 binning pipelines will be started; all subsequent directories will be left in a Downloaded state.
 
+=item resume
+
+Restart non-running jobs in progress.
+
 =back
 
 =cut
@@ -84,6 +88,7 @@ binning pipelines will be started; all subsequent directories will be left in a 
 # Get the command-line parameters.
 my $opt = ScriptUtils::Opts('directory',
                 ['clean', 'clean up assembly information for complete samples'],
+                ['resume', 'restart failed jobs'],
                 ['run=i', 'run binning pipeline on new directories', { default => 0 }]);
 my $stats = Stats->new();
 # Get the main directory name.
@@ -140,10 +145,14 @@ for my $dir (@dirs) {
         print "$label: RAST Complete.\n";
         $stats->Add(dirs6RastComplete => 1);
     } elsif (-s "$subDir/bin1.gto") {
-        print "$label: RAST in Progress.\n";
+        if (! $run && $opt->resume) {
+            StartJob($dir, $subDir, '', 'Restarted', $label);
+        }
         $stats->Add(dirs5RastPartial => 1);
     } elsif (-s "$subDir/bins.json") {
-        print "$label: Bins Computed.\n";
+        if (! $run && $opt->resume) {
+            StartJob($dir, $subDir, '', 'Restarted', $label);
+        }
         $stats->Add(dirs4Binned => 1);
     } elsif (-s "$subDir/bins.report.txt") {
         $stats->Add(noBinsFound => 1);
@@ -166,10 +175,7 @@ for my $dir (@dirs) {
             my $found = grep { $_ =~ /\.fastq\.gz$/ } readdir $dh;
             closedir $dh;
             my $gz = ($found ? '--gz' : '');
-            my $cmd = "bins_sample_pipeline $gz $dir $subDir >$subDir/run.log 2>$subDir/err.log";
-            my $rc = system("nohup $cmd &");
-            print "$label: Started $cmd.\n";
-            $stats->Add(dirs0Started => 1);
+            StartJob($dir, $subDir, $gz, 'Started', $label);
             $runCount--;
         } else {
             print "$label: Downloaded.\n";
@@ -194,3 +200,12 @@ for my $dir (@dirs) {
     }
 }
 print "\nAll done:\n" . $stats->Show();
+
+
+sub StartJob {
+    my ($dir, $subDir, $gz, $label, $start) = @_;
+    my $cmd = "bins_sample_pipeline $gz $dir $subDir >$subDir/run.log 2>$subDir/err.log";
+    my $rc = system("nohup $cmd &");
+    print "$label: $start $cmd.\n";
+    $stats->Add("dirs0$start" => 1);
+}
