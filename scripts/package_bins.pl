@@ -147,7 +147,7 @@ for my $sample (@samples) {
         open(my $ih, '<', "$sample/ref.genomes.scores.tbl") || die "Could not open ref genomes score table: $!";
         while (! eof $ih) {
             my $line = <$ih>;
-            if ($line =~ /(\d+\.\d+)\t(\d+)\t(.+)$/) {
+            if ($line =~ /(\d+\.\d+)\t([\d\.]+)\t(.+)$/) {
                 $refGenomes{$1} = [$2, $3];
             }
         }
