@@ -147,11 +147,15 @@ for my $dir (@dirs) {
     } elsif (-s "$subDir/bin1.gto") {
         if (! $run && $opt->resume) {
             StartJob($dir, $subDir, '', 'Restarted', $label);
+        } else {
+            print "$label: RAST in Progress.\n";
         }
         $stats->Add(dirs5RastPartial => 1);
     } elsif (-s "$subDir/bins.json") {
         if (! $run && $opt->resume) {
             StartJob($dir, $subDir, '', 'Restarted', $label);
+        } else {
+            print "$label: Bins Computed.\n";
         }
         $stats->Add(dirs4Binned => 1);
     } elsif (-s "$subDir/bins.report.txt") {
@@ -203,7 +207,7 @@ print "\nAll done:\n" . $stats->Show();
 
 
 sub StartJob {
-    my ($dir, $subDir, $gz, $label, $start) = @_;
+    my ($dir, $subDir, $gz, $start, $label) = @_;
     my $cmd = "bins_sample_pipeline $gz $dir $subDir >$subDir/run.log 2>$subDir/err.log";
     my $rc = system("nohup $cmd &");
     print "$label: $start $cmd.\n";
