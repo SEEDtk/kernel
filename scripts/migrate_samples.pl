@@ -74,18 +74,23 @@ my %existing = map { $_ => 1 } grep { substr($_,0,1) ne '.' && -d "$outDir/$_" }
 closedir $dh; undef $dh;
 print scalar(keys %existing) . " samples already in output directory.\n";
 my $moved = 0;
+my $remaining = 0;
 my $max = $opt->max;
 print "Processing input samples.\n";
-for my $sample (@samples) { last if $moved >= $max;
+for my $sample (@samples) {
     if (! $existing{$sample}) {
-        print "Moving $sample...\n";
-        my $numCopied = File::Copy::Recursive::dircopy("$inDir/$sample", "$outDir/$sample");
-        if ($numCopied) {
-            print "$numCopied items transferred.\n";
-            $moved++;
+        if ($moved < $max) {
+            print "Moving $sample...\n";
+            my $numCopied = File::Copy::Recursive::dircopy("$inDir/$sample", "$outDir/$sample");
+            if ($numCopied) {
+                print "$numCopied items transferred.\n";
+                $moved++;
+            } else {
+                die "Error in copy: $!";
+            }
         } else {
-            die "Error in copy: $!";
+            $remaining++;
         }
     }
 }
-print "All done. $moved directories moved.\n";
+print "All done. $moved directories moved, $remaining remaining.\n";
