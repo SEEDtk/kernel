@@ -363,7 +363,7 @@ sub quality_report {
 sub status {
     my ($packageDir) = @_;
     my $packages = AllPackages($packageDir);
-    my ($tf, $sk, $cm, $tot) = (0, 0, 0, 0);
+    my ($tf, $sk, $cm, $tot, $sampled) = (0, 0, 0, 0);
     my %dirs = (EvalByTF => \$tf, EvalByCheckm => \$cm, EvalBySciKit => \$sk);
     for my $package (@$packages) {
         $tot++;
@@ -372,8 +372,15 @@ sub status {
                 ${$dirs{$dir}}++;
             }
         }
+        open(my $ih, "$packageDir/$package/data.tbl") || die "Could not open $package data file: $!";
+        while (! eof $ih) {
+            my $line = <$ih>;
+            if ($line =~ /Sample Name/) {
+                $sampled++;
+            }
+        }
     }
-    print "$tot packages.\n$tf scored by SciKit.\n$cm scored by CheckM.\n$tf scored by Tensor Flow.\n";
+    print "$tot packages.\n$tf scored by SciKit.\n$cm scored by CheckM.\n$tf scored by Tensor Flow.\n$sampled from samples.\n";
 }
 
 sub good_packages {
