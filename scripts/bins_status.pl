@@ -113,6 +113,8 @@ for my $job (@jobs) {
 opendir(my $ih, $directory) || die "Could not open directory $directory.";
 my @dirs = sort grep { substr($_,0,1) ne '.' && -d "$directory/$_" } readdir $ih;
 print scalar(@dirs) . " subdirectories found.\n";
+# Groups for printing.
+my (@done, @downloaded, @other);
 for my $dir (@dirs) {
     $stats->Add(dirsTotal => 1);
     my $subDir = "$directory/$dir";
@@ -142,33 +144,33 @@ for my $dir (@dirs) {
     } elsif ($rastFound && ! -s "$subDir/$dir" . '_abundance_table.tsv') {
         $done = "Done (No Expectations).";
     } elsif ($rastFound) {
-        print "$label: RAST Complete.\n";
+        push @other, "$label: RAST Complete.\n";
         $stats->Add(dirs6RastComplete => 1);
     } elsif (-s "$subDir/bin1.gto") {
         if (! $run && $opt->resume) {
             StartJob($dir, $subDir, '', 'Restarted', $label);
         } else {
-            print "$label: RAST in Progress.\n";
+            push @other, "$label: RAST in Progress.\n";
         }
         $stats->Add(dirs5RastPartial => 1);
     } elsif (-s "$subDir/bins.json") {
         if (! $run && $opt->resume) {
             StartJob($dir, $subDir, '', 'Restarted', $label);
         } else {
-            print "$label: Bins Computed.\n";
+            push @other, "$label: Bins Computed.\n";
         }
         $stats->Add(dirs4Binned => 1);
     } elsif (-s "$subDir/bins.report.txt") {
         $stats->Add(noBinsFound => 1);
         $done = "No bins found.";
     } elsif (-s "$subDir/sample.fasta") {
-        print "$label: Binning in Progress.\n";
+        push @other, "$label: Binning in Progress.\n";
         $stats->Add(dirs3Binning => 1);
     } elsif (-s "$subDir/contigs.fasta") {
-        print "$label: Assembled.\n";
+        push @other, "$label: Assembled.\n";
         $stats->Add(dirs2Assembled => 1);
     } elsif (-d "$subDir/Assembly") {
-        print "$label: Assembling.\n";
+        push @other, "$label: Assembling.\n";
         $stats->Add(dirs1Assembling => 1);
     } else {
         # Here the directory is downloaded. We may need to run the pipeline.
@@ -182,7 +184,7 @@ for my $dir (@dirs) {
             StartJob($dir, $subDir, $gz, 'Started', $label);
             $runCount--;
         } else {
-            print "$label: Downloaded.\n";
+            push @downloaded, "$label: Downloaded.\n";
             $stats->Add(dirs0Downloaded => 1);
         }
     }
@@ -200,9 +202,10 @@ for my $dir (@dirs) {
             }
             $stats->Add(dirsCleaned => 1);
         }
-        print "$label: $done$cleaned\n";
+        push @done, "$label: $done$cleaned\n";
     }
 }
+print @done, @downloaded, @other;
 print "\nAll done:\n" . $stats->Show();
 
 
@@ -210,6 +213,6 @@ sub StartJob {
     my ($dir, $subDir, $gz, $start, $label) = @_;
     my $cmd = "bins_sample_pipeline $gz $dir $subDir >$subDir/run.log 2>$subDir/err.log";
     my $rc = system("nohup $cmd &");
-    print "$label: $start $cmd.\n";
+    push @other, "$label: $start $cmd.\n";
     $stats->Add("dirs0$start" => 1);
 }
