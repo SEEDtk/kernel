@@ -526,10 +526,12 @@ for my $refGenome (@refGenomes) {
         $stats->Add(refGenomeFromFile => 1);
     }
     if (! $gto) {
-        die "$refGenome not found.";
+        print "WARNING: $refGenome not found.";
+        delete $rg{$refGenome};
+    } else {
+        push @gtos, $gto;
+        $rg{$refGenome} = $gto;
     }
-    push @gtos, $gto;
-    $rg{$refGenome} = $gto;
 }
 # Get the name and taxonomy data for each bin.
 for my $title (keys %binBest) {
