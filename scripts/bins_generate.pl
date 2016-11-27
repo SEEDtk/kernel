@@ -526,8 +526,7 @@ for my $refGenome (@refGenomes) {
         $stats->Add(refGenomeFromFile => 1);
     }
     if (! $gto) {
-        print "WARNING: $refGenome not found.";
-        delete $rg{$refGenome};
+        die "$refGenome not found.";
     } else {
         push @gtos, $gto;
         $rg{$refGenome} = $gto;
