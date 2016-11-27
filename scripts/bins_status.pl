@@ -167,7 +167,11 @@ for my $dir (@dirs) {
         push @other, "$label: Binning in Progress.\n";
         $stats->Add(dirs3Binning => 1);
     } elsif (-s "$subDir/contigs.fasta") {
-        push @other, "$label: Assembled.\n";
+        if (! $run && $opt->resume) {
+            StartJob($dir, $subDir, '', 'Restarted', $label);
+        } else {
+            push @other, "$label: Assembled.\n";
+        }
         $stats->Add(dirs2Assembled => 1);
     } elsif (-d "$subDir/Assembly") {
         push @other, "$label: Assembling.\n";
