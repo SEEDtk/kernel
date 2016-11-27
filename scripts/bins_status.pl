@@ -81,6 +81,10 @@ binning pipelines will be started; all subsequent directories will be left in a 
 
 Restart non-running jobs in progress.
 
+=item terse
+
+If specified, completed samples will not be shown, only samples in progress.
+
 =back
 
 =cut
@@ -89,6 +93,7 @@ Restart non-running jobs in progress.
 my $opt = ScriptUtils::Opts('directory',
                 ['clean', 'clean up assembly information for complete samples'],
                 ['resume', 'restart failed jobs'],
+                ['terse', 'do not show completed bins'],
                 ['run=i', 'run binning pipeline on new directories', { default => 0 }]);
 my $stats = Stats->new();
 # Get the main directory name.
@@ -150,7 +155,10 @@ for my $dir (@dirs) {
         if (! $run && $opt->resume) {
             StartJob($dir, $subDir, '', 'Restarted', $label);
         } else {
-            push @other, "$label: RAST in Progress.\n";
+            my $i = 2;
+            while (-s "$subDir/bin$i.gto") { $i++; }
+            my $bins = $i - 2;
+            push @other, "$label: RAST in Progress. $bins completed.\n";
         }
         $stats->Add(dirs5RastPartial => 1);
     } elsif (-s "$subDir/bins.json") {
@@ -194,6 +202,7 @@ for my $dir (@dirs) {
     }
     # If we are done, we process here and check for cleaning.
     if ($done) {
+        my $show = ($opt->terse ? 0 : 1);
         $stats->Add(dirs7Done => 1);
         if ($clean && ! $cleaned) {
             $cleaned = "  Cleaning Assembly.";
@@ -205,8 +214,11 @@ for my $dir (@dirs) {
                 unlink "$subDir/$fastq";
             }
             $stats->Add(dirsCleaned => 1);
+            $show = 1;
         }
-        push @done, "$label: $done$cleaned\n";
+        if ($show) {
+            push @done, "$label: $done$cleaned\n";
+        }
     }
 }
 print @done, @downloaded, @other;
