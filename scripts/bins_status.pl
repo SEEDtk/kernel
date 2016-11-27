@@ -157,7 +157,7 @@ for my $dir (@dirs) {
         } else {
             my $i = 2;
             while (-s "$subDir/bin$i.gto") { $i++; }
-            my $bins = $i - 2;
+            my $bins = $i - 1;
             push @other, "$label: RAST in Progress. $bins completed.\n";
         }
         $stats->Add(dirs5RastPartial => 1);
