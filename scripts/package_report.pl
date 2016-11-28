@@ -179,9 +179,9 @@ if (! $dir) {
         @packages = grep { $_ =~ /^\d+\.\d+$/ } readdir $dh;
     }
     # Loop through the packages, producing output.
-    if (! $opt->quiet) {
-        for my $package (@packages) {
-            my $line = produce_report($dir, $package, $force);
+    for my $package (@packages) {
+        my $line = produce_report($dir, $package, $force);
+        if (! $opt->quiet) {
             print $line;
         }
     }
