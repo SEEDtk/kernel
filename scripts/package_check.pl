@@ -63,7 +63,7 @@ if (! $dir) {
     my $force = $opt->force;
     # Compute the list of packages to process.
     opendir(my $dh, $dir) || die "Could not open package directory: $!";
-    my @packages = grep { $_ =~ /^\d+\.\d+$/ } readdir $dh;
+    my @packages = sort grep { $_ =~ /^\d+\.\d+$/ } readdir $dh;
     # Loop through the packages..
     for my $package (@packages) {
         $stats->Add(packages => 1);
