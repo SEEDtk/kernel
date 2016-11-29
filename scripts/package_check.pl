@@ -96,10 +96,9 @@ print "All Done.\n" . $stats->Show();
 
 sub Process {
     my ($type, $outDir, $force, $package, $cmd, $statusOnly) = @_;
-    my $retVal = 1;
+    my $retVal = ! $statusOnly;
     if (-d $outDir) {
         if ($statusOnly) {
-            $retVal = 0;
             $stats->Add("found-$type" => 1);
         } else {
             if ($force) {
