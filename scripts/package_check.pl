@@ -43,6 +43,10 @@ The command-line options are as follows.
 =item force
 
 All of the evaluations will be performed, even if they already exist.
+
+=item status
+
+If specified, no evaluations will be performed, only the status will be displayed.
 =back
 
 =cut
@@ -50,6 +54,7 @@ All of the evaluations will be performed, even if they already exist.
 # Get the command-line parameters.
 my $opt = ScriptUtils::Opts('dir package',
         ["force", 'force regeneration of quality data'],
+        ["status", 'only show totals'],
         );
 my $stats = Stats->new;
 # Get the directory and the package.
@@ -73,34 +78,39 @@ if (! $dir) {
         # Process CheckM.
         my $outDir = "$pDir/EvalByCheckm";
         my $cmd = "checkm lineage_wf --tmpdir $FIG_Config::temp -x fa --file $pDir/evaluate.log $pDir $outDir";
-        $ok = Process(CheckM => $outDir, $force, $package, $cmd);
+        $ok = Process(CheckM => $outDir, $force, $package, $cmd, $opt->status);
         if ($ok) {
             File::Copy::Recursive::fmove("$pDir/evaluate.log", "$pDir/EvalByCheckm/evaluate.log");
         }
         # Process Tensor Flow.
         $outDir = "$pDir/EvalByTF";
         $cmd = "eval_tensor_flow $pDir/bin.gto $outDir";
-        $ok = Process("Tensor Flow" => $outDir, $force, $package, $cmd);
+        $ok = Process("Tensor Flow" => $outDir, $force, $package, $cmd, $opt->status);
         # Process SciKit.
         $outDir = "$pDir/EvalBySciKit";
         $cmd = "gto_consistency $pDir/bin.gto $outDir $FIG_Config::global/FunctionPredictors $FIG_Config::global/roles.in.subsystems $FIG_Config::global/roles.to.use";
-        $ok = Process("SciKit" => $outDir, $force, $package, $cmd);
+        $ok = Process("SciKit" => $outDir, $force, $package, $cmd, $opt->status);
     }
 }
 print "All Done.\n" . $stats->Show();
 
 sub Process {
-    my ($type, $outDir, $force, $package, $cmd) = @_;
+    my ($type, $outDir, $force, $package, $cmd, $statusOnly) = @_;
     my $retVal = 1;
     if (-d $outDir) {
-        if ($force) {
-            print "Erasing old $outDir.\n";
-            File::Copy::Recursive::pathempty($outDir);
-            $stats->Add("clear-$type" => 1);
-        } else {
-            print "$type already run for $package-- skipping.\n";
-            $stats->Add("skip-$type" => 1);
+        if ($statusOnly) {
             $retVal = 0;
+            $stats->Add("found-$type" => 1);
+        } else {
+            if ($force) {
+                print "Erasing old $outDir.\n";
+                File::Copy::Recursive::pathempty($outDir);
+                $stats->Add("clear-$type" => 1);
+            } else {
+                print "$type already run for $package-- skipping.\n";
+                $stats->Add("skip-$type" => 1);
+                $retVal = 0;
+            }
         }
     }
     if ($retVal) {
