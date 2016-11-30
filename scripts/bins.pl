@@ -365,6 +365,7 @@ sub status {
     my $packages = AllPackages($packageDir);
     my ($tf, $sk, $cm, $tot, $sampled) = (0, 0, 0, 0);
     my %dirs = (EvalByTF => \$tf, EvalByCheckm => \$cm, EvalBySciKit => \$sk);
+    my %samples;
     for my $package (@$packages) {
         $tot++;
         for my $dir (keys %dirs) {
@@ -375,12 +376,14 @@ sub status {
         open(my $ih, "$packageDir/$package/data.tbl") || die "Could not open $package data file: $!";
         while (! eof $ih) {
             my $line = <$ih>;
-            if ($line =~ /Sample Name/) {
+            if ($line =~ /Sample Name\t(.+)/) {
+                $samples{$1}++;
                 $sampled++;
             }
         }
     }
-    print "$tot packages.\n$tf scored by SciKit.\n$cm scored by CheckM.\n$tf scored by Tensor Flow.\n$sampled from samples.\n";
+    my $samplesFound = scalar keys %samples;
+    print "$tot packages.\n$tf scored by SciKit.\n$cm scored by CheckM.\n$tf scored by Tensor Flow.\n$sampled from $samplesFound samples.\n";
 }
 
 sub good_packages {
