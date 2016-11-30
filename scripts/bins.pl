@@ -365,6 +365,7 @@ sub status {
     my $packages = AllPackages($packageDir);
     my ($tf, $sk, $cm, $tot, $sampled) = (0, 0, 0, 0);
     my %dirs = (EvalByTF => \$tf, EvalByCheckm => \$cm, EvalBySciKit => \$sk);
+    my $goodOnes = 0;
     my %samples;
     for my $package (@$packages) {
         $tot++;
@@ -381,9 +382,15 @@ sub status {
                 $sampled++;
             }
         }
+        my $line = package_good_report($packageDir, $package);
+        if ($line) {
+            $goodOnes++;
+        }
     }
     my $samplesFound = scalar keys %samples;
-    print "$tot packages.\n$tf scored by SciKit.\n$cm scored by CheckM.\n$tf scored by Tensor Flow.\n$sampled from $samplesFound samples.\n";
+    print "$tot packages.\n$tf scored by SciKit.\n$cm scored by CheckM.\n" .
+          "$tf scored by Tensor Flow.\n$sampled from $samplesFound samples.\n" .
+          "$goodOnes good packages.\n";
 }
 
 sub good_packages {
@@ -398,14 +405,9 @@ sub good_packages {
     print "Reading quality reports.\n";
     my $packages = AllPackages($packageDir);
     for my $package (@$packages) {
-        if (open(my $ih, "$packageDir/$package/quality.tbl")) {
-            my $line = <$ih>;
-            chomp $line;
-            my ($id, $name, $contigs, $bases, $refGenome, $refName, $skScore, $tfScore, $cmScore, $cmContam, $cmTaxon) = split /\t/, $line;
-            my $outLine = [$skScore, $id, $contigs, $refGenome, $tfScore, $cmScore, $cmContam, $refName];
-            if ($skScore && $cmScore && $tfScore && $skScore >= 80 && $cmScore >= 80 && $bases >= 500000) {
-                push @report, $outLine;
-            }
+        my $line = package_good_report($packageDir, $package);
+        if ($line) {
+            push @report, $line;
         }
     }
     my $header = ['SK', 'ID', 'Contigs', 'RefID', 'TF', 'CheckM', 'Contam', 'RefName'];
@@ -417,6 +419,21 @@ sub good_packages {
         print $line;
     }
     close $oh;
+}
+
+sub package_good_report {
+    my ($packageDir, $package) = @_;
+    my $retVal;
+    if (open(my $ih, "$packageDir/$package/quality.tbl")) {
+        my $line = <$ih>;
+        chomp $line;
+        my ($id, $name, $contigs, $bases, $refGenome, $refName, $skScore, $tfScore, $cmScore, $cmContam, $cmTaxon) = split /\t/, $line;
+        my $outLine = [$skScore, $id, $contigs, $refGenome, $tfScore, $cmScore, $cmContam, $refName];
+        if ($skScore && $cmScore && $tfScore && $skScore >= 80 && $cmScore >= 80 && $bases >= 500000) {
+            $retVal = $outLine;
+        }
+    }
+    return $retVal;
 }
 
 sub number_packages {
