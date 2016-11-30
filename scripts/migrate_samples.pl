@@ -43,6 +43,10 @@ The command-line options are the following.
 
 Maximum number of directories to copy. The default is C<6>.
 
+=item blacklist
+
+Name of a file containing the names of samples to be excluded.
+
 =back
 
 =cut
@@ -50,6 +54,7 @@ Maximum number of directories to copy. The default is C<6>.
 # Get the command-line parameters.
 my $opt = ScriptUtils::Opts('inDir outDir',
         ['max=i', 'maximum number of samples to move', { default => 6 }],
+        ['blacklist=s', 'file of samples to exclude'],
         );
 # Get the directories.
 my ($inDir, $outDir) = @ARGV;
@@ -61,6 +66,16 @@ if (! $inDir) {
     die "Output directory missing.";
 } elsif (! -d $outDir) {
     die "Invalid output directory $outDir.";
+}
+# Check for a blacklist.
+my %blackList;
+if ($opt->blacklist) {
+    open(my $ih, '<', $opt->blacklist) || die "Could not open blacklist file: $!";
+    while (! eof $ih) {
+        my $name = <$ih>;
+        chomp $name;
+        $blackList{$name} = 1;
+    }
 }
 # Get the input samples.
 my $dh;
@@ -78,7 +93,7 @@ my $remaining = 0;
 my $max = $opt->max;
 print "Processing input samples.\n";
 for my $sample (@samples) {
-    if (! $existing{$sample}) {
+    if (! $existing{$sample} && ! $blackList{$sample}) {
         if ($moved < $max) {
             print "Moving $sample...\n";
             my $numCopied = File::Copy::Recursive::dircopy("$inDir/$sample", "$outDir/$sample");
