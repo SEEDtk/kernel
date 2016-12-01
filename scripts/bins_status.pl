@@ -23,6 +23,8 @@ use FIG_Config;
 use ScriptUtils;
 use Stats;
 use File::Copy::Recursive;
+use Bin::Package;
+use FIG_Config;
 
 =head1 Check Status of Bin Pipeline
 
@@ -205,6 +207,7 @@ for my $dir (@dirs) {
         my $show = ($opt->terse ? 0 : 1);
         $stats->Add(dirs7Done => 1);
         if ($clean && ! $cleaned) {
+            Bin::Package::CreateFromSample($subDir, $dir, $stats, 0, "$FIG_Config::data/GenomePackages");
             $cleaned = "  Cleaning Assembly.";
             File::Copy::Recursive::pathempty("$subDir/Assembly");
             rmdir "$subDir/Assembly";

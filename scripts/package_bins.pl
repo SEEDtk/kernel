@@ -21,10 +21,8 @@ use strict;
 use warnings;
 use FIG_Config;
 use ScriptUtils;
-use Bin;
-use GenomeTypeObject;
-use File::Copy::Recursive;
 use Stats;
+use Bin::Package;
 
 =head1 Create Genome Packages
 
@@ -140,92 +138,9 @@ for my $sample (@samples) {
         my @pieces = split /[\\\/:]/, $sample;
         my $sampleName = pop @pieces;
         print "Sample name is $sampleName.\n";
-        # Read in the scores for the reference genomes. We use these to compute the closest genome to each bin.
-        # The hash will map each genome ID to a [score, name] tuple.
-        my %refGenomes;
-        print "Processing reference genomes.\n";
-        open(my $ih, '<', "$sample/ref.genomes.scores.tbl") || die "Could not open ref genomes score table: $!";
-        while (! eof $ih) {
-            my $line = <$ih>;
-            if ($line =~ /\t(\d+\.\d+)\t([\d\.]+)\t(.+)$/) {
-                $refGenomes{$1} = [$2, $3];
-            }
-        }
-        # Now read in the bins.
-        print "Reading bin file.\n";
-        my $binList = Bin::ReadBins("$sample/bins.rast.json");
-        # Create a map from contig IDs to bins.
-        my %binMap;
-        for my $bin (@$binList) {
-            $binMap{$bin->contig1} = $bin;
-        }
-        # Now we process the bins sequentially. For each GTO/FA pair, we search the contigs to find the matching bin object.
-        # The bin object produces the majority of the data.tbl values.
-        my $binN = 1;
-        while (-f "$sample/bin$binN.gto") {
-            my $binName = "bin$binN";
-            print "Processing $binName.\n";
-            $stats->Add(bins => 1);
-            my $gto = GenomeTypeObject->create_from_file("$sample/$binName.gto");
-            # Get the ID and name of the genome.
-            my $genomeID = $gto->{id};
-            my $name = $gto->{scientific_name};
-            # Compute the output directory name.
-            my $genomeDir = "$packageDir/$genomeID";
-            if (-d $genomeDir && ! $opt->force) {
-                print "Package already exists for $binName: $genomeID.\n";
-                $stats->Add(binsAlreadyFound => 1);
-            } else {
-                # Here the bin is new or we are forcing.
-                if (! -d $genomeDir) {
-                    print "Creating $genomeDir.\n";
-                    mkdir $genomeDir;
-                    $stats->Add(binProcessed => 1);
-                } else {
-                    print "Replacing $genomeDir.\n";
-                    File::Copy::Recursive::pathempty($genomeDir);
-                    $stats->Add(binReplaced => 1);
-                }
-                # Find the bin object. One of the contigs will identify the bin. We stop when we hit it.
-                my $bin;
-                my $contigs = $gto->{contigs};
-                for my $contig (@$contigs) { last if $bin;
-                    $bin = $binMap{$contig->{id}};
-                }
-                die "Bin object not found for $binName." if ! $bin;
-                # Copy the main files.
-                File::Copy::Recursive::fcopy("$sample/$binName.gto", "$genomeDir/bin.gto") ||
-                    die "Error copying $binName.gto: $!";
-                File::Copy::Recursive::fcopy("$sample/$binName.fa", "$genomeDir/bin.fa") ||
-                    die "Error copying $binName.fa: $!";
-                # We will compute the data table values in here.
-                my %data;
-                $data{'Genome Name'} = $name;
-                $data{'Sample Name'} = $sampleName;
-                $data{'Bin Number'} = $binN;
-                $data{'Contigs'} = $bin->contigCount;
-                $data{'Base pairs'} = $bin->len;
-                # Find the closest reference genome.
-                my @refs = $bin->refGenomes;
-                my ($closest, $best) = ('', 0);
-                for my $ref (@refs) {
-                    my $score = $refGenomes{$ref}[0];
-                    if ($score >= $best) {
-                        $best = $score;
-                        $closest = $ref;
-                    }
-                }
-                $data{'Ref Genome'} = $closest;
-                $data{'Ref Name'} = $refGenomes{$closest}[1];
-                # Write the data file.
-                open(my $oh, '>', "$genomeDir/data.tbl") || die "Could not open $binName data table file: $!";
-                for my $key (sort keys %data) {
-                    print $oh "$key\t$data{$key}\n";
-                }
-            }
-            # Move to the next bin.
-            $binN++;
-        }
+        Bin::Package::CreateFromSample($sample, $sampleName, $stats, $opt->force, $packageDir);
     }
 }
 print "All done.\n" . $stats->Show();
+
+
