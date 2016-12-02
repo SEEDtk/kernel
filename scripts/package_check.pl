@@ -72,7 +72,10 @@ if (! $dir) {
     # Loop through the packages..
     for my $package (@packages) {
         $stats->Add(packages => 1);
-        print "Checking $package.\n";
+        if (! $opt->status) {
+            print "Checking $package.\n";
+
+        }
         my $ok = 1;
         my $pDir = "$dir/$package";
         # Process CheckM.
