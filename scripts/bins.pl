@@ -92,6 +92,19 @@ while ( (defined($req) && $req) || ((@ARGV == 0) && ($req = &get_req)) )
     elsif ($req =~ /^\s*samples_report\s*$/) {
         samples_report($packageDir);
     }
+    elsif ($req =~ /^\s*coverages(\s+(\S+))?/) {
+        my $package;
+        if ((! $2) && (! $current_package))
+        {
+            print "You need to specify a package\n";
+        }
+        else
+        {
+            $package = $2 || $current_package;
+        }
+        my $cmd = "package_contigs --input=$packageDir/$package/bin.fa $packageDir/$package/contigs.tbl";
+        SeedUtils::run($cmd);
+    }
     elsif ($req =~ /^\s*status\s*$/) {
         status($packageDir);
     }
@@ -535,5 +548,6 @@ sub help {
     set roles RolesFile             Set default roles from [RoleId,Role] file
     samples_report                  Display packages sorted by originating sample
     status                          display statistics about the packages
+    coverages                       analyze contig coverages, output to contigs.tbl
 END
 }
