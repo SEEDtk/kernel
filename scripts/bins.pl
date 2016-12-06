@@ -226,7 +226,7 @@ while ( (defined($req) && $req) || ((@ARGV == 0) && ($req = &get_req)) )
             }
         }
     }
-    elsif ($req =~ /^\s*find_bad_contigs(\s+(\S+))\s*$/)
+    elsif ($req =~ /^\s*find_bad_contigs(\s+(\S+))?\s*$/)
     {
         my $package;
         if ((! $2) && (! $current_package))
