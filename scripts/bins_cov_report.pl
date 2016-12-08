@@ -96,21 +96,21 @@ if (! $sampleID) {
                     my $contigID = $contig->{id};
                     if ($contigID =~ /cov_([^_]+)/) {
                         my $cov = $1;
-                        if ($cov >= $min) {
-                            $count++;
-                            $tot += $cov;
-                            if ($seedContigs{$contigID}) {
-                                $seedTot += $cov;
-                                $seedCount++;
-                            }
+                        $count++;
+                        $tot += $cov;
+                        if ($seedContigs{$contigID}) {
+                            $seedTot += $cov;
+                            $seedCount++;
                         }
                     }
                 }
                 # Compute the averages.
                 my $avg = ($count ? $tot / $count : 0);
                 my $seedAvg = ($seedCount ? $seedTot / $seedCount : 0);
-                # Output this bin.
-                print join("\t", $sample, $name, $avg, $seedAvg) . "\n";
+                # Output this bin if its coverages are acceptable.
+                if ($avg >= $min || $seedAvg >= $min) {
+                    print join("\t", $sample, $name, $avg, $seedAvg) . "\n";
+                }
                 # Move to the next bin.
                 $i++;
             }
