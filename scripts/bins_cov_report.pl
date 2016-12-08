@@ -83,7 +83,7 @@ if (! $sampleID) {
                 for my $contig (@$contigList) {
                     # Get this contig's ID and coverage.
                     my $contigID = $contig->{id};
-                    if ($contigID =~ /cov_(.+)/) {
+                    if ($contigID =~ /cov_([^_]+)/) {
                         my $cov = $1;
                         $count++;
                         $tot += $cov;
