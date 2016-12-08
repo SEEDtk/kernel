@@ -39,7 +39,7 @@ be processed. If the sample ID is C<all>, then all samples will be processed.
 
 =item min
 
-The minimum acceptable coverage. Only contigs with this coverage level or greater are included in the report. The
+The minimum acceptable coverage. Only bins with this coverage level or greater are included in the report. The
 default is C<20>.
 
 =cut
