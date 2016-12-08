@@ -87,6 +87,7 @@ if (! $sampleID) {
                 my $gto = GenomeTypeObject->create_from_file("$sampleDir/bin$i.gto");
                 # Get the name.
                 my $name = $gto->{scientific_name};
+                my $id = $gto->{id};
                 # Get the list of contigs.
                 my $contigList = $gto->{contigs};
                 # Loop through the contigs, accumulating averages.
@@ -109,7 +110,9 @@ if (! $sampleID) {
                 my $seedAvg = ($seedCount ? $seedTot / $seedCount : 0);
                 # Output this bin if its coverages are acceptable.
                 if ($avg >= $min || $seedAvg >= $min) {
-                    print join("\t", $sample, $name, $avg, $seedAvg) . "\n";
+                    $avg = sprintf("%.2f", $avg);
+                    $seedAvg = sprintf("%.2f", $seedAvg);
+                    print join("\t", $sample, $id, $name, $avg, $seedAvg) . "\n";
                 }
                 # Move to the next bin.
                 $i++;
