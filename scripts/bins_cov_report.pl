@@ -33,7 +33,7 @@ overall, and the mean coverage for the contigs containing seed proteins.
 =head2 Parameters
 
 There are two positional parameters-- the name of the directory containing the samples, and the ID of the sample to
-be processed.
+be processed. If the sample ID is C<all>, then all samples will be processed.
 
 =cut
 
@@ -41,58 +41,66 @@ be processed.
 my $opt = ScriptUtils::Opts('dir sample',
         );
 # Get the bin directory.
-my ($dir, $sample) = @ARGV;
-if (! $sample) {
+my ($dir, $sampleID) = @ARGV;
+if (! $sampleID) {
     die "No sample ID specified.";
 } elsif (! $dir) {
     die "No samples directory specified.";
 } elsif (! -d $dir) {
     die "Invalid samples directory $dir: $!";
 } else {
-    my $sampleDir = "$dir/$sample";
-    if (! -f "$sampleDir/bins.rast.json") {
-        die "$sample does not appear to be a completed sample."
+    my @samples;
+    if ($sampleID eq 'all') {
+        opendir(my $dh, $dir) || die "Could not open sample directory: $!";
+        @samples = sort grep { substr($_,0,1) ne '.' && -d "$dir/$_" } readdir $dh;
     } else {
-        # Read in the contig IDs that represent seed protein hits.
-        my %seedContigs;
-        open(my $ih, '<', "$sampleDir/bins.found.tbl") || die "Could not open bins.found.tbl: $!";
-        while (! eof $ih) {
-            my $line = <$ih>;
-            if ($line =~ /^(NODE_\S+)\t/) {
-                $seedContigs{$1} = 1;
-            }
-        }
-        # Loop through the bins.
-        my $i = 1;
-        while (-f "$sampleDir/bin$i.gto") {
-            # Read in this bin.
-            my $gto = GenomeTypeObject->create_from_file("$sampleDir/bin$i.gto");
-            # Get the name.
-            my $name = $gto->{scientific_name};
-            # Get the list of contigs.
-            my $contigList = $gto->{contigs};
-            # Loop through the contigs, accumulating averages.
-            my ($tot, $count, $seedTot, $seedCount) = (0, 0, 0, 0);
-            for my $contig (@$contigList) {
-                # Get this contig's ID and coverage.
-                my $contigID = $contig->{id};
-                if ($contigID =~ /cov_(.+)/) {
-                    my $cov = $1;
-                    $count++;
-                    $tot += $cov;
-                    if ($seedContigs{$contigID}) {
-                        $seedTot += $cov;
-                        $seedCount++;
-                    }
+        push @samples, $sampleID;
+    }
+    for my $sample (@samples) {
+        my $sampleDir = "$dir/$sample";
+        # Only process completed samples.
+        if (-f "$sampleDir/bins.rast.json") {
+            # Read in the contig IDs that represent seed protein hits.
+            my %seedContigs;
+            open(my $ih, '<', "$sampleDir/bins.found.tbl") || die "Could not open bins.found.tbl: $!";
+            while (! eof $ih) {
+                my $line = <$ih>;
+                if ($line =~ /^(NODE_\S+)\t/) {
+                    $seedContigs{$1} = 1;
                 }
             }
-            # Compute the averages.
-            my $avg = ($count ? $tot / $count : 0);
-            my $seedAvg = ($seedCount ? $seedTot / $seedCount : 0);
-            # Output this bin.
-            print join("\t", $sample, $name, $avg, $seedAvg) . "\n";
-            # Move to the next bin.
-            $i++;
+            # Loop through the bins.
+            my $i = 1;
+            while (-f "$sampleDir/bin$i.gto") {
+                # Read in this bin.
+                my $gto = GenomeTypeObject->create_from_file("$sampleDir/bin$i.gto");
+                # Get the name.
+                my $name = $gto->{scientific_name};
+                # Get the list of contigs.
+                my $contigList = $gto->{contigs};
+                # Loop through the contigs, accumulating averages.
+                my ($tot, $count, $seedTot, $seedCount) = (0, 0, 0, 0);
+                for my $contig (@$contigList) {
+                    # Get this contig's ID and coverage.
+                    my $contigID = $contig->{id};
+                    if ($contigID =~ /cov_(.+)/) {
+                        my $cov = $1;
+                        $count++;
+                        $tot += $cov;
+                        if ($seedContigs{$contigID}) {
+                            $seedTot += $cov;
+                            $seedCount++;
+                        }
+                    }
+                }
+                # Compute the averages.
+                my $avg = ($count ? $tot / $count : 0);
+                my $seedAvg = ($seedCount ? $seedTot / $seedCount : 0);
+                # Output this bin.
+                print join("\t", $sample, $name, $avg, $seedAvg) . "\n";
+                # Move to the next bin.
+                $i++;
+            }
         }
     }
 }
