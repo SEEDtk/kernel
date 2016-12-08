@@ -35,11 +35,22 @@ overall, and the mean coverage for the contigs containing seed proteins.
 There are two positional parameters-- the name of the directory containing the samples, and the ID of the sample to
 be processed. If the sample ID is C<all>, then all samples will be processed.
 
+=over 4
+
+=item min
+
+The minimum acceptable coverage. Only contigs with this coverage level or greater are included in the report. The
+default is C<20>.
+
 =cut
 
+$| = 1;
 # Get the command-line parameters.
 my $opt = ScriptUtils::Opts('dir sample',
+                    ['min|m=i', 'minimum contig coverage', { default => 20 }]
         );
+# Get the minimum coverage.
+my $min = $opt->min;
 # Get the bin directory.
 my ($dir, $sampleID) = @ARGV;
 if (! $sampleID) {
@@ -85,11 +96,13 @@ if (! $sampleID) {
                     my $contigID = $contig->{id};
                     if ($contigID =~ /cov_([^_]+)/) {
                         my $cov = $1;
-                        $count++;
-                        $tot += $cov;
-                        if ($seedContigs{$contigID}) {
-                            $seedTot += $cov;
-                            $seedCount++;
+                        if ($cov >= $min) {
+                            $count++;
+                            $tot += $cov;
+                            if ($seedContigs{$contigID}) {
+                                $seedTot += $cov;
+                                $seedCount++;
+                            }
                         }
                     }
                 }
@@ -101,6 +114,8 @@ if (! $sampleID) {
                 # Move to the next bin.
                 $i++;
             }
+            # Print a separator between samples.
+            print "\n";
         }
     }
 }
