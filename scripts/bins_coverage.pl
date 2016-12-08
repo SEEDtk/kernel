@@ -24,7 +24,7 @@ use ScriptUtils;
 use File::Copy::Recursive;
 use Stats;
 
-=head1 Produce Metagenoem Coverage Data
+=head1 Produce Metagenome Coverage Data
 
     bins_coverage [ options ] sampleFile outputDir
 
