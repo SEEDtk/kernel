@@ -23,7 +23,7 @@ use FIG_Config;
 use ScriptUtils;
 use SeedUtils;
 use Bin;
-use P3DataAPI;
+use GenomeTypeObject;
 use File::Copy::Recursive;
 
 
