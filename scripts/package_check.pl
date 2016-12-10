@@ -114,6 +114,13 @@ sub Process {
                 $retVal = 0;
             }
         }
+    } else {
+        # Create the output directory. If we fail, then we have a race condition.
+        $retVal = File::Copy::Recursive::pathmk($outDir);
+        if (! $retVal) {
+            print "Failed to acquire directory for $type of $package-- skipping.\n";
+            $stats->Add("race-$type" => 1);
+        }
     }
     if ($retVal) {
         print "Running $type for $package.\n";
