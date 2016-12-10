@@ -114,7 +114,7 @@ sub Process {
                 $retVal = 0;
             }
         }
-    } else {
+    } elsif (! $statusOnly) {
         # Create the output directory. If we fail, then we have a race condition.
         $retVal = File::Copy::Recursive::pathmk($outDir);
         if (! $retVal) {
