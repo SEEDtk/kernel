@@ -147,6 +147,10 @@ used. If this option is specified, quality data is regenerated for everything.
 
 If specified, no standard output is generated.
 
+=item missing
+
+If specified, a list of the directories with missing information will be sent to the standard error output.
+
 =back
 
 =cut
@@ -154,7 +158,8 @@ If specified, no standard output is generated.
 # Get the command-line parameters.
 my $opt = ScriptUtils::Opts('dir package',
         ["force", 'force regeneration of quality data'],
-        ["quiet", 'suppress standard output']
+        ["quiet", 'suppress standard output'],
+        ["missing", 'list missing data to error output']
         );
 # Get the directory and the package.
 my ($dir, $package) = @ARGV;
@@ -167,6 +172,8 @@ if (! $dir) {
     my @lines;
     # This is the force flag. We default to the option value.
     my $force = $opt->force;
+    # This is the missing-item report flag.
+    my $report = $opt->missing;
     # This will contain the list of packages to process.
     my @packages;
     if ($package) {
@@ -180,7 +187,7 @@ if (! $dir) {
     }
     # Loop through the packages, producing output.
     for my $package (@packages) {
-        my $line = produce_report($dir, $package, $force);
+        my $line = produce_report($dir, $package, $force, $report);
         if (! $opt->quiet) {
             print $line;
         }
@@ -189,7 +196,7 @@ if (! $dir) {
 
 # Produce the report for one package.
 sub produce_report {
-    my ($dir, $package, $force) = @_;
+    my ($dir, $package, $force, $report) = @_;
     # This will be the return line.
     my $retVal;
     # Create the package directory name.
@@ -211,44 +218,62 @@ sub produce_report {
                 my ($key, $value) = split /\t/, $line;
                 $dataVals{$key} = $value;
             }
-            # This will be our handle for the score files.
-            my $fh;
+            # This will list the missing scores.
+            my @missing;
             # Get the checkm scores.
             my ($checkMscore, $checkMcontam, $checkMtaxon) = ('', '', '');
-            if (-d "$pDir/EvalByCheckm" && open($fh, '<', "$pDir/EvalByCheckm/evaluate.log")) {
-                while (! eof $fh) {
-                    my $line = <$fh>;
-                    if ($line =~ /^\s+bin\s+/) {
-                        my @cols = split /\s+/, $line;
-                        $checkMtaxon = $cols[2];
-                        $checkMscore = $cols[13];
-                        $checkMcontam = $cols[14];
+            if (-d "$pDir/EvalByCheckm") {
+                my $found;
+                if (open(my $fh, '<', "$pDir/EvalByCheckm/evaluate.log")) {
+                    while (! eof $fh) {
+                        my $line = <$fh>;
+                        if ($line =~ /^\s+bin\s+/) {
+                            my @cols = split /\s+/, $line;
+                            $checkMtaxon = $cols[2];
+                            $checkMscore = $cols[13];
+                            $checkMcontam = $cols[14];
+                            $found = 1;
+                        }
                     }
+                    close $fh;
                 }
-                close $fh;
+                if (! $found) {
+                    push @missing, 'Checkm';
+                }
             }
-            undef $fh;
             # Get the scikit score.
             my $scikitScore = '';
-            if (-d "$pDir/EvalBySciKit" && open($fh, '<', "$pDir/EvalBySciKit/evaluate.log")) {
-                while (! eof $fh) {
-                    my $line = <$fh>;
-                    if ($line =~ /^Consistency=\s+(.+)\%/) {
-                        $scikitScore = $1;
+            if (-d "$pDir/EvalBySciKit") {
+                my $found;
+                if (open(my $fh, '<', "$pDir/EvalBySciKit/evaluate.log")) {
+                    while (! eof $fh) {
+                        my $line = <$fh>;
+                        if ($line =~ /^Consistency=\s+(.+)\%/) {
+                            $scikitScore = $1;
+                            $found = 1;
+                        }
                     }
+                    close $fh;
                 }
-                close $fh;
+                if (! $found) {
+                    push @missing, 'SciKit';
+                }
             }
-            undef $fh;
             # Get the tensor flow score.
             my $tfScore = '';
-            if (-d "$pDir/EvalByTF" && open($fh, '<', "$pDir/EvalByTF/evaluate.log")) {
-                my $line = <$fh>;
-                chomp $line;
-                $tfScore = $line;
-                close $fh;
+            if (-d "$pDir/EvalByTF") {
+                my $found;
+                if (open(my $fh, '<', "$pDir/EvalByTF/evaluate.log")) {
+                    my $line = <$fh>;
+                    chomp $line;
+                    $tfScore = $line;
+                    close $fh;
+                    $found = 1;
+                }
+                if (! $found) {
+                    push @missing, 'TF';
+                }
             }
-            undef $fh;
             # Assemble the output line.
             my $refGenome = $dataVals{'Ref Genome'} // $dataVals{'Source Package'} // $dataVals{'Source Database'} // '';
             my $refName = $dataVals{'Ref Name'} // 'derived';
@@ -257,6 +282,10 @@ sub produce_report {
                     "\n";
             open(my $oh, '>', "$pDir/quality.tbl") || die "Could not write to quality file for $package: $!";
             print $oh $retVal;
+            # Check for the missing report.
+            if (scalar(@missing) && $report) {
+                print STDERR join("\t", $package, @missing) . "\n";
+            }
         }
     }
     # Return the output line.
