@@ -195,9 +195,11 @@ sub Process {
     # Do we need to assemble the contigs?
     my $assemble = 0;
     my $haveContigs = (-s "$workDir/contigs.fasta" && -s "$workDir/output.contigs2reads.txt");
+    print "Contigs " . ($haveContigs ? '' : 'not ') . "found in directory.\n";
     if ($sfx1q || $sfx2q || $sfxsq) {
         if ($force || ! $haveContigs) {
             $assemble = 1;
+            my $fileCount = 0;
             # Try to find the FASTQ files.
             opendir (my $dh, $workDir) || die "Could not open directory $workDir: $!";
             my @files = sort grep { -f "$workDir/$_" } readdir $dh;
@@ -220,8 +222,12 @@ sub Process {
                     my ($len, $sfx, $list) = @{$sfxes{$t}};
                     if (substr($file, -$len, $len) eq $sfx) {
                         push @$list, "$workDir/$file";
+                        $fileCount++;
                     }
                 }
+            }
+            if (! $fileCount) {
+                die "Contigs not assembled, but no read files found.";
             }
         }
     } elsif (! $haveContigs) {
