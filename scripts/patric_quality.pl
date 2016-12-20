@@ -98,9 +98,9 @@ eval {
     # Open the input file.
     my $ih = ScriptUtils::IH($opt->input);
     # Loop through the input genomes.
-    while (! eof $ih) {
-        my ($couplet) = ScriptUtils::get_couplets($ih, $opt->col, 1);
-        my ($genomeID, $inputLine) = @$couplet;
+    my @couplets;
+    while (@couplets = ScriptUtils::get_couplets($ih, $opt->col, 1)) {
+        my ($genomeID, $inputLine) = @{$couplets[0]};
         $stats->Add(lineIn => 1);
         print STDERR "Processing $genomeID.\n";
         # Get the genome from PATRIC.
@@ -130,6 +130,7 @@ eval {
             if ($quality < $min) {
                 $stats->Add(genomeLowQuality => 1);
             } else {
+                print join("\t", @$inputLine, $quality) . "\n";
                 $stats->Add(genomeAccepted => 1);
                 if ($saveDir) {
                     File::Copy::Recursive::fmove($tempGto, "$saveDir/$genomeID.gto") ||
