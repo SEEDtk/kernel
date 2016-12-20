@@ -113,7 +113,7 @@ eval {
             my $tempGto = "$tempDir/$genomeID.gto";
             $gto->destroy_to_file($tempGto);
             # Clear the result directory.
-            File::Copy::Recursive::pathempty($resultDir) || die "Could not clear $resultDir: $!";
+            File::Copy::Recursive::pathrmdir($resultDir) || die "Could not clear $resultDir: $!";
             # Compute the quality.
             my $cmd = "gto_consistency $tempGto $resultDir $FIG_Config::global/FunctionPredictors $FIG_Config::global/roles.in.subsystems $FIG_Config::global/roles.to.use";
             SeedUtils::run($cmd);
