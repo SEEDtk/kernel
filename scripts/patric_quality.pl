@@ -108,8 +108,11 @@ eval {
         if (! $gto) {
             # Here the genome was not in PATRIC.
             $stats->Add(genomeNotFound => 1);
+        } elsif ($gto->{domain} ne 'Bacteria' && $gto->{domain} ne 'Archaea') {
+            # Here it is not prokaryotic.
+            $stats->Add(genomeNotProk => 1);
         } else {
-            # We have the genome, so save it to disk.
+            # We have the genome and it's good, so save it to disk.
             my $tempGto = "$tempDir/$genomeID.gto";
             $gto->destroy_to_file($tempGto);
             # Clear the result directory.
