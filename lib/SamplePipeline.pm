@@ -150,6 +150,10 @@ The index (1-based) of the expectation file column containing the species covera
 If TRUE, then all the files will be regenerated, regardless of whether or not they already exist. If FALSE, the existence
 of files will presuppose that a run was interrupted and needs to be finished.
 
+=item large
+
+If TRUE, the memory footprint will be made larger, but the assembly process will be slower. Use this for larger read sets.
+
 =item user
 
 The apprioriate RAST user name. The default is taken from the C<RASTUSER> environment variable.
@@ -236,6 +240,10 @@ sub Process {
     if ($assemble) {
         # We need to assemble.
         my $cmd = "spades.py";
+        my ($threads, $mem) = (8, 250);
+        if ($options{large}) {
+            ($threads, $mem) = (4, 1000);
+        }
         # Add the directory and the style parms.
         my @parms = ('-o', "$workDir/Assembly", '--meta', '--threads', 8);
         # We must merge the read libraries.

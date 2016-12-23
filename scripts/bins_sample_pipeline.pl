@@ -64,6 +64,10 @@ The project type for this sample-- currently either C<HMP> (Human Microbiome Pro
 Delete all files except the assembly results (C<contigs.fasta> and C<output.contigs2reads.txt>) to force re-binning.
 If C<all> is specified, even the assembly results will be deleted to force re-assembly, too.
 
+=item large
+
+Configure the assembly for a large number of reads. This makes the assembly slower.
+
 =item gz
 
 If specified, then the reads are stored in C<gz> files and must be unzipped first.
@@ -78,6 +82,7 @@ my $opt = ScriptUtils::Opts('sampleID workDir',
         ["user|u=s", "user name for RAST access", { default => $ENV{RASTUSER} }],
         ["password|p=s", "password for RAST access", { default => $ENV{RASTPASS} }],
         ["force", "rebuild all files"],
+        ["large", "assembly is large"],
         ["project=s", "source project type", { default => 'MH' }],
         ["reset:s", "delete all files except the assembly results to force re-binning"],
         ["gz", "unzip read files before processing"]
@@ -127,6 +132,9 @@ if ($fsq) {
 }
 if (-f $expectF) {
     $options{expect} = $expectF;
+}
+if ($opt->large) {
+    $options{large} = 1;
 }
 my $resetOpt = $opt->reset;
 # Are we resetting?
