@@ -242,10 +242,10 @@ sub Process {
         my $cmd = "spades.py";
         my ($threads, $mem) = (8, 250);
         if ($options{large}) {
-            ($threads, $mem) = (4, 1000);
+            ($threads, $mem) = (4, 1200);
         }
         # Add the directory and the style parms.
-        my @parms = ('-o', "$workDir/Assembly", '--meta', '--threads', 8);
+        my @parms = ('-o', "$workDir/Assembly", '--meta', '--threads', 8, '--memory', $mem);
         # We must merge the read libraries.
         my %libs = (s => \@fsq, 1 => \@f1q, 2 => \@f2q);
         for my $t (1, 2, 's') {
