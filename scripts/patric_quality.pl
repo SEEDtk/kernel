@@ -66,6 +66,15 @@ The name of a temporary working directory. The default is the SEEDtk temporary d
 directory should be on the same volume as the C<--save> directory (if one is specified). The actual working files will
 be stored in a subdirectory having a name generated from the process ID.
 
+=item complete
+
+If specified, a completeness check will be performed before a genomes is checked for consistency. Incomplete genomes will
+not be checked and will not be saved.
+
+=item missing
+
+If specified, only genomes without GTO files in the save directory will be checked.
+
 =back
 
 =cut
@@ -75,7 +84,9 @@ my $opt = ScriptUtils::Opts('', ScriptUtils::ih_options(),
         ['min|m=f',  'minimum acceptable quality score', { default => 0 }],
         ['save|S=s', 'save directory for GTO files'],
         ['col|c=i',  'genome ID column in input (1-based)', { default => 0 }],
-        ['temp|t=s', 'temporary working directory', { default => $FIG_Config::temp }]
+        ['temp|t=s', 'temporary working directory', { default => $FIG_Config::temp }],
+        ['missing',  'only check genomes without downloaded GTOs'],
+        ['complete', 'skip incomplete genomes (based on an N70 check)'],
         );
 # Create a statistics object.
 my $stats = Stats->new();
@@ -84,6 +95,9 @@ my $saveDir = $opt->save;
 if ($saveDir && ! -d $saveDir) {
     die "Invalid save directory $saveDir.";
 }
+# Get the control options.
+my $missing = $opt->missing;
+my $complete = $opt->complete;
 # Get the minimum quality threshold.
 my $min = $opt->min;
 # Get the temporary directory.
@@ -103,42 +117,51 @@ eval {
         my ($genomeID, $inputLine) = @{$couplets[0]};
         $stats->Add(lineIn => 1);
         print STDERR "Processing $genomeID.\n";
-        # Get the genome from PATRIC.
-        my $gto = $p3->gto_of($genomeID);
-        if (! $gto) {
-            # Here the genome was not in PATRIC.
-            $stats->Add(genomeNotFound => 1);
-        } elsif ($gto->{domain} ne 'Bacteria' && $gto->{domain} ne 'Archaea') {
-            # Here it is not prokaryotic.
-            $stats->Add(genomeNotProk => 1);
+        # Check to see if it has already been processed.
+        if ($saveDir && $missing && -s "$saveDir/$genomeID.gto") {
+            # It's already processed, so we can skip it.
+            $stats->Add(genomeSkipped => 1);
         } else {
-            # We have the genome and it's good, so save it to disk.
-            my $tempGto = "$tempDir/$genomeID.gto";
-            $gto->destroy_to_file($tempGto);
-            # Clear the result directory.
-            File::Copy::Recursive::pathrmdir($resultDir) || die "Could not clear $resultDir: $!";
-            # Compute the quality.
-            my $cmd = "gto_consistency $tempGto $resultDir $FIG_Config::global/FunctionPredictors $FIG_Config::global/roles.in.subsystems $FIG_Config::global/roles.to.use";
-            SeedUtils::run($cmd);
-            # Read in the results.
-            open(my $qh, "<$resultDir/evaluate.log") || die "Could not open $genomeID quality log: $!";
-            my $quality;
-            while (! eof $qh && ! defined $quality) {
-                my $line = <$qh>;
-                if ($line =~ /Consistency=\s+(\d+(?:\.\d+)?)%/) {
-                    $quality = $1;
-                }
-            }
-            # Check for acceptability.
-            if ($quality < $min) {
-                $stats->Add(genomeLowQuality => 1);
+            # Get the genome from PATRIC.
+            my $gto = $p3->gto_of($genomeID);
+            if (! $gto) {
+                # Here the genome was not in PATRIC.
+                $stats->Add(genomeNotFound => 1);
+            } elsif ($gto->{domain} ne 'Bacteria' && $gto->{domain} ne 'Archaea') {
+                # Here it is not prokaryotic.
+                $stats->Add(genomeNotProk => 1);
+            } elsif ($complete && ! $gto->is_complete) {
+                # Here it is incomplete.
+                $stats->Add(genomeIncomplete => 1);
             } else {
-                print join("\t", @$inputLine, $quality) . "\n";
-                $stats->Add(genomeAccepted => 1);
-                if ($saveDir) {
-                    File::Copy::Recursive::fmove($tempGto, "$saveDir/$genomeID.gto") ||
-                        die "Could not save GTO file for $genomeID: $!";
-                    $stats->Add(genomeSaved => 1);
+                # We have the genome and it's good, so save it to disk.
+                my $tempGto = "$tempDir/$genomeID.gto";
+                $gto->destroy_to_file($tempGto);
+                # Clear the result directory.
+                File::Copy::Recursive::pathrmdir($resultDir) || die "Could not clear $resultDir: $!";
+                # Compute the quality.
+                my $cmd = "gto_consistency $tempGto $resultDir $FIG_Config::global/FunctionPredictors $FIG_Config::global/roles.in.subsystems $FIG_Config::global/roles.to.use";
+                SeedUtils::run($cmd);
+                # Read in the results.
+                open(my $qh, "<$resultDir/evaluate.log") || die "Could not open $genomeID quality log: $!";
+                my $quality;
+                while (! eof $qh && ! defined $quality) {
+                    my $line = <$qh>;
+                    if ($line =~ /Consistency=\s+(\d+(?:\.\d+)?)%/) {
+                        $quality = $1;
+                    }
+                }
+                # Check for acceptability.
+                if ($quality < $min) {
+                    $stats->Add(genomeLowQuality => 1);
+                } else {
+                    print join("\t", @$inputLine, $quality) . "\n";
+                    $stats->Add(genomeAccepted => 1);
+                    if ($saveDir) {
+                        File::Copy::Recursive::fmove($tempGto, "$saveDir/$genomeID.gto") ||
+                            die "Could not save GTO file for $genomeID: $!";
+                        $stats->Add(genomeSaved => 1);
+                    }
                 }
             }
         }
