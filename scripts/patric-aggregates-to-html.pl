@@ -8,7 +8,7 @@ use Shrub::Roles;
 
 ## Reads standard input.
 ## Input is from p3-format-results.
-my $patric = "https://www.beta.patricbrc.org/";
+my $patric = "https://www.patricbrc.org/";
 
 my $opt = ScriptUtils::Opts('', ScriptUtils::ih_options(), Shrub::script_options());
 my $hdg=1;
