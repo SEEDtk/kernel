@@ -60,6 +60,7 @@ last column.
 
 =cut
 
+$| = 1;
 # Get the command-line parameters.
 my $opt = ScriptUtils::Opts('outDir',
         Shrub::script_options(),
@@ -93,6 +94,7 @@ while (! eof $ih) {
     $stats->Add(lineIn => 1);
     my @fields = split /\t/, $line;
     my $genomeID = $fields[$col];
+    print "Processing $genomeID.\n";
     # Compute the output file name.
     my $outFileName = "$outDir/$genomeID." . ($fastaFormat ? 'fa' : 'gto');
     # If the file exists and this is missing-mode, skip it.
