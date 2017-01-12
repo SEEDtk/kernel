@@ -78,7 +78,7 @@ eval {
     for my $gtoFile (@gtos) {
         print STDERR "Processing $gtoFile.\n";
         my $gtoFileName = "$inDir/$gtoFile";
-        my $gto = GenomeTypeObject->new_from_file($gtoFileName);
+        my $gto = GenomeTypeObject->create_from_file($gtoFileName);
         if ($gto->{domain} ne 'Bacteria' && $gto->{domain} ne 'Archaea') {
             # Here it is not prokaryotic.
             $stats->Add(genomeNotProk => 1);
