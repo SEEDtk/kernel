@@ -50,7 +50,7 @@ The name of a temporary working directory. The default is the SEEDtk temporary d
 =cut
 
 # Get the command-line parameters.
-my $opt = ScriptUtils::Opts('', ScriptUtils::ih_options(),
+my $opt = ScriptUtils::Opts('inDir',
         ['temp|t=s', 'temporary working directory', { default => $FIG_Config::temp }],
         );
 # Compute the input directory.
