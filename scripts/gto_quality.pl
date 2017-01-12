@@ -67,10 +67,6 @@ opendir(my $dh, $inDir) || die "Could not open $inDir: $!";
 my @gtos = sort grep { $_ =~ /^\d+\.\d+\.gto$/} readdir $dh;
 closedir $dh;
 print STDERR scalar(@gtos) . " GTOs found in $inDir.\n";
-# Get the control options.
-my $missing = $opt->missing;
-# Get the minimum quality threshold.
-my $min = $opt->min;
 # Get the temporary directory.
 my $tempDir = $opt->temp . "/gtoq_$$";
 File::Copy::Recursive::pathmk($tempDir) || die "Could not create $tempDir: $!";
