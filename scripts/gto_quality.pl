@@ -88,7 +88,7 @@ if ($list) {
     print STDERR scalar(@gtos) . " GTOs found in file $list.\n";
 } else {
     opendir(my $dh, $inDir) || die "Could not open $inDir: $!";
-    my @gtos = sort grep { $_ =~ /^\d+\.\d+\.gto$/} readdir $dh;
+    @gtos = sort grep { $_ =~ /^\d+\.\d+\.gto$/} readdir $dh;
     closedir $dh;
     print STDERR scalar(@gtos) . " GTOs found in directory $inDir.\n";
 }
