@@ -41,6 +41,12 @@ The command-line options the following.
 
 =over 4
 
+=item list
+
+If specified, a list of GTOs to process. The file should be tab-delimited, with genome IDs in the first column.
+The files processed will be those with a name equal to the genome ID and a suffix of C<.gto> (e.g. C<100226.1.gto>
+for C<100226.1>), and all must be in the input directory.
+
 =item temp
 
 The name of a temporary working directory. The default is the SEEDtk temporary directory.
@@ -55,6 +61,7 @@ If specified, the output logs will be kept. Do not do this for large runs.
 
 # Get the command-line parameters.
 my $opt = ScriptUtils::Opts('inDir',
+        ['list|f=s', 'file containing list of GTOs to process'],
         ['temp|t=s', 'temporary working directory', { default => $FIG_Config::temp }],
         ['keep', 'keep output logs'],
         );
@@ -68,10 +75,23 @@ if (! $inDir) {
 # Create a statistics object.
 my $stats = Stats->new();
 # Get a list of all the GTOs.
-opendir(my $dh, $inDir) || die "Could not open $inDir: $!";
-my @gtos = sort grep { $_ =~ /^\d+\.\d+\.gto$/} readdir $dh;
-closedir $dh;
-print STDERR scalar(@gtos) . " GTOs found in $inDir.\n";
+my @gtos;
+my $list = $opt->list;
+if ($list) {
+    open(my $ih, "<$list") || die "Could not open $list: $!";
+    while (! eof $ih) {
+        my $line = <$ih>;
+        if ($line =~ /^(\d+\.\d+)/) {
+            push @gtos, "$1.gto";
+        }
+    }
+    print STDERR scalar(@gtos) . " GTOs found in file $list.\n";
+} else {
+    opendir(my $dh, $inDir) || die "Could not open $inDir: $!";
+    my @gtos = sort grep { $_ =~ /^\d+\.\d+\.gto$/} readdir $dh;
+    closedir $dh;
+    print STDERR scalar(@gtos) . " GTOs found in directory $inDir.\n";
+}
 # Get the temporary directory.
 my $tempDir = $opt->temp . "/gtoq_$$";
 File::Copy::Recursive::pathmk($tempDir) || die "Could not create $tempDir: $!";
