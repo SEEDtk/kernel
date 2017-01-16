@@ -45,6 +45,10 @@ The command-line options the following.
 
 The name of a temporary working directory. The default is the SEEDtk temporary directory.
 
+=item keep
+
+If specified, the output logs will be kept. Do not do this for large runs.
+
 =back
 
 =cut
@@ -52,6 +56,7 @@ The name of a temporary working directory. The default is the SEEDtk temporary d
 # Get the command-line parameters.
 my $opt = ScriptUtils::Opts('inDir',
         ['temp|t=s', 'temporary working directory', { default => $FIG_Config::temp }],
+        ['keep', 'keep output logs'],
         );
 # Compute the input directory.
 my ($inDir) = @ARGV;
@@ -72,8 +77,7 @@ my $tempDir = $opt->temp . "/gtoq_$$";
 File::Copy::Recursive::pathmk($tempDir) || die "Could not create $tempDir: $!";
 eval {
     # Create the results directory.
-    my $resultDir = "$tempDir/results";
-    File::Copy::Recursive::pathmk($resultDir) || die "Could not create $resultDir: $!";
+    File::Copy::Recursive::pathmk($tempDir) || die "Could not create $tempDir: $!";
     # Loop through the input genomes.
     for my $gtoFile (@gtos) {
         print STDERR "Processing $gtoFile.\n";
@@ -87,6 +91,11 @@ eval {
             my $genomeID = $gto->{id};
             my $name = $gto->{scientific_name};
             # Clear the result directory.
+            my $resultDir = "$tempDir/results";
+            # If we are keeping the logs, we need a separate directory for each GTO.
+            if ($opt->keep) {
+                $resultDir = "$tempDir/$gtoFileName";
+            }
             File::Copy::Recursive::pathrmdir($resultDir) || die "Could not clear $resultDir: $!";
             # Compute the quality.
             my $cmd = "gto_consistency $gtoFileName $resultDir $FIG_Config::global/FunctionPredictors $FIG_Config::global/roles.in.subsystems $FIG_Config::global/roles.to.use";
@@ -110,6 +119,10 @@ eval {
 if ($@) {
     print STDERR "FATAL ERROR: $@\n";
 }
-print STDERR "Cleaning up $tempDir.\n";
-File::Copy::Recursive::pathrmdir($tempDir);
+if ($opt->keep) {
+    print STDERR "Results kept in $tempDir.\n";
+} else {
+    print STDERR "Cleaning up $tempDir.\n";
+    File::Copy::Recursive::pathrmdir($tempDir);
+}
 print STDERR "Statistics:\n" . $stats->Show();
