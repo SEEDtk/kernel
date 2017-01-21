@@ -24,11 +24,12 @@ use Shrub;
 use ScriptUtils;
 use Stats;
 
-=head1 Build Role Tables for SciKit Quality Classifiers
+=head1 Build Role Tables: Function Predictors Step 1
 
     build_role_tables.pl [ options ] outDir
 
-This script builds two tab delimited files in a specified output directory.
+This script builds two tab delimited files in a specified output directory. It is the first step in creating
+function predictors. The second step is L<build_matrix.pl>.
 
 =over 4
 
@@ -81,7 +82,7 @@ my $q = $shrub->Get('Role2Function Function2Feature Feature Feature2Genome Genom
         'Role2Function(from-link) Function2Feature(to-link)');
 print "Looping through useful pegs.\n";
 while (my $roleData = $q->Fetch()) {
-    my ($roleID, $peg) = $roleData->Values(['Role2Function(from-link) Function2Feature(to-link)']);
+    my ($roleID, $peg) = $roleData->Values(['Role2Function(from-link)', 'Function2Feature(to-link)']);
     my $processed = $stats->Add(pegsFound => 1);
     # Only proceed if this is a role in a subsystem.
     if (! $roles{$roleID}) {

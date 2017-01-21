@@ -1,5 +1,26 @@
 #!/usr/bin/env perl
 
+=head1 Create Probdir: Function Predictors Step 2
+
+    build_matrix raw.table probDir roles.in.subsystems
+
+This script takes the output from L<build_role_tables.pl> and creates a function matrix. Each row of the
+matrix represents a genome. Each column of the matrix represents a role. The values in the matrix indicate
+how many times the role occurs in the genome. The resulting matrix is encoded as a SciKit probdir. In other
+words, there is a C<row.h> of genome IDs, an C<col.h> of role IDs, and an C<X> file containing the actual matrix.
+
+This is the second step of the process for building function predictors. The third is L<build_predictor_set.pl>.
+
+=head2 Parameters
+
+The positional parameters are the name of the C<raw.table> file, the name of the output directory, and a
+filter file. If specified, the filter file contains a list of the permissible roles. (If used, this should be
+a subset of the C<roles.in.subsystems> output by L<build_role_tables.pl>).
+
+The output directory cannot already exist.
+
+=cut
+
 use strict;
 use warnings;
 use Data::Dumper;
@@ -15,10 +36,10 @@ my ($table_file, $probDir, $keep) = @ARGV;
 my %keep;
 if ($keep) {
     if (-s $keep) {
-	%funcs = map { m/^(\S+)/ ? ($1 => 1) : () } &SeedUtils::file_read($keep);
+        %funcs = map { m/^(\S+)/ ? ($1 => 1) : () } &SeedUtils::file_read($keep);
     }
     else {
-	die "Filter-file '$keep' does not exist";
+        die "Filter-file '$keep' does not exist";
     }
 }
 
@@ -43,20 +64,20 @@ my $tock = 0;
 while (defined($line = <$table_fh>)) {
     if ($tick >= 10000) { print STDERR ".";  $tick = 0; $tock++; } else { $tick++; }
     if ($tock >= 100)   { print STDERR "\n"; $tock = 0; }
-    
+
     chomp $line;
-    my (undef, $func, $fid) = split /\t/, $line;
-    
+    my ($func, undef, $fid) = split /\t/, $line;
+
     if ($keep) {
-	next unless $funcs{$func};
+        next unless $funcs{$func};
     }
     else {
-	$funcs{$func} = 1;
+        $funcs{$func} = 1;
     }
-    
+
     my $genome = &SeedUtils::genome_of($fid);
     $genomes{$genome} = 1;
-    
+
     ++$counts{$genome}->{$func} ;
 }
 print STDERR "\n\n";
