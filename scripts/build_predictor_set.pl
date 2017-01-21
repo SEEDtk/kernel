@@ -23,7 +23,8 @@ will cause an error.
 
 =item fraction
 
-The fraction of matrix entries to keep when creating random samples. The default is C<0.2>. indicating one in five.
+The fraction of matrix entries to use for testing instead of training. The default is C<0.2>, indicating one in
+five.
 
 =item classifier
 
