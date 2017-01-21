@@ -44,7 +44,7 @@ use IO::File;
 use File::Spec;
 use File::Path qw(make_path remove_tree);
 require Proc::ParallelLoop;
-
+use ScriptUtils;
 use SeedUtils;
 
 my $opt = ScriptUtils::Opts('probDir',
