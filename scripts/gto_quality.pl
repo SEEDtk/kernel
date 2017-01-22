@@ -55,6 +55,11 @@ The name of a temporary working directory. The default is the SEEDtk temporary d
 
 If specified, the output logs will be kept. Do not do this for large runs.
 
+=item filter
+
+A filter file of roles to use. This is passed as a parameter to the L<gto_consistency.pl> script. If C<0> is
+specified, then no filtering is used. The file should be tab-delimited, with role IDs in the first column.
+
 =back
 
 =cut
@@ -63,6 +68,7 @@ If specified, the output logs will be kept. Do not do this for large runs.
 my $opt = ScriptUtils::Opts('inDir',
         ['list|f=s', 'file containing list of GTOs to process'],
         ['temp|t=s', 'temporary working directory', { default => $FIG_Config::temp }],
+        ['filter=s', 'filter file of roles to use, or 0 for no filtering', { default => "$FIG_Config::global/roles.to.use"}],
         ['keep', 'keep output logs'],
         );
 # Compute the input directory.
@@ -92,6 +98,11 @@ if ($list) {
     closedir $dh;
     print STDERR scalar(@gtos) . " GTOs found in directory $inDir.\n";
 }
+# Compute the filter file.
+my $roles_to_use = $opt->filter;
+if (! $roles_to_use) {
+    $roles_to_use = '';
+}
 # Get the temporary directory.
 my $tempDir = $opt->temp . "/gtoq_$$";
 File::Copy::Recursive::pathmk($tempDir) || die "Could not create $tempDir: $!";
@@ -118,7 +129,7 @@ eval {
             }
             File::Copy::Recursive::pathrmdir($resultDir) || die "Could not clear $resultDir: $!";
             # Compute the quality.
-            my $cmd = "gto_consistency $gtoFileName $resultDir $FIG_Config::global/FunctionPredictors $FIG_Config::global/roles.in.subsystems $FIG_Config::global/roles.to.use";
+            my $cmd = "gto_consistency $gtoFileName $resultDir $FIG_Config::global/FunctionPredictors $FIG_Config::global/roles.in.subsystems $roles_to_use";
             SeedUtils::run($cmd);
             # Read in the results.
             open(my $qh, "<$resultDir/evaluate.log") || die "Could not open $genomeID quality log: $!";

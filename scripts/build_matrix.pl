@@ -33,7 +33,6 @@ my %counts;
 
 my ($table_file, $probDir, $keep) = @ARGV;
 
-my %keep;
 if ($keep) {
     if (-s $keep) {
         %funcs = map { m/^(\S+)/ ? ($1 => 1) : () } &SeedUtils::file_read($keep);
