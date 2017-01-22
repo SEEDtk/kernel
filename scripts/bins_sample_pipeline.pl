@@ -30,8 +30,8 @@ use SamplePipeline;
 This script runs a single sample through the binning pipeline. This includes assembling the reads, forming the bins,
 applying RAST to each bin, and checking expectations. The bulk of the work is performed by L<SamplePipeline>.
 
-This script assumes the sample comes from the Human Microbiome Project and conforms to its naming conventions. In the
-future, command-line options will be added to support other formats.
+This script assumes the sample comes from the Human Microbiome Project and conforms to its naming conventions. Command-line
+options allow support of other formats.
 
 =head2 Parameters
 
@@ -57,7 +57,40 @@ be presumed a previous run failed in progress and it will be resumed.
 =item project
 
 The project type for this sample-- currently either C<HMP> (Human Microbiome Project, the default), C<MH>
-(MetaHit), C<SYNTH> (synthetic), or C<AG> (American Gut).
+(MetaHit), C<SYNTH> (synthetic), C<AG> (American Gut), or C<CT> (Contact Transfer). The project type determines
+the naming conventions for the fastq files.
+
+=over 8
+
+=item HMP
+
+Paired-end reads with singletons. I<*.1.fastq> for the left reads, I<*.2.fastq> for the right reads, and
+I<*.singleton.fastq) for the singletons.
+
+=item MH
+
+Paired-end reads. I<*_1.fastq> for the left reads and I<*_2.fastq> for the right reads.
+
+} elsif ($project eq 'AG') {
+    $fsq = ".fastq";
+} elsif ($project eq 'SYNTH') {
+    $f1q = "synth1.fq";
+    $f2q = "synth2.fq";
+
+
+=item SYNTH
+
+Paired-end reads. C<synth1.fq> for the left reads and C<synth2.fq> for the right reads.
+
+=item AG
+
+Singleton reads. C<*.fastq> for all of them.
+
+=item CT
+
+Paired-end reads. C<*_R1_001.fastq> for the left reads and C<*_R2_001.fastq> for the right reads.
+
+=back
 
 =item reset
 
@@ -115,6 +148,9 @@ if ($project eq 'HMP') {
 } elsif ($project eq 'SYNTH') {
     $f1q = "synth1.fq";
     $f2q = "synth2.fq";
+} elsif ($project eq 'CT') {
+    $f1q = "_R1_001.fastq";
+    $f2q = "_R2_001.fastq";
 } else {
     die "Invalid project type $project.";
 }
