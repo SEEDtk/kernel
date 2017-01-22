@@ -74,6 +74,10 @@ The following command-line options are supported.
 
 Remove assembly information for completed jobs.
 
+=item project
+
+Project type for binning jobs. (C<MH>, C<AG>, C<HMP>, C<SYNTH>, or C<CT>)
+
 =item run
 
 Specifies that directories in a Downloaded status should be binned. The value should be a number. That number of
@@ -96,6 +100,7 @@ my $opt = ScriptUtils::Opts('directory',
                 ['clean', 'clean up assembly information for complete samples'],
                 ['resume', 'restart failed jobs'],
                 ['terse', 'do not show completed bins'],
+                ['project=s', 'project type for binning jobs', { required => 1 }],
                 ['run=i', 'run binning pipeline on new directories', { default => 0 }]);
 my $stats = Stats->new();
 # Get the main directory name.
@@ -108,6 +113,7 @@ if (! $directory) {
 # Save the options.
 my $clean = $opt->clean;
 my $runCount = $opt->run;
+my $proj = $opt->project;
 # Get a hash of the running subdirectories.
 my %running;
 my @jobs = `ps -AF`;
@@ -155,7 +161,7 @@ for my $dir (@dirs) {
         $stats->Add(dirs6RastComplete => 1);
     } elsif (-s "$subDir/bin1.gto") {
         if (! $run && $opt->resume) {
-            StartJob($dir, $subDir, '', 'Restarted', $label);
+            StartJob($dir, $subDir, '', 'Restarted', $label, $proj);
         } else {
             my $i = 2;
             while (-s "$subDir/bin$i.gto") { $i++; }
@@ -165,7 +171,7 @@ for my $dir (@dirs) {
         $stats->Add(dirs5RastPartial => 1);
     } elsif (-s "$subDir/bins.json") {
         if (! $run && $opt->resume) {
-            StartJob($dir, $subDir, '', 'Restarted', $label);
+            StartJob($dir, $subDir, '', 'Restarted', $label, $proj);
         } else {
             push @other, "$label: Bins Computed.\n";
         }
@@ -178,7 +184,7 @@ for my $dir (@dirs) {
         $stats->Add(dirs3Binning => 1);
     } elsif (-s "$subDir/contigs.fasta") {
         if (! $run && $opt->resume) {
-            StartJob($dir, $subDir, '', 'Restarted', $label);
+            StartJob($dir, $subDir, '', 'Restarted', $label, $proj);
         } else {
             push @other, "$label: Assembled.\n";
         }
@@ -195,7 +201,7 @@ for my $dir (@dirs) {
             my $found = grep { $_ =~ /\.fastq\.gz$/ } readdir $dh;
             closedir $dh;
             my $gz = ($found ? '--gz' : '');
-            StartJob($dir, $subDir, $gz, 'Started', $label);
+            StartJob($dir, $subDir, $gz, 'Started', $label, $proj);
             $runCount--;
         } else {
             push @downloaded, "$label: Downloaded.\n";
@@ -229,8 +235,8 @@ print "\nAll done:\n" . $stats->Show();
 
 
 sub StartJob {
-    my ($dir, $subDir, $gz, $start, $label) = @_;
-    my $cmd = "bins_sample_pipeline $gz $dir $subDir >$subDir/run.log 2>$subDir/err.log";
+    my ($dir, $subDir, $gz, $start, $label, $proj) = @_;
+    my $cmd = "bins_sample_pipeline --project=$proj $gz $dir $subDir >$subDir/run.log 2>$subDir/err.log";
     my $rc = system("nohup $cmd &");
     push @other, "$label: $start $cmd.\n";
     $stats->Add("dirs0$start" => 1);
