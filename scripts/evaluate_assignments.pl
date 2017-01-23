@@ -128,7 +128,7 @@ sub worker {
     &run_safe([ 'partition_on_column', $testDir, $tmpDir, $col ],
               \undef, \undef, \*STDERR
         );
-    die "After partition_on_column into $tmpDir from $testDir on $col."; ##TODO DEBUGGING
+    print STDERR "After partition_on_column into $tmpDir from $testDir on $col."; ##TODO DEBUGGING
     &run_safe([ "apply_classifier", $tmpDir, "$trainDir/Predictors/$role", $classifier ],
               \undef, \undef, \*STDERR
         ) || die "Application failed: $?, $!";
