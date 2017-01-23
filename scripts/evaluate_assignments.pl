@@ -118,8 +118,8 @@ sub worker {
     my $worst  = $fields[2];
     my $median = $fields[4];
     if ($worst < 90.0) {
-        print STDERR ("$role\tworst-case accuracy=", sprintf("%.2f", $worst), "-- skipping\n");
-        return;
+        print STDERR ("$role\tworst-case accuracy=", sprintf("%.2f", $worst), "-- warning\n");
+        # return;
     }
 
     my $col = $train_role_to_index{$role};
