@@ -65,19 +65,19 @@ while (defined($line = <$table_fh>)) {
     if ($tock >= 100)   { print STDERR "\n"; $tock = 0; }
 
     chomp $line;
-    my ($func, undef, $fid) = split /\t/, $line;
+    my (undef, $funcID, $fid) = split /\t/, $line;
 
     if ($keep) {
-        next unless $funcs{$func};
+        next unless $funcs{$funcID};
     }
     else {
-        $funcs{$func} = 1;
+        $funcs{$funcID} = 1;
     }
 
     my $genome = &SeedUtils::genome_of($fid);
     $genomes{$genome} = 1;
 
-    ++$counts{$genome}->{$func} ;
+    ++$counts{$genome}->{$funcID} ;
 }
 print STDERR "\n\n";
 

@@ -51,7 +51,7 @@ my $tmp_file = "$FIG_Config::temp/tmp.evaluate.$$";
 open($tmp_fh, '>', $tmp_file)
     or die "Could not write-open '$tmp_file'";
 
-$#train_roles = 10; ##TODO DEBUGGING
+# $#train_roles = 10;
 Proc::ParallelLoop::pareach(\@train_roles, \&worker, {Max_Workers => 32});
 
 
@@ -128,7 +128,6 @@ sub worker {
     &run_safe([ 'partition_on_column', $testDir, $tmpDir, $col ],
               \undef, \undef, \*STDERR
         );
-    die "After partition_on_column into $tmpDir from $testDir on $col.\n"; ##TODO DEBUGGING
     &run_safe([ "apply_classifier", $tmpDir, "$trainDir/Predictors/$role", $classifier ],
               \undef, \undef, \*STDERR
         ) || die "Application failed: $?, $!";

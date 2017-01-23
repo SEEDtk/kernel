@@ -35,7 +35,7 @@ function predictors. The second step is L<build_matrix.pl>.
 
 =item raw.table
 
-This file contains (0) a role ID, (1) a role description, and (2) a feature ID in each record. There is one record for
+This file contains (0) a role description, (1) a role ID, and (2) a feature ID in each record. There is one record for
 every feature in well-behaved genomes that is currently in a subsystem.
 
 =item roles.in.subsystems
@@ -91,7 +91,7 @@ while (my $roleData = $q->Fetch()) {
         $stats->Add(pegDuplicate => 1);
     } else {
         # Output this role/peg pair.
-        print $oh "$roleID\t$roles{$roleID}\t$peg\n";
+        print $oh "$roles{roleID}\t$roleID\t$peg\n";
         $rolePegs{$roleID}{$peg} = 1;
         $stats->Add(pegOutput => 1);
     }
