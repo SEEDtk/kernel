@@ -58,7 +58,8 @@ If specified, the output logs will be kept. Do not do this for large runs.
 =item filter
 
 A filter file of roles to use. This is passed as a parameter to the L<gto_consistency.pl> script. If C<0> is
-specified, then no filtering is used. The file should be tab-delimited, with role IDs in the first column.
+specified, then no filtering is used. The file should be tab-delimited, with role IDs in the first column. It
+must be the same filter file used to generate the function predictors with L<build_matrix.pl>.
 
 =back
 

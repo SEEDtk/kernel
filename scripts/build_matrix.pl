@@ -2,7 +2,7 @@
 
 =head1 Create Probdir: Function Predictors Step 2
 
-    build_matrix raw.table probDir roles.in.subsystems
+    build_matrix raw.table probDir roles.to.use
 
 This script takes the output from L<build_role_tables.pl> and creates a function matrix. Each row of the
 matrix represents a genome. Each column of the matrix represents a role. The values in the matrix indicate
