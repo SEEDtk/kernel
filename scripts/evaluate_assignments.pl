@@ -51,7 +51,7 @@ my $tmp_file = "$FIG_Config::temp/tmp.evaluate.$$";
 open($tmp_fh, '>', $tmp_file)
     or die "Could not write-open '$tmp_file'";
 
-$#train_roles = 0; ##TODO DEBUGGING
+$#train_roles = 10; ##TODO DEBUGGING
 Proc::ParallelLoop::pareach(\@train_roles, \&worker, {Max_Workers => 32});
 
 
