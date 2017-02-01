@@ -101,6 +101,7 @@ If specified, then the sample directory is treated as a directory of sample dire
 
 =cut
 
+$| = 1;
 # Get the command-line parameters.
 my $opt = ScriptUtils::Opts('sampleDir packageDir',
         ['force', "overwrite existing packages"],

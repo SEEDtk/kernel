@@ -47,10 +47,12 @@ All of the evaluations will be performed, even if they already exist.
 =item status
 
 If specified, no evaluations will be performed, only the status will be displayed.
+
 =back
 
 =cut
 
+$| = 1;
 # Get the command-line parameters.
 my $opt = ScriptUtils::Opts('dir package',
         ["force", 'force regeneration of quality data'],
