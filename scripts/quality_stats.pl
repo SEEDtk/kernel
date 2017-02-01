@@ -44,6 +44,15 @@ L<ScriptUtils/ih_options> plus the following.
 The index (1-based) of the input column containing the genome IDs. The default is C<0>, indicating the
 last column.
 
+=item altFile
+
+The name of a file containing alternative scores. The file must be tab-delimited with genome IDs in the first
+column,
+
+=item altColumns
+
+A comma-delimited list of the 1-based indexes of the columns to be copied from the alternative score file.
+
 =back
 
 =head2 Output
@@ -81,8 +90,30 @@ C<1> if the genome is core, else C<0>.
 my $opt = ScriptUtils::Opts('',
         Shrub::script_options(),
         ScriptUtils::ih_options(),
-        ['col|c=i', 'index (1-based) of the input column', { default => 0 }]
+        ['col|c=i', 'index (1-based) of the input column', { default => 0 }],
+        ['altFile=s', 'name of a file containing alternative scores'],
+        ['altColumns=s', 'list of alternative-file columns to include']
         );
+# Check for an alternative file.
+my %altScores;
+if ($opt->altfile) {
+    my $altFile = $opt->altfile;
+    if (! -s $altFile) {
+        die "Alternative score file $altFile missing or empty.";
+    } elsif (! $opt->altcolumns) {
+        die "altColumns required if altFile specified."
+    } else {
+        my @altColumns = map { $_ - 1 } split /,/, $opt->altcolumns;
+        # Read in the alternative-score file.
+        open(my $ah, '<', $altFile) || die "Could not open alternative score file: $!";
+        while (! eof $ah) {
+            my $line = <$ah>;
+            chomp $line;
+            my @cols = split /\t/, $line;
+            $altScores{$cols[0]} = [@cols[@altColumns]];
+        }
+    }
+}
 # Connect to the database.
 my $shrub = Shrub->new_for_script($opt);
 # Open the input file.
@@ -101,7 +132,8 @@ while (my @couplets = ScriptUtils::get_couplets($ih, $col, 50)) {
         my ($genome, $line) = @$couplet;
         my $fields = $gHash{$genome};
         if ($fields) {
-            print join("\t", @$line, @$fields) . "\n";
+            my $alts = $altScores{$genome} // [];
+            print join("\t", @$line, @$fields, @$alts) . "\n";
         }
     }
 }
