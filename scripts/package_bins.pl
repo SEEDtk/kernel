@@ -90,7 +90,8 @@ The command-line options are the following.
 
 =item force
 
-If specified, existing genome packages will be overwritten.
+If specified, existing genome packages will be overwritten. Otherwise, a package will only be created if it does not already
+exist.
 
 =item recursive
 
