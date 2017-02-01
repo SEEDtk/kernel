@@ -414,8 +414,6 @@ sub FilterBestHits {
     my ($self, $hitHash, $refGenome) = @_;
     # Get the working directory.
     my $workDir = $self->{workDir};
-    # Get the shrub database object.
-    my $shrub = $self->{shrub};
     # Create a FASTA file for the reference genome.
     my ($fastaFileName) = $self->GetRefGenomeFasta($refGenome);
     # This will be the return hash.
@@ -517,7 +515,7 @@ sub FindProtein {
     for my $contig (keys %contigs) {
         my ($match) = sort { $b->Length <=> $a->Length} @{$contigs{$contig}};
         my $matchLen = $match->Length;
-        print "Match for $contig has length $matchLen.\n"; 
+        print "Match for $contig has length $matchLen.\n";
         if ($matchLen >= $minDnaLen) {
             $retVal{$contig} = $match;
         }
@@ -588,8 +586,6 @@ sub MatchProteins {
     $count //= 1;
     my $protFastaFile = $options{db} // ($self->{workDir} . "/$funID.fa");
     my $mode = $options{type} // 'prot';
-    # Get the database.
-    my $shrub = $self->{shrub};
     # Create the BLAST database for the protein.
     if (! -s $protFastaFile) {
         # Here it does not exist, so we must create it. Currently, this is only legal for protein blasting.
@@ -675,8 +671,6 @@ sub Process {
     my $workDir = $self->{workDir};
     # Get the universal role hash.
     my $uniRoles = $self->{uniRoleH};
-    # Get the shrub database object.
-    my $shrub = $self->{shrub};
     # Get the options.
     my $type = $options{type} // 'n';
     my $maxE = $options{maxE} // $self->{maxE};
