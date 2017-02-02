@@ -47,7 +47,7 @@ Reference to a hash that maps each universal role ID to its description.
 
 =item shrub
 
-Reference to a L<Shrub> object for accessing the database.
+Reference to a L<Shrub> object for accessing the database, or C<undef> if the database is not needed.
 
 =item workDir
 
@@ -93,7 +93,7 @@ Create a BLAST database for the sample contigs.
 
 =item shrub
 
-The L<Shrub> object for accessing the database.
+The L<Shrub> object for accessing the database, or C<undef> if universal roles are not being processed.
 
 =item workDir
 
@@ -140,8 +140,11 @@ sub new {
     my $maxE = $options{maxE} // 1e-5;
     my $gap = $options{gap} // 100;
     my $minlen = $options{minlen} // 0.50;
-    # Create a hash of the universal roles.
-    my $uniRoleH = $shrub->GetUniRoles();
+    # Create a hash of the universal roles (if we have a database).
+    my $uniRoleH = {};
+    if ($shrub) {
+        $uniRoleH = $shrub->GetUniRoles();
+    }
     # Insure we have a copy of the sample contigs in the working directory. Note we need to deal with
     # trailing-slash craziness.
     my $blastFasta = $contigFasta;
@@ -433,7 +436,7 @@ sub FilterBestHits {
 
 =head3 FindProtein
 
-    my $hitHash = $blaster->FindProtein(\@sampleGenomes, $funID);
+    my $hitHash = $blaster->FindProtein($protFile);
 
 Return a list of hits representing the best occurrences of a particular role in the sample contigs.
 At most one hit per contig will be returned.
@@ -459,45 +462,27 @@ describing the location that is the best match for the specified protein.
 =cut
 
 sub FindProtein {
-    my ($self, $sampleGenomes, $funID, %options) = @_;
+    my ($self, $protFile) = @_;
     # Declare the return variable.
     my %retVal;
     # Get the options.
     my $minlen = $self->{minlen};
     my $workDir = $self->{workDir};
-    # Process the defaults.
-    $sampleGenomes //= ['83333.1'];
-    $funID //= $self->{defaultRole};
-    # Insure we have a list reference for the genomes.
-    if (! ref $sampleGenomes) {
-        $sampleGenomes = [$sampleGenomes];
-    }
-    # Get the query protein sequences. Note that the query will return a set of FASTA triples such as would be
-    # expected by BlastInterface.
-    my @in = map { '?' } @$sampleGenomes;
-    my $filter = "(" . join(", ", @in) . ")";
-    my (@prots) = $self->{shrub}->GetAll('Function2Feature Feature Feature2Genome AND Feature Protein',
-            "Function2Feature(from-link) = ? AND Function2Feature(security) = ? AND Feature2Genome(to-link) IN $filter",
-            [$funID, $self->{priv}, @$sampleGenomes], 'Feature(id) Function2Feature(from-link) Protein(sequence)');
-    if (! @prots) {
-        die "Protein $funID not found in any sample genomes.";
-    }
+    # Compute the average protein length.
+    open(my $fh, '<', $protFile) || die "Could not open protein FASTA $protFile: $!";
     # Compute the minimum match length by taking the mean of all the proteins found.
     my ($protLen, $protCount) = (0, 0);
-    for my $prot (@prots) {
-        my $len = length($prot->[2]);
-        $protLen += $len;
-        $protCount++;
+    while (! eof $fh) {
+        my $line = <$fh>;
+        if ($line =~ /^>/) {
+            $protCount++;
+        } else {
+            chomp $line;
+            $protLen += length $line;
+        }
     }
     my $minDnaLen = int($minlen * $protLen / $protCount) * 3;
     print "Minimum match length is $minDnaLen.\n";
-    # Create a FASTA file of the triples.
-    my $protFile = "$workDir/primer.fa";
-    open(my $ofh, ">$protFile") || die "Could not open primer FASTA file.";
-    for my $prot (@prots) {
-        print $ofh ">$prot->[0] $prot->[1]\n$prot->[2]\n";
-    }
-    close $ofh;
     # Look for matches.
     my @matches = sort { ($a->sid cmp $b->sid) or ($a->s1 <=> $b->s1) }
             BlastInterface::blast($protFile, $self->{blastDb}, 'tblastn',
@@ -586,7 +571,7 @@ sub MatchProteins {
     $count //= 1;
     my $protFastaFile = $options{db} // ($self->{workDir} . "/$funID.fa");
     my $mode = $options{type} // 'prot';
-    # Create the BLAST database for the protein.
+    # Verify the BLAST database for the protein.
     if (! -s $protFastaFile) {
         # Here it does not exist, so we must create it. Currently, this is only legal for protein blasting.
         if ($mode ne 'prot') {
@@ -669,8 +654,6 @@ sub Process {
     my $stats = Stats->new();
     # Get the working directory.
     my $workDir = $self->{workDir};
-    # Get the universal role hash.
-    my $uniRoles = $self->{uniRoleH};
     # Get the options.
     my $type = $options{type} // 'n';
     my $maxE = $options{maxE} // $self->{maxE};

@@ -20,7 +20,6 @@
 use strict;
 use warnings;
 use FIG_Config;
-use Shrub;
 use ScriptUtils;
 use Bin::Blast;
 use Bin::Tetra;
@@ -98,7 +97,7 @@ directory is assumed.
 
 =back
 
-The command-line options are those found in L<Shrub/script_options> plus the following.
+The command-line options are the following.
 
 =over 4
 
@@ -144,12 +143,12 @@ input data.) If omitted, nothing will be recomputed.
 
 =item seedrole
 
-The ID of the universal role to use for seeding the bin assignment. The default is C<PhenTrnaSyntAlph>.
+The name of the universal role used for seeding the bins (generally only needed for status messages). The default is
+C<PhenTrnaSyntAlph>.
 
-=item seedgenome
+=item seedProtFasta
 
-The ID of the genome to use for seeing the bin assignment. To specify more than one genome, use a
-comma-delimited list. The default is C<83333.1,36870.1,224308.1,1148.1,64091.1,69014.3,83332.12,115711.7,187420.1,224326.1,243273.1,4932.3>.
+A FASTA file containing examples of the universal role to use for seeding the bin assignment.
 
 =item seedfasta
 
@@ -227,20 +226,18 @@ The C<unplaced.fa> file contains the contigs (in FASTA format) that were not pla
 
 The C<bins.json> file contains the output bins, in json format.
 
-The C<bins.report.txt> file contains a summary of the output bins.
-
 =cut
 
 # Get the command-line parameters.
 my $opt = ScriptUtils::Opts('sampleDir workDir',
-                Shrub::script_options(),
                 ['lenFilter=i',    'minimum contig length for seed protein search', { default => 400 }],
                 ['covgFilter=f',   'minimum contig mean coverage for seed protein search', { default => 4}],
                 ['binLenFilter=i', 'minimum contig length for binning', { default => 400 }],
                 ['tetra=s',        'tetranucleotide counting algorithm', { 'default' => 'dual' }],
                 ['force=s',        'force re-creation of all intermediate files'],
+                ['seedProtFasta=s', 'name of a FASTA file containing examples of the seed protein to use for seeding the bins',
+                                    { default => "$FIG_Config::global/seedprot.fa" }],
                 ['seedrole|R=s',   'ID of the universal role to seed the bins', { default => 'PhenTrnaSyntAlph' }],
-                ['seedgenome|G=s', 'ID of the genome to seed the bins', { default => '83333.1,36870.1,224308.1,1148.1,64091.1,69014.3,83332.12,115711.7,187420.1,224326.1,243273.1,4932.3' }],
                 ['seedfasta|F=s',  'BLAST database (or FASTA file) of seed protein in all genomes', { default => "$FIG_Config::global/PhenTrnaSyntAlph.fa"}],
                 ['maxE|e=f',       'maximum acceptable e-value for blast hits', { default => 1e-20 }],
                 ['refMaxE=f',      'maximum acceptable e-value for reference genome blast hits', { default => 1e-10 }],
@@ -285,19 +282,14 @@ if (! $workDir) {
 }
 my ($sampleFastaFile, $reducedFastaFile, $binFile) = map { "$workDir/$_" } qw(sample.fasta reduced.fasta contigs.bins);
 # Verify the Seed Protein FASTA file.
+my $prot = $opt->seedrole;
 my $seedFastaFile = $opt->seedfasta;
 if (! -s $seedFastaFile) {
     die "Seed FASTA file $seedFastaFile not found.";
 }
-# Connect to the database.
-print "Connecting to database.\n";
-my $shrub = Shrub->new_for_script($opt);
 # This will be set to TRUE if we want to force file creation at any point.
 my $forceType = $opt->force // 'none';
 my $force = ($forceType eq 'all');
-# Get the seeding parameters.
-my $prot = $opt->seedrole;
-my $genome = $opt->seedgenome;
 # This hash will contain all the contigs, it maps each contig ID to a bin object describing the contig's properties.
 my %contigs;
 # Do we already have the initial contig bins?
@@ -399,7 +391,7 @@ $force ||= ($forceType eq 'parms');
 my $maxE = $opt->maxe;
 my $rMaxE = $opt->refmaxe // $maxE;
 # Create the blaster.
-my $blaster = Bin::Blast->new($shrub, $workDir, $reducedFastaFile,
+my $blaster = Bin::Blast->new(undef, $workDir, $reducedFastaFile,
         maxE => $maxE, minlen => $opt->minlen, gap => $opt->gap);
 # First, we need the list of bins and the locations where they hit the seed protein.
 my $binsFoundFile = "$workDir/bins.found.tbl";
@@ -408,17 +400,9 @@ my $matches = {};
 if ($force || ! -s $binsFoundFile) {
     # No. we must search for the specified universal protein to create the initial bins.
     # Get the list of genomes.
-    my @genomes = split /,/, $genome;
-    my $string = $genome;
-    if (scalar(@genomes) == 2) {
-        $string = join(" and ", @genomes);
-    } elsif (scalar(@genomes) > 2) {
-        my @sorted = sort @genomes;
-        my $last = pop @sorted;
-        $string = join(", ", @sorted) . ", and $last";
-    }
-    print "Seeding bin process with $prot from $string.\n";
-    $matches = $blaster->FindProtein(\@genomes, $prot);
+    my $protFile = $opt->seedprotfasta;
+    print "Seeding bin process using file $protFile.\n";
+    $matches = $blaster->FindProtein($protFile);
     # Save the matches to a work file.
     open(my $oh, ">$binsFoundFile") || die "Could not open bins found output file: $!";
     for my $contig (sort keys %$matches) {
@@ -720,16 +704,6 @@ if ($opt->unassembled) {
         $bin->Write($oh);
     }
     close $oh;
-    # Get the universal role information.
-    print "Producing report.\n";
-    my $uniRoles = $blaster->uni_hash;
-    my $totUnis = $blaster->uni_total;
-    # Produce the bin report.
-    open(my $rh, ">$workDir/bins.report.txt") || die "Could not open report file: $!";
-    my $analyzer = Bin::Analyze->new($shrub, totUnis => $totUnis, minUnis => (0.8 * $totUnis));
-    $analyzer->SetGenomes(\%genomes);
-    $analyzer->BinReport($rh, $uniRoles, \@sorted);
-    close $rh;
 }
 # All done.
 print "All done.\n" . $stats->Show();

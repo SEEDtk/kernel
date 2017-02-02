@@ -46,10 +46,6 @@ The minimum number of base pairs required for a bin to be considered big.
 
 The total number of universal roles. The default is C<101>.
 
-=item shrub
-
-L<Shrub> object for accessing the database.
-
 =item genomes
 
 Refererence to a hash mapping genome IDs to genome names.
@@ -60,7 +56,7 @@ Refererence to a hash mapping genome IDs to genome names.
 
 =head3 new
 
-    my $analyzer = Bin::Analyze->new($shrub, %options);
+    my $analyzer = Bin::Analyze->new(%options);
 
 Construct a new analysis object.
 
@@ -91,7 +87,7 @@ The minimum number of base pairs required for a bin to be considered big.
 =cut
 
 sub new {
-    my ($class, $shrub, %options) = @_;
+    my ($class, %options) = @_;
     # Get the options.
     my $minUnis = $options{minUnis} // 80;
     my $totUnis = $options{totUnis} // 101;
@@ -101,7 +97,6 @@ sub new {
         minUnis => $minUnis,
         totUnis => $totUnis,
         minLen => $minLen,
-        shrub => $shrub,
         genomes => {}
     };
     # Bless and return it.
@@ -112,16 +107,12 @@ sub new {
 
 =head3 Quality
 
-    my $score = Bin::Analyze::Quality($shrub, \@bins, %options);
+    my $score = Bin::Analyze::Quality(\@bins, %options);
 
 Analyze a list of bins to determine a quality score. This is a non-object-oriented version that can be used for cases
 where only one list of bins is being analyzed.
 
 =over 4
-
-=item shrub
-
-L<Shrub> object for accessing the database.
 
 =item bins
 
@@ -148,8 +139,8 @@ Returns a value from indicating the number of quality bins.
 =cut
 
 sub Quality {
-    my ($shrub, $bins, %options) = @_;
-    my $analyze = Bin::Analyze->new($shrub, %options);
+    my ($bins, %options) = @_;
+    my $analyze = Bin::Analyze->new(%options);
     my $retVal = $analyze->Analyze($bins);
     return $retVal;
 }
@@ -157,16 +148,12 @@ sub Quality {
 
 =head3 Report
 
-    my $stats = Bin::Analyze::Report($shrub, \@bins);
+    my $stats = Bin::Analyze::Report(\@bins);
 
 Produce a statistical report about a list of bins. This will show the number of contigs without any BLAST hits,
 the number without universal roles, and the distribution of contig lengths, among other things.
 
 =over 4
-
-=item shrub
-
-L<Shrub> object for accessing the database.
 
 =item bins
 
@@ -181,9 +168,9 @@ Returns a L<Stats> object containing useful information about the bins.
 =cut
 
 sub Report {
-    my ($shrub, $bins) = @_;
+    my ($bins) = @_;
     # Get an analysis object.
-    my $analyze = Bin::Analyze->new($shrub);
+    my $analyze = Bin::Analyze->new();
     # Create the return object.
     my $stats =$analyze->Stats($bins);
     # Return the statistics.
@@ -391,12 +378,6 @@ Reference to a list of L<Bin> objects for which a report is desired.
 
 sub BinReport {
     my ($self, $oh, $uniRoles, $binList) = @_;
-    # Get the database object.
-    my $shrub = $self->{shrub};
-    # Get the universal roles.
-    if (! defined $uniRoles) {
-        $uniRoles = $shrub->GetUniRoles();
-    }
     # This will be a hash mapping each universal role to a hash of the bins it appears in. The bins will be
     # identified by an ID number we assign.
     my %uniBins;
@@ -568,8 +549,6 @@ Returns TRUE if the bin is big enough for a more detailed report, else FALSE.
 
 sub BinHeader {
     my ($self, $bin, $oh, $id) = @_;
-    # Get the database object.
-    my $shrub = $self->{shrub};
     # This will be set to TRUE for a big bin.
     my $retVal;
     # Compute the quality score.
@@ -631,11 +610,8 @@ sub gName {
     # Look for the name.
     my $retVal = $genomeH->{$genome};
     if (! $retVal) {
-        # We need to look it up. Get the database.
-        my $shrub = $self->{shrub};
-        ($retVal) = $shrub->GetFlat('Genome', 'Genome(id) = ?', [$genome], 'name');
-        # Cache it for next time.
-        $genomeH->{$genome} = $retVal;
+        # Create a fake name.
+        $retVal = "Unknown species.";
     }
     # Return the name.
     return $retVal;
