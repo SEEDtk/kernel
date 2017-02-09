@@ -72,6 +72,7 @@ while ((@ARGV > 0) && ($ARGV[0] =~ /^-/))
     my $arg = shift @ARGV;
     if ($arg =~ /^-time/i) { $time_cmds = 1 }
     if ($arg =~ /^-echo/i) { $echo      = 1 }
+    if ($arg =~ /^-d/i) { $packageDir = shift @ARGV; print "Package directory is $packageDir.\n" }
 }
 
 

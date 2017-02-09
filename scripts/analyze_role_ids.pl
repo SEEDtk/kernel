@@ -66,6 +66,17 @@ my %roleMap;
 my %roleIDs;
 # This hash will gather similar IDs.
 my %roleGroups;
+# Create a hash of role IDs to subsystem names.
+my %roleSS;
+my $q = $shrub->Get('Role2Subsystem Subsystem', '', [], 'Role2Subsystem(from-link) Subsystem(name)');
+while (my $ssDatum = $q->Fetch()) {
+    my ($roleID, $ssName) = $ssDatum->Values(['Role2Subsystem(from-link)', 'Subsystem(name)']);
+    $roleSS{$roleID}{$ssName} = 1;
+}
+for my $roleID (keys %roleSS) {
+    my $subHash = $roleSS{$roleID};
+    $roleSS{$roleID} = [sort keys %$subHash];
+}
 # Loop through the genomes.
 for my $genome (sort keys %$gHash) {
     my $gData = $gHash->{$genome};
@@ -133,6 +144,10 @@ for my $roleID (sort keys %roleMap) {
     } else {
         $stats->Add(roleWithSynonyms => 1);
         print "$roleID\n";
+        my $subs = $roleSS{$roleID} / [];
+        for my $sub (@$subs) {
+            print "\t** IN:\t$sub\n";
+        }
         for my $desc (@descs) {
             print "\t$desc\t$subHash->{$desc}\n";
         }
