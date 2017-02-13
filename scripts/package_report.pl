@@ -37,45 +37,49 @@ The columns in the report are as follows.
 
 =item 1
 
-Genome ID
+Sample name (if any)
 
 =item 2
 
-Genome name
+Genome ID
 
 =item 3
 
-Number of contigs
+Genome name
 
 =item 4
 
-Number of DNA base pairs
+Number of contigs
 
 =item 5
 
-ID of closest reference genome
+Number of DNA base pairs
 
 =item 6
 
-Name of closest reference genome
+ID of closest reference genome
 
 =item 7
 
-SciKit evaluation score (percent)
+Name of closest reference genome
 
 =item 8
 
-Tensor Flow evaluation score (percent)
+SciKit evaluation score (percent)
 
 =item 9
 
-CheckM evaluation completeness (percent)
+Tensor Flow evaluation score (percent)
 
 =item 10
 
-CheckM evaluation contamination (percent)
+CheckM evaluation completeness (percent)
 
 =item 11
+
+CheckM evaluation contamination (percent)
+
+=item 12
 
 CheckM taxonomy classification
 
@@ -90,6 +94,10 @@ The genome ID is the same as the subdirectory (package) name. The other values a
 A tab-delimited file of key/value pairs. The following keys are important.
 
 =over 8
+
+=item *
+
+Sample Name
 
 =item *
 
@@ -277,8 +285,10 @@ sub produce_report {
             # Assemble the output line.
             my $refGenome = $dataVals{'Ref Genome'} // $dataVals{'Source Package'} // $dataVals{'Source Database'} // '';
             my $refName = $dataVals{'Ref Name'} // 'derived';
-            $retVal = join("\t", $package, $dataVals{'Genome Name'}, $dataVals{'Contigs'}, $dataVals{'Base pairs'},
-                    $refGenome, $refName, $scikitScore, $tfScore, $checkMscore, $checkMcontam, $checkMtaxon) .
+            my $sampleName = $dataVals{'Sample Name'} // 'Derived';
+            $retVal = join("\t", $sampleName, $package, $dataVals{'Genome Name'}, $dataVals{'Contigs'},
+                    $dataVals{'Base pairs'}, $refGenome, $refName, $scikitScore, $tfScore, $checkMscore,
+                    $checkMcontam, $checkMtaxon) .
                     "\n";
             open(my $oh, '>', "$pDir/quality.tbl") || die "Could not write to quality file for $package: $!";
             print $oh $retVal;
