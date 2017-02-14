@@ -82,17 +82,21 @@ Name of closest reference genome
 
 =item 12
 
-SciKit evaluation score (percent)
+SciKit coarse evaluation score (percent)
 
 =item 13
 
-CheckM evaluation completeness (percent)
+SciKit fine evaluation score (percent)
 
 =item 14
 
-CheckM evaluation contamination (percent)
+CheckM evaluation completeness (percent)
 
 =item 15
+
+CheckM evaluation contamination (percent)
+
+=item 16
 
 CheckM taxonomy classification
 
@@ -141,8 +145,8 @@ CheckM taxonomy classification. The thirteenth is the checkM completeness and th
 
 =item EvalBySciKit/evaluate.log
 
-SciKit evaluator results file, tab-delimited. At the end of the file is a series of lines containing scores. The line beginning with C<Pct_roles=>
-C<Consistency=> contains the score.
+SciKit evaluator results file, tab-delimited. At the end of the file is a series of lines containing scores. The line beginning with
+C<Coarse_Consistency> contains the coarse score and the line beginning with C<Fine_Consistency> contains the fine score.
 
 =item bin.gto
 
@@ -266,15 +270,17 @@ sub produce_report {
                 }
             }
             # Get the scikit score.
-            my $scikitScore = '';
+            my ($scikitCScore, $scikitFScore) = ('', '');
             if (-d "$pDir/EvalBySciKit") {
                 my $found;
                 if (open(my $fh, '<', "$pDir/EvalBySciKit/evaluate.log")) {
                     while (! eof $fh) {
                         my $line = <$fh>;
-                        if ($line =~ /^Consistency=\s+(.+)\%/) {
-                            $scikitScore = $1;
+                        if ($line =~ /^Coarse_Consistency=\s+(.+)\%/) {
+                            $scikitCScore = $1;
                             $found = 1;
+                        } elsif ($line =~ /^Fine_Consistency=\s+(.+)%/) {
+                            $scikitFScore = $1;
                         }
                     }
                     close $fh;
@@ -289,7 +295,7 @@ sub produce_report {
             my $sampleName = $dataVals{'Sample Name'} // 'Derived';
             $retVal = join("\t", $sampleName, $package, $dataVals{'Genome Name'}, $dataVals{'Contigs'},
                     $dataVals{'Base pairs'}, $metricsH->{complete}, $metricsH->{N50}, $metricsH->{N70},
-                    $metricsH->{N90}, $refGenome, $refName, $scikitScore, $checkMscore, $checkMcontam,
+                    $metricsH->{N90}, $refGenome, $refName, $scikitCScore, $scikitFScore, $checkMscore, $checkMcontam,
                     $checkMtaxon) . "\n";
             open(my $oh, '>', "$pDir/quality.tbl") || die "Could not write to quality file for $package: $!";
             print $oh $retVal;
