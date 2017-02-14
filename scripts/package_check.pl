@@ -29,7 +29,7 @@ use SeedUtils;
 
     package_check.pl [ options ] dir
 
-This script runs through the packages filling in missing quality reports. Currently, this includes SciKit, TensorFlow,
+This script runs through the packages filling in missing quality reports. Currently, this includes SciKit and
 and CheckM.
 
 =head2 Parameters
@@ -42,7 +42,8 @@ The command-line options are as follows.
 
 =item force
 
-All of the evaluations will be performed, even if they already exist.
+All of the evaluations will be performed, even if they already exist. A value of C<SciKit> can be specified to only
+rerun the SciKit evaluations, and a value of C<CheckM> can be specified to only rerun the CheckM evaluations.
 
 =item status
 
@@ -55,7 +56,7 @@ If specified, no evaluations will be performed, only the status will be displaye
 $| = 1;
 # Get the command-line parameters.
 my $opt = ScriptUtils::Opts('dir package',
-        ["force", 'force regeneration of quality data'],
+        ["force:s", 'force regeneration of quality data'],
         ["status", 'only show totals'],
         );
 my $stats = Stats->new;
@@ -68,6 +69,15 @@ if (! $dir) {
 } else {
     # This is the force flag. We default to the option value.
     my $force = $opt->force;
+    my %force;
+    if (defined $force) {
+        if ($force eq '') {
+            $force{SciKit} = 1;
+            $force{CheckM} = 1;
+        } else {
+            $force{$force} = 1;
+        }
+    }
     # Compute the list of packages to process.
     opendir(my $dh, $dir) || die "Could not open package directory: $!";
     my @packages = sort grep { $_ =~ /^\d+\.\d+$/ } readdir $dh;
@@ -83,18 +93,14 @@ if (! $dir) {
         # Process CheckM.
         my $outDir = "$pDir/EvalByCheckm";
         my $cmd = "checkm lineage_wf --tmpdir $FIG_Config::temp -x fa --file $pDir/evaluate.log $pDir $outDir";
-        $ok = Process(CheckM => $outDir, $force, $package, $cmd, $opt->status);
+        $ok = Process(CheckM => $outDir, $force{CheckM}, $package, $cmd, $opt->status);
         if ($ok) {
             File::Copy::Recursive::fmove("$pDir/evaluate.log", "$pDir/EvalByCheckm/evaluate.log");
         }
-        # Process Tensor Flow.
-        $outDir = "$pDir/EvalByTF";
-        $cmd = "eval_tensor_flow $pDir/bin.gto $outDir";
-        $ok = Process("Tensor Flow" => $outDir, $force, $package, $cmd, $opt->status);
         # Process SciKit.
         $outDir = "$pDir/EvalBySciKit";
         $cmd = "gto_consistency $pDir/bin.gto $outDir $FIG_Config::global/FunctionPredictors $FIG_Config::global/roles.in.subsystems $FIG_Config::global/roles.to.use";
-        $ok = Process("SciKit" => $outDir, $force, $package, $cmd, $opt->status);
+        $ok = Process("SciKit" => $outDir, $force{SciKit}, $package, $cmd, $opt->status);
     }
 }
 print "All Done.\n" . $stats->Show();
