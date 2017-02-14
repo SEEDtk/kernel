@@ -21,6 +21,7 @@ use strict;
 use warnings;
 use FIG_Config;
 use ScriptUtils;
+use GenomeTypeObject;
 
 =head1 Produce a Quality Report on Genome Packages
 
@@ -57,29 +58,41 @@ Number of DNA base pairs
 
 =item 6
 
-ID of closest reference genome
+C<1> if the genome is mostly complete, else C<0>
 
 =item 7
 
-Name of closest reference genome
+The contig N50 score.
 
 =item 8
 
-SciKit evaluation score (percent)
+The contig N70 score.
 
 =item 9
 
-Tensor Flow evaluation score (percent)
+The contig N90 score.
 
 =item 10
 
-CheckM evaluation completeness (percent)
+ID of closest reference genome
 
 =item 11
 
-CheckM evaluation contamination (percent)
+Name of closest reference genome
 
 =item 12
+
+SciKit evaluation score (percent)
+
+=item 13
+
+CheckM evaluation completeness (percent)
+
+=item 14
+
+CheckM evaluation contamination (percent)
+
+=item 15
 
 CheckM taxonomy classification
 
@@ -131,9 +144,9 @@ CheckM taxonomy classification. The thirteenth is the checkM completeness and th
 SciKit evaluator results file, tab-delimited. At the end of the file is a series of lines containing scores. The line beginning with C<Pct_roles=>
 C<Consistency=> contains the score.
 
-=item EvalByTF/evaluate.log
+=item bin.gto
 
-Tensor Flow evaluator results file, containing a single number--the score.
+A L<GenomeTypeObject> in json format, used to compute completeness and the N-metrics.
 
 =back
 
@@ -226,6 +239,9 @@ sub produce_report {
                 my ($key, $value) = split /\t/, $line;
                 $dataVals{$key} = $value;
             }
+            # Compute the GTO metrics.
+            my $gto = GenomeTypeObject->create_from_file("$pDir/bin.gto");
+            my $metricsH = $gto->metrics();
             # This will list the missing scores.
             my @missing;
             # Get the checkm scores.
@@ -267,29 +283,14 @@ sub produce_report {
                     push @missing, 'SciKit';
                 }
             }
-            # Get the tensor flow score.
-            my $tfScore = '';
-            if (-d "$pDir/EvalByTF") {
-                my $found;
-                if (open(my $fh, '<', "$pDir/EvalByTF/evaluate.log")) {
-                    my $line = <$fh>;
-                    chomp $line;
-                    $tfScore = $line;
-                    close $fh;
-                    $found = 1;
-                }
-                if (! $found) {
-                    push @missing, 'TF';
-                }
-            }
             # Assemble the output line.
             my $refGenome = $dataVals{'Ref Genome'} // $dataVals{'Source Package'} // $dataVals{'Source Database'} // '';
             my $refName = $dataVals{'Ref Name'} // 'derived';
             my $sampleName = $dataVals{'Sample Name'} // 'Derived';
             $retVal = join("\t", $sampleName, $package, $dataVals{'Genome Name'}, $dataVals{'Contigs'},
-                    $dataVals{'Base pairs'}, $refGenome, $refName, $scikitScore, $tfScore, $checkMscore,
-                    $checkMcontam, $checkMtaxon) .
-                    "\n";
+                    $dataVals{'Base pairs'}, $metricsH->{complete}, $metricsH->{N50}, $metricsH->{N70},
+                    $metricsH->{N90}, $refGenome, $refName, $scikitScore, $checkMscore, $checkMcontam,
+                    $checkMtaxon) . "\n";
             open(my $oh, '>', "$pDir/quality.tbl") || die "Could not write to quality file for $package: $!";
             print $oh $retVal;
             # Check for the missing report.

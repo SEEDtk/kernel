@@ -144,7 +144,7 @@ for my $roleID (sort keys %roleMap) {
     } else {
         $stats->Add(roleWithSynonyms => 1);
         print "$roleID\n";
-        my $subs = $roleSS{$roleID} / [];
+        my $subs = $roleSS{$roleID} // [];
         for my $sub (@$subs) {
             print "\t** IN:\t$sub\n";
         }
