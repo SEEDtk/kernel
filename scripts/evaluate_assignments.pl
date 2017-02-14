@@ -14,6 +14,7 @@ use SeedUtils;
 
 my $trouble = 0;
 my ($testDir, $trainDir, $classifier) = @ARGV;
+$classifier ||= 'RandomForestClassifier';      #...Default to "Random Forest"
 
 my @test_roles;
 my @test_colsH = &SeedUtils::file_read("$testDir/col.h");
@@ -64,30 +65,44 @@ print STDOUT @results;
 @results = map { chomp; [ split(/\t/, $_) ] } @results;
 
 
-my $num_found     = 0;
+my $num_present   = 0;
+my $num_exact     = 0;
+my $num_inexact   = 0;
 my $num_correct   = 0;
 my $num_incorrect = 0;
 my $num_under     = 0;
 my $num_over      = 0;
 my @mult_over     = ();
 foreach my $result (@results) {
-    if ($result->[2] != 0.0) {
-        ++$num_found;
+    my $predicted = $result->[1];
+    my $actual    = $result->[2];
+    
+    if ($actual > 0.0) {
+        ++$num_present;
     }
-
-    if ($result->[1] == $result->[2]) {
-        ++$num_correct;
+    
+    if ($predicted xor $actual) {
+	#...only one value is zero...
+	++$num_incorrect;
     }
     else {
-        ++$num_incorrect;
+	#...either both zero or both nonzero...
+        ++$num_correct;
+    }
+    
+    if ($predicted == $actual) {
+        ++$num_exact;
+    }
+    else {
+        ++$num_inexact;
 
         #..."1" == "predicted", "2" == "actual"...
-        if ($result->[2] > $result->[1]) {
-            ++$num_over;
-            push @mult_over, $result->[2];
-        }
-        elsif ($result->[2] < $result->[1]) {
+        if ($predicted < $actual) {
             ++$num_under;
+        }
+        elsif ($predicted > $actual) {
+            ++$num_over;
+            push @mult_over, $predicted;
         }
         else {
             warn "This can't happen !!!"
@@ -96,13 +111,18 @@ foreach my $result (@results) {
 }
 
 print STDERR "\n";
-print STDERR ("Pct_roles=\t",     sprintf("%0.1f%%", (100.0 * $num_found   / $num_roles)), "\n");
-print STDERR ("Consistency=\t",   sprintf("%0.1f%%", (100.0 * $num_correct / $num_roles)), "\n");
+print STDERR ("Pct_roles=\t",          sprintf("%0.1f%%", (100.0 * $num_present / $num_roles)), "\n");
+print STDERR ("Coarse_Consistency=\t", sprintf("%0.1f%%", (100.0 * $num_correct / $num_roles)), "\n");
+print STDERR ("Fine_Consistency=\t",   sprintf("%0.1f%%", (100.0 * $num_exact   / $num_roles)), "\n");
 if ($num_incorrect > 0) {
-    print STDERR ("Pct_Under=\t", sprintf("%0.1f%%", (100.0 * $num_under   / $num_incorrect)), "\n");
-    print STDERR ("Pct_Over=\t",  sprintf("%0.1f%%", (100.0 * $num_over    / $num_incorrect)), "\n");
+    print STDERR ("Pct_Under=\t", sprintf("%0.1f%%", (100.0 * $num_under / $num_inexact)), "\n");
+    print STDERR ("Pct_Over=\t",  sprintf("%0.1f%%", (100.0 * $num_over  / $num_inexact)), "\n");
     print STDERR ("Median_mult_over=\t", $mult_over[$#mult_over/2], "\n");
 }
+
+#...Cleanup scratch data...
+unlink($tmp_file) unless $ENV{DEBUG};
+
 exit(0);
 
 
@@ -118,7 +138,7 @@ sub worker {
     my $worst  = $fields[2];
     my $median = $fields[4];
     if ($worst < 90.0) {
-        print STDERR ("$role\tworst-case accuracy=", sprintf("%.2f", $worst), "-- warning\n");
+        print STDERR ("$role\tworst-case accuracy=", sprintf("%.2f", $worst), "\t-- warning\n");
         # return;
     }
 
