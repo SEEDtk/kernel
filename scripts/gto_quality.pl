@@ -31,7 +31,7 @@ use GenomeTypeObject;
     gto_quality.pl [ options ] inDir
 
 This script will take as input a directory of L<GenomeTypeObject> files and run the SciKit quality check on each one.
-The output will be a three-column file of genomeID, genome name, and quality measure.
+The output will be a three-column file of genomeID, genome name, coarse quality measure, and fine quality measure.
 
 =head2 Parameters
 
@@ -134,17 +134,21 @@ eval {
             SeedUtils::run($cmd);
             # Read in the results.
             open(my $qh, "<$resultDir/evaluate.log") || die "Could not open $genomeID quality log: $!";
-            my $quality;
-            while (! eof $qh && ! defined $quality) {
+            my ($cquality, $fquality);
+            while (! eof $qh) {
                 my $line = <$qh>;
-                if ($line =~ /Consistency=\s+(\d+(?:\.\d+)?)%/) {
-                    $quality = $1;
+                if ($line =~ /Coarse_Consistency=\s+(\d+(?:\.\d+)?)%/) {
+                    $cquality = $1;
+                } elsif ($line =~ /Fine_Consistency=\s+(\d+(?:\.\d+)?)%/) {
+                    $fquality = $1;
                 }
             }
             # Get a quality range for statistical purposes.
-            my $qType = int($quality/10) . "X";
-            $stats->Add("quality$qType" => 1);
-            print join("\t", $genomeID, $name, $quality) . "\n";
+            my $qType = int($fquality/10) . "X";
+            $stats->Add("Fquality$qType" => 1);
+            $qType = int($cquality/10) . "X";
+            $stats->Add("Cquality$qType" => 1);
+            print join("\t", $genomeID, $name, $cquality, $fquality) . "\n";
         }
     }
 };
