@@ -76,20 +76,20 @@ my @mult_over     = ();
 foreach my $result (@results) {
     my $predicted = $result->[1];
     my $actual    = $result->[2];
-    
+
     if ($actual > 0.0) {
         ++$num_present;
     }
-    
-    if ($predicted xor $actual) {
-	#...only one value is zero...
-	++$num_incorrect;
+
+    if (($predicted > 0.0) xor ($actual > 0.0)) {
+        #...only one value is zero...
+        ++$num_incorrect;
     }
     else {
-	#...either both zero or both nonzero...
+        #...either both zero or both nonzero...
         ++$num_correct;
     }
-    
+
     if ($predicted == $actual) {
         ++$num_exact;
     }
@@ -117,6 +117,7 @@ print STDERR ("Fine_Consistency=\t",   sprintf("%0.1f%%", (100.0 * $num_exact   
 if ($num_incorrect > 0) {
     print STDERR ("Pct_Under=\t", sprintf("%0.1f%%", (100.0 * $num_under / $num_inexact)), "\n");
     print STDERR ("Pct_Over=\t",  sprintf("%0.1f%%", (100.0 * $num_over  / $num_inexact)), "\n");
+    @mult_over = sort { $a <=> $b } @mult_over;
     print STDERR ("Median_mult_over=\t", $mult_over[$#mult_over/2], "\n");
 }
 
