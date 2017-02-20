@@ -249,7 +249,7 @@ sub Process {
         # Determine the type of reads. If there is only "s", we do interleaved.
         my $stype = 's';
         if (! scalar(@f1q) && ! scalar(@f2q)) {
-            $stype = '12';
+            $stype = '-12';
         }
         # We must merge the read libraries.
         my %libs = ($stype => \@fsq, 1 => \@f1q, 2 => \@f2q);
@@ -276,6 +276,7 @@ sub Process {
         my $cmdPath = SeedAware::executable_for($cmd);
         die "Could not find $cmd." if ! $cmdPath;
         # Execute the command.
+        print "Running spades: " . join(" ", @parms) . "\n";
         my $rc = system($cmdPath, @parms);
         die "Error exit $rc from $cmd." if $rc;
         # Now run the coverage computation.
