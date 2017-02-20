@@ -246,9 +246,14 @@ sub Process {
         }
         # Add the directory and the style parms.
         my @parms = ('-o', "$workDir/Assembly", '--meta', '--threads', 8, '--memory', $mem);
+        # Determine the type of reads. If there is only "s", we do interleaved.
+        my $stype = 's';
+        if (! scalar(@f1q) && ! scalar(@f2q)) {
+            $stype = '12';
+        }
         # We must merge the read libraries.
-        my %libs = (s => \@fsq, 1 => \@f1q, 2 => \@f2q);
-        for my $t (1, 2, 's') {
+        my %libs = ($stype => \@fsq, 1 => \@f1q, 2 => \@f2q);
+        for my $t (1, 2, $stype) {
             my $libList = $libs{$t};
             my $count = scalar @$libList;
             if ($count == 1) {

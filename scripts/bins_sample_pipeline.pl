@@ -84,7 +84,7 @@ Paired-end reads. C<synth1.fq> for the left reads and C<synth2.fq> for the right
 
 =item AG
 
-Singleton reads. C<*.fastq> for all of them.
+Interleaved paired-end reads. C<*.fastq> for all of them.
 
 =item CT
 
