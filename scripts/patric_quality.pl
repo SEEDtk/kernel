@@ -144,18 +144,20 @@ eval {
                 SeedUtils::run($cmd);
                 # Read in the results.
                 open(my $qh, "<$resultDir/evaluate.log") || die "Could not open $genomeID quality log: $!";
-                my $quality;
-                while (! eof $qh && ! defined $quality) {
+                my ($fqual, $cqual);
+                while (! eof $qh) {
                     my $line = <$qh>;
-                    if ($line =~ /Consistency=\s+(\d+(?:\.\d+)?)%/) {
-                        $quality = $1;
+                    if ($line =~ /Coarse_Consistency=\s+(\d+(?:\.\d+)?)%/) {
+                        $cqual = $1;
+                    } elsif ($line =~ /Fine_Consistency=\s+(\d+(?:\.\d+)?)%/) {
+                        $fqual = $1;
                     }
                 }
                 # Check for acceptability.
-                if ($quality < $min) {
+                if ($fqual < $min) {
                     $stats->Add(genomeLowQuality => 1);
                 } else {
-                    print join("\t", @$inputLine, $quality) . "\n";
+                    print join("\t", @$inputLine, $cqual, $fqual) . "\n";
                     $stats->Add(genomeAccepted => 1);
                     if ($saveDir) {
                         File::Copy::Recursive::fmove($tempGto, "$saveDir/$genomeID.gto") ||

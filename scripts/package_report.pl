@@ -176,6 +176,10 @@ If specified, no standard output is generated.
 
 If specified, a list of the directories with missing information will be sent to the standard error output.
 
+=item samples
+
+If specified, a comma-delimited list of sample names. Only packages from the specified sample will be output.
+
 =back
 
 =cut
@@ -184,7 +188,8 @@ If specified, a list of the directories with missing information will be sent to
 my $opt = ScriptUtils::Opts('dir package',
         ["force", 'force regeneration of quality data'],
         ["quiet", 'suppress standard output'],
-        ["missing", 'list missing data to error output']
+        ["missing", 'list missing data to error output'],
+        ["samples=s", 'only process packages from the specified samples']
         );
 # Get the directory and the package.
 my ($dir, $package) = @ARGV;
@@ -206,9 +211,28 @@ if (! $dir) {
         push @packages, $package;
         $force = 1;
     } else {
-        # Here we want all the packages.
+        # Here we want multiple packages.
         opendir(my $dh, $dir) || die "Could not open package directory: $!";
-        @packages = grep { $_ =~ /^\d+\.\d+$/ } readdir $dh;
+        # Check for filtering.
+        if (! $opt->samples) {
+            # No filtering. Get all the packages.
+            @packages = grep { $_ =~ /^\d+\.\d+$/ } readdir $dh;
+        } else {
+            # Loop through the packages, seeking ones from the specified sample.
+            my %samples = map { $_ => 1 } split /,/, $opt->samples;
+            for my $package (grep { $_ =~ /^\d+\.\d+$/ } readdir $dh) {
+                if (open(my $ih, '<', "$dir/$package/data.tbl")) {
+                    while (! eof $ih) {
+                        my $line = <$ih>;
+                        if ($line =~ /^Sample Name\t(.+)/) {
+                            if ($samples{$1}) {
+                                push @packages, $package;
+                            }
+                        }
+                    }
+                }
+            }
+        }
     }
     # Loop through the packages, producing output.
     for my $package (@packages) {
