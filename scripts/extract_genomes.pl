@@ -25,6 +25,7 @@ use ScriptUtils;
 use Stats;
 use Shrub::GTO;
 use File::Copy::Recursive;
+use P3DataAPI;
 
 =head1 Extract Genome Data to a Directory
 
@@ -56,6 +57,10 @@ If specified, only files not already present in the output directory will be cre
 The index (1-based) of the input column containing the genome IDs. The default is C<0>, indicating the
 last column.
 
+=item p3
+
+If specified, the genomes will be taken from PATRIC instead of the Shrub database.
+
 =back
 
 =cut
@@ -65,6 +70,7 @@ $| = 1;
 my $opt = ScriptUtils::Opts('outDir',
         Shrub::script_options(),
         ScriptUtils::ih_options(),
+        ['patric|p3', 'retrieve from PATRIC'],
         ['fasta', 'create FASTA files'],
         ['missing', 'process new genomes only'],
         ['col|c=i', 'input column (1-based)', { default => 0 }]
@@ -72,7 +78,12 @@ my $opt = ScriptUtils::Opts('outDir',
 # Create a statistics object.
 my $stats = Stats->new();
 # Connect to the database.
-my $shrub = Shrub->new_for_script($opt);
+my ($shrub, $p3);
+if ($opt->patric) {
+    $p3 = P3DataAPI->new();
+} else {
+    $shrub = Shrub->new_for_script($opt);
+}
 # Get the output directory.
 my ($outDir) = @ARGV;
 if (! $outDir) {
@@ -101,8 +112,26 @@ while (! eof $ih) {
     if (-s $outFileName && $missing) {
         $stats->Add(skipFound => 1);
         print "$genomeID already in directory.\n";
+    } elsif ($p3) {
+        # Here we are retrieving from PATRIC.
+        my $gto = $p3->gto_of($genomeID);
+        if (! $gto) {
+            print "$genomeID not in PATRIC.\n";
+            $stats->Add(skipNoSuchGenome => 1);
+            # Determine the format.
+        } elsif (! $fastaFormat) {
+            # Normal GTO format.
+            print "Storing $outFileName.\n";
+            $gto->destroy_to_file($outFileName);
+            $stats->Add(gtoStored => 1);
+        } else {
+            # FASTA format.
+            print "Extracting contigs to $outFileName.\n";
+            $gto->write_contigs_to_file($outFileName);
+            $stats->Add(fastaStored => 1);
+        }
     } elsif ($fastaFormat) {
-        # Here we are producing a FASTA file. We need to ask for the repo file.
+        # Here we are producing a Shrub FASTA file. We need to ask for the repo file.
         my $fromFile = $shrub->genome_fasta($genomeID);
         if (! $fromFile) {
             print "$genomeID not in database.\n";
@@ -113,7 +142,7 @@ while (! eof $ih) {
             $stats->Add(fastaCopied => 1);
         }
     } else {
-        # Here we are producing a GTO file.
+        # Here we are producing a Shrub GTO file.
         my $gto = Shrub::GTO->new($shrub, $genomeID);
         if (! $gto) {
             print "$genomeID not in database.\n";
