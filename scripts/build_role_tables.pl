@@ -40,8 +40,8 @@ every feature in well-behaved genomes that is currently in a subsystem.
 
 =item roles.in.subsystems
 
-This file contains (0) a role ID and (1) a role description in each record. There is one record for every role appearing
-in the above file.
+This file contains (0) a role ID, (1) a role checksum, and (2) a role description in each record. There is one record for every
+role appearing in the above file.
 
 =back
 
@@ -71,7 +71,7 @@ if (! $outDir) {
 my %rolePegs;
 # This hash maps each role ID to its description. We populate it with the roles in core subsystems.
 print "Computing subsystem roles.\n";
-my %roles = map { $_->[0] => $_->[1] } $shrub->GetAll('Subsystem Role', 'Subsystem(privileged) = ?', [1], 'Role(id) Role(description)');
+my %roles = map { $_->[0] => [$_->[1], $_->[2]] } $shrub->GetAll('Subsystem Role', 'Subsystem(privileged) = ?', [1], 'Role(id) Role(checksum) Role(description)');
 $stats->Add(subsysRoles => scalar keys %roles);
 # Open the main output file.
 open(my $oh, ">$outDir/raw.table") || die "Could not open raw.table: $!";
@@ -91,7 +91,7 @@ while (my $roleData = $q->Fetch()) {
         $stats->Add(pegDuplicate => 1);
     } else {
         # Output this role/peg pair.
-        print $oh "$roles{roleID}\t$roleID\t$peg\n";
+        print $oh "$roles{$roleID}[1]\t$roleID\t$peg\n";
         $rolePegs{$roleID}{$peg} = 1;
         $stats->Add(pegOutput => 1);
     }
@@ -101,7 +101,7 @@ while (my $roleData = $q->Fetch()) {
 close $oh; undef $oh;
 open($oh, ">$outDir/roles.in.subsystems") || die "Could not open roles.in.subsystems: $!";
 for my $roleID (sort keys %rolePegs) {
-    print $oh "$roleID\t$roles{$roleID}\n";
+    print $oh "$roleID\t$roles{$roleID}[0]\t$roles{$roleID}[1]\n";
     $stats->Add(roleOutput => 1);
 }
 print "All done.\n" . $stats->Show();

@@ -4,7 +4,7 @@ use URI::Escape;
 use SeedUtils;
 use ScriptUtils;
 use Shrub;
-use Shrub::Roles;
+use RoleParse;
 
 ## Reads standard input.
 ## Input is from p3-format-results.
@@ -76,7 +76,7 @@ sub ss_of_func {
     my @roles = &SeedUtils::roles_of_function($func);
     my %in_ss;
     for my $role (@roles) {
-        my $checksum = Shrub::Roles::Checksum($role);
+        my $checksum = RoleParse::Checksum($role);
         my @ss = $shrub->GetFlat('Role Subsystem', 'Role(checksum) = ?', [$checksum], 'Subsystem(name)');
         for my $ss (@ss) {
             $in_ss{$ss} = 1;
@@ -91,7 +91,7 @@ sub reactions_of_func {
     my @roles = &SeedUtils::roles_of_function($func);
     my %has_react;
     for my $role (@roles) {
-        my $checksum = Shrub::Roles::Checksum($role);
+        my $checksum = RoleParse::Checksum($role);
         my @react = $shrub->GetFlat('Role Complex2Reaction', 'Role(checksum) = ?', [$checksum], 'Complex2Reaction(to-link)');
         for my $react (@react) {
             if (! $has_react{$react}) {

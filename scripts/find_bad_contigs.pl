@@ -24,7 +24,7 @@ use Data::Dumper;
 use GenomeTypeObject;
 use FIG_Config;
 use Shrub;
-use Shrub::Roles;
+use RoleParse;
 
 =head1 find_bad_contigs in bin
 
@@ -83,7 +83,7 @@ foreach my $feature (@$features)
     foreach my $role (&SeedUtils::roles_of_function($function))
     {
         # Compute the role's checksum.
-        my $checksum = Shrub::Roles::Checksum($role);
+        my $checksum = RoleParse::Checksum($role);
         # Compute the ID for this checksum.
         my ($rid) = $shrub->GetFlat('Role', 'Role(checksum) = ?', [$checksum], 'id');
         if ($rid && $good_roles{$rid})

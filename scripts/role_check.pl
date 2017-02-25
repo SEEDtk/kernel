@@ -23,6 +23,7 @@ use FIG_Config;
 use Shrub;
 use ScriptUtils;
 use Shrub::Functions;
+use RoleParse;
 
 =head1 Validate Roles
 
@@ -85,7 +86,7 @@ while (! eof $ih) {
         } else {
             # Here we need to check the roles.
             for my $role (@$roles) {
-                my $checksum = Shrub::Roles::Checksum($role);
+                my $checksum = RoleParse::Checksum($role);
                 # Compute the ID for this checksum.
                 my ($id) = $shrub->GetFlat('Role', 'Role(checksum) = ?', [$checksum], 'id');
                 if (! $id) {

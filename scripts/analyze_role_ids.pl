@@ -23,7 +23,7 @@ use FIG_Config;
 use Shrub;
 use ScriptUtils;
 use RepoLoader;
-use Shrub::Roles;
+use RoleParse;
 use SeedUtils;
 use Stats;
 
@@ -98,7 +98,7 @@ for my $genome (sort keys %$gHash) {
                 my @roles = SeedUtils::roles_of_function($function);
                 $stats->Add(functionIn => 1);
                 for my $role (@roles) {
-                    my $checkSum = Shrub::Roles::Checksum($role);
+                    my $checkSum = RoleParse::Checksum($role);
                     $stats->Add(roleIn => 1);
                     if (! exists $roleIDs{$checkSum}) {
                         # Here we are seeing the role for the first time.
