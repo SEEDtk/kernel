@@ -178,8 +178,6 @@ for my $package (@packages) {
                             $goodContigs{$region->[0]}++;
                             $stats->Add(goodContigFlagged => 1);
                         }
-                    } else {
-                        print "Bad role: $role\n";
                     }
                 }
             }
