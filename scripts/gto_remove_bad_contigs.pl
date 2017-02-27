@@ -60,14 +60,21 @@ packages from the specified samples will be processed.
 The name of a tab-delimited file containing role ID mappings. The role ID is in the first column and the checksum for
 matching roles in the second column.
 
+=item coarse
+
+Normally, a role is considered good only if its count exactly matches the expected count. If this option is specified, a
+role will be considered good if both its expected and actual counts are positive.
+
 =back
 
 =cut
 
+$| = 1;
 # Get the command-line parameters.
 my $opt = ScriptUtils::Opts('packageDir outDir',
         ['samples=s', 'name of a file listing the samples to process'],
         ['roles=s', 'name of role mapping file', { default => "$FIG_Config::global/roles.in.subsystems"}],
+        ['coarse', 'remove fewer contigs']
         );
 # Check the parameters.
 my ($packageDir, $outDir) = @ARGV;
@@ -109,6 +116,8 @@ if ($opt->samples) {
     }
     close $ih; undef $ih;
 }
+# Determine the selection mode.
+my $coarse = $opt->coarse;
 # Get the packages with SciKit evaluations in the input directory.
 opendir(my $dh, $packageDir) || die "Could not open input directory: $!";
 my @packages = grep { -s "$packageDir/$_/EvalBySciKit/evaluate.out" } readdir $dh;
@@ -143,7 +152,7 @@ for my $package (@packages) {
             if (<$ih> =~ /^(\S+)\t(\d+)(?:\.\d+)?\t(\d+)/) {
                 my ($roleID, $expect, $actual) = ($1, $2, $3);
                 $stats->Add(EvaluateRoleIn => 1);
-                if ($expect > 0 && $expect == $actual) {
+                if ($expect > 0 && ($expect == $actual || $coarse && $actual > 0)) {
                     my $checksum = $roleMap{$roleID};
                     if (! $checksum) {
                         print "Role $roleID not found in role file.\n";
@@ -204,3 +213,5 @@ for my $package (@packages) {
         close $oh;
     }
 }
+print "All done.\n" . $stats->Show();
+
