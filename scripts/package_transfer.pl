@@ -67,6 +67,7 @@ more will qualify. A package without a C<quality.tbl> file will automatically no
 
 =cut
 
+$| = 1;
 # Get the command-line parameters.
 my $opt = ScriptUtils::Opts('inDir outDir',
         ['move', 'delete qualifying packages from the input directory'],
