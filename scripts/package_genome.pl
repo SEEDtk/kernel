@@ -148,29 +148,30 @@ if ($opt->core) {
     $source = 'PATRIC';
 }
 for my $genome (@genomes) {
-    # The GTO will go in here.
-    my $gto;
-    if ($opt->core) {
-        $gto = Shrub::GTO->new($shrub, $genome);
-        if (! $gto ) {
-            die "Core genome $genome not found.";
-        }
-    } else {
-        # Here we have a PATRIC genome.
-        # Get the GTO.
-        $gto = $d->gto_of($genome);
-        if (! $gto) {
-            die "PATRIC genome $genome not found.";
-        }
-    }
-    # Get the name of the genome.
-    my $name = $gto->{scientific_name};
     # Compute the output directory name.
     my $genomeDir = "$packageDir/$genome";
     if (-d $genomeDir && ! $opt->force) {
         print "Package already exists for $genome.\n";
     } else {
         # Here the bin is new or we are forcing.
+        # The GTO will go in here.
+        my $gto;
+        if ($opt->core) {
+            $gto = Shrub::GTO->new($shrub, $genome);
+            if (! $gto ) {
+                die "Core genome $genome not found.";
+            }
+        } else {
+            # Here we have a PATRIC genome.
+            # Get the GTO.
+            $gto = $d->gto_of($genome);
+            if (! $gto) {
+                die "PATRIC genome $genome not found.";
+            }
+        }
+        # Get the name of the genome.
+        my $name = $gto->{scientific_name};
+        # Do we need to create the directory?
         if (! -d $genomeDir) {
             print "Creating $genomeDir.\n";
             mkdir $genomeDir;
