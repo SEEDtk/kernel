@@ -60,6 +60,14 @@ The command-line options are the following.
 
 The description string of the desired protein role. The default is C<Phenylalanyl-tRNA synthetase alpha chain>.
 
+=item minlen
+
+The minimum acceptable length for the protein. The default is 209.
+
+=item maxlen
+
+The maximum acceptable length for the protein. The default is 485.
+
 =back
 
 =cut
@@ -67,7 +75,9 @@ The description string of the desired protein role. The default is C<Phenylalany
 $| = 1;
 # Get the command-line parameters.
 my $opt = ScriptUtils::Opts('packageDir outDir',
-        ['protein=s', 'protein role description', { default => 'Phenylalanyl-tRNA synthetase alpha chain'}]
+        ['protein=s', 'protein role description', { default => 'Phenylalanyl-tRNA synthetase alpha chain'}],
+        ['minlen=i', 'minimum protein length', { default => 209 }],
+        ['maxlen=i', 'maximum protein length', { default => 485 }]
         );
 # Get the positional parameters.
 my ($packageDir, $outDir) = @ARGV;
@@ -81,6 +91,10 @@ if (! $packageDir) {
     File::Copy::Recursive::pathmk($outDir) ||
         die "Could not created $outDir: $!";
 }
+# Get the options.
+my $role = $opt->protein;
+my $min = $opt->minlen;
+my $max = $opt->maxlen;
 my $stats = Stats->new();
 # Open the output files.
 open(my $fh, '>', "$outDir/proteins.fa") || die "Could not open FASTA output file: $!";
@@ -93,22 +107,38 @@ for my $genome (sort keys %$ghash) {
     print "Searching $genome for seed proteins:  ";
     my $gto = GPUtils::gto_of($ghash, $genome);
     $stats->Add(genomesIn => 1);
-    my $flist = GPUtils::role_to_features($gto, 'Phenylalanyl-tRNA synthetase alpha chain (EC 6.1.1.20)');
+    my $flist = GPUtils::role_to_features($gto, $role);
     # Did we find any proteins?
     my $found = scalar @$flist;
     if (! $found) {
         print "none found.\n";
         $stats->Add(genomesNoSeed => 1);
-    } else {
-        print "$found found.\n";
+    } elsif ($found > 1) {
+        print "$found found. GENOME SKIPPED.\n";
         $stats->Add(("genomes$found" . "Seed") => 1);
-        # We found the protein. Output the genome.
-        print $oh "$genome\t$gto->{scientific_name}\n";
-        $stats->Add(genomesOut => 1);
-        # Output the proteins.
-        for my $feature (@$flist) {
-            print $fh ">$feature->{id} $genome\n$feature->{protein_translation}\n";
-            $stats->Add(proteinsOut => 1);
+    } else {
+        print "$found found.";
+        $stats->Add(genomes1Seed => 1);
+        my $feature = $flist->[0];
+        # Check the protein length.
+        my $aa = $feature->{protein_translation};
+        my $aaLen = length $aa;
+        if ($aaLen < $min) {
+            print " Length $aaLen < $min. GENOME SKIPPED.\n";
+            $stats->Add(protTooShort => 1);
+        } elsif ($aaLen > $max) {
+            print " Length $aaLen > $max. GENOME SKIPPED.\n";
+            $stats->Add(protTooLong => 1);
+        } else {
+            print "\n";
+            # We found the protein. Output the genome.
+            print $oh "$genome\t$gto->{scientific_name}\n";
+            $stats->Add(genomesOut => 1);
+            # Output the proteins.
+            for my $feature (@$flist) {
+                print $fh ">$feature->{id} $genome\n$aa\n";
+                $stats->Add(proteinsOut => 1);
+            }
         }
     }
 }
