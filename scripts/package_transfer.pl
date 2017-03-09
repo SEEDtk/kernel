@@ -23,6 +23,8 @@ use FIG_Config;
 use ScriptUtils;
 use File::Copy::Recursive;
 use Stats;
+use GPUtils;
+use GenomeTypeObject;
 
 =head1 Transfer Genome Packages
 
@@ -61,7 +63,8 @@ If specified, only packages from samples will qualify.
 =item good
 
 If specified, only packages with a fine SciKit score of 85 or more and a CheckM completeness score of 80 or
-more will qualify. A package without a C<quality.tbl> file will automatically not qualify.
+more and a properly-annotated Phenylalamine tRNA synthetase will qualify. A package without a
+C<quality.tbl> file will automatically not qualify.
 
 =back
 
@@ -133,7 +136,19 @@ for my $package (sort @inPackages) {
         # Note that the fields may be blank if we don't have quality data. This
         # automatically disqualifies the package.
         if ($flds[12] && $flds[13] && $flds[12] >= 85 && $flds[13] >= 80) {
-            $isGood = 1;
+            # Here we are probably good. Read the GTO and check the annotations.
+            my $gtoFile = "$inDir/$package/bin.gto";
+            if (-s $gtoFile) {
+                my $gto = GenomeTypeObject->create_from_file("$inDir/$package/bin.gto");
+                my $flist = GPUtils::role_to_features($gto, 'Phenylalanyl-tRNA synthetase alpha chain');
+                if (scalar @$flist == 1) {
+                    my $aa = $flist->[0]{protein_sequence};
+                    my $aaLen = length $aa;
+                    if ($aaLen >= 209 && $aaLen <= 405) {
+                        $isGood = 1;
+                    }
+                }
+            }
         }
     }
     # Compute the sample's properties.
