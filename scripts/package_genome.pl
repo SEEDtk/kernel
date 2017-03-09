@@ -120,6 +120,7 @@ if (! $packageDir) {
 # This will contain the IDs of the genomes to process.
 my @genomes;
 if ($opt->file) {
+    print "Reading genoems from $genomeID.\n";
     open(my $ih, '<', $genomeID) || die "Could not open genome file $genomeID: $!";
     while (! eof $ih) {
         my $line = <$ih>;
@@ -130,32 +131,36 @@ if ($opt->file) {
 } else {
     @genomes = {$genomeID};
 }
+my ($shrub, $d, $source);
+# Determine the source.
+if ($opt->core) {
+    # Connect to Shrub.
+    print "Connecting to Shrub.\n";
+    require Shrub;
+    $shrub = Shrub->new();
+    require Shrub::GTO;
+    $source = 'CORE';
+} else {
+    # Connect to PATRIC. Note that we must do an environment hack.
+    print "Connecting to PATRIC.\n";
+    $ENV{PERL_LWP_SSL_VERIFY_HOSTNAME} = 0;
+    $d = P3DataAPI->new();
+    $source = 'PATRIC';
+}
 for my $genome (@genomes) {
-    # The source database name will go in here.
-    my $source;
     # The GTO will go in here.
     my $gto;
     if ($opt->core) {
-        require Shrub;
-        my $shrub = Shrub->new();
-        require Shrub::GTO;
         $gto = Shrub::GTO->new($shrub, $genome);
         if (! $gto ) {
             die "Core genome $genome not found.";
-        } else {
-            $source = 'CORE';
         }
     } else {
         # Here we have a PATRIC genome.
-        # Connect to the database. Note that we must do an environment hack.
-        $ENV{PERL_LWP_SSL_VERIFY_HOSTNAME} = 0;
-        my $d = P3DataAPI->new();
         # Get the GTO.
         $gto = $d->gto_of($genome);
         if (! $gto) {
             die "PATRIC genome $genome not found.";
-        } else {
-            $source = 'PATRIC';
         }
     }
     # Get the name of the genome.
