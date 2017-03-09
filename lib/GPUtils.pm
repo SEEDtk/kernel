@@ -22,7 +22,7 @@ package GPUtils;
     use warnings;
     use GenomeTypeObject;
     use RoleParse;
-    use SeedUtils;
+    use SeedUtils qw();
 
 =head1 GenomePackage Utilities
 

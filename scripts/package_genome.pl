@@ -96,6 +96,7 @@ first column.
 
 =cut
 
+$| = 1;
 # Get the command-line parameters.
 my $opt = ScriptUtils::Opts('genomeID packageDir',
         ['force', "overwrite existing packages"],
