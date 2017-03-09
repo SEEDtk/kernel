@@ -58,7 +58,7 @@ module GenomeAnnotation
 	string hostname;
     } analysis_event;
 
-    typedef tuple<string comment, string annotator, int annotation_time, analysis_event_id> annotation;
+    typedef tuple<string comment, string annotator, float annotation_time, analysis_event_id> annotation;
 
     typedef structure {
 	bool truncated_begin;
@@ -96,6 +96,63 @@ module GenomeAnnotation
 	float genemark_score;
     } feature_quality_measure;
 
+    /*
+     * A protein family assignment notes the assignment of the given feature
+     * to a protein family. db is the name of the protein family database
+     * (e.g. FIGfam, GPF for GlobalPatricFam, LPF for LocalPatricFam, etc.)
+     */
+
+    typedef tuple <string db, string id, string function, string db_version> protein_family_assignment;
+
+    /*
+     * A similarity association notes the BLAST-computed association
+     * between this feature and a given protein database.
+     */
+
+    typedef tuple <string source, string source_id,
+	float query_coverage, float subject_coverage, float identity, float e_value>
+	similarity_association;
+
+    /* A proposed function records an assertion of the function of a feature.
+     * A feature may have multiple proposed functions. A tool downstream of the
+     * tools that propose functions may determine based on the asserted proposals
+     * which function should be the assigned function for the feature.
+     */
+    typedef structure {
+	string id;
+	string function;
+	string user;
+	float score;
+	analysis_event_id event_id;
+	int timestamp;
+    } proposed_function;
+
+    typedef structure {
+        string genbank_type;
+        string genbank_location;
+        mapping<string qualifier, list<string>> values;
+    } genbank_feature;
+
+    typedef structure {
+	list<string> accession;
+	list<string> comment;
+	string date;
+	list<string> dblink;
+	list<string> dbsource;
+	string definition;
+	string division;
+	string geometry;
+	int gi;
+	list<string> keywords;
+	string locus;
+	string organism;
+	string origin;
+	list<mapping<string, string>> references;
+	string source;
+	list<string> taxonomy;
+	list<string> version;
+    } genbank_locus;
+
     /* A feature object represents a feature on the genome. It contains 
        the location on the contig with a type, the translation if it
        represents a protein, associated aliases, etc. It also contains
@@ -107,12 +164,23 @@ module GenomeAnnotation
 	location location;
 	feature_type type;
 	string function;
+	/*
+	 * The function_id refers to the particular proposed function that was chosen
+	 * for this feature.
+	 */
+	string function_id;
 	string protein_translation;
 	list<string> aliases;
 	list<tuple<string source, string alias>> alias_pairs;
 	list<annotation> annotations;
 	feature_quality_measure quality;
 	analysis_event_id feature_creation_event;
+	list<protein_family_assignment> family_assignments;
+	list<similarity_association> similarity_associations;
+	list<proposed_function> proposed_functions;
+
+	string genbank_type;
+	genbank_feature genbank_feature;
     } feature;
 
     /* Data for DNA contig */
@@ -125,6 +193,7 @@ module GenomeAnnotation
 	/* circular / linear */
 	string replicon_geometry;
 	bool complete;
+	genbank_locus genbank_locus;
     } contig;
 
     typedef structure {
@@ -150,6 +219,7 @@ module GenomeAnnotation
 	string source_id;
 	string taxonomy;
 	int ncbi_taxonomy_id;
+	string owner;
 
 	genome_quality_measure quality;
 	
@@ -182,6 +252,7 @@ module GenomeAnnotation
 	string source_id;
 	int ncbi_taxonomy_id;
 	string taxonomy;
+	string owner;
     } genome_metadata;
 
     typedef string subsystem;
@@ -217,6 +288,11 @@ module GenomeAnnotation
      * Create a new genome object and assign metadata.
      */
     funcdef create_genome(genome_metadata metadata) returns (genomeTO genome);
+
+    /*
+     * Create a new genome object from one or more genbank files.
+     */
+    funcdef create_genome_from_genbank(string gb_data) returns (genomeTO genome);
 
     /*
      * Create a new genome object based on data from the SEED project.
@@ -324,7 +400,15 @@ module GenomeAnnotation
     
     funcdef call_features_CDS_prodigal(genomeTO) returns (genomeTO);
     funcdef call_features_CDS_genemark(genomeTO) returns (genomeTO);
-    funcdef call_features_CDS_SEED_projection(genomeTO) returns (genomeTO);
+
+    typedef structure
+    {
+	string reference_database;
+	string reference_id;
+	int kmer_size;
+    } SEED_projection_parameters;
+
+    funcdef call_features_CDS_SEED_projection(genomeTO, SEED_projection_parameters params) returns (genomeTO);
     funcdef call_features_CDS_FragGeneScan(genomeTO) returns (genomeTO);
 
     typedef structure
@@ -379,6 +463,12 @@ module GenomeAnnotation
 
     funcdef resolve_overlapping_features(genomeTO genome_in, resolve_overlapping_features_parameters params) returns (genomeTO genome_out);
 
+    typedef structure {
+	float min_rna_pct_coverage;
+    } propagate_genbank_feature_metadata_parameters;
+
+    funcdef propagate_genbank_feature_metadata(genomeTO genome_in, propagate_genbank_feature_metadata_parameters params) returns (genomeTO genome_out);
+
     funcdef call_features_ProtoCDS_kmer_v1(genomeTO, kmer_v1_parameters params) returns (genomeTO);
     funcdef call_features_ProtoCDS_kmer_v2(genomeTO genome_in, kmer_v2_parameters params) returns (genomeTO genome_out);
 
@@ -393,6 +483,11 @@ module GenomeAnnotation
 	float identity,
 	float p_value > special_protein_hit;
     funcdef compute_special_proteins(genomeTO genome_in, list<string> database_names) returns (list<special_protein_hit> results);
+
+    funcdef annotate_special_proteins(genomeTO genome_in) returns (genomeTO genome_out);
+    funcdef annotate_families_figfam_v1(genomeTO genome_in) returns (genomeTO genome_out);
+    funcdef annotate_families_patric(genomeTO genome_in) returns (genomeTO genome_out);
+    funcdef annotate_null_to_hypothetical(genomeTO genome_in) returns (genomeTO genome_out);
 
     typedef tuple <
 	string protein_id,
