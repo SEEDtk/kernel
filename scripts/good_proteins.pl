@@ -77,7 +77,8 @@ $| = 1;
 my $opt = ScriptUtils::Opts('packageDir outDir',
         ['protein=s', 'protein role description', { default => 'Phenylalanyl-tRNA synthetase alpha chain'}],
         ['minlen=i', 'minimum protein length', { default => 209 }],
-        ['maxlen=i', 'maximum protein length', { default => 485 }]
+        ['maxlen=i', 'maximum protein length', { default => 485 }],
+        ['eraseBad', 'erase the bad genomes']
         );
 # Get the positional parameters.
 my ($packageDir, $outDir) = @ARGV;
@@ -96,6 +97,8 @@ my $role = $opt->protein;
 my $min = $opt->minlen;
 my $max = $opt->maxlen;
 my $stats = Stats->new();
+# Save the bad genome IDs in here.
+my @bad;
 # Open the output files.
 open(my $fh, '>', "$outDir/proteins.fa") || die "Could not open FASTA output file: $!";
 open(my $oh, '>', "$outDir/genomes.tbl") || die "Could not open genome output file: $!";
@@ -116,6 +119,7 @@ for my $genome (sort keys %$ghash) {
     } elsif ($found > 1) {
         print "$found found. GENOME SKIPPED.\n";
         $stats->Add(("genomes$found" . "Seed") => 1);
+        push @bad, $genome;
     } else {
         print "$found found.";
         $stats->Add(genomes1Seed => 1);
@@ -126,9 +130,11 @@ for my $genome (sort keys %$ghash) {
         if ($aaLen < $min) {
             print " Length $aaLen < $min. GENOME SKIPPED.\n";
             $stats->Add(protTooShort => 1);
+            push @bad, $genome;
         } elsif ($aaLen > $max) {
             print " Length $aaLen > $max. GENOME SKIPPED.\n";
             $stats->Add(protTooLong => 1);
+            push @bad, $genome;
         } else {
             print "\n";
             # We found the protein. Output the genome.
@@ -140,6 +146,13 @@ for my $genome (sort keys %$ghash) {
                 $stats->Add(proteinsOut => 1);
             }
         }
+    }
+}
+if ($opt->erasebad) {
+    for my $genome (@bad) {
+        my $dir = $ghash->{$genome};
+        print "Erasing $dir.\n";
+        File::Copy::Recursive::pathrmdir($dir);
     }
 }
 print "All done.\n" . $stats->Show();
