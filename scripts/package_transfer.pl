@@ -175,7 +175,6 @@ for my $package (sort @inPackages) {
         # If we are counting, there is nothing else to do.
         if ($count) {
             print "$inDir/$package qualifies.\n";
-            $stats->Add(packageQualifies => 1);
         } else {
             # Figure out what we should do.
             if ($missing && ! $isMissing) {
