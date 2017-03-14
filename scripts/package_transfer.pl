@@ -66,6 +66,10 @@ If specified, only packages with a fine SciKit score of 85 or more and a CheckM 
 more and a properly-annotated Phenylalamine tRNA synthetase will qualify. A package without a
 C<quality.tbl> file will automatically not qualify.
 
+=item count
+
+If specified, the qualifying packages will be counted but not moved or copied.
+
 =back
 
 =cut
@@ -74,6 +78,7 @@ $| = 1;
 # Get the command-line parameters.
 my $opt = ScriptUtils::Opts('inDir outDir',
         ['move', 'delete qualifying packages from the input directory'],
+        ['count', 'count the qualifying packages without moving or copying'],
         ['missing', 'do not copy packages already in the output directory'],
         ['samples=s', 'list of samples required for qualification'],
         ['good', 'only good packages qualify'],
@@ -103,7 +108,11 @@ if ($opt->samples) {
         }
     }
 }
+my $count = $opt->count;
 my $move = $opt->move;
+if ($count && $move) {
+    die "Cannot specify both COUNT and MOVE.";
+}
 my $missing = $opt->missing;
 my $good = $opt->good;
 my $original = $opt->original;
@@ -163,34 +172,40 @@ for my $package (sort @inPackages) {
     if (($isOriginal || ! $original) && ($isGood || ! $good) && $passesFilter) {
         # Here the package qualifies.
         $stats->Add(packageQualifies => 1);
-        # Figure out what we should do.
-        if ($missing && ! $isMissing) {
-            # Here we are only transferring directories not in the target, but this package is in
-            # the target. If we are moving, delete the source. Otherwise, do nothing.
-            if ($move) {
-                $stats->Add(sourceDeleted => 1);
-                print "Erasing $inDir/$package.\n";
-                File::Copy::Recursive::pathrmdir("$inDir/$package");
-            } else {
-                print "Package already in target-- skipped.\n";
-                $stats->Add(sourceNotCopied => 1);
-            }
+        # If we are counting, there is nothing else to do.
+        if ($count) {
+            print "$inDir/$package qualifies.\n";
+            $stats->Add(packageQualifies => 1);
         } else {
-            # Here we are going ahead with a transfer.
-            if (! $isMissing) {
-                # Delete the target package to make room for the source.
-                $stats->Add(targetDeleted => 1);
-                print "Deleting $outDir/$package.\n";
-                File::Copy::Recursive::pathrmdir("$outDir/$package");
-            }
-            # Either move or copy.
-            if ($move) {
-                print "Moving $package to $outDir.\n";
-                File::Copy::Recursive::dirmove("$inDir/$package", "$outDir/$package");
-                $stats->Add(sourceMoved => 1);
+            # Figure out what we should do.
+            if ($missing && ! $isMissing) {
+                # Here we are only transferring directories not in the target, but this package is in
+                # the target. If we are moving, delete the source. Otherwise, do nothing.
+                if ($move) {
+                    $stats->Add(sourceDeleted => 1);
+                    print "Erasing $inDir/$package.\n";
+                    File::Copy::Recursive::pathrmdir("$inDir/$package");
+                } else {
+                    print "Package already in target-- skipped.\n";
+                    $stats->Add(sourceNotCopied => 1);
+                }
             } else {
-                print "Copying $package to $outDir.\n";
-                File::Copy::Recursive::dircopy("$inDir/$package", "$outDir/$package");
+                # Here we are going ahead with a transfer.
+                if (! $isMissing) {
+                    # Delete the target package to make room for the source.
+                    $stats->Add(targetDeleted => 1);
+                    print "Deleting $outDir/$package.\n";
+                    File::Copy::Recursive::pathrmdir("$outDir/$package");
+                }
+                # Either move or copy.
+                if ($move) {
+                    print "Moving $package to $outDir.\n";
+                    File::Copy::Recursive::dirmove("$inDir/$package", "$outDir/$package");
+                    $stats->Add(sourceMoved => 1);
+                } else {
+                    print "Copying $package to $outDir.\n";
+                    File::Copy::Recursive::dircopy("$inDir/$package", "$outDir/$package");
+                }
             }
         }
     }
