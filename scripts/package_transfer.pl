@@ -151,7 +151,7 @@ for my $package (sort @inPackages) {
                 my $gto = GenomeTypeObject->create_from_file("$inDir/$package/bin.gto");
                 my $flist = GPUtils::role_to_features($gto, 'Phenylalanyl-tRNA synthetase alpha chain');
                 if (scalar @$flist == 1) {
-                    my $aa = $flist->[0]{protein_sequence};
+                    my $aa = $flist->[0]{protein_translation};
                     my $aaLen = length $aa;
                     if ($aaLen >= 209 && $aaLen <= 405) {
                         $isGood = 1;
