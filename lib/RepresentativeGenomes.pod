@@ -1,0 +1,363 @@
+=head1 Representative Genomes Notes
+
+In early 2017, as I write this document, I am pondering the following
+three points:
+
+=over 4
+
+=item 1
+
+PATRIC now contains about 90,000 genomes.
+
+=item 2
+
+Approximately 7500 of these genomes are marked as
+complete.  We are running evaluations of all of the
+PATRIC genomes as I write this, and I believe that when
+we complete the efort there will be a close
+correspondence between the genomes marked as "complete"
+and those marked as "good" by the evaluation process
+(essentially, a "good genome" has a checkM completeness
+score of at least 80 and an FIGannCon score of at least
+85).
+
+=item 3
+
+The majority of the 7500 complete/good genomes represent
+pathogens (with genomes that are very similar).  You can
+pick about 2000 representative genomes from the 7500.
+
+=back
+
+While there is great need for sets of very similar genomes to support
+SNP analysis and studies of AMR, there is also a need for the
+representative genomes to support comparative analysis of more
+diverged genomes.  From my perspective, these two broad types of
+comparative analysis (one of very similar genomes, and one of diverse
+genomes that cover the tree) both need to be supported by PATRIC.
+
+My personal interests center on issues that require a broad set of
+genomes that cover the tree.  We are working with Rob Edwards and his
+group to gather a large, diverse set of good genomes and make them
+freely available.
+
+The main sources of good genomes at this point are genomes imported
+from
+
+=over 4
+
+=item 1
+
+the CoreSEED [the manually curated collection being
+maintained as part of the SEED Project]
+
+=item 2
+
+the good genomes from PATRIC
+
+=item 3
+
+good genomes harvested from a rapidly growing body of
+metagenomic samples.
+
+=back
+
+These three sources are being merged into two collections:
+
+=over 4
+
+=item 1
+
+The first collection is composed of the representative
+genomes and will be maintained within the SEEDtk
+environment. Frequent annotation updates from the CoreSEED
+effort are critical to maintaing the value of this
+collection (biweekly updates are currently taking place).
+
+=item 2
+
+The second collection is a set of genome sets, each
+representing a collection of very similar genomes.
+
+=back
+
+=head2 Similarity
+
+I have used the concept of I<similar genomes> without making the notion
+precise.  Since we are entering a period in which millions of genomes
+will be sequenced, the question of how to construct tools that scale
+quickly emerges.  In particular, we need a simple notion of the
+critical concept of I<similarity of two genomes>.
+
+The functional role
+
+    Phenylalanyl-tRNA synthetase alpha chain (EC 6.1.1.20)
+
+is almost universal (this is the gene product of pheS in Escherichia
+coli).  Very occasionally it might be part of a fusion or a
+frameshift, but for our purposes, we will constrain the notion of
+"good genome" to require that a good genome includes precisely one
+copy of pheS and the encoded protein will have a length that falls
+within two standard deviations of the mean (the mean length is about
+347 amino acids and the standard deviation is about 46 aa).
+
+Now we can define the similarity between two good genomes as the
+number of amino acid 8-mers that are in common between the gene
+products of the two PheS proteins.
+
+=head2 Computation Steps Needed to Support Representative Genomes
+
+=head3 Step 1: Computation of Very Similar Sets (VSS)
+
+I will now go through the steps needed to support computation of
+representative genomes.  A user begins by creating two files:
+
+               complete.genomes is a 2-column text file.
+                                       each row contains
+
+                                    [Genome #,Genome name]
+
+               6.1.1.20.fasta   is a fasta file of the amino acid
+                                sequences of the PheS products for
+                                the set of genomes in the
+                                complete.genomes file.
+
+Then use something like
+
+              mkdir Data
+         cp complete.genomes Data
+         cp 6.1.1.20.fasta Data
+         get_vss_for_reps Data
+
+This
+        get_vss_for_reps  Data
+
+should compute
+
+        Data/vss               [a file of sets of very similar sequences]
+
+and update Data/complete.genomes, which will now contain only 1 member
+from each vss.  That is, sets of very close genomes are created (and
+stored in Data/vss), and Data/complete.genomes is adjusted to contain
+just the first genome from each of the very similar sets.
+
+=head3 Step 2: Computing the Distance Matrix
+
+Now
+
+        generate_cached_rep_data Data
+
+Generates a I<similarity matrix> for the genomes in
+Data/complete.genomes and stores it in
+
+        Data/similarities
+
+Note that, at this time, we have a very tractable set of genomes,
+but when we reach 100,000 divergent genomes things may get worse.  The
+hope is that we will be covered for 5-10 years (at which time
+computers will be free).
+
+When I designed this tool initially, I thought that there would be a
+need for high-performance, and this lead to the creation of surrogate
+keys for genomes, where the surrogates wer consecutive integers
+(allowing tables to be built using integers -- speeding some
+computations and reducing memory requirements.  I foresaw a time where
+the core computations would be pushed into C.
+
+=head3 Step 3: The Server
+
+Eventually, I think we will need a server that
+
+=over 4
+
+=item 1
+
+reads in precomputed values (most notably Data/similarities) and
+
+=item 2
+
+processes a stream of requests.
+
+=back
+
+To make the construction of the server easier, I have implemented a
+query-processor similar to the old C<fig.pl> style.  I debug and time
+implementations of requests in that environment.  The query processor
+is invoked using
+
+   rep_server Data
+
+After loading the precomputed data, a prompt should appear (this can
+take a few second to appear).  A request of just C<h> produces a short
+help text.
+
+Here is a example interaction:
+
+This invokes the query processor
+
+        $ perl rep_server.pl Data
+
+This asks for the genome id and name, given an index value of 2
+
+        ?? index_to_id 2
+        2	1680.5	Bifidobacterium adolescentis strain BBMN23
+        3.60012054443359e-05 seconds to execute command
+
+Note that the request is timed.
+
+This produces the same information, given the id of the genome.
+
+        ?? id_to_index 1680.5
+        2	1680.5	Bifidobacterium adolescentis strain BBMN23
+        3.60012054443359e-05 seconds to execute command
+
+This requests the help text be displayed
+
+        ?? h
+
+            closest_genomes Index N    [returns closest N genomes]
+            close_rep_seq N Sequence   [returns close representative]
+            id_to_index  Id            [returns genome index]
+            index_to_id  Index         [returns genome id]
+            match_tails 16-mer         [returns genomes with matching PheS tail]
+            n_reps N [keep1, keep2, ...keepn]
+                                       [returns rep set of about N seqs]
+            rep_set N [keep1, keep2, ...keepN]
+                                       [ returns rep set ]
+            thin_set N Index1 Index2 ... IndexN  [ make thinned set ]
+        5.19752502441406e-05 seconds to execute command
+
+
+Finally, we exit
+
+        ?? x
+        $
+
+
+=head4 Other commands
+
+Getting closest genomes
+
+Assuming that you have a genome from the set of complete.genomes,
+you can use something like
+
+        closest_genomes 2 5
+        2	1680.5	Bifidobacterium adolescentis strain BBMN23
+                343	16	1680.4	Bifidobacterium adolescentis strain 22L
+                343	829	367928.6	Bifidobacterium adolescentis ATCC 15703
+                280	1	1447716.4	Bifidobacterium kashiwanohense PV20-2
+                280	864	1150460.7	Bifidobacterium kashiwanohense JCM 15439 = DSM 21854
+                280	2022	547043.19	Bifidobacterium pseudocatenulatum DSM 20438 = JCM 1200 = LMG 10505
+        0.000138998031616211 seconds to execute command
+
+to get the closest 5 genomes (i.e., the closest 5 to the genome with
+index 2).
+
+
+You can compute a representative set of genomes.  The algorithm takes
+a similarity threshhold N.  The returned set will have the property
+that no two members are more similar than N, and all of the omitted
+sequences are similar to one of the representative sequences at a
+score of N or more.
+
+You can optionally, speciy a set of I<keepers>, which are indexes of
+sequence you want to be present in the representative set (if
+possible).  Thus, the following command creates a representative set
+based on similarity threshhold of 50, and forces one of the members to
+be the genome with index 864. The returned set has 872 members.
+
+        ?? rep_set 50 864
+        872
+
+        864	1150460.7	Bifidobacterium kashiwanohense JCM 15439 = DSM 21854
+        3	1678678.3	Burkholderia sp. HB1
+        5	1532555.3	Brevundimonas sp. DS20
+        6	1746199.3	Bordetella sp. N
+        10	224911.44	Bradyrhizobium diazoefficiens USDA 110
+        11	98804.3	Buchnera aphidicola (Tuberolachnus salignus)
+        12	118110.3	Buchnera aphidicola (Schlechtendalia chinensis)
+        13	1263829.3	Bibersteinia trehalosi USDA-ARS-USMARC-188
+
+        .
+        .
+        .
+        0.0565729141235352 seconds to execute command
+
+
+=head4 Getting a Representative set with a Specified Number of Members
+
+You can compute a representative set containing close to a specified
+number of members using something like
+
+        ?? n_reps 1000
+        1001	0,3,5,6,10,11,12,13,14,15,17,18,19,20,...
+
+        0.0629708766937256 seconds to execute command
+
+        ??
+
+Note that the genomes are given as a comma-separated set of genome indices.
+
+
+
+
+=head4 Trying to Find a Close representative sequence.
+
+
+Suppose that you had an arbitrary PheS sequence, and you wanted to
+locate a genome with a close sequence.  You could use something like
+
+        ?? close_rep_seq 200 MGSMDLDQIVADAQQSFEGAADITTLENEKARFLGKSGALTELLKGLGKLDPETRKTEGARINVAKQQVEAALNARRQALADALLNQRLAAEAIDVTLPGRGAGAGSLHPVMRTWERVEQIFRSIGFDVADGPEIETDWYNFTALNSPENHPARSMQDTFYVDGKDADGRPLLLRTHTSPMQVRYARMNRPPIKVIAPGRTYRVDSDATHSPMFNQVEGLWIDENVSFADLKGVYTDFLKKFFERDDILVRFRPSYFPFTEPSAEIDMMFEHGKNAGKWLEISGSGQVHPTVIRNMGLDPERYIGFAFGSGLERLTMLRYGVQDLRLFFENDLRFLRQFA
+        268	1779	1009846.3	Burkholderia cepacia GG4
+        0.503750085830688 seconds to execute command
+
+which tries to find a representative sequence that is close to the
+specified sequence.  The search computes a set of about 200 rep sets
+that cover the collection, keeping the closest to the given sequence.
+It then takes that rep sequence and looks at the 50 closest other rep
+sequences.  The closest is returned.  In this case it was 1009846.3
+(index=1779) that had 268 8-mers in common with the query PheS.
+
+
+=head4 Extending a Pin to Support Compare Regions
+
+Computing a I<pin> is a key step in a compare regions computation.
+My intent is to create a strategy that is not guaranteed to produce
+the pin, but is fast enough to allow fallback approaches when it
+fails.
+
+The basic approach that I advocate would be
+
+=over 4
+
+=item 1
+
+Get the PheS from the focus genome.  If the focus genome is
+in complete.genomes, this PheS has instantaneous access to the
+closest genomes from complete.genomes (via C<closest_genomes>
+query).  Otherwise, you need to use a C<close_rep_seq> and a
+C<closest_genomes> to get the set of close genomes.
+
+=item 2
+
+Once you have the close genomes, You need to get the set of
+pinned features.  If the seed feature is in a protein
+family, compute the pin as the set of features from the family
+that are from the close genomes.  This can lead to multiple
+pegs from the same genome.  I think that is ok, if the seed
+feature occurs uniquely (and maybe ok even if it is not unique).
+
+=item 3
+
+If you cannot easily get a pin from the seed feature, find the
+closest non-hypo feature for which you can get a pin, and use
+that (adjusting the red to reflect the original seed feature
+-- not the close non-hypo).
+
+=back
+
+This approach will, in the worst case, take under a second to fail.
+If the seed feature is from a genome in complete.genomes, it should
+take under 0.1 seconds to fail.
+
+My belief is that it will succeed most of the time.
