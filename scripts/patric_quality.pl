@@ -79,6 +79,7 @@ If specified, only genomes without GTO files in the save directory will be check
 
 =cut
 
+$| = 1;
 # Get the command-line parameters.
 my $opt = ScriptUtils::Opts('', ScriptUtils::ih_options(),
         ['min|m=f',  'minimum acceptable quality score', { default => 0 }],
@@ -153,11 +154,11 @@ eval {
                         $fqual = $1;
                     }
                 }
+                print join("\t", @$inputLine, $cqual, $fqual) . "\n";
                 # Check for acceptability.
                 if ($fqual < $min) {
                     $stats->Add(genomeLowQuality => 1);
                 } else {
-                    print join("\t", @$inputLine, $cqual, $fqual) . "\n";
                     $stats->Add(genomeAccepted => 1);
                     if ($saveDir) {
                         File::Copy::Recursive::fmove($tempGto, "$saveDir/$genomeID.gto") ||
