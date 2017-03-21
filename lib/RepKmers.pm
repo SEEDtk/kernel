@@ -51,4 +51,99 @@ sub in_common {
     return $common;
 }
 
+# returns a list of 2-tuples [CommonSc,Index]
+sub closest_N_genomes {
+    my($cached,$index,$n) = @_;
+
+    my @closest;
+    my $sims = $cached->{sims};
+    my $closest = $sims->[$index];
+    for (my $i=0; ($i < @$closest) && ($i < $n); $i++)
+    {
+	push(@closest,$closest->[$i]);
+    }
+    return @closest;
+}
+
+# returns a list of 2-tuples [CommonSc,Index]
+sub closest_by_sc {
+    my($cached,$index,$sc) = @_;
+
+    my @closest;
+    my $sims = $cached->{sims};
+    my $closest = $sims->[$index];
+    for (my $i=0; ($i < @$closest) && ($closest->[$i]->[0] >=  $sc); $i++)
+    {
+	push(@closest,$closest->[$i]);
+    }
+    return @closest;
+}
+
+sub rep_guts {
+    my($cached,$max_sim,$todo) = @_;
+
+    my $sims = $cached->{sims};
+    my %seen;
+    my $reps = [];
+    while (defined(my $i = shift @$todo))
+    {
+	if (! $seen{$i})
+	{
+	    push(@$reps,$i);
+	    $seen{$i} = 1;
+#           print STDERR "added $i to reps\n";
+	    if (my $close = $sims->[$i])
+	    {
+		if (defined($close))
+		{
+		    my $i2 = 0;
+		    while (($i2 < @$close) && ($close->[$i2]->[0] >= $max_sim))
+		    {
+			$seen{$close->[$i2]->[1]} = 1;
+#			print STDERR "marked $close->[$i2]->[1]\n";
+			$i2++;
+		    }
+		}
+	    }
+	}
+    }
+    return @$reps;
+}
+
+sub find_closest {
+    my($cached,$best_id,$best_so_far,$max_sim,$kmersQ) = @_;
+
+    my $index_to_g = $cached->{index_to_g};
+    my $sims = $cached->{sims};
+    my $seqs = $cached->{seqs};
+    my %seen;
+    while ($max_sim < 200)
+    {
+        my @close_tuples = &closest_by_sc($cached,$best_id,$max_sim);
+        foreach my $tuple (@close_tuples)
+	{
+	    my($sc,$id) = @$tuple;
+	    if (! $seen{$id})
+	    {
+		$seen{$id} = 1;
+	    }
+	}
+	my $todo = [keys(%seen)];
+	my @reps = &RepKmers::rep_guts($cached,$max_sim * 2,$todo);
+	foreach my $id (@reps)
+	{
+	    my $gid     = $index_to_g->{$id};
+	    my $seq = $seqs->{$gid};
+	    my $sc = &in_common(8,$kmersQ,$seq);
+	    if ($sc > $best_so_far)
+	    {
+		$best_id = $id;
+		$best_so_far = $sc;
+	    }
+	}
+	$max_sim = 2 * $max_sim;
+    }
+    return ($best_id,$best_so_far);
+}
+
 1;
