@@ -229,16 +229,18 @@ sub role_to_features {
     my $allFeatures = $gto->{features};
     for my $feature (@$allFeatures) {
         my $function = $feature->{function};
-        my @roles = SeedUtils::roles_of_function($function);
-        my $found;
-        for my $role (@roles) {
-            my $possible = RoleParse::Checksum($role);
-            if ($possible eq $target) {
-                $found = 1;
+        if ($function) {
+            my @roles = SeedUtils::roles_of_function($function);
+            my $found;
+            for my $role (@roles) {
+                my $possible = RoleParse::Checksum($role);
+                if ($possible eq $target) {
+                    $found = 1;
+                }
             }
-        }
-        if ($found) {
-            push @retVal, $feature;
+            if ($found) {
+                push @retVal, $feature;
+            }
         }
     }
     # Return the features found.

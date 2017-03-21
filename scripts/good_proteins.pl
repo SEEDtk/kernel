@@ -24,6 +24,7 @@ use ScriptUtils;
 use GPUtils;
 use File::Copy::Recursive;
 use Stats;
+use GenomeTypeObject;
 
 =head1 Produce Report on Seed Protein in Good Genomes
 
@@ -38,14 +39,16 @@ Two output files will be put in the designated output directory.
 
 =over 4
 
-=item genomes.tbl
+=item complete.genomes
 
 A tab-delimited file of genomes, each record consisting of (0) a genome ID and (1) a genome name.
 
-=item proteins.fa
+=item 6.1.1.20.fasta
 
 A FASTA file containing the amino acid sequences of the features containing the desired protein role. The
 sequence ID will be the feature ID. The comment will be the genome ID.
+
+=back
 
 =head2 Parameters
 
@@ -68,6 +71,11 @@ The minimum acceptable length for the protein. The default is 209.
 
 The maximum acceptable length for the protein. The default is 485.
 
+=item gto
+
+If specified, then the input directory is treated as a directory of GTO files instead of a directory of genome
+packages. If this is the case, C<--erasebad> is not allowed.
+
 =back
 
 =cut
@@ -78,14 +86,15 @@ my $opt = ScriptUtils::Opts('packageDir outDir',
         ['protein=s', 'protein role description', { default => 'Phenylalanyl-tRNA synthetase alpha chain'}],
         ['minlen=i', 'minimum protein length', { default => 209 }],
         ['maxlen=i', 'maximum protein length', { default => 485 }],
-        ['eraseBad', 'erase the bad genomes']
+        ['eraseBad', 'erase the bad genomes'],
+        ['gto', 'input is raw GTO files']
         );
 # Get the positional parameters.
 my ($packageDir, $outDir) = @ARGV;
 if (! $packageDir) {
-    die "No package input directory specified.";
+    die "No input directory specified.";
 } elsif (! -d $packageDir) {
-    die "Invalid or missing package directory $packageDir.";
+    die "Invalid or missing input directory $packageDir.";
 } elsif (! $outDir) {
     die "No output directory specified.";
 } elsif (! -d $outDir) {
@@ -97,18 +106,39 @@ my $role = $opt->protein;
 my $min = $opt->minlen;
 my $max = $opt->maxlen;
 my $stats = Stats->new();
+# Verify the options.
+if ($opt->gto && $opt->erasebad) {
+    die "--gto and --erasebad are mutually exclusive.";
+}
 # Save the bad genome IDs in here.
 my @bad;
 # Open the output files.
-open(my $fh, '>', "$outDir/proteins.fa") || die "Could not open FASTA output file: $!";
-open(my $oh, '>', "$outDir/genomes.tbl") || die "Could not open genome output file: $!";
+open(my $fh, '>', "$outDir/6.1.1.20.fasta") || die "Could not open FASTA output file: $!";
+open(my $oh, '>', "$outDir/complete.genomes") || die "Could not open genome output file: $!";
 # Get all of the incoming genomes.
 print "Parsing $packageDir.\n";
-my $ghash = GPUtils::get_all($packageDir);
+my $ghash;
+if ($opt->gto) {
+    opendir(my $dh, $packageDir) || die "Could not open input directory $packageDir: $!";
+    my @files = grep { -s "$packageDir/$_" && $_ =~ /^\d+\.\d+\.gto$/ } readdir $dh;
+    closedir $dh;
+    for my $file (@files) {
+        if ($file =~ /(\d+\.\d+)/) {
+            $ghash->{$1} = "$packageDir/$file";
+        }
+    }
+} else {
+    $ghash = GPUtils::get_all($packageDir);
+}
 # Loop through the genomes.
 for my $genome (sort keys %$ghash) {
     print "Searching $genome for seed proteins:  ";
-    my $gto = GPUtils::gto_of($ghash, $genome);
+    my $gto;
+    if ($opt->gto) {
+        $gto = GenomeTypeObject->create_from_file($ghash->{$genome});
+    } else {
+        $gto = GPUtils::gto_of($ghash, $genome);
+    }
     $stats->Add(genomesIn => 1);
     my $flist = GPUtils::role_to_features($gto, $role);
     # Did we find any proteins?
