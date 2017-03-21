@@ -10,27 +10,6 @@ use RepKmers;
 #    genome.index
 #    similarities
 # 
-# requests are of the forms
-#
-# 1 Genome-index            [ returns GenomeId ]
-#
-# 2 GenomeID                [ returns GenomeIndex ]
-#
-# 3 Genome-index N          [ closest N genomes ]
-#
-# 4 MinInCommon [keep]      [ get representative set of genomes  - such that each set 
-#                             has at most MinInCommon 8-mers in common between two
-#                             members of the set ]
-#
-# 5 MinInCommon Sequence    [ outputs the id of the closest representative sequence ]
-# 
-# 6 Sequence                [ outputs the id of a existing sequence with matching tail (or none)
-# 7 N [keep]                [ get representative set of genomes  - such that N sets
-#                             are generated ]
-#                           
-# 8 N index-list            [ thin the list using sim of N ]
-#                           
-
 my $dir;
 my $usage = "usage: rep_server CachedDir\n";
 (
@@ -151,11 +130,39 @@ sub process_request {
         my $g  = $complete->{$id};
 	print join("\t",($index,$id,$g)),"\n";
     }
-    elsif ($req->[0] eq 'closest_genomes')    # closest N genomes
+    elsif ($req->[0] eq 'closest_N_genomes')    # closest N genomes
     {
         my $index = $req->[1];
 	my $n = $req->[2];
-        &closest($cached,$index,$n);
+        my @closest_genomes = &RepKmers::closest_N_genomes($cached,$index,$n);
+	print $index,"\t",$index_to_g->{$index}, 
+	             "\t",$complete->{$index_to_g->{$index}},"\n";
+	foreach my $tuple (@closest_genomes)
+	{
+	    my($count,$i2) = @$tuple;
+	    print "\t", join("\t",($count,
+				   $i2, 
+				   $index_to_g->{$i2},
+				   $complete->{$index_to_g->{$i2}})),"\n";
+	}
+	print "\n";
+    }
+    elsif ($req->[0] eq 'closest_by_sc')    # closest by threshold
+    {
+        my $index = $req->[1];
+	my $n = $req->[2];
+        my @closest_genomes = &RepKmers::closest_by_sc($cached,$index,$n);
+	print $index,"\t",$index_to_g->{$index}, 
+	             "\t",$complete->{$index_to_g->{$index}},"\n";
+	foreach my $tuple (@closest_genomes)
+	{
+	    my($count,$i2) = @$tuple;
+	    print "\t", join("\t",($count,
+				   $i2, 
+				   $index_to_g->{$i2},
+				   $complete->{$index_to_g->{$i2}})),"\n";
+	}
+	print "\n";
     }
     elsif ($req->[0] eq 'rep_set')   # represetative set
     {
@@ -167,7 +174,7 @@ sub process_request {
     {
 	my(undef,$N,$seq) = @$req;
 	my @reps = &rep1($cached,$N,[]);
-	my ($best_id,$count) = &best_id($cached,\@reps,$seq,undef,undef);
+	my ($best_id,$count) = &best_id($cached,\@reps,$N,$seq,undef,undef);
         if (defined($best_id))
 	{
          
@@ -228,53 +235,26 @@ sub process_request {
 }
 
 
-# First , get the best entry in $rep.  Then sample that set, locating
-# your pick after looking at up to 50 samples.
 #
 sub best_id {
-    my($cached,$reps,$seq,$best_id,$best_so_far) = @_;
+    my($cached,$reps,$max_sim,$seq,$best_id,$best_so_far) = @_;
 
     my $index_to_g = $cached->{index_to_g};
-    my $kmers       = &RepKmers::kmers_of_seq($cached->{K},$seq);
+    my $kmersQ     = &RepKmers::kmers_of_seq($cached->{K},$seq);
     foreach my $rep (@$reps)
     {
 	my $gid     = $index_to_g->{$rep};
 	my $seqR    = $cached->{seqs}->{$gid};
 	my $K = $cached->{K};
-        my $common  = &RepKmers::in_common($K,$kmers,$seqR);
-        if ($common > $best_so_far)
+        my $common  = &RepKmers::in_common($K,$kmersQ,$seqR);
+        if ((! defined($best_id)) || ($common > $best_so_far))
 	{
 	    $best_so_far = $common;
 	    $best_id     = $rep;
 	}
     }
     if (! defined($best_id)) { return (undef,undef) }
-
-    my $sims = $cached->{sims};
-    my $sims1 = $sims->[$best_id];
-    if (! defined($sims1)) { return undef }
-    my $sz1 = @$sims1;
-    my $stride   = int ($sz1 / 10);    #### This needs work
-    my @reps2;
-    my $i = 0;
-    while ($i < $sz1)
-    {
-	push(@reps2,$sims1->[$i]->[1]);
-	$i += $stride;
-    }
-
-    foreach my $rep (@$reps)
-    {
-	my $gid     = $index_to_g->{$rep};
-	my $seqR    = $cached->{seqs}->{$gid};
-	my $K = $cached->{K};
-        my $common  = &RepKmers::in_common($K,$kmers,$seqR);
-        if ((! $best_so_far) || ($common > $best_so_far))
-	{
-	    $best_so_far = $common;
-	    $best_id     = $rep;
-	}
-    }
+    ($best_id,$best_so_far) = &RepKmers::find_closest($cached,$best_id,$best_so_far,$max_sim,$kmersQ);
     return ($best_id,$best_so_far);
 }
 
@@ -284,32 +264,7 @@ sub rep1 {
     my $sims = $cached->{sims};
     my $n = @$sims - 1;
     my @todo = (@$keep,0..$n);
-
-    my %seen;
-    my $reps = [];
-    while (defined(my $i = shift @todo))
-    {
-	if (! $seen{$i})
-	{
-	    push(@$reps,$i);
-	    $seen{$i} = 1;
-#           print STDERR "added $i to reps\n";
-	    if (my $close = $sims->[$i])
-	    {
-		if (defined($close))
-		{
-		    my $i2 = 0;
-		    while (($i2 < @$close) && ($close->[$i2]->[0] >= $max_sim))
-		    {
-			$seen{$close->[$i2]->[1]} = 1;
-#			print STDERR "marked $close->[$i2]->[1]\n";
-			$i2++;
-		    }
-		}
-	    }
-	}
-    }
-    return @$reps;
+    return &RepKmers::rep_guts($cached,$max_sim,\@todo);
 }
 
 sub rep {
@@ -385,29 +340,10 @@ sub thin {
     return @thinned;
 }
 
-sub closest {
-    my($cached,$index,$n) = @_;
-
-    my $sims = $cached->{sims};
-    my $index_to_g = $cached->{index_to_g};
-    my $complete = $cached->{complete};
-    print $index,"\t",$index_to_g->{$index}, 
-                 "\t",$complete->{$index_to_g->{$index}},"\n";
-    my $closest = $sims->[$index];
-    for (my $i=0; ($i < $n); $i++)
-    {
-	my($count,$i2) = @{$closest->[$i]};
-	print "\t", join("\t",($count,
-			       $i2, 
-			       $index_to_g->{$i2},
-			       $complete->{$index_to_g->{$i2}})),"\n";
-    }
-    print "\n";
-}
-
 sub help {
     print <<END;
-    closest_genomes Index N    [returns closest N genomes]
+    closest_by_sc Index N      [returns closest N genomes by sc]
+    closest_N_genomes Index N  [returns closest N genomes]
     close_rep_seq N Sequence   [returns close representative]
     id_to_index  Id            [returns genome index]
     index_to_id  Index         [returns genome id]
