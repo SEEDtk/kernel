@@ -180,7 +180,11 @@ for my $dir (@dirs) {
         $stats->Add(noBinsFound => 1);
         $done = "No bins found.";
     } elsif (-s "$subDir/sample.fasta") {
-        push @other, "$label: Binning in Progress.\n";
+        if (! $run && $opt->resume) {
+            StartJob($dir, $subDir, '', 'Restarted', $label, $proj);
+        } else {
+            push @other, "$label: Binning in Progress.\n";
+        }
         $stats->Add(dirs3Binning => 1);
     } elsif (-s "$subDir/contigs.fasta") {
         if (! $run && $opt->resume) {
