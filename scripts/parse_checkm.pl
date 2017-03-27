@@ -23,7 +23,7 @@ use FIG_Config;
 use ScriptUtils;
 
 
-=head1 Describe Script Here
+=head1 CheckM Output Formatting
 
     parse_checkm.pl [ options ] inDirectory
 
