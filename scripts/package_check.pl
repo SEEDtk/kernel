@@ -86,21 +86,25 @@ if (! $dir) {
         $stats->Add(packages => 1);
         if (! $opt->status) {
             print "Checking $package.\n";
-
         }
         my $ok = 1;
         my $pDir = "$dir/$package";
-        # Process CheckM.
-        my $outDir = "$pDir/EvalByCheckm";
-        my $cmd = "checkm lineage_wf --tmpdir $FIG_Config::temp -x fa --file $pDir/evaluate.log $pDir $outDir";
-        $ok = Process(CheckM => $outDir, $force{CheckM}, $package, $cmd, $opt->status);
-        if ($ok) {
-            File::Copy::Recursive::fmove("$pDir/evaluate.log", "$pDir/EvalByCheckm/evaluate.log");
+        if (! -s "$pDir/bin.gto") {
+            print "WARNING: package $dir is empty!\n";
+            $stats->Add(emptyPackages => 1);
+        } else {
+            # Process CheckM.
+            my $outDir = "$pDir/EvalByCheckm";
+            my $cmd = "checkm lineage_wf --tmpdir $FIG_Config::temp -x fa --file $pDir/evaluate.log $pDir $outDir";
+            $ok = Process(CheckM => $outDir, $force{CheckM}, $package, $cmd, $opt->status);
+            if ($ok) {
+                File::Copy::Recursive::fmove("$pDir/evaluate.log", "$pDir/EvalByCheckm/evaluate.log");
+            }
+            # Process SciKit.
+            $outDir = "$pDir/EvalBySciKit";
+            $cmd = "gto_consistency $pDir/bin.gto $outDir $FIG_Config::global/FunctionPredictors $FIG_Config::global/roles.in.subsystems $FIG_Config::global/roles.to.use";
+            $ok = Process("SciKit" => $outDir, $force{SciKit}, $package, $cmd, $opt->status);
         }
-        # Process SciKit.
-        $outDir = "$pDir/EvalBySciKit";
-        $cmd = "gto_consistency $pDir/bin.gto $outDir $FIG_Config::global/FunctionPredictors $FIG_Config::global/roles.in.subsystems $FIG_Config::global/roles.to.use";
-        $ok = Process("SciKit" => $outDir, $force{SciKit}, $package, $cmd, $opt->status);
     }
 }
 print "All Done.\n" . $stats->Show();
