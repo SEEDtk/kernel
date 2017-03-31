@@ -43,7 +43,7 @@ The following command-line options are supported.
 =item altFile
 
 If specified, the name of a file containing alternative quality data. The file should be tab-delimited, with
-the genome ID in the first column and the quality index in the third.
+the genome ID in the first column. The CheckM values will be added at the end.
 
 =back
 
@@ -61,7 +61,7 @@ if ($opt->altfile) {
     open(my $qh, "<", $opt->altfile) || die "Could not open altFile: $!";
     while (! eof $qh) {
         my $line = <$qh>;
-        if ($line =~ /^(\d+\.\d+)\t[^\t]+\t(.+)/) {
+        if ($line =~ /^(\d+\.\d+)\t(.+)/) {
             $qual{$1} = $2;
         }
     }
@@ -86,8 +86,10 @@ for my $inDir (@inDirs) {
                     my ($lineage, undef, undef, undef, undef, undef, undef,
                         undef, undef, undef, $completeness, $contamination, $heterogeneity) =
                         @fields;
-                    my $qual = $qual{$genome} // '';
-                    print join("\t", $genome, $lineage, $completeness, $contamination, $heterogeneity, $qual) . "\n";
+                    if ($qual{$genome}) {
+                        $genome = "$genome\t$qual{$genome}";
+                    }
+                    print join("\t", $genome, $lineage, $completeness, $contamination, $heterogeneity) . "\n";
                 }
             }
         }
