@@ -86,10 +86,13 @@ for my $inDir (@inDirs) {
                     my ($lineage, undef, undef, undef, undef, undef, undef,
                         undef, undef, undef, $completeness, $contamination, $heterogeneity) =
                         @fields;
-                    if ($qual{$genome}) {
-                        $genome = "$genome\t$qual{$genome}";
+                    my $qual = $qual{$genome};
+                    if (! $opt->altfile || $qual) {
+                        if ($qual) {
+                            $genome = "$genome\t$qual";
+                        }
+                        print join("\t", $genome, $lineage, $completeness, $contamination, $heterogeneity) . "\n";
                     }
-                    print join("\t", $genome, $lineage, $completeness, $contamination, $heterogeneity) . "\n";
                 }
             }
         }
