@@ -22,6 +22,7 @@ use warnings;
 use FIG_Config;
 use Shrub;
 use ScriptUtils;
+use SeedUtils qw();
 
 =head1 Organize Shrub Quality Data
 
@@ -117,7 +118,7 @@ while (! eof $ih) {
         }
         # Compute the contig-related data.
         my @lens = map { $_->[2] } @contigData;
-        my $metrics = compute_metrics(\@lens, $totLen);
+        my $metrics = SeedUtils::compute_metrics(\@lens, $totLen);
         # Output the data line.
         print join("\t", $source, $genome, $name, scalar(@contigData), $totLen, $metrics->{complete},
                 $metrics->{N50}, $metrics->{N70}, $metrics->{N90}, $genome, $name, $skCoarse, $skFine,
@@ -126,34 +127,3 @@ while (! eof $ih) {
 }
 
 
-##Return a hash of metrics about this GTO. The metrics returned will include N50, N70, N90, total DNA length, and
-## probable completeness.
-sub compute_metrics {
-    my ($lens, $totLen) = @_;
-    # This will be the return hash.
-    my %retVal;
-    # Save the total length.
-    $retVal{totlen} = $totLen;
-    # Create a hash of threshholds.
-    my %thresh = (N50 => 0.5 * $totLen, N70 => 0.7 * $totLen, N90 => 0.9 * $totLen);
-    # Sort the contig lengths from longest to shortest.
-    my @lens = sort { $b <=> $a } @$lens;
-    # We accumulate the contig length as we go through the sorted list until we break a
-    # threshold.
-    my $cumul = 0;
-    for my $len (@lens) {
-        $cumul += $len;
-        for my $type (keys %thresh) {
-            if ($cumul >= $thresh{$type}) {
-                # We have the desired metric. Save it in the return array.
-                $retVal{$type} = $len;
-                # Insure we don't test for it again.
-                delete $thresh{$type};
-            }
-        }
-    }
-    # Check for completeness.
-    $retVal{complete} = (($retVal{N70} >= 20000 && $totLen >= 300000) ? 1 : 0);
-    # Return the hash.
-    return \%retVal;
-}
