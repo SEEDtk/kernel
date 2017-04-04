@@ -91,7 +91,7 @@ if (! $dir) {
         my $ok = 1;
         my $pDir = "$dir/$package";
         if (! -s "$pDir/bin.gto") {
-            print "WARNING: package $dir is empty!\n";
+            print "WARNING: package $package is empty!\n";
             $stats->Add(emptyPackages => 1);
         } else {
             # Process CheckM.
