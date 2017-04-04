@@ -55,7 +55,7 @@ If specified, no evaluations will be performed, only the status will be displaye
 
 $| = 1;
 # Get the command-line parameters.
-my $opt = ScriptUtils::Opts('dir package',
+my $opt = ScriptUtils::Opts('dir',
         ["force:s", 'force regeneration of quality data'],
         ["status", 'only show totals'],
         );
@@ -81,6 +81,7 @@ if (! $dir) {
     # Compute the list of packages to process.
     opendir(my $dh, $dir) || die "Could not open package directory: $!";
     my @packages = sort grep { $_ =~ /^\d+\.\d+$/ } readdir $dh;
+    print scalar(@packages) . " directories found.\n";
     # Loop through the packages..
     for my $package (@packages) {
         $stats->Add(packages => 1);
