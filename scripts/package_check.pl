@@ -49,6 +49,10 @@ rerun the SciKit evaluations, and a value of C<CheckM> can be specified to only 
 
 If specified, no evaluations will be performed, only the status will be displayed.
 
+=item clean
+
+If specified, empty directories will be deleted.
+
 =back
 
 =cut
@@ -58,6 +62,7 @@ $| = 1;
 my $opt = ScriptUtils::Opts('dir',
         ["force:s", 'force regeneration of quality data'],
         ["status", 'only show totals'],
+        ["clean", 'delete empty packages']
         );
 my $stats = Stats->new;
 # Get the directory and the package.
@@ -78,6 +83,8 @@ if (! $dir) {
             $force{$force} = 1;
         }
     }
+    # This is the cleaning flag.
+    my $clean = $opt->clean;
     # Compute the list of packages to process.
     opendir(my $dh, $dir) || die "Could not open package directory: $!";
     my @packages = sort grep { $_ =~ /^\d+\.\d+$/ } readdir $dh;
@@ -91,7 +98,12 @@ if (! $dir) {
         my $ok = 1;
         my $pDir = "$dir/$package";
         if (! -s "$pDir/bin.gto") {
-            print "WARNING: package $package is empty!\n";
+            if ($clean) {
+                File::Copy::Recursive::pathrmdir($pDir);
+                print "Empty directory $package removed.\n";
+            } else {
+                print "WARNING: package $package is empty!\n";
+            }
             $stats->Add(emptyPackages => 1);
         } else {
             # Process CheckM.
