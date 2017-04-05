@@ -129,7 +129,7 @@ if ($opt->file) {
         }
     }
 } else {
-    @genomes = {$genomeID};
+    @genomes = ($genomeID);
 }
 my ($shrub, $d, $source);
 # Determine the source.
