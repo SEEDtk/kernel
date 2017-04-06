@@ -103,7 +103,7 @@ within two standard deviations of the mean (the mean length is about
 
 Now we can define the similarity between two good genomes as the
 number of amino acid 8-mers that are in common between the gene
-products of the two PheS proteins.
+products of the two PheS genes.
 
 =head2 Computation Steps Needed to Support Representative Genomes
 
@@ -124,7 +124,7 @@ representative genomes.  A user begins by creating two files:
 
 Then use something like
 
-              mkdir Data
+         mkdir Data
          cp complete.genomes Data
          cp 6.1.1.20.fasta Data
          get_vss_for_reps Data
@@ -135,11 +135,6 @@ This
 should compute
 
         Data/vss               [a file of sets of very similar sequences]
-
-and update Data/complete.genomes, which will now contain only 1 member
-from each vss.  That is, sets of very close genomes are created (and
-stored in Data/vss), and Data/complete.genomes is adjusted to contain
-just the first genome from each of the very similar sets.
 
 =head3 Step 2: Computing the Distance Matrix
 
@@ -152,6 +147,13 @@ Data/complete.genomes and stores it in
 
         Data/similarities
 
+It also creates
+
+        Data/genome.index
+
+which creates a surrogate key for each of the genomes that
+will be used in computing representative sets.
+
 Note that, at this time, we have a very tractable set of genomes,
 but when we reach 100,000 divergent genomes things may get worse.  The
 hope is that we will be covered for 5-10 years (at which time
@@ -159,7 +161,7 @@ computers will be free).
 
 When I designed this tool initially, I thought that there would be a
 need for high-performance, and this lead to the creation of surrogate
-keys for genomes, where the surrogates wer consecutive integers
+keys for genomes, where the surrogates are consecutive integers
 (allowing tables to be built using integers -- speeding some
 computations and reducing memory requirements.  I foresaw a time where
 the core computations would be pushed into C.
