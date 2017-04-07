@@ -49,15 +49,20 @@ rerun the SciKit evaluations, and a value of C<CheckM> can be specified to only 
 
 If specified, no evaluations will be performed, only the status will be displayed.
 
+=item clean
+
+If specified, empty directories will be deleted.
+
 =back
 
 =cut
 
 $| = 1;
 # Get the command-line parameters.
-my $opt = ScriptUtils::Opts('dir package',
+my $opt = ScriptUtils::Opts('dir',
         ["force:s", 'force regeneration of quality data'],
         ["status", 'only show totals'],
+        ["clean", 'delete empty packages']
         );
 my $stats = Stats->new;
 # Get the directory and the package.
@@ -78,29 +83,41 @@ if (! $dir) {
             $force{$force} = 1;
         }
     }
+    # This is the cleaning flag.
+    my $clean = $opt->clean;
     # Compute the list of packages to process.
     opendir(my $dh, $dir) || die "Could not open package directory: $!";
     my @packages = sort grep { $_ =~ /^\d+\.\d+$/ } readdir $dh;
+    print scalar(@packages) . " directories found.\n";
     # Loop through the packages..
     for my $package (@packages) {
         $stats->Add(packages => 1);
         if (! $opt->status) {
             print "Checking $package.\n";
-
         }
         my $ok = 1;
         my $pDir = "$dir/$package";
-        # Process CheckM.
-        my $outDir = "$pDir/EvalByCheckm";
-        my $cmd = "checkm lineage_wf --tmpdir $FIG_Config::temp -x fa --file $pDir/evaluate.log $pDir $outDir";
-        $ok = Process(CheckM => $outDir, $force{CheckM}, $package, $cmd, $opt->status);
-        if ($ok) {
-            File::Copy::Recursive::fmove("$pDir/evaluate.log", "$pDir/EvalByCheckm/evaluate.log");
+        if (! -s "$pDir/bin.gto") {
+            if ($clean) {
+                File::Copy::Recursive::pathrmdir($pDir);
+                print "Empty directory $package removed.\n";
+            } else {
+                print "WARNING: package $package is empty!\n";
+            }
+            $stats->Add(emptyPackages => 1);
+        } else {
+            # Process CheckM.
+            my $outDir = "$pDir/EvalByCheckm";
+            my $cmd = "checkm lineage_wf --tmpdir $FIG_Config::temp -x fa --file $pDir/evaluate.log $pDir $outDir";
+            $ok = Process(CheckM => $outDir, $force{CheckM}, $package, $cmd, $opt->status);
+            if ($ok) {
+                File::Copy::Recursive::fmove("$pDir/evaluate.log", "$pDir/EvalByCheckm/evaluate.log");
+            }
+            # Process SciKit.
+            $outDir = "$pDir/EvalBySciKit";
+            $cmd = "gto_consistency $pDir/bin.gto $outDir $FIG_Config::global/FunctionPredictors $FIG_Config::global/roles.in.subsystems $FIG_Config::global/roles.to.use";
+            $ok = Process("SciKit" => $outDir, $force{SciKit}, $package, $cmd, $opt->status);
         }
-        # Process SciKit.
-        $outDir = "$pDir/EvalBySciKit";
-        $cmd = "gto_consistency $pDir/bin.gto $outDir $FIG_Config::global/FunctionPredictors $FIG_Config::global/roles.in.subsystems $FIG_Config::global/roles.to.use";
-        $ok = Process("SciKit" => $outDir, $force{SciKit}, $package, $cmd, $opt->status);
     }
 }
 print "All Done.\n" . $stats->Show();

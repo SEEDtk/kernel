@@ -138,6 +138,11 @@ should compute
 
 =head3 Step 2: Computing the Distance Matrix
 
+It is now necessary to specify the kmer size. This is accomplished by placing
+a number (of amino acids per kmer) in a file named C<K> in the C<Data> directory.
+
+    echo 8 >Data/K
+
 Now
 
         generate_cached_rep_data Data

@@ -24,11 +24,11 @@ use ScriptUtils;
 use GPUtils;
 use File::Copy::Recursive;
 use Stats;
-use GenomeTypeObject;
+use Shrub;
 
-=head1 Produce Report on Seed Protein in Good Genomes
+=head1 Produce Report on Seed Protein in Shrub Genomes
 
-    good_proteins.pl [ options ] packageDir outDir
+    good_proteins.pl [ options ] outDir
 
 This script produces two files-- an amino-acid FASTA file of all occurrences of a selected protein in the specified
 genome packages, and a tab-delimited file listing each genome ID and its name.
@@ -52,16 +52,19 @@ sequence ID will be the feature ID. The comment will be the genome ID.
 
 =head2 Parameters
 
-The positional parameters are the name of the package directory from which the genomes should be taken and the
-name of a directory to contain the output files.
+The positional parameter is the name of a directory to contain the output files.
 
-The command-line options are the following.
+The standard input should contain a list of genomes to examine. The input should be tab-delimited, with the
+genome ID in the first column.
+
+The command-line options are those in L<Shrub/script_options> plus those in L<ScriptUtils/ih_options> for specifying
+the standard input, and the following.
 
 =over 4
 
 =item protein
 
-The description string of the desired protein role. The default is C<Phenylalanyl-tRNA synthetase alpha chain>.
+The ID of the desired protein role. The default is C<PhenTrnaSyntAlph>.
 
 =item minlen
 
@@ -71,10 +74,9 @@ The minimum acceptable length for the protein. The default is 209.
 
 The maximum acceptable length for the protein. The default is 485.
 
-=item gto
+=item col
 
-If specified, then the input directory is treated as a directory of GTO files instead of a directory of genome
-packages. If this is the case, C<--erasebad> is not allowed.
+The (1-based) input column containing the genome IDs. Use C<0> for the last column. The default is C<1>.
 
 =back
 
@@ -82,107 +84,101 @@ packages. If this is the case, C<--erasebad> is not allowed.
 
 $| = 1;
 # Get the command-line parameters.
-my $opt = ScriptUtils::Opts('packageDir outDir',
-        ['protein=s', 'protein role description', { default => 'Phenylalanyl-tRNA synthetase alpha chain'}],
+my $opt = ScriptUtils::Opts('outDir',
+        Shrub::script_options(), ScriptUtils::ih_options(),
+        ['protein=s', 'protein role description', { default => 'PhenTrnaSyntAlph'}],
         ['minlen=i', 'minimum protein length', { default => 209 }],
         ['maxlen=i', 'maximum protein length', { default => 485 }],
-        ['eraseBad', 'erase the bad genomes'],
-        ['gto', 'input is raw GTO files']
+        ['col=i', 'genome ID column (1-based)', { default => 1 }],
         );
 # Get the positional parameters.
-my ($packageDir, $outDir) = @ARGV;
-if (! $packageDir) {
-    die "No input directory specified.";
-} elsif (! -d $packageDir) {
-    die "Invalid or missing input directory $packageDir.";
-} elsif (! $outDir) {
+my ($outDir) = @ARGV;
+if (! $outDir) {
     die "No output directory specified.";
 } elsif (! -d $outDir) {
     File::Copy::Recursive::pathmk($outDir) ||
-        die "Could not created $outDir: $!";
+        die "Could not create $outDir: $!";
 }
 # Get the options.
 my $role = $opt->protein;
 my $min = $opt->minlen;
 my $max = $opt->maxlen;
+my $col = $opt->col - 1;
 my $stats = Stats->new();
-# Verify the options.
-if ($opt->gto && $opt->erasebad) {
-    die "--gto and --erasebad are mutually exclusive.";
-}
-# Save the bad genome IDs in here.
-my @bad;
+# Connect to the database.
+my $shrub = Shrub->new_for_script($opt);
+# Open the standard input.
+my $ih = ScriptUtils::IH($opt->input);
 # Open the output files.
 open(my $fh, '>', "$outDir/6.1.1.20.fasta") || die "Could not open FASTA output file: $!";
 open(my $oh, '>', "$outDir/complete.genomes") || die "Could not open genome output file: $!";
-# Get all of the incoming genomes.
-print "Parsing $packageDir.\n";
-my $ghash;
-if ($opt->gto) {
-    opendir(my $dh, $packageDir) || die "Could not open input directory $packageDir: $!";
-    my @files = grep { -s "$packageDir/$_" && $_ =~ /^\d+\.\d+\.gto$/ } readdir $dh;
-    closedir $dh;
-    for my $file (@files) {
-        if ($file =~ /(\d+\.\d+)/) {
-            $ghash->{$1} = "$packageDir/$file";
+# Get all of the genomes in the input.
+print "Scanning input file.\n";
+my %gHash;
+while (! eof $ih) {
+    my $line = <$ih>;
+    $line =~ s/[\r\n]+$//;
+    $stats->Add(lineIn => 1);
+    my @cols = split /\t/, $line;
+    my $genome = $cols[$col];
+    my ($name) = $shrub->GetFlat('Genome', 'Genome(id) = ?', [$genome], 'name');
+    if ($name) {
+        $gHash{$genome} = $name;
+        $stats->Add(genomeFound => 1);
+    }
+}
+print scalar(keys %gHash) . " genomes found.\n";
+# Get all of the seed proteins in the Shrub.
+print "Reading Shrub seed proteins.\n";
+my %prots;
+my $q = $shrub->Get('Role2Function Function2Feature Feature2Protein Protein',
+        'Role2Function(from-link) = ? AND Function2Feature(security) = ?', [$role, 0],
+        'Feature2Protein(from-link) Protein(sequence)');
+while (my $pData = $q->Fetch()) {
+    my ($fid, $seq) = $pData->Values('Feature2Protein(from-link) Protein(sequence)');
+    if ($fid =~ /fig\|(\d+\.\d+)/) {
+        my $genome = $1;
+        if ($gHash{$genome}) {
+            push @{$prots{$genome}}, [$fid, $seq];
+            $stats->Add(protFound => 1);
         }
     }
-} else {
-    $ghash = GPUtils::get_all($packageDir);
 }
-# Loop through the genomes.
-for my $genome (sort keys %$ghash) {
+# Loop through the incoming genomes.
+for my $genome (sort keys %gHash) {
     print "Searching $genome for seed proteins:  ";
-    my $gto;
-    if ($opt->gto) {
-        $gto = GenomeTypeObject->create_from_file($ghash->{$genome});
-    } else {
-        $gto = GPUtils::gto_of($ghash, $genome);
-    }
     $stats->Add(genomesIn => 1);
-    my $flist = GPUtils::role_to_features($gto, $role);
-    # Did we find any proteins?
-    my $found = scalar @$flist;
-    if (! $found) {
-        print "none found.\n";
+    my $protList = $prots{$genome};
+    if (! $protList) {
         $stats->Add(genomesNoSeed => 1);
-    } elsif ($found > 1) {
+        print "none found.\n";
+    } elsif (scalar(@$protList) > 1) {
+        my $found = scalar(@$protList);
         print "$found found. GENOME SKIPPED.\n";
         $stats->Add(("genomes$found" . "Seed") => 1);
-        push @bad, $genome;
     } else {
-        print "$found found.";
+        print "1 found.";
         $stats->Add(genomes1Seed => 1);
-        my $feature = $flist->[0];
+        # Get the feature ID.
+        my $fid = $protList->[0][0];
         # Check the protein length.
-        my $aa = $feature->{protein_translation};
-        my $aaLen = length $aa;
+        my $aa = $protList->[0][1];
+        my $aaLen = length($aa);
         if ($aaLen < $min) {
             print " Length $aaLen < $min. GENOME SKIPPED.\n";
             $stats->Add(protTooShort => 1);
-            push @bad, $genome;
         } elsif ($aaLen > $max) {
             print " Length $aaLen > $max. GENOME SKIPPED.\n";
             $stats->Add(protTooLong => 1);
-            push @bad, $genome;
         } else {
             print "\n";
             # We found the protein. Output the genome.
-            print $oh "$genome\t$gto->{scientific_name}\n";
+            print $oh "$genome\t$gHash{$genome}\n";
             $stats->Add(genomesOut => 1);
-            # Output the proteins.
-            for my $feature (@$flist) {
-                print $fh ">$feature->{id} $genome\n$aa\n";
-                $stats->Add(proteinsOut => 1);
-            }
+            # Output the protein.
+            print $fh ">$fid $genome\n$aa\n";
+            $stats->Add(proteinsOut => 1);
         }
-    }
-}
-if ($opt->erasebad) {
-    for my $genome (@bad) {
-        my $dir = $ghash->{$genome};
-        print "Erasing $dir.\n";
-        File::Copy::Recursive::pathrmdir($dir);
     }
 }
 print "All done.\n" . $stats->Show();

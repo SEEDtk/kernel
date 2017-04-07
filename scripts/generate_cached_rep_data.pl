@@ -6,17 +6,17 @@ use RepKmers;
 
 my($complete_genomes,$sequences,$genome_index,$similarities,$Kfile);
 
-my $usage = "usage: generate_chached_rep_data DataDir\n";
+my $usage = "usage: generate_hached_rep_data DataDir\n";
 #
 
 =head1 Generate Data for RepSeq Server
 
       perl generate_chached_rep_data.pl DataDir
 
-# DataDir must exist and contain 
+# DataDir must exist and contain
 #
 #   K                  a file containing just a number,
-#                      the size of the kmers ("8" for now)         
+#                      the size of the kmers ("8" for now)
 #   complete.genomes   a 2-column table [PATRIC id,genome name]
 #   6.1.1.20.fasta     a fasta file of PEG protein sequences for
 #
@@ -62,7 +62,7 @@ while (defined($_ = <VSS>))
     shift @features;
     foreach $_ (@features)
     {
-	$vss{$_} = 1;
+        $vss{$_} = 1;
     }
 }
 close(VSS);
@@ -82,8 +82,8 @@ my %lens = map { ($_->[0] => length($_->[2])) } @seqs;
 @seqs    = sort { ($lens{$b} <=> $lens{$a}) or ($a cmp $b) } @seqs;
 
 open(COMPLETE,"<$complete_genomes") || die "could not open $complete_genomes";
-my %complete = map { (($_ =~ /^(\d+\.\d+)\s+(\S.*\S)/) && 
-		      $lens{$1} && (! $vss{$1})) ? ($1 => $2) : () } <COMPLETE>;
+my %complete = map { (($_ =~ /^(\d+\.\d+)\s+(\S.*\S)/) &&
+                      $lens{$1} && (! $vss{$1})) ? ($1 => $2) : () } <COMPLETE>;
 close(COMPLETE);
 my($i,$j);
 
@@ -106,10 +106,10 @@ foreach my $tuple (@seqs)
     if ($complete{$g} && ($hits_per_genome{$g} == 1))
     {
 #	print INDEX "$i\t$g\n";
-	print INDEX join("\t",($i,$g,$complete{$g})),"\n";
-	$g_to_index{$g} = $i;
-	$index_to_g{$i} = $g;
-	$i++;
+        print INDEX join("\t",($i,$g,$complete{$g})),"\n";
+        $g_to_index{$g} = $i;
+        $index_to_g{$i} = $g;
+        $i++;
     }
 }
 close(INDEX);
@@ -121,12 +121,12 @@ for ($i=0; ($i < $Nseqs); $i++)
 #    if (($i % 10) == 0) { $_ = @seqs; print STDERR "* $i $_\n" }
     for ($j=$i+1; ($j < $Nseqs); $j++)
     {
-	my $n = &sim($seqs[$i]->[2],$seqs[$j]->[2],$K);
+        my $n = &sim($seqs[$i]->[2],$seqs[$j]->[2],$K);
         if ($n > 3)
-	{
-	    push(@{$counts[$i]},[$j,$n]);
-	    push(@{$counts[$j]},[$i,$n]);
-	}
+        {
+            push(@{$counts[$i]},[$j,$n]);
+            push(@{$counts[$j]},[$i,$n]);
+        }
     }
 #    print STDERR ".";
 }
@@ -139,12 +139,12 @@ while ($i < keys(%index_to_g))
     my $counts = $counts[$i];
     if (defined($counts))
     {
-	my @sorted = sort { ($b->[1] <=> $a->[1]) } @$counts;
-	foreach $_ (@sorted)
-	{
-	    my($i2,$n) = @$_;
-	    print SIMS $n,"\t",$i2,"\t",$complete{$index_to_g{$i2}},"\n";
-	}
+        my @sorted = sort { ($b->[1] <=> $a->[1]) } @$counts;
+        foreach $_ (@sorted)
+        {
+            my($i2,$n) = @$_;
+            print SIMS $n,"\t",$i2,"\t",$complete{$index_to_g{$i2}},"\n";
+        }
     }
     print SIMS "//\n";
     $i++;
@@ -160,15 +160,15 @@ sub sim {
     my $i;
     for ($i=0; ($i < (length($s1)-$K)); $i++)
     {
-	$in1{lc substr($s1,$i,$K)} = 1;
+        $in1{lc substr($s1,$i,$K)} = 1;
     }
 
     for ($i=0; ($i < (length($s2)-$K)); $i++)
     {
-	if ($in1{lc substr($s2,$i,$K)})
-	{
-	    $common++;
-	}
+        if ($in1{lc substr($s2,$i,$K)})
+        {
+            $common++;
+        }
     }
     return $common;
 }
