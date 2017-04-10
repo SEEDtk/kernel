@@ -169,8 +169,10 @@ my $line = (defined $ih ? <$ih> : "\n");
 # Loop until we run out of input.
 while (defined $line) {
     # Parse the input line.
-    chomp $line;
     my @cols = split /\t/, $line;
+    if (@cols) {
+        $cols[$#cols] =~ s/[\r\n]+$//;
+    }
     # Form the list of parameter values.
     my @parms;
     for (my $i = 0; $i < $n; $i++) {

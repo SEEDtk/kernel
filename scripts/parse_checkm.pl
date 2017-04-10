@@ -83,6 +83,9 @@ if (! $inDirectory) {
             my $line = <$ih>;
             $line =~ s/[\r\n]+$//;
             my ($sampleID, $bin, @fields) = split /\t/, $line;
+            if (@fields) {
+                $fields[$#fields] =~ s/[\r\n]+$//;
+            }
             my $scoreList = $scores{$sampleID}{$bin};
             if ($scoreList) {
                 print join("\t", $sampleID, $bin, @fields, @$scoreList) . "\n";

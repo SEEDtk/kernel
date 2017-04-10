@@ -158,9 +158,11 @@ my $dcol = $opt->dcol - 1;
 my $mindepth = $opt->mindepth;
 while (! eof $ih) {
     $line = <$ih>;
-    $line =~ s/[\r\n]+$//; # chomp doesn't always work with stdin (ow!)
     $stats->Add(expectedLineIn => 1);
     my @cols = split /\t/, $line;
+    if (@cols) {
+        $cols[$#cols] =~ s/[\r\n]+$//; # chomp doesn't always work with stdin (ow!)
+    }
     my $name = $cols[$col];
     my $depth = $cols[$dcol];
     # Only proceed if we have good depth.
@@ -185,7 +187,7 @@ for my $cat (keys %expectedH) {
 }
 # Loop through the expected categories.
 print "Expected categories\n\nCat\tExpected\tDepth\tPrimer\tFound\n";
-my @cats = sort { $expectedH{$b}[1] <=> $expectedH{$a}[1] } keys %expectedH; 
+my @cats = sort { $expectedH{$b}[1] <=> $expectedH{$a}[1] } keys %expectedH;
 for my $cat (@cats) {
     my $primer = $primersH{$cat} // '';
     my $found = $foundH{$cat} // '';

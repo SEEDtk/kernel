@@ -84,8 +84,10 @@ if (! $inDirectory) {
         # Loop through the input.
         while (! eof $ih) {
             my $line = <$ih>;
-            $line =~ s/[\r\n]+$//;
             my ($sampleID, $bin, @fields) = split /\t/, $line;
+            if (@fields) {
+                $fields[$#fields] =~ s/[\r\n]+$//;
+            }
             my $data = $species{$sampleID}{$bin};
             if ($data) {
                 print join("\t", $sampleID, $bin, @fields, @$data) . "\n";

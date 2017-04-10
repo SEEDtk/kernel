@@ -723,9 +723,12 @@ sub _ReadRecord {
     my ($ih) = @_;
     # Read the line.
     my $line = <$ih>;
-    chomp $line;
     # Declare the return variable.
     my @retVal = split /\t/, $line;
+    # Fix the last element.
+    if (@retVal > 0) {
+        chomp $retVal[$#retVal];
+    }
     # Return the result.
     return @retVal;
 }
