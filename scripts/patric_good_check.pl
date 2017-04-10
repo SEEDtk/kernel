@@ -62,7 +62,7 @@ asking the PATRIC interface for the GTO. The GTO file name should be the genome 
 
 # Get the command-line parameters.
 my $opt = ScriptUtils::Opts('', ScriptUtils::ih_options(),
-        ['GTO', 'GenomeTypeObject JSON file directory'],
+        ['GTO=s', 'GenomeTypeObject JSON file directory'],
         );
 my $stats = Stats->new();
 # This hash will map genome IDs to GTO file names.
@@ -106,7 +106,7 @@ while (! eof $ih) {
             # Get the GTO for this genome.
             my $gto;
             if ($gtos{$genome}) {
-                $gto = $gtos{$genome};
+                $gto = GenomeTypeObject->create_from_file($gtos{$genome});
             } else {
                 $gto = $p3->gto_of($genome);
             }
