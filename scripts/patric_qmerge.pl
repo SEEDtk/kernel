@@ -36,7 +36,8 @@ output. Status messages will appear on the standard error output.
 =head2 Parameters
 
 The positional parameters are the names of the files containing the SciKit quality data. These files must be tab-delimited,
-with each record containing (0) a genome ID, (1) a coarse SciKit score, and (2) a fine SciKit score.
+with each record containing (0) a genome ID, (1) a coarse SciKit score, and (2) a fine SciKit score. A genome name can be
+placed in between the first and second columns without breaking the script.
 
 The command-line options are those found in L<ScriptUtils/ih_options> (modifying the standard input) plus the following
 
@@ -68,7 +69,7 @@ for my $qFile (@files) {
     while (! eof $qh) {
         my $line = <$qh>;
         $stats->Add(qFileLineIn => 1);
-        if ($line =~ /^(\d+\.\d+)\t(\d+.\d+)\t(\d+.\d+)$/) {
+        if ($line =~ /^(\d+\.\d+)\t(?:[A-Z][^\t]+\t)?(\d+.\d+)\t(\d+.\d+)$/) {
             my ($genomeID, $skC, $skF) = ($1, $2, $3);
             if ($skC > 100 || $skF > 100) {
                 $stats->Add(qFileBadScores => 1);

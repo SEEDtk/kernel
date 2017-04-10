@@ -282,5 +282,40 @@ sub all_pegs {
     return \@retVal;
 }
 
+=head3 good_seed
+
+    my $isGood = GPUtils::good_seed($gto);
+
+Return TRUE if the specified genome has exactly one occurrence of the SEED protein and its length is within
+acceptable limits, else FALSE.
+
+=over 4
+
+=item gto
+
+A L<GenomeTypeObject> for the specified genome.
+
+=item RETURN
+
+Returns TRUE if the genome is good, else FALSE.
+
+=back
+
+=cut
+
+sub good_seed {
+    my ($gto) = @_;
+    my $retVal = 0;
+    my $flist = role_to_features($gto, 'Phenylalanyl-tRNA synthetase alpha chain');
+    if (scalar @$flist == 1) {
+        my $aa = $flist->[0]{protein_translation};
+        my $aaLen = length $aa;
+        if ($aaLen >= 209 && $aaLen <= 405) {
+            $retVal = 1;
+        }
+    }
+    return $retVal;
+}
+
 
 1;
