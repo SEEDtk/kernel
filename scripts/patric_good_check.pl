@@ -99,7 +99,10 @@ while (! eof $ih) {
     my @cols = split /\t/, $line;
     my $genome = $cols[1];
     if ($genome =~ /^\d+\.\d+$/) {
-        $stats->Add(genomeIn => 1);
+        my $count = $stats->Add(genomeIn => 1);
+        if ($count % 100 == 0) {
+            print STDERR "$count genomes read.\n";
+        }
         my $name = $cols[2];
         if ($cols[12] >= 85 && $cols[13] >= 80) {
             $stats->Add(genomeGood => 1);
