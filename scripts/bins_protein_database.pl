@@ -50,6 +50,10 @@ The command-line options are those found in L<Shrub/script_options> plus the fol
 
 The ID of the universal role to use for seeding the bin assignment. The default is C<PhenTrnaSyntAlph>.
 
+=item prot
+
+If specified, the FASTA will contain amino acid sequences instead of DNA sequences.
+
 =back
 
 =cut
@@ -60,6 +64,7 @@ $| = 1;
 my $opt = ScriptUtils::Opts('dbName',
                 Shrub::script_options(),
                 ['seedrole|R=s',   'ID of the universal role to seed the bins', { default => 'PhenTrnaSyntAlph' }],
+                ['prot',           'output amino acid sequences instead of DNA sequences'],
         );
 # Get the statistics object.
 my $stats = Stats->new();
@@ -77,6 +82,11 @@ if (! $dbName) {
         unlink $file;
         $stats->Add(fileDeleted => 1);
     }
+}
+# Determine the output sequence type.
+my $seqType = 'na_sequence';
+if ($opt->prot) {
+    $seqType = 'aa_sequence';
 }
 # Open the FASTA file for output.
 open(my $oh, ">$dbName") || die "Could not open output FASTA file: $!";
@@ -160,7 +170,7 @@ for my $prot (@prots) {
         $protCount++;
         $batchCount++;
         if ($batchCount >= 100) {
-            ProcessProteins($oh, $p3, $stats, \%prots);
+            ProcessProteins($oh, $p3, $stats, \%prots, $seqType);
             $batchCount = 0;
             %prots = ();
             print "$protCount proteins processed.\n";
@@ -168,13 +178,13 @@ for my $prot (@prots) {
     }
 }
 if ($batchCount > 0) {
-    ProcessProteins($oh, $p3, $stats, \%prots);
+    ProcessProteins($oh, $p3, $stats, \%prots, $seqType);
 }
 print "All done:\n" . $stats->Show();
 
 sub ProcessProteins {
-    my ($oh, $p3, $stats, $prots) = @_;
-    my @protList = $p3->query("genome_feature", ["select", "patric_id", "na_sequence"],
+    my ($oh, $p3, $stats, $prots, $seqType) = @_;
+    my @protList = $p3->query("genome_feature", ["select", "patric_id", $seqType],
             ["in", "patric_id", '(' . join(",", keys %$prots) . ')']);
     for my $prot (@protList) {
         my $label = $prot->{patric_id};
