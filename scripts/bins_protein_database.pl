@@ -189,7 +189,7 @@ sub ProcessProteins {
     for my $prot (@protList) {
         my $label = $prot->{patric_id};
         my $comment = $prots->{$label};
-        my $seq = $prot->{na_sequence};
+        my $seq = $prot->{$seqType};
         if (! $seq) {
             $stats->Add(missingSequence => 1);
         } else {
