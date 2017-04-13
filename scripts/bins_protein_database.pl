@@ -54,6 +54,16 @@ The ID of the universal role to use for seeding the bin assignment. The default 
 
 If specified, the FASTA will contain amino acid sequences instead of DNA sequences.
 
+=item gLabel
+
+If specified, the FASTA sequence labels will be genome IDs instead of feature IDs, and the comments will be
+feature IDs and genome names.
+
+=item gList
+
+If specified, the name of a tab-delimited file containing genome IDs in the first column. Only genome IDs
+from the list will be used.
+
 =back
 
 =cut
@@ -64,7 +74,9 @@ $| = 1;
 my $opt = ScriptUtils::Opts('dbName',
                 Shrub::script_options(),
                 ['seedrole|R=s',   'ID of the universal role to seed the bins', { default => 'PhenTrnaSyntAlph' }],
-                ['prot',           'output amino acid sequences instead of DNA sequences'],
+                ['prot|p',         'output amino acid sequences instead of DNA sequences'],
+                ['gLabel|G',       'use genome labeling'],
+                ['gList=s',        'specify allowed genomes']
         );
 # Get the statistics object.
 my $stats = Stats->new();
@@ -88,6 +100,20 @@ my $seqType = 'na_sequence';
 if ($opt->prot) {
     $seqType = 'aa_sequence';
 }
+# Get the inclusion list.
+my $inclusions;
+if ($opt->glist) {
+    my $file = $opt->glist;
+    open(my $gh, '<', $opt->glist) || die "Could not open genome list: $!";
+    while (! eof $gh) {
+        my $line = <$gh>;
+        if ($line =~ /^(\d+.\d+)/) {
+            $inclusions->{$1} = 1;
+        }
+    }
+}
+# Determine the labeling scheme.
+my $glabel = $opt->glabel;
 # Open the FASTA file for output.
 open(my $oh, ">$dbName") || die "Could not open output FASTA file: $!";
 # Enable access to PATRIC from Argonne.
@@ -105,7 +131,9 @@ for my $genome (@genomes) {
     my $taxID = $genome->{taxon_id};
     my $genomeID = $genome->{genome_id};
     my $genomeName = $genome->{genome_name};
-    if (! $taxID) {
+    if ($inclusions && ! $inclusions->{$genomeID}) {
+        $stats->Add(genomeNotIncluded => 1);
+    } elsif (! $taxID) {
         $stats->Add(genomeNoTaxID => 1);
     } else {
         # Extract the genus from the genome name.
@@ -166,7 +194,9 @@ for my $prot (@prots) {
         # Relevant genome is ambiguously classified.
         $stats->Add(protBadGenome => 1);
     } else {
-        $prots{$protID} = "$genomeID\t$genomeName";
+        # Compute the label/comment combination for this protein.
+        $prots{$protID} = ($glabel ? "$genomeID $protID" : "$protID $genomeID" ) . "\t$genomeName";
+        # Process the protein.
         $protCount++;
         $batchCount++;
         if ($batchCount >= 100) {
