@@ -111,6 +111,7 @@ if ($opt->glist) {
             $inclusions->{$1} = 1;
         }
     }
+    print scalar(keys %$inclusions) . " genomes in inclusion list.\n";
 }
 # Determine the labeling scheme.
 my $glabel = $opt->glabel;
@@ -217,13 +218,13 @@ sub ProcessProteins {
     my @protList = $p3->query("genome_feature", ["select", "patric_id", $seqType],
             ["in", "patric_id", '(' . join(",", keys %$prots) . ')']);
     for my $prot (@protList) {
-        my $label = $prot->{patric_id};
-        my $comment = $prots->{$label};
+        my $fid = $prot->{patric_id};
+        my $header = $prots->{$fid};
         my $seq = $prot->{$seqType};
         if (! $seq) {
             $stats->Add(missingSequence => 1);
         } else {
-            print $oh ">$label $comment\n$seq\n";
+            print $oh ">$header\n$seq\n";
             $stats->Add(protOut => 1);
         }
     }
