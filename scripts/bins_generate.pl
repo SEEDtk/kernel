@@ -88,7 +88,8 @@ There are two positional parameters
 =item 1
 
 The name of a directory containing the sample. The sample's contigs must be in a file called C<contigs.fasta> and
-the vector file in a file called C<output.contigs2reads.txt> in this directory.
+the vector file in a file called C<output.contigs2reads.txt> in this directory. The directory may also contain
+an optional list of excluded reference genomes-- C<exclude.tbl>.
 
 =item 2
 
@@ -194,6 +195,29 @@ Kmer length for placing unbinned contigs. The default is C<50>.
 =item species
 
 If specified, reference genomes will be grouped by genus and species instead of genus.
+
+=back
+
+=head2 Input Files
+
+The following files are expected in the sample input directory.
+
+=over 4
+
+=item contigs.fasta
+
+This is a DNA FASTA file containing the contig ID and sequence for each contig to be binned.
+
+=item output.contigs2reads.txt
+
+This is a tab-delimited file. The first line is a header line and is discarded. Each subsequent line should contain
+(0) a contig ID and (1) one or more coverage amounts (forming a vector of coverages by sample). Commonly, there is only
+one coverage amount for every contig.
+
+=item exclude.tbl
+
+This is a tab-delimited file. The first column should contain genome IDs. The identified genomes will be excluded from
+use as reference genomes.
 
 =back
 
@@ -431,8 +455,17 @@ if ($force || ! -s $refScoreFile) {
     # No. Create a hash mapping each contig ID to the DNA sequence representing the hit. We do this by reading
     # the sample FASTA file and applying the matches hash.
     my $seqHash = $loader->GetDNA($matches, $reducedFastaFile);
+    # Check for an exclude list.
+    my $excludeFile = "$sampleDir/exclude.tbl";
+    my %exclusions;
+    if (-s $excludeFile) {
+        open(my $ih, '<', $excludeFile) || die "Could not open exclusion file: $!";
+        %exclusions = map { $_ =~ /^(\d+\.\d+)/; $1 => 1 } <$ih>;
+        print scalar(keys %exclusions) . " genomes read from exclusion file.\n";
+    }
     # Now BLAST against a database of the seed protein.
-    $contigHash = $blaster->MatchProteins($seqHash, $prot, 1, $rMaxE, db => $seedFastaFile, type => 'dna');
+    $contigHash = $blaster->MatchProteins($seqHash, $prot, 1, $rMaxE, db => $seedFastaFile, type => 'dna',
+            exclusions => \%exclusions);
     # Save the contig list to the reference-genome score file.
     open(my $sh, ">$refScoreFile") || die "Could not open reference genome score file: $!";
     for my $contig (sort keys %$contigHash) {

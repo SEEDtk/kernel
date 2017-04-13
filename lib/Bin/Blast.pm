@@ -571,6 +571,7 @@ sub MatchProteins {
     $count //= 1;
     my $protFastaFile = $options{db} // ($self->{workDir} . "/$funID.fa");
     my $mode = $options{type} // 'prot';
+    my $exclusionsH = $options{exclusions} // {};
     # Verify the BLAST database for the protein.
     if (! -s $protFastaFile) {
         # Here it does not exist, so we must create it. Currently, this is only legal for protein blasting.
@@ -592,7 +593,9 @@ sub MatchProteins {
     for my $match (@$matches) {
         my ($contig, $fid, $score, $comment) = ($match->qid, $match->sid, $match->scr, $match->sdef);
         my ($genome, $name) = split /\s+/, $comment, 2;
-        if (! $retVal{$contig}) {
+        if ($exclusionsH->{$genome}) {
+            print "$genome $name rejected by exclusion list.\n";
+        } elsif (! $retVal{$contig}) {
             $retVal{$contig} = [[$genome, $score, $name]];
         } else {
             my $gList = $retVal{$contig};
