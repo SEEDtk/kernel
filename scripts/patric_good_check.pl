@@ -56,6 +56,11 @@ the following.
 The name of a directory containing PATRIC GTO files. For performance reasons, this directory will be checked before
 asking the PATRIC interface for the GTO. The GTO file name should be the genome ID followed by C<.gto>.
 
+=item resume
+
+If specified, must be the ID of a genome. It is presumed that an interrupted run is being resumed, and the genome ID
+should be the first genome in the input file to process.
+
 =back
 
 =cut
@@ -63,6 +68,7 @@ asking the PATRIC interface for the GTO. The GTO file name should be the genome 
 # Get the command-line parameters.
 my $opt = ScriptUtils::Opts('', ScriptUtils::ih_options(),
         ['GTO=s', 'GenomeTypeObject JSON file directory'],
+        ['resume=s', 'resume interrupted run'],
         );
 my $stats = Stats->new();
 # This hash will map genome IDs to GTO file names.
@@ -89,6 +95,8 @@ if ($opt->gto) {
 # Connect to PATRIC.
 print STDERR "Connecting to PATRIC.\n";
 my $p3 = P3DataAPI->new();
+# Check for a resume.
+my $resumeGenome = $opt->resume;
 # Open the input file.
 my $ih = ScriptUtils::IH($opt->input);
 print STDERR "Reading input.\n";
@@ -99,28 +107,34 @@ while (! eof $ih) {
     my @cols = split /\t/, $line;
     my $genome = $cols[1];
     if ($genome =~ /^\d+\.\d+$/) {
-        my $count = $stats->Add(genomeIn => 1);
-        if ($count % 100 == 0) {
-            print STDERR "$count genomes read.\n";
-        }
-        my $name = $cols[2];
-        if ($cols[12] >= 85 && $cols[13] >= 80) {
-            $stats->Add(genomeGood => 1);
-            # Get the GTO for this genome.
-            my $gto;
-            if ($gtos{$genome}) {
-                $gto = GenomeTypeObject->create_from_file($gtos{$genome});
-            } else {
-                $gto = $p3->gto_of($genome);
+        # Check for a resume.
+        if ($resumeGenome && $genome ne $resumeGenome) {
+            $stats->Add(resumeSkip => 1);
+        } else {
+            $resumeGenome = '';
+            my $count = $stats->Add(genomeIn => 1);
+            if ($count % 100 == 0) {
+                print STDERR "$count genomes read.\n";
             }
-            if (! $gto) {
-                print STDERR "Genome $genome not found.\n";
-                $stats->Add(genomeNotFound => 1);
-            } else {
-                my $isGood = GPUtils::good_seed($gto);
-                if ($isGood) {
-                    $stats->Add(genomeKept => 1);
-                    print "$genome\t$name\n";
+            my $name = $cols[2];
+            if ($cols[12] >= 85 && $cols[13] >= 80) {
+                $stats->Add(genomeGood => 1);
+                # Get the GTO for this genome.
+                my $gto;
+                if ($gtos{$genome}) {
+                    $gto = GenomeTypeObject->create_from_file($gtos{$genome});
+                } else {
+                    $gto = $p3->gto_of($genome);
+                }
+                if (! $gto) {
+                    print STDERR "Genome $genome not found.\n";
+                    $stats->Add(genomeNotFound => 1);
+                } else {
+                    my $isGood = GPUtils::good_seed($gto);
+                    if ($isGood) {
+                        $stats->Add(genomeKept => 1);
+                        print "$genome\t$name\n";
+                    }
                 }
             }
         }
