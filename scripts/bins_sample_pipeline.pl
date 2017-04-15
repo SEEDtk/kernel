@@ -65,18 +65,11 @@ the naming conventions for the fastq files.
 =item HMP
 
 Paired-end reads with singletons. I<*.1.fastq> for the left reads, I<*.2.fastq> for the right reads, and
-I<*.singleton.fastq) for the singletons.
+I<*.singleton.fastq> for the singletons.
 
 =item MH
 
 Paired-end reads. I<*_1.fastq> for the left reads and I<*_2.fastq> for the right reads.
-
-} elsif ($project eq 'AG') {
-    $fsq = ".fastq";
-} elsif ($project eq 'SYNTH') {
-    $f1q = "synth1.fq";
-    $f2q = "synth2.fq";
-
 
 =item SYNTH
 
@@ -184,7 +177,7 @@ if (defined $resetOpt) {
         my $fullName = "$workDir/$file";
         $total++;
         unless ($fullName eq $expectF || $fullName =~ /\.fastq$/ || $fullName =~ /\.fq/ || $file eq 'site.tbl' ||
-                $file eq 'run.log') {
+                $file eq 'run.log' || $file eq 'err.log' || $file eq 'exclude.tbl') {
             if ($resetOpt || ($file ne 'contigs.fasta' && $file ne 'output.contigs2reads.txt')) {
                 unlink $fullName;
                 $count++;
