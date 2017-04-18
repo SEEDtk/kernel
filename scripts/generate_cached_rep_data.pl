@@ -67,10 +67,12 @@ while (defined($_ = <VSS>))
 }
 close(VSS);
 $/ = "\n";
-
+print "Reading the FASTA file.\n";
 my @seqs = grep { ! $vss{$_->[0]} } &gjoseqlib::read_fasta($sequences);
+print scalar(@seqs) . " sequences read.\n";
 # Now convert the IDs from features to genomes
 open(TAILS,">$tails") || die "could not open $tails";
+print "Creating the tails file.\n";
 foreach $_ (@seqs)
 {
     $_->[0] =~ s/^fig\|(\d+\.\d+)\.peg\.\d+/$1/;
@@ -80,13 +82,13 @@ foreach $_ (@seqs)
 close(TAILS);
 my %lens = map { ($_->[0] => length($_->[2])) } @seqs;
 @seqs    = sort { ($lens{$b} <=> $lens{$a}) or ($a cmp $b) } @seqs;
-
+print "Reading genome file.\n";
 open(COMPLETE,"<$complete_genomes") || die "could not open $complete_genomes";
 my %complete = map { (($_ =~ /^(\d+\.\d+)\s+(\S.*\S)/) &&
                       $lens{$1} && (! $vss{$1})) ? ($1 => $2) : () } <COMPLETE>;
 close(COMPLETE);
 my($i,$j);
-
+print "Computing genome hits.\n";
 my %hits_per_genome;
 foreach my $tuple (@seqs)
 {
@@ -98,6 +100,7 @@ foreach my $tuple (@seqs)
 
 my %g_to_index;
 my %index_to_g;
+print "Creating genome index.\n";
 open(INDEX,">$genome_index") || die "could not open $genome_index";
 $i = 0;
 foreach my $tuple (@seqs)
@@ -118,6 +121,9 @@ my $Nseqs = @seqs;
 my @counts;
 for ($i=0; ($i < $Nseqs); $i++)
 {
+    if ($i % 100 == 0) {
+        print "Computing similarities for genome $i of $Nseqs.\n";
+    }
 #    if (($i % 10) == 0) { $_ = @seqs; print STDERR "* $i $_\n" }
     for ($j=$i+1; ($j < $Nseqs); $j++)
     {
@@ -130,7 +136,7 @@ for ($i=0; ($i < $Nseqs); $i++)
     }
 #    print STDERR ".";
 }
-
+print "Writing similarities.\n";
 open(SIMS,">$similarities") || die "could not open $similarities";
 $i=0;
 while ($i < keys(%index_to_g))
