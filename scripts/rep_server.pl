@@ -109,6 +109,7 @@ sub next_request {
 sub process_request {
     my($cached,$req) = @_;
     my $index_to_g = $cached->{index_to_g};
+    my $g_to_index = $cached->{g_to_index};
     my $complete   = $cached->{complete};
     my $t1 = gettimeofday;
 
@@ -164,11 +165,24 @@ sub process_request {
 	}
 	print "\n";
     }
+    elsif ($req->[0] eq 'rep_by')   # who represents this guy?
+    {
+	my(undef,$who,$file) = @$req;
+        my($i) = &ids_to_indexes([$who],$g_to_index);
+        &who_represents($i,$file,$cached->{sims});
+    }
     elsif ($req->[0] eq 'rep_set')   # represetative set
     {
-	my(undef,$max_sim,@keep) = @$req;
+        my $save = ($req->[-1] =~ /^save=(\S+)/) ? $1 : undef;
+	my(undef,$max_sim,@keep_ids_or_indexes) = @$req;
+        if ((@keep_ids_or_indexes == 1) && 
+	    (-s $keep_ids_or_indexes[0]))
+	{
+	    @keep_ids_or_indexes = map { chomp; $_ } `cat $keep_ids_or_indexes[0]`;
+	}
+        my @keep = &ids_to_indexes(\@keep_ids_or_indexes,$g_to_index);
 	if (! defined($keep[0])) { @keep = () }
-	&rep($cached,$max_sim,\@keep);
+	&rep($cached,$max_sim,\@keep,$save);
     }
     elsif ($req->[0] eq "close_rep_seq")  # closest rep [N,Seq]
     {
@@ -268,17 +282,20 @@ sub rep1 {
 }
 
 sub rep {
-    my($cached,$max_sim,$keep) = @_;
+    my($cached,$max_sim,$keep,$save) = @_;
 
+    if ($save) { open(SAVE,">$save") }
+    my $fh = $save ? \*SAVE : \*STDOUT;
     my @reps = &rep1($cached,$max_sim,$keep);
     my $n = @reps;
-    print "$n\n\n";
+    print $fh "$max_sim\t$n\n\n";
     my $complete = $cached->{complete};
     my $index_to_g = $cached->{index_to_g};
     foreach $_ (@reps)
     {
-	print join("\t",($_,$index_to_g->{$_},$complete->{$index_to_g->{$_}})),"\n";
+	print $fh join("\t",($_,$index_to_g->{$_},$complete->{$index_to_g->{$_}})),"\n";
     }
+    if ($save) { close(SAVE) }
 }
 
 sub repN {
@@ -305,6 +322,60 @@ sub repN {
     }
     my $n = @reps;
     print "$n\t",join(",",@reps),"\n\n";
+}
+
+sub ids_to_indexes {
+    my($ids_or_indexes,$g_to_index) = @_;
+
+    my @indexes = ();
+    foreach $_ (@$ids_or_indexes)
+    {
+	if ($_ =~ /^(\d+)$/)
+	{
+	    push(@indexes,$1);
+	}
+	elsif ($_ =~ /^(\d+\.\d+)$/)
+	{
+	    if (my $i = $g_to_index->{$1})
+	    {
+		push(@indexes,$i);
+	    }
+	    else
+	    {
+		print STDERR "BAD GENOME ID OR INDEX\n";
+	    }
+	}
+    }
+    return @indexes;
+}
+
+sub who_represents {
+    my($i,$file,$sims) = @_;
+
+    open(SAV,"<$file") || die "could not open $file";
+    (($_ = <SAV>) && ($_ =~/^(\d+)/)) || die "$file is malformed";
+    my $min = $1;
+    $_ = <SAV>;
+
+    my %set = map { ($_ =~ /^(\d+)\t(\d+\.\d+)\t(\S.*\S)$/) ? ($1 => [$2,$3]) : () } <SAV>;
+    close(SAV);
+
+    if ($set{$i}) 
+    {
+	print "$i is a representative\n";
+    }
+    else
+    {
+	my $closest = $sims->[$i];
+	my $j;
+	for ($j=0; ($j < @$closest); $j++) 
+	{
+	    if ($closest->[$j]->[0] >= $min)
+	    {
+		print join("\t",($i,@{$closest->[$j]})),"\n";
+	    }
+	}
+    }
 }
 
 sub thin {
@@ -350,7 +421,9 @@ sub help {
     match_tails 16-mer         [returns genomes with matching PheS tail]
     n_reps N [keep1, keep2, ...keepn] 
                                [returns rep set of about N seqs]
-    rep_set N [keep1, keep2, ...keepN]
+    rep_by IndexOrId File      [returns representative]
+    represents IndexOrId File  [returns genomes represented by a given one]
+    rep_set N [[keep1, keep2, ...keepN] or FileIn] [save=FileO]
                                [ returns rep set ]
     thin_set N Index1 Index2 ... IndexN  [ make thinned set ]
 END
