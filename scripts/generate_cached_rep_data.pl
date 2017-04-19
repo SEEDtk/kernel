@@ -122,7 +122,8 @@ my $Nseqs = @seqs;
 my @counts;
 for ($i=0; ($i < $Nseqs); $i++)
 {
-    if ($i % 100 == 0) {
+    my $N = $i + 1;
+    if ($N % 100 == 0) {
         print "Computing similarities for genome $i of $Nseqs.\n";
     }
 #    if (($i % 10) == 0) { $_ = @seqs; print STDERR "* $i $_\n" }
