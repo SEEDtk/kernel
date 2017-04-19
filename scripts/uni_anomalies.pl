@@ -27,12 +27,13 @@ use ScriptUtils;
 
     uni_anomalies.pl [ options ] uniFile
 
-This script runs through a list of universal roles. For each, it lists the core Archaea and Bacteria genomes
+This script runs through a list of universal roles. For each, it lists the well-behaved genomes
 that do not contain the role. For each genome, the name, ID, and dna-size are listed.
 
 =head2 Parameters
 
 The positional parameter is the name of a tab-delimited file containing universal role IDs in the first column.
+If the parameter is omitted, the list of universal roles will be read from the database.
 
 The command-line options are those found in L<Shrub/script_options>.
 
@@ -42,18 +43,28 @@ The command-line options are those found in L<Shrub/script_options>.
 my $opt = ScriptUtils::Opts('uniFile',
                 Shrub::script_options(),
         );
-# Get the universal role file.
-my ($uniFile) = @ARGV;
-if (! $uniFile) {
-    die "No universal role file specified.";
-} elsif (! -s $uniFile) {
-    die "$uniFile missing or empty.";
-}
 # Connect to the database.
 my $shrub = Shrub->new_for_script($opt);
+# Get the universal role list.
+my %unis;
+my ($uniFile) = @ARGV;
+if (! $uniFile) {
+    %unis = map { $_ => 1 } $shrub->GetFlat('Function', 'Function(universal) = ?', [1], 'id');
+} elsif (! -s $uniFile) {
+    die "$uniFile missing or empty.";
+} elsif (! open(my $uh, "<$uniFile")) {
+    die "Could not open $uniFile: $!";
+} else {
+    while (! eof $uh) {
+        my $line = <$uh>;
+        if ($line =~ /^(\S+)/) {
+            $unis{$1} = 1;
+        }
+    }
+}
 # Get all the genomes.
-my %gHash = map { $_->[0] => [$_->[1], $_->[2]] } $shrub->GetAll('Genome', 'Genome(domain) = ? AND Genome(core) = ?',
-        ['Bacteria', 1], 'id name dna-size');
+my %gHash = map { $_->[0] => [$_->[1], $_->[2]] } $shrub->GetAll('Genome', 'Genome(well-behaved) = ?',
+        [1], 'id name dna-size');
 # Get a sorted list of genome IDs.
 my @genomes = sort keys %gHash;
 # Compute the number of expected genomes containing functions.
@@ -63,27 +74,22 @@ my %unFound;
 # Count the universal proteins.
 my $uniCount = 0;
 # Loop through the universal functions.
-open(my $ih, '<', $uniFile) || die "Could not open $uniFile: $!";
-while (! eof $ih) {
-    my $line = <$ih>;
-    if ($line =~ /^(\S+)/) {
-        my $role = $1;
-        my ($roleDesc) = $shrub->GetFlat('Role', 'Role(id) = ?', [$role], 'description');
-        if (! $roleDesc) {
-            die "$role not found in database.";
-        }
-        print "\nGenomes missing $role: $roleDesc.\n";
-        $uniCount++;
-        # Get all the genomes containing the functions.
-        my %found = map { $_ => 1 } $shrub->GetFlat('Role2Function Function2Feature Feature2Genome',
-                'Role2Function(from-link) = ? AND Function2Feature(security) = ?',
-                [$role, 2], 'Feature2Genome(to-link)');
-        # Loop through the full list of useful genomes, looking for any that were not found above.
-        for my $genome (@genomes) {
-            if (! $found{$genome}) {
-                print join("\t", '', $genome, @{$gHash{$genome}}) . "\n";
-                $unFound{$genome}++;
-            }
+for my $role (sort keys %unis) {
+    my ($roleDesc) = $shrub->GetFlat('Function', 'Function(id) = ?', [$role], 'description');
+    if (! $roleDesc) {
+        die "$role not found in database.";
+    }
+    print "\nGenomes missing $role: $roleDesc.\n";
+    $uniCount++;
+    # Get all the genomes containing the functions.
+    my %found = map { $_ => 1 } $shrub->GetFlat('Role2Function Function2Feature Feature2Genome',
+            'Role2Function(from-link) = ? AND Function2Feature(security) = ?',
+            [$role, 2], 'Feature2Genome(to-link)');
+    # Loop through the full list of useful genomes, looking for any that were not found above.
+    for my $genome (@genomes) {
+        if (! $found{$genome}) {
+            print join("\t", '', $genome, @{$gHash{$genome}}) . "\n";
+            $unFound{$genome}++;
         }
     }
 }

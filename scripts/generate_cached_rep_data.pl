@@ -31,6 +31,7 @@ my $usage = "usage: generate_hached_rep_data DataDir\n";
 ##########################
 
 =cut
+$| = 1;
 
 my $Data = shift @ARGV;
 $complete_genomes = "$Data/complete.genomes";
