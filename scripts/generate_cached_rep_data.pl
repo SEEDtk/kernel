@@ -124,7 +124,7 @@ for ($i=0; ($i < $Nseqs); $i++)
 {
     my $N = $i + 1;
     if ($N % 100 == 0) {
-        print "Computing similarities for genome $i of $Nseqs.\n";
+        print "Computing similarities for genome $N of $Nseqs.\n";
     }
 #    if (($i % 10) == 0) { $_ = @seqs; print STDERR "* $i $_\n" }
     for ($j=$i+1; ($j < $Nseqs); $j++)
