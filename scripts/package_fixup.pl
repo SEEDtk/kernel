@@ -71,12 +71,13 @@ my $stats = Stats->new();
 # Get all the packages.
 my $gHash = GPUtils::get_all($packageDir);
 # Loop through them.
+my $count;
+my $total = scalar keys %$gHash;
 print "Processing genomes.\n";
 for my $genome (sort keys %$gHash) {
     # Get this package and its directory.
     $stats->Add(packages => 1);
     my $genomeDir = $gHash->{$genome};
-    print "Processing $genome in $genomeDir.\n";
     # Check for a gto.
     my $bad;
     if (! -s "$genomeDir/bin.gto") {
@@ -112,15 +113,21 @@ for my $genome (sort keys %$gHash) {
                 }
             }
         }
-        if ($opt->test) {
-            print "$genome should be deleted.\n";
-        } else {
-            print "Deleting $genomeDir.\n";
-            File::Copy::Recursive::pathrmdir($genomeDir);
-            if (-d $genomeDir) {
-                rmdir $genomeDir;
+        if ($bad) {
+            if ($opt->test) {
+                print "$genome should be deleted.\n";
+            } else {
+                print "Deleting $genomeDir.\n";
+                File::Copy::Recursive::pathrmdir($genomeDir);
+                if (-d $genomeDir) {
+                    rmdir $genomeDir;
+                }
+                $stats->Add(packageDeleted => 1);
             }
-            $stats->Add(packageDeleted => 1);
+        }
+        $count++;
+        if ($count % 50 == 0) {
+            print "$count of $total packages processed.\n";
         }
     }
 }
