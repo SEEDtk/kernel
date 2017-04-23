@@ -50,6 +50,7 @@ If specified, bad packages will be identified but not deleted.
 
 =cut
 
+$| = 1;
 # Get the command-line parameters.
 my $opt = ScriptUtils::Opts('packageDir sampleDir',
         ['test', 'do not delete bad packages']
@@ -75,6 +76,7 @@ for my $genome (sort keys %$gHash) {
     # Get this package and its directory.
     $stats->Add(packages => 1);
     my $genomeDir = $gHash->{$genome};
+    print "Processing $genome in $genomeDir.\n";
     # Check for a gto.
     my $bad;
     if (! -s "$genomeDir/bin.gto") {
