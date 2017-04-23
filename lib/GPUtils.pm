@@ -321,7 +321,7 @@ sub get_data {
     my $dataFile = "$genomeDir/data.tbl";
     open(my $ih, "<$dataFile") || die "Could not open data.tbl for $genome: $!";
     while (! eof $ih) {
-        my $line = $ih;
+        my $line = <$ih>;
         if ($line =~ /^([^\t]+)\t.*/) {
             $retVal{$1} = $2;
         }
