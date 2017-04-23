@@ -61,6 +61,14 @@ The number of contigs in the genome.
 
 The number of DNA base pairs in the genome's contigs.
 
+=item Sample Name (sometimes)
+
+Name of the source binning sample.
+
+=item Bin Number (sometimes)
+
+Index number of the source bin.
+
 =back
 
 =item EvalBySciKit
@@ -161,7 +169,7 @@ sub get_all {
 
 =head3 gto_of
 
-    my $gto = GPUtils::function_to_features($genomeHash, $genome);
+    my $gto = GPUtils::gto_of($genomeHash, $genome);
 
 Get the L<GenomeTypeObject> for the specified genome in the specified package complex.
 
@@ -195,7 +203,7 @@ sub gto_of {
     return $retVal;
 }
 
-=head3 function_to_features
+=head3 role_to_features
 
     my $featureList = GPUtils::role_to_features($gto, $role);
 
@@ -280,6 +288,46 @@ sub all_pegs {
         }
     }
     return \@retVal;
+}
+
+=head3 get_data
+
+    my $dataHash = GPUtils::get_data($genomeHash, $genome);
+
+Return a hash of the genome package's metadata entries.
+
+=item genomeHash
+
+The hash of genome packages returned from L</get_all>.
+
+=item genome
+
+The ID of the genome whose metadatais desired.
+
+=item RETURN
+
+Returns a reference to a hash mapping each metadata key to its value.
+
+=back
+
+=cut
+
+sub get_data {
+    my ($genomeHash, $genome) = @_;
+    # This will be the return hash.
+    my %retVal;
+    # Find the data file.
+    my $genomeDir = $genomeHash->{$genome};
+    my $dataFile = "$genomeDir/data.tbl";
+    open(my $ih, "<$dataFile") || die "Could not open data.tbl for $genome: $!";
+    while (! eof $ih) {
+        my $line = $ih;
+        if ($line =~ /^([^\t]+)\t.*/) {
+            $retVal{$1} = $2;
+        }
+    }
+    # Return the key/value map.
+    return \%retVal;
 }
 
 =head3 good_seed

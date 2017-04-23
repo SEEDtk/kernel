@@ -21,6 +21,7 @@ package Bin;
     use strict;
     use warnings;
     use SeedUtils;
+    use Carp;
 
 =head1 Metagenomic Community Bin
 
@@ -727,6 +728,11 @@ List of IDs for the genomes to add.
 
 sub add_ref {
     my ($self, @genomes) = @_;
+    # Check for blanks.
+    my $count = grep { ! $_ } @genomes;
+    if ($count) {
+        confess "Blank reference genome found.\n";
+    }
     # Compute the new genome list and sort it.
     $self->{refGenomes} = [ sort (@{$self->{refGenomes}}, @genomes) ];
 }
