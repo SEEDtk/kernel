@@ -4,6 +4,7 @@ use Time::HiRes qw(gettimeofday);
 use Time::Local;
 use gjoseqlib;
 use RepKmers;
+use SeedUtils;
 
 # CachedDir ($dir) must contain the following files
 #    complete.genomes
@@ -11,7 +12,7 @@ use RepKmers;
 #    similarities
 #
 my $dir;
-my $usage = "usage: rep_server CachedDir\n";
+my $usage = "usage: rep_server CachedDir [ inputFile ]\n";
 (
  ($dir = shift @ARGV) &&
  (-s "$dir/complete.genomes") &&
@@ -19,7 +20,13 @@ my $usage = "usage: rep_server CachedDir\n";
  (-s "$dir/similarities")
 )
     || die $usage;
-
+my $IH;
+my $infile = shift @ARGV;
+if ($infile) {
+    open($IH, "<$infile") || die "Could not open $infile: $!";
+} else {
+    $IH = \*STDIN;
+}
 my $cached = &load_data($dir);
 my $request;
 $| = 1;
@@ -96,7 +103,7 @@ sub next_request {
 
     print "?? ";
     my $req;
-    if (defined($_ = <STDIN>))
+    if (defined($_ = <$IH>))
     {
         if ($_ =~ /^[xX]$/) { return undef }
         chomp;
@@ -174,15 +181,17 @@ sub process_request {
     elsif ($req->[0] eq 'rep_set')   # represetative set
     {
         my $save = ($req->[-1] =~ /^save=(\S+)/) ? $1 : undef;
+        if ($save) {
+            pop @$req;
+        }
         my(undef,$max_sim,@keep_ids_or_indexes) = @$req;
         if ((@keep_ids_or_indexes == 1) &&
             (-s $keep_ids_or_indexes[0]))
         {
-            @keep_ids_or_indexes = map { chomp; $_ } `cat $keep_ids_or_indexes[0]`;
+            @keep_ids_or_indexes = SeedUtils::read_ids($keep_ids_or_indexes[0]);
         }
-        my @keep = &ids_to_indexes(\@keep_ids_or_indexes,$g_to_index);
-        if (! defined($keep[0])) { @keep = () }
-        &rep($cached,$max_sim,\@keep,$save);
+        my ($keep, $keepMap) = &compute_keep_data(\@keep_ids_or_indexes,$g_to_index,$index_to_g);
+        &rep($cached,$max_sim,$keep, $save, $keepMap);
     }
     elsif ($req->[0] eq "close_rep_seq")  # closest rep [N,Seq]
     {
@@ -282,7 +291,7 @@ sub rep1 {
 }
 
 sub rep {
-    my($cached,$max_sim,$keep,$save) = @_;
+    my($cached,$max_sim,$keep,$save,$keepMap) = @_;
 
     if ($save) { open(SAVE,">$save") }
     my $fh = $save ? \*SAVE : \*STDOUT;
@@ -291,9 +300,15 @@ sub rep {
     print $fh "$max_sim\t$n\n\n";
     my $complete = $cached->{complete};
     my $index_to_g = $cached->{index_to_g};
-    foreach $_ (@reps)
+    foreach my $r (@reps)
     {
-        print $fh join("\t",($_,$index_to_g->{$_},$complete->{$index_to_g->{$_}})),"\n";
+        my $genome;
+        if ($keepMap->{$r}) {
+            $genome = $keepMap->{$r};
+        } else {
+            $genome = $index_to_g->{$r};
+        }
+        print $fh join("\t",($r,$genome,$complete->{$genome})),"\n";
     }
     if ($save) { close(SAVE) }
 }
@@ -410,6 +425,58 @@ sub thin {
         }
     }
     return @thinned;
+}
+
+#   my ($keep, $keepMap) = &compute_keep_data(\@keep_ids_or_indexes,$g_to_index);
+#
+# We must convert genome IDs to VSS indexes. First, we map each genome ID to its VSS representative.
+# Then the index is $g_to_index->{$vssMap{$genome}}. If the genome ID is not found we emit a warning.
+# The keep map converts each index to its original genome ID. We use this for output.
+#
+sub compute_keep_data {
+    my ($keep_ids_or_indexes, $g_to_index, $index_to_g) = @_;
+    # First we create the VSS map.
+    open(my $ih, "<$dir/vss") || die "Could not open VSS file: $!";
+    my (%vssMap, $current);
+    while (! eof $ih) {
+        my $line = <$ih>; chomp $line;
+        if ($line eq '//') {
+            # Here we are starting a new group.
+            undef $current;
+        } else {
+            # The first ID in the group becomes its representative.
+            if (! $current) {
+                $current = $line;
+            }
+            # Map this genome to the current rep.
+            $vssMap{$line} = $current;
+        }
+    }
+    # Loop through the IDs now.
+    my (@keep, %keepMap);
+    for my $id_or_index (@$keep_ids_or_indexes) {
+        my $id;
+        if ($id_or_index =~ /^\d+\.\d+/) {
+            # Here we have a genome ID.
+            if ($vssMap{$id_or_index}) {
+                $id = $g_to_index->{$vssMap{$id_or_index}};
+                $keepMap{$id} = $id_or_index;
+            } elsif ($g_to_index->{$id_or_index}) {
+                $id = $g_to_index->{$id_or_index};
+                $keepMap{$id} = $id_or_index;
+            } else {
+                print "Genome $id_or_index not found.\n";
+            }
+        } else {
+            # Here we have a raw index. The output will be a genome ID.
+            $id = $id_or_index;
+            $keepMap{$id} = $index_to_g->{$id};
+        }
+        if (defined $id) {
+            push @keep, $id;
+        }
+    }
+    return (\@keep, \%keepMap);
 }
 
 sub help {

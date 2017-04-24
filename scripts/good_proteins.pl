@@ -172,7 +172,7 @@ for my $genome (sort keys %$ghash) {
             $stats->Add(genomesOut => 1);
             # Output the proteins.
             for my $feature (@$flist) {
-                print $fh ">$feature->{id} $genome\n$aa\n";
+                print $fh ">$genome $feature->{id}\n$aa\n";
                 $stats->Add(proteinsOut => 1);
             }
         }
