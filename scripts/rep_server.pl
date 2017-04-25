@@ -461,13 +461,13 @@ sub compute_keep_data {
             if ($vssMap{$id_or_index}) {
                 $id = $g_to_index->{$vssMap{$id_or_index}};
                 $keepMap{$id} = $id_or_index;
-                print "Genome $id_or_index mapped to group $id.\n";
+                #print "Genome $id_or_index mapped to group $id.\n";
             } elsif ($g_to_index->{$id_or_index}) {
                 $id = $g_to_index->{$id_or_index};
                 $keepMap{$id} = $id_or_index;
-                print "Genome $id_or_index mapped to singleton $id.\n";
+                #print "Genome $id_or_index mapped to singleton $id.\n";
             } else {
-                print "Genome $id_or_index not found.\n";
+                #print "Genome $id_or_index not found.\n";
             }
         } else {
             # Here we have a raw index. The output will be a genome ID.
