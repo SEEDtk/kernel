@@ -53,9 +53,7 @@ my $shrub = Shrub->new_for_script($opt);
 my $ih = ScriptUtils::IH($opt->input);
 # These hashes store the different types of genomes.
 my %genomes = (core => {}, shrub => {}, missing => {});
-# Skip the headers.
-my $line = <$ih>;
-$line = <$ih>;
+# Loop through the input.
 while (! eof $ih) {
     my $line = <$ih>;
     $stats->Add(lineIn => 1);
