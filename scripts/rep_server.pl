@@ -297,7 +297,7 @@ sub rep {
     my $fh = $save ? \*SAVE : \*STDOUT;
     my @reps = &rep1($cached,$max_sim,$keep);
     my $n = @reps;
-    print $fh "$max_sim\t$n\n\n";
+    print "$max_sim\t$n\n\n";
     my $complete = $cached->{complete};
     my $index_to_g = $cached->{index_to_g};
     foreach my $r (@reps)
@@ -461,9 +461,11 @@ sub compute_keep_data {
             if ($vssMap{$id_or_index}) {
                 $id = $g_to_index->{$vssMap{$id_or_index}};
                 $keepMap{$id} = $id_or_index;
+                print "Genome $id_or_index mapped to group $id.\n";
             } elsif ($g_to_index->{$id_or_index}) {
                 $id = $g_to_index->{$id_or_index};
                 $keepMap{$id} = $id_or_index;
+                print "Genome $id_or_index mapped to singleton $id.\n";
             } else {
                 print "Genome $id_or_index not found.\n";
             }
