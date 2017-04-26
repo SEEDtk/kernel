@@ -36,7 +36,10 @@ while (defined($_ = <$ih>))
                     my $kmer = lc substr($seq,$i,$k);
                     if ($kmer =~ /^[acgt]*$/)
                     {
-    #		    print join("\t",($kmer,$g)),"\n";
+                        my $rev = SeedUtils::rev_comp($kmer);
+                        if ($rev lt $kmer) {
+                            $kmer = $rev;
+                        }
                         my $x = $all_kmers{$kmer};
                         if (! $x)    {
                             $all_kmers{$kmer} = $g
