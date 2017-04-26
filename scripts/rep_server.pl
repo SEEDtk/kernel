@@ -249,6 +249,22 @@ sub process_request {
             print "$n\t",join(",",@thinned),"\n\n";
         }
     }
+    elsif ($req->[0] eq 'load_sigs') {
+        # Signature hash.
+        my %sigs;
+        my $sigK = $req->[1];
+        if (! open(my $ih, "<$req->[2]")) {
+            print "Could not open signature file: $!\n";
+        } else {
+            while (! eof $ih) {
+                if (<$ih> =~ /^(\S+)\t(\d+\.\d+)/) {
+                    $sigs{$1} = 2;
+                }
+            }
+        }
+        $cached->{signatures} = \%sigs;
+        $cached->{signatureK} = $sigK;
+    }
     else
     {
         print &Dumper(["failed request",$req]);
@@ -494,8 +510,10 @@ sub help {
     rep_by IndexOrId File      [returns representative]
     represents IndexOrId File  [returns genomes represented by a given one]
     rep_set N [[keep1, keep2, ...keepN] or FileIn] [save=FileO]
-                               [ returns rep set ]
+                               [returns rep set ]
     thin_set N Index1 Index2 ... IndexN  [ make thinned set ]
+    load_sigs K sigFile        [load signature kmers of size K from the file]
+    find_sigs genome           [analyzes each contig in patric genome using signatures]
 END
 }
 
