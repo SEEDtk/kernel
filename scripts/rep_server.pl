@@ -549,7 +549,7 @@ sub get_contigs {
     if ($contigs) {
         $retVal = [ $contigs->tuples ];
     } else {
-        $contigs = $p3->get_fasta($genome);
+        $contigs = $p3->fasta_of($genome);
         if (@$contigs) {
             $retVal = $contigs;
         }
