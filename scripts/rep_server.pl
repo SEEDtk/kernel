@@ -5,6 +5,9 @@ use Time::Local;
 use gjoseqlib;
 use RepKmers;
 use SeedUtils;
+use P3DataAPI;
+use Shrub;
+use Shrub::Contigs;
 
 # CachedDir ($dir) must contain the following files
 #    complete.genomes
@@ -28,6 +31,9 @@ if ($infile) {
     $IH = \*STDIN;
 }
 my $cached = &load_data($dir);
+my $shrub = Shrub->new();
+my $p3 = P3DataAPI->new();
+
 my $request;
 $| = 1;
 while ($request = &next_request())
@@ -258,12 +264,51 @@ sub process_request {
         } else {
             while (! eof $ih) {
                 if (<$ih> =~ /^(\S+)\t(\d+\.\d+)/) {
-                    $sigs{$1} = 2;
+                    $sigs{$1} = $2;
                 }
             }
         }
         $cached->{signatures} = \%sigs;
         $cached->{signatureK} = $sigK;
+    }
+    elsif ($req->[0] eq 'find_sigs') {
+        # Find signatures in genome.
+        my $genome = $req->[1];
+        my $contigs = get_contigs($genome);
+        if (! $contigs) {
+            print "$genome not found in Shrub or PATRIC.\n";
+        } else {
+            my $sigsH = $cached->{signatures};
+            my $K = $cached->{signatureK};
+            my %results;
+            for my $contig (@$contigs) {
+                my %hits;
+                my ($id, undef, $seq) = @$contig;
+                my $len = length($seq);
+                my $n = $len - $K;
+                for (my $i = 0; $i <= $n; $i++) {
+                    my $kmer = substr($seq, $i, $K);
+                    my $rev = SeedUtils::rev_comp($kmer);
+                    if ($rev lt $kmer) {
+                        $kmer = $rev;
+                    }
+                    my $hitGenome = $sigsH->{$kmer};
+                    if ($hitGenome) {
+                        $hits{$hitGenome}++;
+                    }
+                }
+                my ($best, $second) = sort { $hits{$b} <=> $hits{$a} } keys %hits;
+                if (! $best) {
+                    print "$id ($len) had no hits.\n";
+                } else {
+                    print "$id ($len) hit $best [$hits{$best}]";
+                    if ($second) {
+                        print " and $second [$hits{$second}]";
+                    }
+                    print ".\n";
+                }
+            }
+        }
     }
     else
     {
@@ -495,6 +540,21 @@ sub compute_keep_data {
         }
     }
     return (\@keep, \%keepMap);
+}
+
+sub get_contigs {
+    my ($genome) = @_;
+    my $retVal;
+    my $contigs = Shrub::Contigs->new($shrub, $genome);
+    if ($contigs) {
+        $retVal = [ $contigs->tuples ];
+    } else {
+        $contigs = $p3->get_fasta($genome);
+        if (@$contigs) {
+            $retVal = $contigs;
+        }
+    }
+    return $retVal;
 }
 
 sub help {
