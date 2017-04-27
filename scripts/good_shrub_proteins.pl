@@ -31,7 +31,7 @@ use Shrub;
     good_proteins.pl [ options ] outDir
 
 This script produces two files-- an amino-acid FASTA file of all occurrences of a selected protein in the specified
-genome packages, and a tab-delimited file listing each genome ID and its name.
+Shrub genomes, and a tab-delimited file listing each genome ID and its name.
 
 =head2 Output Files
 
