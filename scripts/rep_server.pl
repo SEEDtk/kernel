@@ -24,9 +24,11 @@ my $usage = "usage: rep_server CachedDir [ inputFile ]\n";
 )
     || die $usage;
 my $IH;
+my $backgroundMode;
 my $infile = shift @ARGV;
 if ($infile) {
     open($IH, "<$infile") || die "Could not open $infile: $!";
+    $backgroundMode = 1;
 } else {
     $IH = \*STDIN;
 }
@@ -107,14 +109,18 @@ sub load_data {
 
 sub next_request {
 
-    print "?? ";
+    if (! $backgroundMode) {
+        print "?? ";
+    }
     my $req;
     if (defined($_ = <$IH>))
     {
         if ($_ =~ /^[xX]$/) { return undef }
         chomp;
         $req = [split(/\s+/,$_)];
-#	print "request: ",join("\t",@$req),"\n";
+        if ($backgroundMode) {
+            print "request: ",join("\t",@$req),"\n";
+        }
     }
     return $req;
 }
@@ -278,6 +284,10 @@ sub process_request {
         if (! $contigs) {
             print "$genome not found in Shrub or PATRIC.\n";
         } else {
+            my $name = get_name($genome);
+            if ($name) {
+                print "Search contigs for $genome: $name\n";
+            }
             my $sigsH = $cached->{signatures};
             my $K = $cached->{signatureK};
             my %results;
@@ -301,12 +311,28 @@ sub process_request {
                 if (! $best) {
                     print "$id ($len) had no hits.\n";
                 } else {
-                    print "$id ($len) hit $best [$hits{$best}]";
+                    $name = get_name($best) || '[unknown]';
+                    print "$id ($len) hit $best $name [$hits{$best}]";
                     if ($second) {
-                        print " and $second [$hits{$second}]";
+                        $name = get_name($second) || '[unknown]';
+                        print " and $second $name [$hits{$second}]";
                     }
                     print ".\n";
                 }
+            }
+        }
+    }
+    elsif ($req->[0] eq 'name') {
+        # Display genome name.
+        my $genome = $req->[1];
+        if (! $genome) {
+            print "No genome ID specified.\n";
+        } else {
+            my $name = get_name($genome);
+            if ($name) {
+                print "$genome is $name.\n";
+            } else {
+                print "$genome not found.\n";
             }
         }
     }
@@ -557,6 +583,20 @@ sub get_contigs {
     return $retVal;
 }
 
+sub get_name {
+    my ($genome) = @_;
+    my $nameIndex = $cached->{complete};
+    my $retVal = $nameIndex->{$genome};
+    if (! $retVal) {
+        ($retVal) = $shrub->GetFlat('Genome', 'Genome(id) = ?', [$genome], 'name');
+        if (! $retVal) {
+            my ($g) = $p3->query("genome", [ "eq", "genome_id", $genome ], ["select", "genome_name"]);
+            $retVal = $g->{genome_name};
+        }
+    }
+    return $retVal;
+}
+
 sub help {
     print <<END;
     closest_by_sc Index N      [returns closest N genomes by sc]
@@ -574,6 +614,7 @@ sub help {
     thin_set N Index1 Index2 ... IndexN  [ make thinned set ]
     load_sigs K sigFile        [load signature kmers of size K from the file]
     find_sigs genome           [analyzes each contig in patric genome using signatures]
+    name genome                [displays the name of a genome]
 END
 }
 
