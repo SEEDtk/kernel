@@ -53,27 +53,34 @@ my $shrub = Shrub->new_for_script($opt);
 my $ih = ScriptUtils::IH($opt->input);
 # These hashes store the different types of genomes.
 my %genomes = (core => {}, shrub => {}, missing => {});
+# This hash prevents duplicates.
+my %dupCheck;
 # Loop through the input.
 while (! eof $ih) {
     my $line = <$ih>;
     $stats->Add(lineIn => 1);
     if ($line =~ /^\d+\t(\d+\.\d+)\t(.+)/) {
         my ($id, $name) = ($1, $2);
-        $stats->Add(genomes => 1);
-        # Determine the genome type.
-        my ($core) = $shrub->GetFlat('Genome', 'Genome(id) = ?', [$id], 'core');
-        my $type;
-        if (! defined $core) {
-            # Not in Shrub.
-            $type = 'missing';
-        } elsif ($core) {
-            $type = 'core';
+        if ($dupCheck{$id}) {
+            $stats->Add(duplicate => 1);
         } else {
-            $type = 'shrub';
+            $dupCheck{$id} = 1;
+            $stats->Add(genomes => 1);
+            # Determine the genome type.
+            my ($core) = $shrub->GetFlat('Genome', 'Genome(id) = ?', [$id], 'core');
+            my $type;
+            if (! defined $core) {
+                # Not in Shrub.
+                $type = 'missing';
+            } elsif ($core) {
+                $type = 'core';
+            } else {
+                $type = 'shrub';
+            }
+            # Count this genome.
+            $stats->Add($type => 1);
+            $genomes{$type}{$id} = $name;
         }
-        # Count this genome.
-        $stats->Add($type => 1);
-        $genomes{$type}{$id} = $name;
     }
 }
 # Now produce the output, listing the genomes of each type.

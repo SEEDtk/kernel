@@ -290,11 +290,13 @@ sub process_request {
             }
             my $sigsH = $cached->{signatures};
             my $K = $cached->{signatureK};
-            my %results;
+            my %totalHits;
+            my $totLen = 0;
             for my $contig (@$contigs) {
                 my %hits;
                 my ($id, undef, $seq) = @$contig;
                 my $len = length($seq);
+                $totLen += $len;
                 my $n = $len - $K;
                 for (my $i = 0; $i <= $n; $i++) {
                     my $kmer = substr($seq, $i, $K);
@@ -305,6 +307,7 @@ sub process_request {
                     my $hitGenome = $sigsH->{$kmer};
                     if ($hitGenome) {
                         $hits{$hitGenome}++;
+                        $totalHits{$hitGenome}++;
                     }
                 }
                 my ($best, $second) = sort { $hits{$b} <=> $hits{$a} } keys %hits;
@@ -319,6 +322,13 @@ sub process_request {
                     }
                     print ".\n";
                 }
+            }
+            my @hitList = sort { $totalHits{$b} <=> $totalHits{$a} } keys %totalHits;
+            splice @hitList, 5;
+            print "Whole genome summary ($totLen base pairs).\n";
+            for my $hit (@hitList) {
+                my $name = get_name($hit) || '[unknown]';
+                print "$totalHits{$hit} hits for $hit $name\n";
             }
         }
     }
