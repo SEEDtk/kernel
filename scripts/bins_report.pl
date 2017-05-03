@@ -51,7 +51,7 @@ my $shrub = Shrub->new_for_script($opt);
 # Read in the universal roles.
 my $uniRoles = $shrub->GetUniRoles();
 # Get the analysis object.
-my $analyzer = Bin::Analyze->new($shrub);
+my $analyzer = Bin::Analyze->new();
 # This will contain a list of bins for the final statistical report.
 my @bins;
 # Loop through the bins, collecting them in memory.

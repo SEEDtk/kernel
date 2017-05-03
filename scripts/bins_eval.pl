@@ -167,7 +167,7 @@ my $uniRoles = $blaster->uni_hash;
 my $totUnis = $blaster->uni_total;
 # Produce the bin report.
 open(my $rh, ">$binDir/bins.report.good.txt") || die "Could not open report file: $!";
-my $analyzer = Bin::Analyze->new($shrub, totUnis => $totUnis, minUnis => (0.8 * $totUnis));
+my $analyzer = Bin::Analyze->new(totUnis => $totUnis, minUnis => (0.8 * $totUnis));
 $analyzer->BinReport($rh, $uniRoles, \@goodBins);
 close $rh;
 print "All done.\n" . $stats->Show();

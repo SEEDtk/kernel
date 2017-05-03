@@ -53,7 +53,7 @@ my $stats = $loader->stats;
 # Connect to the database.
 my $shrub = Shrub->new_for_script($opt);
 # Create the analyzer.
-my $analyzer = Bin::Analyze->new($shrub);
+my $analyzer = Bin::Analyze->new();
 # Read the bins.
 my $binList;
 my ($binDir) = @ARGV;

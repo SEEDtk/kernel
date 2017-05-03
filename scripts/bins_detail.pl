@@ -69,7 +69,7 @@ $binList = Bin::ReadBins($jsonFileName);
 my $cbinList = Bin::ReadContigs("$binDir/contigs.ref.bins");
 my %contigBins = map { $_->contig1 => $_ } @$cbinList;
 # Loop through the bins, producing the report.
-my $analyzer = Bin::Analyze->new($shrub);
+my $analyzer = Bin::Analyze->new();
 # Loop through the bins.
 for (my $id = 0; $id < scalar(@$binList); $id++) {
     my $bin = $binList->[$id];
