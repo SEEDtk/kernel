@@ -485,7 +485,7 @@ if ($opt->unassembled) {
     my $totUnis = $blaster->uni_total;
     # Produce the bin report.
     open(my $rh, ">$workDir/bins.report.txt") || die "Could not open report file: $!";
-    my $analyzer = Bin::Analyze->new($shrub, totUnis => $totUnis, minUnis => (0.8 * $totUnis));
+    my $analyzer = Bin::Analyze->new(totUnis => $totUnis, minUnis => (0.8 * $totUnis));
     $analyzer->BinReport($rh, $uniRoles, \@sorted);
     close $rh;
 }

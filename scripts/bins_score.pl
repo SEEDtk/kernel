@@ -131,7 +131,7 @@ if (! $workDir) {
 my $score = Bin::Score->new($covgWeight, $tetraWeight, $refWeight, $uniPenalty, $uniWeight, $minScore, $opt->unifile);
 # Create the analysis object.
 my $totUnis = $score->uni_total;
-my $analyzer = Bin::Analyze->new($shrub, totUnis => $totUnis, minUnis => (0.8 * $totUnis));
+my $analyzer = Bin::Analyze->new(totUnis => $totUnis, minUnis => (0.8 * $totUnis));
 # Open the log file.
 my $oh = IO::File->new(">$logFile");
 $oh->autoflush(1);

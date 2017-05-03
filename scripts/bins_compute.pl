@@ -145,7 +145,7 @@ for my $runID (sort { $a <=> $b } keys %runs) {
     # Analyze the bins.
     my $uniRoles = $score->uni_hash;
     my $totUnis = $score->uni_total;
-    my $analyzer = Bin::Analyze->new($shrub, totUnis => $totUnis, minUnis => (0.8 * $totUnis));
+    my $analyzer = Bin::Analyze->new(totUnis => $totUnis, minUnis => (0.8 * $totUnis));
     $analyzer->BinReport($rh, $uniRoles, $bins);
     close $rh;
 }

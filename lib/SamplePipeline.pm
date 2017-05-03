@@ -383,7 +383,7 @@ sub RastBins {
     my $uniRoleH = $shrub->GetUniRoles();
     my $totUnis = scalar keys %$uniRoleH;
     # Create an analyzer object.
-    my $analyzer = Bin::Analyze->new($shrub, totUnis => $totUnis, minUnis => (0.8 * $totUnis));
+    my $analyzer = Bin::Analyze->new(totUnis => $totUnis, minUnis => (0.8 * $totUnis));
     # Get the loader object.
     my $loader = Loader->new();
     my $stats = $loader->stats;
