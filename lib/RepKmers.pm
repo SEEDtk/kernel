@@ -146,4 +146,44 @@ sub find_closest {
     return ($best_id,$best_so_far);
 }
 
+sub extract_kmers {
+    my($seq,$K) = @_;
+
+    my $triples = int($K/2);
+    my @kmers;
+    my $pos = 0;
+    my $last = (length($seq) - (3 * $triples));
+
+    while ($pos <= $last)
+    {
+	push(@kmers, &extract_kmer(\$seq,$pos,$triples));
+	$pos++;
+    }
+    return \@kmers;
+}
+
+#
+#  $seq is a sequence (a contig)
+#  $pos is an index of where to start pulling a k-mer
+#  $triples is the number of "2of3" characters we pull.
+#
+#  The returned string is composed of $trples 2of3 chunks
+#  Thus, a $triples value of 8 would pull 16 characters.
+#
+sub extract_kmer {
+    my($seqP,$pos,$triples) = @_;
+
+    my(@chars);
+    my $i;
+    for ($i=0; ($i < $triples); $i++)
+    {
+        my $kmer = lc substr($$seqP,$pos+($i*3),2);
+        if ($kmer =~ /^[acgt]*$/) {
+            push(@chars, $kmer);
+            #push(@chars,lc substr($$seqP,$pos+($i*3),2));
+        }
+    }
+    return join("",@chars);
+}
+
 1;

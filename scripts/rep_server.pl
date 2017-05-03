@@ -262,6 +262,8 @@ sub process_request {
         }
     }
     elsif ($req->[0] eq 'load_sigs') {
+        if ($req->[3]) { $cached->{gary} = 1}
+
         # Signature hash.
         my %sigs;
         my $sigK = $req->[1];
@@ -295,21 +297,24 @@ sub process_request {
             for my $contig (@$contigs) {
                 my %hits;
                 my ($id, undef, $seq) = @$contig;
-                my $len = length($seq);
-                $totLen += $len;
-                my $n = $len - $K;
-                for (my $i = 0; $i <= $n; $i++) {
-                    my $kmer = substr($seq, $i, $K);
-                    my $rev = SeedUtils::rev_comp($kmer);
-                    if ($rev lt $kmer) {
-                        $kmer = $rev;
-                    }
-                    my $hitGenome = $sigsH->{$kmer};
-                    if ($hitGenome) {
-                        $hits{$hitGenome}++;
-                        $totalHits{$hitGenome}++;
-                    }
-                }
+		my $len = length($seq);
+		if ($cached->{gary})
+		{
+		    my $kmers = &RepKmers::extract_kmers($seq,$K);
+                    foreach my $kmer (@$kmers)
+		    {
+			&process_kmer($kmer,$cached,\%hits,\%totalHits);
+		    }
+		}
+		else
+		{
+		    $totLen += $len;
+		    my $n = $len - $K;
+		    for (my $i = 0; $i <= $n; $i++) {
+			my $kmer = substr($seq, $i, $K);
+			&process_kmer($kmer,$cached,\%hits,\%totalHits);
+		    }
+		}
                 my ($best, $second) = sort { $hits{$b} <=> $hits{$a} } keys %hits;
                 if (! $best) {
                     print "$id ($len) had no hits.\n";
@@ -354,6 +359,21 @@ sub process_request {
     print $t2-$t1," seconds to execute command\n\n";
 }
 
+sub process_kmer {
+    my($kmer,$cache,$hits,$totalHits) = @_;
+
+    my $sigsH = $cached->{signatures};
+
+    my $rev = SeedUtils::rev_comp($kmer);
+    if ($rev lt $kmer) {
+	$kmer = $rev;
+    }
+    my $hitGenome = $sigsH->{$kmer};
+    if ($hitGenome) {
+	$hits->{$hitGenome}++;
+	$totalHits->{$hitGenome}++;
+    }
+}
 
 #
 sub best_id {
@@ -622,7 +642,7 @@ sub help {
     rep_set N [[keep1, keep2, ...keepN] or FileIn] [save=FileO]
                                [returns rep set ]
     thin_set N Index1 Index2 ... IndexN  [ make thinned set ]
-    load_sigs K sigFile        [load signature kmers of size K from the file]
+    load_sigs K sigFile [Gary]   [load signature kmers of size K from the file]
     find_sigs genome           [analyzes each contig in patric genome using signatures]
     name genome                [displays the name of a genome]
 END

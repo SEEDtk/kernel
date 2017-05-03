@@ -6,6 +6,7 @@ use ScriptUtils;
 use Shrub;
 use Shrub::Contigs;
 use Time::HiRes;
+use RepKmers;
 
 my $opt = ScriptUtils::Opts('kmerSize', ScriptUtils::ih_options(), Shrub::script_options());
 my $ih = ScriptUtils::IH($opt->input);
@@ -34,7 +35,7 @@ while (defined($_ = <$ih>))
             {
                 my($gid,$comment,$seq) = @$tuple;
 
-                my $s =&extract_kmers($seq,$k);
+                my $s =&RepKmers::extract_kmers($seq,$k);
                 foreach my $kmer (@$s) {
                     my $rev = SeedUtils::rev_comp($kmer);
                     if ($rev lt $kmer) {
@@ -96,42 +97,3 @@ print STDERR "$duration seconds total.\n";
 print STDERR "$found kmers, $kept kept.\n";
 
 
-sub extract_kmers {
-    my($seq,$K) = @_;
-
-    my $triples = int($K/2);
-    my @kmers;
-    my $pos = 0;
-    my $last = (length($seq) - (3 * $triples));
-
-    while ($pos <= $last)
-    {
-	push(@kmers, &extract_kmer(\$seq,$pos,$triples));
-	$pos++;
-    }
-    return \@kmers;
-}
-
-#
-#  $seq is a sequence (a contig)
-#  $pos is an index of where to start pulling a k-mer
-#  $triples is the number of "2of3" characters we pull.
-#
-#  The returned string is composed of $trples 2of3 chunks
-#  Thus, a $triples value of 8 would pull 16 characters.
-#
-sub extract_kmer {
-    my($seqP,$pos,$triples) = @_;
-
-    my(@chars);
-    my $i;
-    for ($i=0; ($i < $triples); $i++)
-    {
-        my $kmer = lc substr($$seqP,$pos+($i*3),2);
-        if ($kmer =~ /^[acgt]*$/) {
-            push(@chars, $kmer);
-            #push(@chars,lc substr($$seqP,$pos+($i*3),2));
-        }
-    }
-    return join("",@chars);
-}
