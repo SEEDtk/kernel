@@ -208,19 +208,28 @@ sub process_request {
     elsif ($req->[0] eq "close_rep_seq")  # closest rep [N,Seq]
     {
         my(undef,$N,$seq) = @$req;
-        my @reps = &rep1($cached,$N,[]);
-        my ($best_id,$count) = &best_id($cached,\@reps,$N,$seq,undef,undef);
-        if (defined($best_id))
-        {
-
-            print join("\t",($count,
-                             $best_id,
-                             $index_to_g->{$best_id},
-                             $complete->{$index_to_g->{$best_id}})),"\n";
+        if ($seq =~ /^\d+\.\d+/) {
+            my $g = $seq;
+            $seq = get_protein($g);
+            if (! $seq) {
+                print "Genome $g not found.\n";
+            }
         }
-        else
-        {
-            print "failed to get closest\n";
+        if ($seq) {
+            my @reps = &rep1($cached,$N,[]);
+            my ($best_id,$count) = &best_id($cached,\@reps,$N,$seq,undef,undef);
+            if (defined($best_id))
+            {
+
+                print join("\t",($count,
+                                 $best_id,
+                                 $index_to_g->{$best_id},
+                                 $complete->{$index_to_g->{$best_id}})),"\n";
+            }
+            else
+            {
+                print "failed to get closest\n";
+            }
         }
     }
     elsif ($req->[0] eq "match_tails")  # tail match [seq] returns ID of match
@@ -593,6 +602,22 @@ sub get_contigs {
     return $retVal;
 }
 
+sub get_protein {
+    my ($genome) = @_;
+    my ($retVal) = $shrub->GetFlat('Function2Feature Feature Protein',
+            'Function2Feature(from-link) = ? AND Function2Feature(security) = ? AND Feature(id) LIKE ?',
+            ['PhenTrnaSyntAlph', 0, "fig|$genome.peg.%"], 'Protein(sequence)');
+    if (! $retVal) {
+        my ($protData) = $p3->query('genome_feature', ['select', 'aa_sequence'], ['eq', 'genome_id', $genome],
+                ['eq', 'annotation', 'PATRIC'],
+                ['eq', 'product', qq("Phenylalanyl-tRNA synthetase alpha chain")]);
+        if ($protData) {
+            $retVal = $protData->{aa_sequence};
+        }
+    }
+    return $retVal;
+}
+
 sub get_name {
     my ($genome) = @_;
     my $nameIndex = $cached->{complete};
@@ -611,14 +636,13 @@ sub help {
     print <<END;
     closest_by_sc Index N      [returns closest N genomes by sc]
     closest_N_genomes Index N  [returns closest N genomes]
-    close_rep_seq N Sequence   [returns close representative]
+    close_rep_seq N SeqOrId    [returns close representatives of degree N]
     id_to_index  Id            [returns genome index]
     index_to_id  Index         [returns genome id]
     match_tails 16-mer         [returns genomes with matching PheS tail]
     n_reps N [keep1, keep2, ...keepn]
                                [returns rep set of about N seqs]
     rep_by IndexOrId File      [returns representative]
-    represents IndexOrId File  [returns genomes represented by a given one]
     rep_set N [[keep1, keep2, ...keepN] or FileIn] [save=FileO]
                                [returns rep set ]
     thin_set N Index1 Index2 ... IndexN  [ make thinned set ]
