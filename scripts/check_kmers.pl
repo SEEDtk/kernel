@@ -29,7 +29,8 @@ use Stats;
 
 This script examines signature kmers to determine how many correspond to each representative genome.
 It takes as input a signature kmer file and the output from L<rep_server.pl> describing the representative
-genomes themselves.
+genomes themselves. The output file will be a copy of the signature kmer file with the signature counts
+appended. This file can then be read into L<rep_server.pl>.
 
 =head2 Parameters
 
@@ -70,11 +71,12 @@ if (! $repFile) {
     }
 }
 # Now we have a count of zero for each representative, plus a hash to give us the names for
-# output purposes. Open the input file.
+# output purposes. Open the input file. Note we echo to the output.
 my $ih = ScriptUtils::IH($opt->input);
 # Loop through the input, counting kmers.
 while (! eof $ih) {
     my $line = <$ih>;
+    print $line;
     $stats->Add(kmerLineIn => 1);
     if ($line =~ /^([acgt]+)\t(\d+\.\d+)/) {
         my ($kmer, $id) = ($1, $2);
@@ -91,6 +93,8 @@ while (! eof $ih) {
     }
 }
 print STDERR "Sorting kmers.\n";
+# Put a trailer in the output.
+print "//\n";
 # Now we have the number of kmers for each genome. Sort them and write them out.
 my @genomes = sort { $repCounts{$b} <=> $repCounts{$a} } keys %repNames;
 for my $id (@genomes) {

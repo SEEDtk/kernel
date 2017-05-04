@@ -271,22 +271,36 @@ sub process_request {
         }
     }
     elsif ($req->[0] eq 'load_sigs') {
-        if ($req->[3]) { $cached->{gary} = 1}
 
         # Signature hash.
         my %sigs;
+        # Kmer count hash.
+        my %reps;
         my $sigK = $req->[1];
         if (! open(my $ih, "<$req->[2]")) {
             print "Could not open signature file: $!\n";
         } else {
-            while (! eof $ih) {
-                if (<$ih> =~ /^(\S+)\t(\d+\.\d+)/) {
+            my $mode;
+            while (! $mode && ! eof $ih) {
+                my $line = <$ih>;
+                if ($line =~ /^gary/) {
+                    $cached->{gary} = 1;
+                } elsif ($line =~ /^(\S+)\t(\d+\.\d+)/) {
                     $sigs{$1} = $2;
+                } elsif ($line =~ /^\/\//) {
+                    $mode = 1;
+                }
+            }
+            while ($mode && ! eof $ih) {
+                my $line = <$ih>;
+                if ($line =~ /^(\d+\.\d+)\t(\d+)/) {
+                    $reps{$1} = $2;
                 }
             }
         }
         $cached->{signatures} = \%sigs;
         $cached->{signatureK} = $sigK;
+        $cached->{sigCounts} = \%reps;
     }
     elsif ($req->[0] eq 'find_sigs') {
         # Find signatures in genome.
@@ -300,49 +314,58 @@ sub process_request {
                 print "Search contigs for $genome: $name\n";
             }
             my $sigsH = $cached->{signatures};
+            my $repsH = $cached->{sigCounts};
             my $K = $cached->{signatureK};
             my %totalHits;
             my $totLen = 0;
             for my $contig (@$contigs) {
                 my %hits;
                 my ($id, undef, $seq) = @$contig;
-		my $len = length($seq);
-		if ($cached->{gary})
-		{
-		    my $kmers = &RepKmers::extract_kmers($seq,$K);
+                my $len = length($seq);
+                $totLen += $len;
+                if ($cached->{gary})
+                {
+                    my $kmers = &RepKmers::extract_kmers($seq,$K);
                     foreach my $kmer (@$kmers)
-		    {
-			&process_kmer($kmer,$cached,\%hits,\%totalHits);
-		    }
-		}
-		else
-		{
-		    $totLen += $len;
-		    my $n = $len - $K;
-		    for (my $i = 0; $i <= $n; $i++) {
-			my $kmer = substr($seq, $i, $K);
-			&process_kmer($kmer,$cached,\%hits,\%totalHits);
-		    }
-		}
-                my ($best, $second) = sort { $hits{$b} <=> $hits{$a} } keys %hits;
+                    {
+                        &process_kmer($kmer,$cached,\%hits,\%totalHits);
+                    }
+                }
+                else
+                {
+                    my $n = $len - $K;
+                    for (my $i = 0; $i <= $n; $i++) {
+                        my $kmer = substr($seq, $i, $K);
+                        &process_kmer($kmer,$cached,\%hits,\%totalHits);
+                    }
+                }
+                my %pcts
+                for my $rep (keys %hits) {
+                    $pcts{$rep} = $hits{$rep} * 100 / $repsH->{$rep};
+                }
+                my ($best, $second) = sort { $pcts{$b} <=> $pcts{$a} } keys %pcts;
                 if (! $best) {
                     print "$id ($len) had no hits.\n";
                 } else {
                     $name = get_name($best) || '[unknown]';
-                    print "$id ($len) hit $best $name [$hits{$best}]";
+                    print "$id ($len) hit $best $name [$hits{$best}, $pcts{$best}%]";
                     if ($second) {
                         $name = get_name($second) || '[unknown]';
-                        print " and $second $name [$hits{$second}]";
+                        print " and $second $name [$hits{$second}, $pcts{$second}%]";
                     }
                     print ".\n";
                 }
             }
-            my @hitList = sort { $totalHits{$b} <=> $totalHits{$a} } keys %totalHits;
+            my %totPcts;
+            for my $rep (keys %totalHits) {
+                $totPcts{$rep} = $totalHits{$rep} * 100 / $repsH->{$rep};
+            }
+            my @hitList = sort { $totPcts{$b} <=> $totPcts{$a} } keys %totPcts;
             splice @hitList, 5;
             print "Whole genome summary ($totLen base pairs).\n";
             for my $hit (@hitList) {
                 my $name = get_name($hit) || '[unknown]';
-                print "$totalHits{$hit} hits for $hit $name\n";
+                print "$totalHits{$hit} [$totPcts{$hit}%] hits for $hit $name\n";
             }
         }
     }
@@ -375,12 +398,12 @@ sub process_kmer {
 
     my $rev = SeedUtils::rev_comp($kmer);
     if ($rev lt $kmer) {
-	$kmer = $rev;
+        $kmer = $rev;
     }
     my $hitGenome = $sigsH->{$kmer};
     if ($hitGenome) {
-	$hits->{$hitGenome}++;
-	$totalHits->{$hitGenome}++;
+        $hits->{$hitGenome}++;
+        $totalHits->{$hitGenome}++;
     }
 }
 

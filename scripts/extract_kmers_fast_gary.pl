@@ -83,6 +83,7 @@ while (defined($_ = <$ih>))
 my $duration = (time - $start0);
 print STDERR "$duration seconds per $genomes genomes.\n";
 my ($found, $kept) = (0, 0);
+print "gary\n";
 while (my($kmer,$g) = each %all_kmers)
 {
     $found++;
