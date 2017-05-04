@@ -157,7 +157,7 @@ sub extract_kmers {
 
     while ($pos <= $last)
     {
-        my $kmer = substr($seq, $pos, $len);
+        my $kmer = lc substr($seq, $pos, $len);
         $kmer =~ s/(..)./$1/g;
         if ($kmer =~ /^[acgt]+$/) {
             push @kmers, $kmer;
