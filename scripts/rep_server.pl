@@ -8,6 +8,7 @@ use SeedUtils;
 use P3DataAPI;
 use Shrub;
 use Shrub::Contigs;
+use Math::Round;
 
 # CachedDir ($dir) must contain the following files
 #    complete.genomes
@@ -115,7 +116,7 @@ sub next_request {
     my $req;
     if (defined($_ = <$IH>))
     {
-        if ($_ =~ /^[xX]$/) { return undef }
+        if ($_ =~ /^[xX][\s*]$/) { return undef }
         chomp;
         $req = [split(/\s+/,$_)];
         if ($backgroundMode) {
@@ -332,7 +333,7 @@ sub process_request {
                         &process_kmer($kmer,$cached,\%hits,\%totalHits);
                     }
                 }
-                my %pcts
+                my %pcts;
                 for my $rep (keys %hits) {
                     $pcts{$rep} = $hits{$rep} * 100 / $repsH->{$rep};
                 }
@@ -341,10 +342,12 @@ sub process_request {
                     print "$id ($len) had no hits.\n";
                 } else {
                     $name = get_name($best) || '[unknown]';
-                    print "$id ($len) hit $best $name [$hits{$best}, $pcts{$best}%]";
+                    my $pct = nearest(0.001, $pcts{$best});
+                    print "$id ($len) hit $best $name [$hits{$best}, $pct]";
                     if ($second) {
                         $name = get_name($second) || '[unknown]';
-                        print " and $second $name [$hits{$second}, $pcts{$second}%]";
+                        $pct = nearest(0.001, $pcts{$second});
+                        print " and $second $name [$hits{$second}, $pct]";
                     }
                     print ".\n";
                 }
@@ -358,7 +361,8 @@ sub process_request {
             print "Whole genome summary ($totLen base pairs).\n";
             for my $hit (@hitList) {
                 my $name = get_name($hit) || '[unknown]';
-                print "$totalHits{$hit} [$totPcts{$hit}%] hits for $hit $name\n";
+                my $pct = nearest(0.001, $totPcts{$hit});
+                print "$totalHits{$hit} [$pct] hits for $hit $name\n";
             }
         }
     }
