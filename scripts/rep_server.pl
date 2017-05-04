@@ -280,21 +280,14 @@ sub process_request {
         if (! open(my $ih, "<$req->[2]")) {
             print "Could not open signature file: $!\n";
         } else {
-            my $mode;
-            while (! $mode && ! eof $ih) {
+            while (! eof $ih) {
                 my $line = <$ih>;
                 if ($line =~ /^gary/) {
                     $cached->{gary} = 1;
                 } elsif ($line =~ /^(\S+)\t(\d+\.\d+)/) {
-                    $sigs{$1} = $2;
-                } elsif ($line =~ /^\/\//) {
-                    $mode = 1;
-                }
-            }
-            while ($mode && ! eof $ih) {
-                my $line = <$ih>;
-                if ($line =~ /^(\d+\.\d+)\t(\d+)/) {
-                    $reps{$1} = $2;
+                    my ($sig, $rep) = ($1, $2);
+                    $sigs{$sig} = $rep;
+                    $reps{$rep}++;
                 }
             }
         }
