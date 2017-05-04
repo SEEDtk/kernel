@@ -11,15 +11,15 @@ sub sim {
     my $i;
     for ($i=0; ($i < (length($s1)-$K)); $i++)
     {
-	$in1{lc substr($s1,$i,$K)} = 1;
+        $in1{lc substr($s1,$i,$K)} = 1;
     }
 
     for ($i=0; ($i < (length($s2)-$K)); $i++)
     {
-	if ($in1{lc substr($s2,$i,$K)})
-	{
-	    $common++;
-	}
+        if ($in1{lc substr($s2,$i,$K)})
+        {
+            $common++;
+        }
     }
     return $common;
 }
@@ -31,7 +31,7 @@ sub kmers_of_seq {
     my $i;
     for ($i=0; ($i < (length($seq)-$K)); $i++)
     {
-	$kmers->{lc substr($seq,$i,$K)} = 1;
+        $kmers->{lc substr($seq,$i,$K)} = 1;
     }
     return $kmers;
 }
@@ -43,10 +43,10 @@ sub in_common {
     my $i;
     for ($i=0; ($i < (length($seq)-$K)); $i++)
     {
-	if ($kmers->{lc substr($seq,$i,$K)})
-	{
-	    $common ++;
-	}
+        if ($kmers->{lc substr($seq,$i,$K)})
+        {
+            $common ++;
+        }
     }
     return $common;
 }
@@ -60,7 +60,7 @@ sub closest_N_genomes {
     my $closest = $sims->[$index];
     for (my $i=0; ($i < @$closest) && ($i < $n); $i++)
     {
-	push(@closest,$closest->[$i]);
+        push(@closest,$closest->[$i]);
     }
     return @closest;
 }
@@ -74,7 +74,7 @@ sub closest_by_sc {
     my $closest = $sims->[$index];
     for (my $i=0; ($i < @$closest) && ($closest->[$i]->[0] >=  $sc); $i++)
     {
-	push(@closest,$closest->[$i]);
+        push(@closest,$closest->[$i]);
     }
     return @closest;
 }
@@ -87,25 +87,25 @@ sub rep_guts {
     my $reps = [];
     while (defined(my $i = shift @$todo))
     {
-	if (! $seen{$i})
-	{
-	    push(@$reps,$i);
-	    $seen{$i} = 1;
+        if (! $seen{$i})
+        {
+            push(@$reps,$i);
+            $seen{$i} = 1;
 #           print STDERR "added $i to reps\n";
-	    if (my $close = $sims->[$i])
-	    {
-		if (defined($close))
-		{
-		    my $i2 = 0;
-		    while (($i2 < @$close) && ($close->[$i2]->[0] >= $max_sim))
-		    {
-			$seen{$close->[$i2]->[1]} = 1;
+            if (my $close = $sims->[$i])
+            {
+                if (defined($close))
+                {
+                    my $i2 = 0;
+                    while (($i2 < @$close) && ($close->[$i2]->[0] >= $max_sim))
+                    {
+                        $seen{$close->[$i2]->[1]} = 1;
 #			print STDERR "marked $close->[$i2]->[1]\n";
-			$i2++;
-		    }
-		}
-	    }
-	}
+                        $i2++;
+                    }
+                }
+            }
+        }
     }
     return @$reps;
 }
@@ -121,27 +121,27 @@ sub find_closest {
     {
         my @close_tuples = &closest_by_sc($cached,$best_id,$max_sim);
         foreach my $tuple (@close_tuples)
-	{
-	    my($sc,$id) = @$tuple;
-	    if (! $seen{$id})
-	    {
-		$seen{$id} = 1;
-	    }
-	}
-	my $todo = [keys(%seen)];
-	my @reps = &RepKmers::rep_guts($cached,$max_sim * 2,$todo);
-	foreach my $id (@reps)
-	{
-	    my $gid     = $index_to_g->{$id};
-	    my $seq = $seqs->{$gid};
-	    my $sc = &in_common(8,$kmersQ,$seq);
-	    if ($sc > $best_so_far)
-	    {
-		$best_id = $id;
-		$best_so_far = $sc;
-	    }
-	}
-	$max_sim = 2 * $max_sim;
+        {
+            my($sc,$id) = @$tuple;
+            if (! $seen{$id})
+            {
+                $seen{$id} = 1;
+            }
+        }
+        my $todo = [keys(%seen)];
+        my @reps = &RepKmers::rep_guts($cached,$max_sim * 2,$todo);
+        foreach my $id (@reps)
+        {
+            my $gid     = $index_to_g->{$id};
+            my $seq = $seqs->{$gid};
+            my $sc = &in_common(8,$kmersQ,$seq);
+            if ($sc > $best_so_far)
+            {
+                $best_id = $id;
+                $best_so_far = $sc;
+            }
+        }
+        $max_sim = 2 * $max_sim;
     }
     return ($best_id,$best_so_far);
 }
@@ -150,14 +150,19 @@ sub extract_kmers {
     my($seq,$K) = @_;
 
     my $triples = int($K/2);
+    my $len = 3 * $triples;
     my @kmers;
     my $pos = 0;
-    my $last = (length($seq) - (3 * $triples));
+    my $last = length($seq) - $len;
 
     while ($pos <= $last)
     {
-	push(@kmers, &extract_kmer(\$seq,$pos,$triples));
-	$pos++;
+        my $kmer = substr($seq, $pos, $len);
+        $kmer =~ s/(..)./$1/g;
+        if ($kmer =~ /^[acgt]+$/) {
+            push @kmers, $kmer;
+        }
+        $pos++;
     }
     return \@kmers;
 }
@@ -181,6 +186,8 @@ sub extract_kmer {
         if ($kmer =~ /^[acgt]*$/) {
             push(@chars, $kmer);
             #push(@chars,lc substr($$seqP,$pos+($i*3),2));
+        } else {
+            print STDERR "Funny at position $pos $i.\n";
         }
     }
     return join("",@chars);

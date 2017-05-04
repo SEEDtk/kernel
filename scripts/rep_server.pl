@@ -277,9 +277,13 @@ sub process_request {
         my %sigs;
         # Kmer count hash.
         my %reps;
-        my $sigK = $req->[1];
-        if (! open(my $ih, "<$req->[2]")) {
-            print "Could not open signature file: $!\n";
+        my $file = $req->[1];
+        if ($file =~ /^\d+$/) {
+            $file = $req->[2];
+        }
+        my $sigK;
+        if (! open(my $ih, "<$file")) {
+            print "Could not open signature file $file: $!\n";
         } else {
             while (! eof $ih) {
                 my $line = <$ih>;
@@ -289,12 +293,16 @@ sub process_request {
                     my ($sig, $rep) = ($1, $2);
                     $sigs{$sig} = $rep;
                     $reps{$rep}++;
+                    if (! defined $sigK) {
+                        $sigK = length $sig;
+                    }
                 }
             }
         }
         $cached->{signatures} = \%sigs;
         $cached->{signatureK} = $sigK;
         $cached->{sigCounts} = \%reps;
+        print "Signature length is $sigK in " . ($cached->{gary} ? "gary" : "strict") . " mode.\n";
     }
     elsif ($req->[0] eq 'find_sigs') {
         # Find signatures in genome.
@@ -686,8 +694,8 @@ sub help {
     rep_set N [[keep1, keep2, ...keepN] or FileIn] [save=FileO]
                                [returns rep set ]
     thin_set N Index1 Index2 ... IndexN  [ make thinned set ]
-    load_sigs K sigFile [Gary]   [load signature kmers of size K from the file]
-    find_sigs genome           [analyzes each contig in patric genome using signatures]
+    load_sigs sigFile          [load signature kmers of size K from the file]
+    find_sigs genome [old]     [analyzes each contig in patric genome using signatures]
     name genome                [displays the name of a genome]
 END
 }
