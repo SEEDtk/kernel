@@ -145,10 +145,10 @@ sub new_from_file {
     my @coverage = SeedUtils::fields_of($ih);
     # Read the tetranucleotide counts.
     my @tetra = SeedUtils::fields_of($ih);
-    # Read the close-reference genome IDs.
-    my @genomes = SeedUtils::fields_of($ih);
+    # Read the close-reference genome IDs. Note that we need to deal with a blank line reading as a null string.
+    my @genomes = grep { $_ } SeedUtils::fields_of($ih);
     # Read the universal protein IDs.
-    my %uniProts = map { $_ => 1 } SeedUtils::fields_of($ih);
+    my %uniProts = map { $_ => 1 } grep { $_ } SeedUtils::fields_of($ih);
     # Create the object to return.
     my $retVal = {
         contigs => [$id],
