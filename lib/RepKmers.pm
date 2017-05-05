@@ -147,50 +147,26 @@ sub find_closest {
 }
 
 sub extract_kmers {
-    my($seq,$K) = @_;
+    my($seqP,$K) = @_;
 
     my $triples = int($K/2);
     my $len = 3 * $triples;
-    my @kmers;
+    my $kmers = [];
     my $pos = 0;
-    my $last = length($seq) - $len;
+    my $last = length($$seqP) - $len;
 
     while ($pos <= $last)
     {
-        my $kmer = lc substr($seq, $pos, $len);
+        my $kmer = lc substr($$seqP, $pos, $len);
+        $kmer =~ tr/u/t/;
         $kmer =~ s/(..)./$1/g;
         if ($kmer =~ /^[acgt]+$/) {
-            push @kmers, $kmer;
+            push @$kmers, $kmer;
         }
         $pos++;
     }
-    return \@kmers;
+    return $kmers;
 }
 
-#
-#  $seq is a sequence (a contig)
-#  $pos is an index of where to start pulling a k-mer
-#  $triples is the number of "2of3" characters we pull.
-#
-#  The returned string is composed of $trples 2of3 chunks
-#  Thus, a $triples value of 8 would pull 16 characters.
-#
-sub extract_kmer {
-    my($seqP,$pos,$triples) = @_;
-
-    my(@chars);
-    my $i;
-    for ($i=0; ($i < $triples); $i++)
-    {
-        my $kmer = lc substr($$seqP,$pos+($i*3),2);
-        if ($kmer =~ /^[acgt]*$/) {
-            push(@chars, $kmer);
-            #push(@chars,lc substr($$seqP,$pos+($i*3),2));
-        } else {
-            print STDERR "Funny at position $pos $i.\n";
-        }
-    }
-    return join("",@chars);
-}
 
 1;

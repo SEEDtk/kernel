@@ -35,7 +35,7 @@ while (defined($_ = <$ih>))
             {
                 my($gid,$comment,$seq) = @$tuple;
 
-                my $s = &RepKmers::extract_kmers($seq,$k);
+                my $s = &RepKmers::extract_kmers(\$seq,$k);
                 foreach my $kmer (@$s) {
                     my $rev = SeedUtils::rev_comp($kmer);
                     if ($rev lt $kmer) {

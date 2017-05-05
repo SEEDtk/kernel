@@ -327,7 +327,7 @@ sub process_request {
                 $totLen += $len;
                 if ($cached->{gary})
                 {
-                    my $kmers = &RepKmers::extract_kmers($seq,$K);
+                    my $kmers = &RepKmers::extract_kmers(\$seq,$K);
                     foreach my $kmer (@$kmers)
                     {
                         &process_kmer($kmer,$cached,\%hits,\%totalHits);
