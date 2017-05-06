@@ -99,7 +99,10 @@ for my $genome (sort keys %$gHash) {
         } else {
             # Get the GTO file for the sample bin.
             my $sampleGtoFile = "$sampleDir/$sample/bin$bin.gto";
-            my $sampleGto = GenomeTypeObject->create_from_file($sampleGtoFile);
+            my $sampleGto;
+            if (open(my $gh, "<$sampleGtoFile")) {
+                $sampleGto = GenomeTypeObject->create_from_file($gh);
+            }
             if (! $sampleGto) {
                 print "$sampleGtoFile for $genome is malformed or missing.\n";
                 $bad = 1;
