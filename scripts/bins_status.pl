@@ -217,6 +217,7 @@ for my $dir (@dirs) {
         my $show = ($opt->terse ? 0 : 1);
         $stats->Add(dirs7Done => 1);
         if ($clean && ! $cleaned) {
+            print "Cleaning $subDir.\n";
             Bin::Package::CreateFromSample($subDir, $dir, $stats, 0, "$FIG_Config::data/GenomePackages");
             $cleaned = "  Cleaning Assembly.";
             File::Copy::Recursive::pathempty("$subDir/Assembly");
