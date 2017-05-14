@@ -157,10 +157,11 @@ for my $dir (@dirs) {
     } elsif ($rastFound && ! -s "$subDir/$dir" . '_abundance_table.tsv') {
         $done = "Done (No Expectations).";
     } elsif ($rastFound) {
-        push @other, "$label: RAST Complete.\n";
-        $stats->Add(dirs6RastComplete => 1);
         if (! $run && $opt->resume) {
             StartJob($dir, $subDir, '', 'Restarted', $label, $proj);
+        } else {
+            push @other, "$label: RAST Complete.\n";
+            $stats->Add(dirs6RastComplete => 1);
         }
     } elsif (-s "$subDir/bin1.gto") {
         if (! $run && $opt->resume) {
