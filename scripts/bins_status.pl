@@ -159,6 +159,9 @@ for my $dir (@dirs) {
     } elsif ($rastFound) {
         push @other, "$label: RAST Complete.\n";
         $stats->Add(dirs6RastComplete => 1);
+        if (! $run && $opt->resume) {
+            StartJob($dir, $subDir, '', 'Restarted', $label, $proj);
+        }
     } elsif (-s "$subDir/bin1.gto") {
         if (! $run && $opt->resume) {
             StartJob($dir, $subDir, '', 'Restarted', $label, $proj);
