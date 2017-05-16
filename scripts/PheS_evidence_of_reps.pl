@@ -35,7 +35,7 @@ of the representative genomes are present in the input file
 =cut
 
 (my $dataD = shift @ARGV)
-    || die "usgae: pheS_evidence_of_repls Data";
+    || die "usgae: pheS_evidence_of_reps Data";
 
 my $K=8;
 if (-s "$dataD/K") {
@@ -53,8 +53,6 @@ while (my $tuple = &gjoseqlib::read_next_fasta_seq(\*STDIN))
 }
 
 &process_hits($g2s, $s2g, $g2name, $hits);
-
-
 
 sub process_hits {
     my($g2s, $s2g, $g2name, $hits) = @_;
