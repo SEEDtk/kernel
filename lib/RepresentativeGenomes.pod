@@ -368,3 +368,81 @@ If the seed feature is from a genome in complete.genomes, it should
 take under 0.1 seconds to fail.
 
 My belief is that it will succeed most of the time.
+
+=head2 Identifying Occurrences of the Representative Genomes
+
+Let us summarize some of the central ideas so far:
+
+We have a rapidly growing set of genomes. Right now, we have about 100,000, but the number is still growing exponentially.
+We speak of the total number of I<good genomes> as the universe.
+
+The PheS protein is universal: there is normally one copy in each new genome. We are using a new measure of similarity: the
+number of 8-mer amino acid sequences in common between the PheS proteins encoded in two genomes.
+Let us say that 2 genomes are "similar" if they have 100 or more PheS 8-mers in common.
+Then a representative set of genomes B<G> is a subset of the universe that has two properties:
+
+=over 4
+
+=item 1
+
+Every genome in our universe is similar to at least one representative genome.
+
+=item 2
+
+No two representative genomes are similar.
+
+=back
+
+You might find it irritating that a genome can be represented by multiple representative genomes. Do not let
+this disturb you overmuch. What is important is that every genome in the universe has at least one representative,
+no two representatives are similar, and that this implies that the universe is covered by representatives.
+
+To generate this set, we start with a directory C<Data.All> constructed as above with all good genomes in it.
+That is, C<Data.All/complete.genomes> is a list of the good genomes and C<Data.All/g.1.1.20.fasta> is a FASTA file
+of their PheS proteins. Then
+
+         get_vss_for_reps Data.All
+         generate_cached_rep_data Data.All
+
+builds C<Data.All> into a fully functional L<rep_server.pl> directory.
+
+    rep_server Data.All
+    ?? rep_set 100 save=representative.genomes
+    ?? x
+
+Computes a representative genome set according to the criteria above. Now we want a L<rep_server.pl> directory for
+this reduced set of genomes (the representatives).
+
+    mkdir Data.Rep
+    cp representative.genomes Data.Rep/complete.genomes
+    cp Data.All/6.1.1.20.fasta Data.Rep
+    get_vss_for_reps Data.Rep
+    generate_cached_rep_data Data.Rep
+
+The above creates a L<rep_server.pl> directory for just the representative genomes. Note that the FASTA file is too
+big, but the software filters it on input, so this is not a problem.
+
+We want to be able to examine a file of sequences and find out which representative sets are present. Use
+
+    PheS_generate_signatures Data.Rep
+
+to generate the file C<Data.Rep/PheS.signatures> of protein signatures for the PheS proteins in the various representatives.
+Once this is done, you can find the signatures in a DNA FASTA file by running it through L<PheS_evidence_of_reps.pl> as
+follows
+
+    PheS_evidence_of_reps Data.Rep <input.fasta >report.txt
+
+
+
+
+We have two tools that together allow you to gain insight into the genomes that are present in a fasta DNA file.
+
+To gen
+Let us presume a directory C<representative.genomes> be a set of representative genomes Let C<Data.Rep> be a directory of representative genomes set up using Use
+
+      PheS_generate_signatures Data.Rep
+
+To build Data.Rep/PheS.signatures use
+
+      PheS_evidence_of_reps Data.Rep < DNA-string > report.on.occurrences
+

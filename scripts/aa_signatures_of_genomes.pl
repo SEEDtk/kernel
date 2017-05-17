@@ -11,7 +11,7 @@ use gjoseqlib;
 The Data directory must contain
 
     complete.genomes a 2-column table [GenomeId,GenomeName]
-                     that defines the set of genomes for 
+                     that defines the set of genomes for
                      which aa signatures are computed
 
     K                typically 8-mers are used
@@ -35,7 +35,7 @@ if (open(K,"<$dataD/K"))
     close(K);
     if ($_ =~ /^(\d+)/)
     {
-	$K = $1;
+        $K = $1;
     }
 }
 
@@ -57,7 +57,7 @@ foreach my $kmer (keys(%$kmers))
     my @genomes = keys(%{$kmers->{$kmer}});
     if (@genomes == 1)
     {
-	print SIG $kmer,"\t",$genomes[0],"\n";
+        print SIG $kmer,"\t",$genomes[0],"\n";
     }
 }
 close(SIG);
@@ -67,20 +67,21 @@ sub load_kmers_for_genome {
 
     my $peg_sequences = &get_peg_sequences_for_genome($g);
 
-# my $aa_alphabet = "ACDEFGHIKLMNPQRSTVWY";
+    # my $aa_alphabet = "ACDEFGHIKLMNPQRSTVWY";
 
-foreach my $peg (keys(%$peg_sequences))
-{
-    my $aa = uc $peg_sequences->{$peg};
-    if (! $aa) { die "missing sequence for $peg" }
-    my $i;
-    my $last = (length($aa) - 1) - $K;
-    for ($i = 0; ($i <= $last); $i++)
+    foreach my $peg (keys(%$peg_sequences))
     {
-	my $x = substr($aa,$i,$K);
-	if ($x =~ /^[ACDEFGHIKLMNPQRSTVWY]{$K}$/o)
-	{
-	    $kmers->{$x}->{$gid} = 1;
-	}
+        my $aa = uc $peg_sequences->{$peg};
+        if (! $aa) { die "missing sequence for $peg" }
+        my $i;
+        my $last = (length($aa) - 1) - $K;
+        for ($i = 0; ($i <= $last); $i++)
+        {
+            my $x = substr($aa,$i,$K);
+            if ($x =~ /^[ACDEFGHIKLMNPQRSTVWY]{$K}$/o)
+            {
+                $kmers->{$x}->{$g} = 1;
+            }
+        }
     }
 }
