@@ -11,7 +11,7 @@ use gjoseqlib;
 The Data directory must contain
 
     complete.genomes a 2-column table [GenomeId,GenomeName]
-                     that defines the set of genomes for 
+                     that defines the set of genomes for
                      which signatures have been computed
 
     genome.signatures  a 2-column table  [Signature,GenomeId]
@@ -54,7 +54,7 @@ foreach my $g (keys % { $g2s })
     my $sigs = $g2s->{$g};
     foreach my $sig (keys %$sigs)
     {
-	++$num_sigs_for_g->{$g};
+        ++$num_sigs_for_g->{$g};
     }
 }
 open(BINS,">$bins") || die "could not open $bins";
@@ -66,7 +66,7 @@ close(BINS);
 
 sub process_tuple {
     my($tuple,$g2s,$s2g,$K,$num_sigs_for_g,$bins) = @_;
-    
+
     my($id,$comment,$seq) = @$tuple;
 
     my $hits = {};
@@ -83,69 +83,68 @@ sub process_strand {
     my $offset;
     for ($offset=0; ($offset <= 2); $offset++)
     {
-	my $tmp = substr($$seqP,$offset);
-	my $aa_seq = &SeedUtils::translate($tmp,undef,0);
-	
-	my $i;
-	my $last = (length($aa_seq)- 1) - $K;
-	for ($i=0; ($i <= $last); $i++)
-	{
-	    my $kmer = uc substr($aa_seq,$i,$K);
-	    if (my $g = $s2g->{$kmer})
-	    {
-		$hits->{$g}->{$kmer} = 1;
-	    }
-	}
+        my $tmp = substr($$seqP,$offset);
+        my $aa_seq = &SeedUtils::translate($tmp,undef,0);
+
+        my $i;
+        my $last = (length($aa_seq)- 1) - $K;
+        for ($i=0; ($i <= $last); $i++)
+        {
+            my $kmer = uc substr($aa_seq,$i,$K);
+            if (my $g = $s2g->{$kmer})
+            {
+                $hits->{$g}->{$kmer} = 1;
+            }
+        }
     }
 }
 
 
 sub process_hits {
     my($g2s,$s2g,$g2name,$id,$dna,$bins,$hits) = @_;
-    
+
     my %num_hits_for_g;
     foreach my $g (keys % { $hits })
     {
-	my $sigs = $hits->{$g};
-	foreach my $sig (keys %$sigs)
-	{
-	    ++$num_hits_for_g{$g};
-	}
+        my $sigs = $hits->{$g};
+        foreach my $sig (keys %$sigs)
+        {
+            ++$num_hits_for_g{$g};
+        }
     }
-    
+
     my %frac_hits;
     foreach my $g (keys % { $g2s })
     {
-	$frac_hits{$g} = $num_hits_for_g{$g} / $num_sigs_for_g{$g}
+        $frac_hits{$g} = $num_hits_for_g{$g} / $num_sigs_for_g->{$g}
     }
     my @poss = sort { $frac_hits{$b} <=> $frac_hits{$a} } keys %frac_hits;
     my $g = $poss[0];
     next if ($frac_hits{$g} == 0.0);
     print $bins (join("\t", ($g,$id,$dna)), "\n");
-    }
 }
 
 
 sub load_rep_sigs {
-    my($dataD) = @_;
+    my ($dataD) = @_;
 
     my $g2s = {};
     my $s2g = {};
     open(SIGS,"<$dataD/genome.signatures")
-	|| die "could not open $dataD/genome.signatures";
+        || die "could not open $dataD/genome.signatures";
     while (defined($_ = <SIGS>))
     {
-	if ($_ =~ /^(\S+)\t(\S+)/)
-	{
-	    my($sig,$gid) = ($1,$2);
-	    $g2s->{$gid}->{$sig}++;
-	    $s2g->{$sig} = $gid;
-	}
+        if ($_ =~ /^(\S+)\t(\S+)/)
+        {
+            my($sig,$gid) = ($1,$2);
+            $g2s->{$gid}->{$sig}++;
+            $s2g->{$sig} = $gid;
+        }
     }
     close(SIGS);
-    
+
     my $g2name;
     %$g2name = map { m/^(\S+)\t(\S.*\S)/ ? ($1 => $2) : () } &SeedUtils::file_read("$dataD/complete.genomes");
-    
+
     return ($g2s,$s2g,$g2name);
 }
