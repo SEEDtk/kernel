@@ -29,6 +29,26 @@ The Data.PheS directory must contain
 
 The input is a file of DNA fragments (usually contigs (FASTA) or reads (FASTQ)).
 
+=head2 Parameters
+
+The positional parameters should be the name of the working directory and optionally one or two input file names.
+Use one file name for FASTA or interlaced FASTQ input. Use two file names for paired-end FASTQ input. If only one
+input file is being used, you can omit all file names to use the standard input.
+
+The following command-line parameters are supported.
+
+=over 4
+
+=item kmerSize
+
+The kmer size for the input signatures. The default is C<8>.
+
+=item fasta
+
+If specified, the input is presumed to be in FASTA format instead of FASTQ format.
+
+=back
+
 =head2 Output
 
 Executing the command produces a report suggesting which
