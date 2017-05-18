@@ -92,7 +92,7 @@ sub load_kmers_for_genome {
     my($shrub, $g,$K,$kmers) = @_;
     my $qh = $shrub->Get("Feature2Protein Protein",
                          'Feature2Protein(from-link) LIKE ?',
-                         ['fig|$g.peg.%'], [qw(Protein(sequence))]);
+                         ["fig|$g.peg.%"], [qw(Protein(sequence))]);
     while (my $resultRow = $qh->Fetch()) {
         my $aa = $resultRow->PrimaryValue('Protein(sequence)');
         my $last = (length($aa) - 1) - $K;
