@@ -81,7 +81,7 @@ for my $inFile (@inputs) {
     my $outFile = $inFile;
     substr($outFile, -1, 1) = 'a';
     # Create the parameters.
-    my @parms = ('-o', $workDir, '-12', "$binDir/$inFile");
+    my @parms = ('-o', $workDir, '--12', "$binDir/$inFile");
     # Call the assembler.
     print "Invoking the SPAdes assembler.\n";
     my $rc = system($cmdPath, @parms);
