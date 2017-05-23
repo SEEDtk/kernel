@@ -70,13 +70,13 @@ if (! $repFile) {
     }
 }
 # Now we have a count of zero for each representative, plus a hash to give us the names for
-# output purposes. Open the input file. Note we echo to the output.
+# output purposes. Open the input file.
 my $ih = ScriptUtils::IH($opt->input);
 # Loop through the input, counting kmers.
 while (! eof $ih) {
     my $line = <$ih>;
     $stats->Add(kmerLineIn => 1);
-    if ($line =~ /^([acgt]+)\t(\d+\.\d+)/) {
+    if ($line =~ /^([A-Za-z]+)\t(\d+\.\d+)/) {
         my ($kmer, $id) = ($1, $2);
         $stats->Add(kmersIn => 1);
         if (! exists $repNames{$id}) {
