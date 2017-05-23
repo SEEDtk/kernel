@@ -75,6 +75,8 @@ The name of the closest reference genome.
 
 =back
 
+=back
+
 For packages that do not come from bins, the C<Sample Name>, C<Bin Number>, C<Ref Genome>, and C<Ref Name>
 fields will be missing, and other fields describing the package source will be substituted.
 

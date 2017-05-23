@@ -120,7 +120,7 @@ if (! $packageDir) {
 # This will contain the IDs of the genomes to process.
 my @genomes;
 if ($opt->file) {
-    print "Reading genoems from $genomeID.\n";
+    print "Reading genomes from $genomeID.\n";
     open(my $ih, '<', $genomeID) || die "Could not open genome file $genomeID: $!";
     while (! eof $ih) {
         my $line = <$ih>;

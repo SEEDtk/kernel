@@ -443,14 +443,9 @@ At most one hit per contig will be returned.
 
 =over 4
 
-=item sampleGenomes
+=item protFile
 
-Reference to a list of the IDs of the genomes from which to take the prototype versions of the role. If
-omitted, C<83333.1> will be assumed.
-
-=item funID
-
-ID of the desired function. If omitted, the default (most common) universal role will be assumed.
+Name of a FASTA file containing the protein sequences to BLAST.
 
 =item RETURN
 
@@ -534,11 +529,6 @@ Number of reference genomes to keep for each bin. If omitted, the default is C<1
 
 Maximum E-value to use for BLASTing.
 
-=item fastaFile
-
-If specified, the name of the protein FASTA file. This allows a pre-existing FASTA file to be specified.
-The comment in the file should be the genome ID followed by a tab and the genome name.
-
 =item options
 
 A hash containing zero or more of the following options.
@@ -554,6 +544,8 @@ The comment in the file should be the genome ID followed by a tab and the genome
 
 If C<prot>, then the protein FASTA file contains amino acid sequences. If C<dna>, then the protein FASTA file
 contains DNA sequences. The default is C<prot>. If C<dna> is specified, then the C<db> option is required.
+
+=back
 
 =item RETURN
 
