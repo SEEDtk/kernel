@@ -27,6 +27,7 @@ use File::Copy::Recursive;
 use Bin::Blast;
 use Loader;
 use SeedUtils;
+use GenomeTypeObject;
 
 =head1 Convert Bins to Genome Packages
 
