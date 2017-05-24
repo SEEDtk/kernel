@@ -138,7 +138,7 @@ sub new {
         $sigsH{$kmer} = $group;
         $sigCount++;
         $stats->Add(sigKmersRead => 1);
-        if (exists $groupH{$group}) {
+        if (! exists $groupH{$group}) {
             $groupH{$group} = 1;
             $groupCount++;
             $stats->Add(sigGroupsRead => 1);
