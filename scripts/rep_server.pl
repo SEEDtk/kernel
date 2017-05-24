@@ -233,6 +233,20 @@ sub process_request {
             }
         }
     }
+    elsif ($req->[0] eq 'measure') # measure closeness
+    {
+        my ($id1, $id2) = ($req->[1], $req->[2]);
+        my $sims = $cached->{sims};
+        my $neighbors = $sims->[$id1];
+        my $n = scalar @$neighbors;
+        my $found = 0;
+        for (my $i = 0; $i < $n && ! $found; $i++) {
+            if ($neighbors->[$i][1] == $id2) {
+                $found = $neighbors->[$i][0];
+            }
+        }
+        print get_name($id1) . " and " . get_name($id2) . " have $found kmers in common.\n";
+    }
     elsif ($req->[0] eq "match_tails")  # tail match [seq] returns ID of match
     {
         my $seq = $req->[1];
@@ -694,6 +708,7 @@ sub help {
     rep_set N [[keep1, keep2, ...keepN] or FileIn] [save=FileO]
                                [returns rep set ]
     thin_set N Index1 Index2 ... IndexN  [ make thinned set ]
+    measure Index1 Index2      [closeness of genomes]
     load_sigs sigFile          [load signature kmers of size K from the file]
     find_sigs genome [old]     [analyzes each contig in patric genome using signatures]
     name genome                [displays the name of a genome]
