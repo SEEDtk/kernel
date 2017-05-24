@@ -102,6 +102,7 @@ A temporary file named C<prot.fa> will be created to hold the protein sequence f
 
 =cut
 
+$| = 1;
 # Get the command-line parameters.
 my $opt = ScriptUtils::Opts('inDir packageDir sampleName',
         Shrub::script_options(),
