@@ -82,7 +82,7 @@ with a suffix of C<.fasta> or C<.fastq> depending on the input format. The fastq
 =cut
 
 use constant CLASSES => { raw => 'Signatures::Raw', scaled => 'Signatures::Scaled' };
-
+$| = 1;
 my $opt = ScriptUtils::Opts('outDir file1 file2 ... fileN',
         ScriptUtils::ih_options(),
         ['mode', 'hidden', { one_of => [['paired', 'paired-end FASTQ input'],

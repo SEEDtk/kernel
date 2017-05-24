@@ -51,6 +51,7 @@ Only process a FASTQ file if no matching FASTA file exists.
 
 =cut
 
+$| = 1;
 # Get the command-line parameters.
 my $opt = ScriptUtils::Opts('binDir',
         ['resume', 'assemble unprocessed input files only'],
