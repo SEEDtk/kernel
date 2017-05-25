@@ -239,15 +239,15 @@ sub process_request {
         my ($g1, $g2);
         if ($id1 =~ /\d+\.\d+/) {
             $g1 = $id1;
-            $id1 = $cached->{index_to_g}{$id1};
+            $id1 = $g_to_index->{$id1};
         } else {
-            $g1 = $cached->{g_to_index}{$id1};
+            $g1 = $index_to_g->{$id1};
         }
         if ($id2 =~ /\d+\.\d+/) {
             $g2 = $id2;
-            $id2 = $cached->{index_to_g}{$id2};
+            $id2 = $g_to_index->{$id2};
         } else {
-            $g2 = $cached->{g_to_index}{$id2};
+            $g2 = $index_to_g->{$id2};
         }
         my $sims = $cached->{sims};
         my $neighbors = $sims->[$id1];
