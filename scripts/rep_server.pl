@@ -236,6 +236,19 @@ sub process_request {
     elsif ($req->[0] eq 'measure') # measure closeness
     {
         my ($id1, $id2) = ($req->[1], $req->[2]);
+        my ($g1, $g2);
+        if ($id1 =~ /\d+\.\d+/) {
+            $g1 = $id1;
+            $id1 = $cached->{index_to_g}{$id1};
+        } else {
+            $g1 = $cached->{g_to_index}{$id1};
+        }
+        if ($id2 =~ /\d+\.\d+/) {
+            $g2 = $id2;
+            $id2 = $cached->{index_to_g}{$id2};
+        } else {
+            $g2 = $cached->{g_to_index}{$id2};
+        }
         my $sims = $cached->{sims};
         my $neighbors = $sims->[$id1];
         my $n = scalar @$neighbors;
@@ -245,7 +258,7 @@ sub process_request {
                 $found = $neighbors->[$i][0];
             }
         }
-        print get_name($id1) . " and " . get_name($id2) . " have $found kmers in common.\n";
+        print get_name($g1) . " and " . get_name($g2) . " have $found kmers in common.\n";
     }
     elsif ($req->[0] eq "match_tails")  # tail match [seq] returns ID of match
     {
