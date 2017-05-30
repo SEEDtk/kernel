@@ -65,6 +65,7 @@ If specified, a genome will be scanned only if its output file does not already 
 
 =cut
 
+$| = 1;
 # Get the command-line parameters.
 my $opt = ScriptUtils::Opts('outDir',
         Shrub::script_options(),
