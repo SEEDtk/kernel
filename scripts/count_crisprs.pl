@@ -74,6 +74,7 @@ for my $gFile (@gFiles) {
     for my $crispr (@$crisprList) {
         my $spacerList = $crispr->[3];
         my $count = scalar @$spacerList;
+        $spacers += $count;
         if (! $min || $min > $count) { $min = $count; }
         if (! $max || $max < $count) { $max = $count; }
     }
