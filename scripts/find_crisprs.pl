@@ -123,7 +123,7 @@ while (! eof $ih) {
             my $crisprData = crispr::find_crisprs(\@tuples);
             my $found = scalar @$crisprData;
             print "   $found arrays found.\n";
-            $stats->Add(arraysFound => 1);
+            $stats->Add(arraysFound => $found);
             if ($found) {
                 $stats->Add(genomeHasArrays => 1);
             } else {
