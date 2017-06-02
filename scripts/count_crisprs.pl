@@ -81,7 +81,9 @@ for my $gFile (@gFiles) {
     print join("\t", $genomeID, $name, $spacers, $arrays, $min, $max) . "\n";
     $totals{spacers} += $spacers;
     $totals{arrays} += $arrays;
-    if (! $totals{min} || $totals{min} > $min) { $totals{min} = $min; }
-    if (! $totals{max} || $totals{max} < $max) { $totals{max} = $max; }
+    if ($min && $max) {
+        if (! $totals{min} || $totals{min} > $min) { $totals{min} = $min; }
+        if (! $totals{max} || $totals{max} < $max) { $totals{max} = $max; }
+    }
 }
 print join("\t", 'TOTALS', '', $totals{spacers}, $totals{arrays}, $totals{min}, $totals{max}) . "\n";
