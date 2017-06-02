@@ -24,6 +24,7 @@ use Shrub;
 use ScriptUtils;
 use File::Copy::Recursive;
 use Stats;
+use BasicLocation;
 
 =head1 Create Projection Repository
 
@@ -81,12 +82,11 @@ create_dir($genomeRoot);
 # Get all the well-behaved genomes.
 print "Loading genome list.\n";
 my %genomes = map { $_->[0] => [$_->[1], $_->[2]] } $shrub->GetAll('Genome', 'Genome(well-behaved) = ?', [1], 'id name contig-file');
-my @gList = sort keys %genomes;
-my $gCount = scalar @gList;
+my $gCount = scalar keys %genomes;
 print "$gCount genomes found.\n";
 # Loop through the genomes.
 my $gNum = 0;
-for my $genome (@gList) {
+for my $genome (sort keys %genomes) {
     ++$gNum;
     my ($gName, $contigFile) = @{$genomes{$genome}};
     print "Processing $genome $gName ($gNum of $gCount).\n";
@@ -98,9 +98,80 @@ for my $genome (@gList) {
     # Copy the contig file.
     File::Copy::Recursive::fcopy("$dnaRepo/$contigFile", "$genomeDir/contigs");
     $stats->Add(contigFilesCopied => 1);
-    # Now we output the pegs.
-
+    # Now we output the pegs. First, we open the files.
+    open(my $ph, ">$genomeDir/peg-info") || die "Could not open peg-info file for $genome: $!";
+    open(my $fh, ">$genomeDir/peg-trans") || die "Could not open peg-trans file for $genome: $!";
+    print "Reading peg functions.\n";
+    # Get all the pegs.
+    my $q = $shrub->Get('Feature Feature2Function Function AND Feature Protein',
+            'Feature(id) LIKE ? AND Feature2Function(security) = ?', ["fig|$genome.peg.%", 2],
+            'Feature(id) Function(description) Protein(sequence)');
+    print "Processing pegs.\n";
+    while (my $pegData = $q->Fetch()) {
+        my ($fid, $fun, $prot) = $pegData->Values([qw(Feature(id) Function(description) Protein(sequence))]);
+        $stats->Add(pegsProcessed => 1);
+        # Get the location of this feature.
+        my @locs = $shrub->fid_locs($fid);
+        my $locString = join(',', map { $_->String } @locs);
+        # Output the two records for this peg.
+        print $ph join("\t", $fid, $locString, $fun) . "\n";
+        print $fh ">$fid\n$prot\n";
+    }
+    close $ph;
+    close $fh;
+    $stats->Add(genomesProcessed => 1);
 }
+# Now we need to process the subsystem.
+print "Creating SubsystemsData.\n";
+my $subsysRoot = "$outDir/SubsystemsData";
+create_dir($subsysRoot);
+# Get the subsystems and their roles.
+print "Reading subsystem roles.\n";
+my %subs;
+my %subNames;
+my $q = $shrub->Get('Subsystem Role', '', [], 'Subsystem(id) Subsystem(name) Role(description)');
+while (my $subData = $q->Fetch()) {
+    my ($sub, $subName, $role) = $subData->Values([qw(Subsystem(id) Subsystem(name) Role(description))]);
+    push @{$subs{$sub}}, $role;
+    $subNames{$sub} = $subName;
+    $stats->Add(subRoleFound => 1);
+}
+my $subCount = scalar(keys %subs);
+my $subNum = 0;
+print "$subCount subsystems found.\n";
+# Loop through the subsystems.
+for my $sub (sort keys %subs) {
+    ++$subNum;
+    print "Processing $sub ($subNum of $subCount).\n";
+    # This will track the genomes we've found.
+    my %subGenomes;
+    # Create the subsystem directory.
+    my $subDir = "$subsysRoot/$subNames{$sub}";
+    $subDir =~ tr/ /_/;
+    # Write the roles.
+    create_list("$subDir/Roles", $subs{$sub});
+    # Open the peg output file.
+    open(my $oh, ">$subDir/PegsInSubsys") || die "Could not open peg output file for $sub: $!";
+    # Find all the pegs in the subsystem.
+    my @pegsInSubsys = $shrub->GetAll('Subsystem2Row Row2Cell Cell2Feature Feature2Function Function',
+        'Subsystem2Row(from-link) = ? AND Feature2Function(security) = ?', [$sub, 2],
+        'Feature2Function(from-link) Function(description)');
+    # Loop through the pegs, writing the peg data.
+    for my $pegData (@pegsInSubsys) {
+        my ($peg, $function) = @$pegData;
+        $stats->Add(subsysPegFound => 1);
+        if ($peg =~ /^fig\|(\d+\.\d+)\.peg/ && $genomes{$1}) {
+            my $genome = $1;
+            $stats->Add(subsysPegKept => 1);
+            $subGenomes{$genome}++;
+            print $oh "$peg\t$function\n";
+        }
+    }
+    my @genomesFound = sort keys %subGenomes;
+    print scalar(@genomesFound) . " genomes use $sub.\n";
+    create_list("$subDir/GenomesInSubsys", \@genomesFound);
+}
+print "All done.\n" . $stats->Show();
 
 # Create a simple list file.
 sub create_list {
