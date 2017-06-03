@@ -148,6 +148,7 @@ for my $sub (sort keys %subs) {
     # Create the subsystem directory.
     my $subDir = "$subsysRoot/$subNames{$sub}";
     $subDir =~ tr/ /_/;
+    create_dir($subDir);
     # Write the roles.
     create_list("$subDir/Roles", $subs{$sub});
     # Open the peg output file.
