@@ -145,6 +145,8 @@ for my $sub (sort keys %subs) {
     print "Processing $sub ($subNum of $subCount).\n";
     # This will track the genomes we've found.
     my %subGenomes;
+    # This prevents duplicate pegs.
+    my %subPegs;
     # Create the subsystem directory.
     my $subDir = "$subsysRoot/$subNames{$sub}";
     $subDir =~ tr/ /_/;
@@ -161,10 +163,11 @@ for my $sub (sort keys %subs) {
     for my $pegData (@pegsInSubsys) {
         my ($peg, $function) = @$pegData;
         $stats->Add(subsysPegFound => 1);
-        if ($peg =~ /^fig\|(\d+\.\d+)\.peg/ && $genomes{$1}) {
+        if (! $subPegs{$peg} && $peg =~ /^fig\|(\d+\.\d+)\.peg/ && $genomes{$1}) {
             my $genome = $1;
             $stats->Add(subsysPegKept => 1);
             $subGenomes{$genome}++;
+            $subPegs{$peg} = 1;
             print $oh "$peg\t$function\n";
         }
     }
