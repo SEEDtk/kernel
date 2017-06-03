@@ -179,7 +179,7 @@ sub create_list {
     my ($fileName, $itemList) = @_;
     open(my $oh, ">$fileName") || die "Could not open $fileName: $!";
     $stats->Add(listFileCreated => 1);
-    for my $item ($itemList) {
+    for my $item (@$itemList) {
         print $oh "$item\n";
         $stats->Add(listItemOut => 1);
     }
