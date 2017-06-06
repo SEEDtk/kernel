@@ -46,6 +46,8 @@ The command-line options are those found in L<Shrub/script_options> plus the fol
 
 If the output directory already exists, erase it before starting. The default is to fail if the output directory already exists.
 
+=back
+
 =cut
 
 $| = 1;
