@@ -60,6 +60,10 @@ qualify. The file should be tab-delimited with the sample IDs in the first colum
 
 If specified, only packages from samples will qualify.
 
+=item derived
+
+The opposite of C<--original>. Only packages not from samples will qualify.
+
 =item good
 
 If specified, only packages with a fine SciKit score of 85 or more and a CheckM completeness score of 80 or
@@ -83,6 +87,7 @@ my $opt = ScriptUtils::Opts('inDir outDir',
         ['samples=s', 'list of samples required for qualification'],
         ['good', 'only good packages qualify'],
         ['original', 'only packages from unmodified bins qualify'],
+        ['derived', 'only modified or non-bin packages qualify'],
         );
 my $stats = Stats->new();
 # Get the input and output directories.
@@ -116,6 +121,10 @@ if ($count && $move) {
 my $missing = $opt->missing;
 my $good = $opt->good;
 my $original = $opt->original;
+my $derived = $opt->derived;
+if ($original && $derived) {
+    die "Cannot specified both ORIGINAL and DERIVED.";
+}
 # Get the list of incoming packages.
 opendir(my $dh, $inDir) || die "Could not open input directory $inDir: $!";
 my @inPackages = grep { -s "$inDir/$_/data.tbl" } readdir $dh;
@@ -162,7 +171,7 @@ for my $package (sort @inPackages) {
     $stats->Add(packageFiltersIn => 1) if $passesFilter;
     $stats->Add(packageGood => 1) if $isGood;
     # Determine if this sample qualifies.
-    if (($isOriginal || ! $original) && ($isGood || ! $good) && $passesFilter) {
+    if (($isOriginal || ! $original) && (! $isOriginal || ! $derived) && ($isGood || ! $good) && $passesFilter) {
         # Here the package qualifies.
         $stats->Add(packageQualifies => 1);
         # If we are counting, there is nothing else to do.
