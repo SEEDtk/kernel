@@ -220,7 +220,7 @@ if (! $dir) {
         } else {
             # Loop through the packages, seeking ones from the specified sample.
             my %samples = map { $_ => 1 } split /,/, $opt->samples;
-            for my $package (grep { $_ =~ /^\d+\.\d+$/ } readdir $dh) {
+            for my $package (sort grep { $_ =~ /^\d+\.\d+$/ } readdir $dh) {
                 if (open(my $ih, '<', "$dir/$package/data.tbl")) {
                     while (! eof $ih) {
                         my $line = <$ih>;

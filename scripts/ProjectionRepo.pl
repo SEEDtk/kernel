@@ -25,6 +25,7 @@ use ScriptUtils;
 use File::Copy::Recursive;
 use Stats;
 use BasicLocation;
+use RepoLoader;
 
 =head1 Create Projection Repository
 
@@ -150,8 +151,8 @@ for my $sub (sort keys %subs) {
     # This prevents duplicate pegs.
     my %subPegs;
     # Create the subsystem directory.
-    my $subDir = "$subsysRoot/$subNames{$sub}";
-    $subDir =~ tr/ /_/;
+    my $subDirName = RepoLoader::DenormalizedName($subNames{$sub});
+    my $subDir = "$subsysRoot/$subDirName";
     create_dir($subDir);
     # Write the roles.
     create_list("$subDir/Roles", $subs{$sub});
