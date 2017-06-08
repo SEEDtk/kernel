@@ -202,6 +202,8 @@ for my $package (sort @inPackages) {
                 if ($move) {
                     print "Moving $package to $outDir.\n";
                     File::Copy::Recursive::dirmove("$inDir/$package", "$outDir/$package");
+                    # Move does not delete the directory, so we have to do that here.
+                    File::Copy::Recursive::pathrmdir("$inDir/$package");
                     $stats->Add(sourceMoved => 1);
                 } else {
                     print "Copying $package to $outDir.\n";
