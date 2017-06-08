@@ -207,7 +207,8 @@ sub gto_of {
 
     my $featureList = GPUtils::role_to_features($gto, $role);
 
-Search the specified L<GenomeTypeObject> for all features with the specified functional role.
+Search the specified L<GenomeTypeObject> for all features with the specified functional role. Note that this works
+even if the role is part of a multi-role functional assignment.
 
 =over 4
 
@@ -295,6 +296,8 @@ sub all_pegs {
     my $dataHash = GPUtils::get_data($genomeHash, $genome);
 
 Return a hash of the genome package's metadata entries.
+
+=over 4
 
 =item genomeHash
 
