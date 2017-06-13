@@ -1,19 +1,35 @@
 use strict;
 use FIG_Config;
 use ScriptUtils;
+use Shrub;
 use Stats;
+use SeedUtils;
 
-$| = 1;
-my $opt = ScriptUtils::Opts('dir');
-my ($dir) = @ARGV;
-opendir(my $dh, $dir) || die "Could not open directory $dir: $!";
-my @packages = grep { $_ =~ /^\d+\.\d+$/ } readdir $dh;
-for my $package (@packages) {
-    open(my $ih, '<', "$dir/$package/data.tbl") || die "Could not open data file for $package: $!";
-    while (! eof $ih) {
-        my $line = <$ih>;
-        if ($line =~ /\t$/) {
-            print "Anomaly in $package.\n";
+my (@goodLines, @badLines);
+my $stats = Stats->new();
+my ($log, $dir) = @ARGV;
+open(my $ih, "<$log") || die "Could not open input: $!";
+while (! eof $ih) {
+    my $line = <$ih>;
+    if ($line =~ /(\d+) SSU ribosomal RNAs found in (\d+\.\d+)/) {
+        my ($count, $genome) = ($1, $2);
+        if (! open(my $qh, "<$dir/$genome/quality.tbl")) {
+            print "Error opening $genome quality file: $!";
+        } else {
+            my $line = <$qh>;
+            if ($count) {
+                push @goodLines, $line;
+            } else {
+                push @badLines, $line;
+            }
         }
     }
+}
+my %types = (good => \@goodLines, bad => \@badLines);
+for my $type (keys %types) {
+    print uc($type) . " Genome List\n";
+    for my $line (@{$types{$type}}) {
+        print $line;
+    }
+    print "\n";
 }
