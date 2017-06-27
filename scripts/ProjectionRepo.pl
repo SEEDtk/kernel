@@ -82,6 +82,8 @@ my $dnaRepo = $shrub->DNArepo();
 print "Creating GenomeData.\n";
 my $genomeRoot = "$outDir/GenomeData";
 create_dir($genomeRoot);
+# This will map function IDs to normalized function descriptions.
+my %funMap;
 # Get all the well-behaved genomes.
 print "Loading genome list.\n";
 my %genomes = map { $_->[0] => [$_->[1], $_->[2]] } $shrub->GetAll('Genome', 'Genome(well-behaved) = ?', [1], 'id name contig-file');
@@ -108,11 +110,19 @@ for my $genome (sort keys %genomes) {
     # Get all the pegs.
     my $q = $shrub->Get('Feature Feature2Function Function AND Feature Protein',
             'Feature(id) LIKE ? AND Feature2Function(security) = ?', ["fig|$genome.peg.%", 2],
-            'Feature(id) Function(description) Protein(sequence)');
+            'Feature(id) Function(id) Function(sep) Protein(sequence)');
     print "Processing pegs.\n";
     while (my $pegData = $q->Fetch()) {
-        my ($fid, $fun, $prot) = $pegData->Values([qw(Feature(id) Function(description) Protein(sequence))]);
+        my ($fid, $funID, $sep, $prot) = $pegData->Values([qw(Feature(id) Function(id) Function(sep) Protein(sequence))]);
         $stats->Add(pegsProcessed => 1);
+        # Compute the function description.
+        my $fun = $funMap{$funID};
+        if (! $fun) {
+            my @roles = $shrub->GetFlat('Function2Role Role', 'Function2Role(from-link) = ?', [$funID],
+                'Role(description)');
+            $fun = join(" $sep ", @roles);
+            $funMap{$funID} = $fun;
+        }
         # Get the location of this feature.
         my @locs = $shrub->fid_locs($fid);
         my $locString = join(',', map { $_->String } @locs);
