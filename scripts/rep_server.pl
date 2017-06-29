@@ -280,9 +280,13 @@ sub process_request {
     }
     elsif ($req->[0] eq 'n_reps')   # N represetative sequences, keeping
     {
+        my $save = ($req->[-1] =~ /^save=(\S+)/) ? $1 : undef;
+        if ($save) {
+            pop @$req;
+        }
         my(undef,$N,@keep) = @$req;
         if (! defined($keep[0])) { @keep = () }
-        &repN($cached,$N,\@keep);
+        &repN($cached,$N,\@keep,$save);
     }
     elsif ($req->[0] eq 'thin_set')   # thin set
     {
@@ -479,9 +483,15 @@ sub rep {
     my @reps = &rep1($cached,$max_sim,$keep);
     my $n = @reps;
     print "$max_sim\t$n\n\n";
+    print_reps($fh, $cached, \@reps,$keepMap);
+    if ($save) { close(SAVE) }
+}
+
+sub print_reps {
+    my($fh, $cached, $reps, $keepMap) = @_;
     my $complete = $cached->{complete};
     my $index_to_g = $cached->{index_to_g};
-    foreach my $r (@reps)
+    foreach my $r (@$reps)
     {
         my $genome;
         if ($keepMap->{$r}) {
@@ -491,11 +501,12 @@ sub rep {
         }
         print $fh join("\t",($r,$genome,$complete->{$genome})),"\n";
     }
-    if ($save) { close(SAVE) }
 }
 
 sub repN {
-    my($cached,$N,$keep) = @_;
+    my($cached,$N,$keep,$save) = @_;
+    if ($save) { open(SAVE,">$save") }
+    my $fh = $save ? \*SAVE : \*STDOUT;
 
     my $lo = 5;
     my $hi = 200;
@@ -518,6 +529,8 @@ sub repN {
     }
     my $n = @reps;
     print "$n\t",join(",",@reps),"\n\n";
+    print_reps($fh,$cached,\@reps, {});
+    if ($save) { close(SAVE); }
 }
 
 sub ids_to_indexes {
