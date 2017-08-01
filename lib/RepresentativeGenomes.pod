@@ -432,12 +432,8 @@ follows
 
     PheS_evidence_of_reps Data.Rep <input.fasta >report.txt
 
-
-
-
 We have two tools that together allow you to gain insight into the genomes that are present in a fasta DNA file.
 
-To gen
 Let us presume a directory C<representative.genomes> be a set of representative genomes Let C<Data.Rep> be a directory of representative genomes set up using Use
 
       PheS_generate_signatures Data.Rep
