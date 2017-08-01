@@ -137,6 +137,9 @@ sub process_request {
     {
      &help;
     }
+    elsif ($req->[0] eq '#') {
+        # Comment, do nothing.
+    }
     elsif ($req->[0] eq 'index_to_id')    # index to id
     {
         my $index = $req->[1];
@@ -738,6 +741,7 @@ sub help {
     load_sigs sigFile          [load signature kmers of size K from the file]
     find_sigs genome [old]     [analyzes each contig in patric genome using signatures]
     name genome                [displays the name of a genome]
+    # comment                  [no effect]
 END
 }
 
