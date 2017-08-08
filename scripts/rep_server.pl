@@ -128,306 +128,308 @@ sub next_request {
 
 sub process_request {
     my($cached,$req) = @_;
-    my $index_to_g = $cached->{index_to_g};
-    my $g_to_index = $cached->{g_to_index};
-    my $complete   = $cached->{complete};
-    my $t1 = gettimeofday;
-
-    if ($req->[0] =~ /^\s*h\s*$/ || $req->[0] =~ /^\s*help\s*$/)
-    {
-     &help;
-    }
-    elsif ($req->[0] eq '#') {
-        # Comment, do nothing.
-    }
-    elsif ($req->[0] eq 'index_to_id')    # index to id
-    {
-        my $index = $req->[1];
-        my $id = $cached->{index_to_g}->{$index};
-        my $g  = $complete->{$id};
-        print join("\t",($index,$id,$g)),"\n";
-    }
-    elsif ($req->[0] eq 'id_to_index')    # id to index
-    {
-        my $id = $req->[1];
-        my $index = $cached->{g_to_index}->{$id};
-        my $g  = $complete->{$id};
-        print join("\t",($index,$id,$g)),"\n";
-    }
-    elsif ($req->[0] eq 'closest_N_genomes')    # closest N genomes
-    {
-        my $index = $req->[1];
-        my $n = $req->[2];
-        my @closest_genomes = &RepKmers::closest_N_genomes($cached,$index,$n);
-        print $index,"\t",$index_to_g->{$index},
-                     "\t",$complete->{$index_to_g->{$index}},"\n";
-        foreach my $tuple (@closest_genomes)
+    # Only proceed if we are not a comment.
+    if ($req->[0] ne '#') {
+        my $index_to_g = $cached->{index_to_g};
+        my $g_to_index = $cached->{g_to_index};
+        my $complete   = $cached->{complete};
+        my $t1 = gettimeofday;
+        if ($req->[0] =~ /^\s*h\s*$/ || $req->[0] =~ /^\s*help\s*$/)
         {
-            my($count,$i2) = @$tuple;
-            print "\t", join("\t",($count,
-                                   $i2,
-                                   $index_to_g->{$i2},
-                                   $complete->{$index_to_g->{$i2}})),"\n";
+         &help;
         }
-        print "\n";
-    }
-    elsif ($req->[0] eq 'closest_by_sc')    # closest by threshold
-    {
-        my $index = $req->[1];
-        my $n = $req->[2];
-        my @closest_genomes = &RepKmers::closest_by_sc($cached,$index,$n);
-        print $index,"\t",$index_to_g->{$index},
-                     "\t",$complete->{$index_to_g->{$index}},"\n";
-        foreach my $tuple (@closest_genomes)
+        elsif ($req->[0] eq '#') {
+            # Comment, do nothing.
+        }
+        elsif ($req->[0] eq 'index_to_id')    # index to id
         {
-            my($count,$i2) = @$tuple;
-            print "\t", join("\t",($count,
-                                   $i2,
-                                   $index_to_g->{$i2},
-                                   $complete->{$index_to_g->{$i2}})),"\n";
+            my $index = $req->[1];
+            my $id = $cached->{index_to_g}->{$index};
+            my $g  = $complete->{$id};
+            print join("\t",($index,$id,$g)),"\n";
         }
-        print "\n";
-    }
-    elsif ($req->[0] eq 'rep_by')   # who represents this guy?
-    {
-        my(undef,$who,$file) = @$req;
-        my($i) = &ids_to_indexes([$who],$g_to_index);
-        &who_represents($i,$file,$cached->{sims});
-    }
-    elsif ($req->[0] eq 'rep_set')   # represetative set
-    {
-        my $save = ($req->[-1] =~ /^save=(\S+)/) ? $1 : undef;
-        if ($save) {
-            pop @$req;
-        }
-        my(undef,$max_sim,@keep_ids_or_indexes) = @$req;
-        if ((@keep_ids_or_indexes == 1) &&
-            (-s $keep_ids_or_indexes[0]))
+        elsif ($req->[0] eq 'id_to_index')    # id to index
         {
-            @keep_ids_or_indexes = SeedUtils::read_ids($keep_ids_or_indexes[0]);
+            my $id = $req->[1];
+            my $index = $cached->{g_to_index}->{$id};
+            my $g  = $complete->{$id};
+            print join("\t",($index,$id,$g)),"\n";
         }
-        my ($keep, $keepMap) = &compute_keep_data(\@keep_ids_or_indexes,$g_to_index,$index_to_g);
-        &rep($cached,$max_sim,$keep, $save, $keepMap);
-    }
-    elsif ($req->[0] eq "close_rep_seq")  # closest rep [N,Seq]
-    {
-        my(undef,$N,$seq) = @$req;
-        if ($seq =~ /^\d+\.\d+/) {
-            my $g = $seq;
-            $seq = get_protein($g);
-            if (! $seq) {
-                print "Genome $g not found.\n";
-            }
-        }
-        if ($seq) {
-            my @reps = &rep1($cached,$N,[]);
-            my ($best_id,$count) = &best_id($cached,\@reps,$N,$seq,undef,undef);
-            if (defined($best_id))
+        elsif ($req->[0] eq 'closest_N_genomes')    # closest N genomes
+        {
+            my $index = $req->[1];
+            my $n = $req->[2];
+            my @closest_genomes = &RepKmers::closest_N_genomes($cached,$index,$n);
+            print $index,"\t",$index_to_g->{$index},
+                         "\t",$complete->{$index_to_g->{$index}},"\n";
+            foreach my $tuple (@closest_genomes)
             {
-
-                print join("\t",($count,
-                                 $best_id,
-                                 $index_to_g->{$best_id},
-                                 $complete->{$index_to_g->{$best_id}})),"\n";
+                my($count,$i2) = @$tuple;
+                print "\t", join("\t",($count,
+                                       $i2,
+                                       $index_to_g->{$i2},
+                                       $complete->{$index_to_g->{$i2}})),"\n";
             }
-            else
+            print "\n";
+        }
+        elsif ($req->[0] eq 'closest_by_sc')    # closest by threshold
+        {
+            my $index = $req->[1];
+            my $n = $req->[2];
+            my @closest_genomes = &RepKmers::closest_by_sc($cached,$index,$n);
+            print $index,"\t",$index_to_g->{$index},
+                         "\t",$complete->{$index_to_g->{$index}},"\n";
+            foreach my $tuple (@closest_genomes)
             {
-                print "failed to get closest\n";
+                my($count,$i2) = @$tuple;
+                print "\t", join("\t",($count,
+                                       $i2,
+                                       $index_to_g->{$i2},
+                                       $complete->{$index_to_g->{$i2}})),"\n";
             }
+            print "\n";
         }
-    }
-    elsif ($req->[0] eq 'measure') # measure closeness
-    {
-        my ($id1, $id2) = ($req->[1], $req->[2]);
-        my ($g1, $g2);
-        if ($id1 =~ /\d+\.\d+/) {
-            $g1 = $id1;
-            $id1 = $g_to_index->{$id1};
-        } else {
-            $g1 = $index_to_g->{$id1};
+        elsif ($req->[0] eq 'rep_by')   # who represents this guy?
+        {
+            my(undef,$who,$file) = @$req;
+            my($i) = &ids_to_indexes([$who],$g_to_index);
+            &who_represents($i,$file,$cached->{sims});
         }
-        if ($id2 =~ /\d+\.\d+/) {
-            $g2 = $id2;
-            $id2 = $g_to_index->{$id2};
-        } else {
-            $g2 = $index_to_g->{$id2};
-        }
-        my $sims = $cached->{sims};
-        my $neighbors = $sims->[$id1];
-        my $n = scalar @$neighbors;
-        my $found = 0;
-        for (my $i = 0; $i < $n && ! $found; $i++) {
-            if ($neighbors->[$i][1] == $id2) {
-                $found = $neighbors->[$i][0];
+        elsif ($req->[0] eq 'rep_set')   # represetative set
+        {
+            my $save = ($req->[-1] =~ /^save=(\S+)/) ? $1 : undef;
+            if ($save) {
+                pop @$req;
             }
+            my(undef,$max_sim,@keep_ids_or_indexes) = @$req;
+            if ((@keep_ids_or_indexes == 1) &&
+                (-s $keep_ids_or_indexes[0]))
+            {
+                @keep_ids_or_indexes = SeedUtils::read_ids($keep_ids_or_indexes[0]);
+            }
+            my ($keep, $keepMap) = &compute_keep_data(\@keep_ids_or_indexes,$g_to_index,$index_to_g);
+            &rep($cached,$max_sim,$keep, $save, $keepMap);
         }
-        print get_name($g1) . " and " . get_name($g2) . " have $found kmers in common.\n";
-    }
-    elsif ($req->[0] eq "match_tails")  # tail match [seq] returns ID of match
-    {
-        my $seq = $req->[1];
-        my $tail = lc substr($seq,-16);
-        my $tails = $cached->{tails};
-        my $close_g = $tails->{$tail};
-        if (defined($close_g))
+        elsif ($req->[0] eq "close_rep_seq")  # closest rep [N,Seq]
         {
-            my $close_id = $cached->{g_to_index}->{$close_g};
-            print join("\t",($close_id,
-                             $close_g,
-                             $complete->{$close_g})),"\n";
-        }
-        else
-        {
-            print "failed for tail $tail\n";
-        }
-    }
-    elsif ($req->[0] eq 'n_reps')   # N represetative sequences, keeping
-    {
-        my $save = ($req->[-1] =~ /^save=(\S+)/) ? $1 : undef;
-        if ($save) {
-            pop @$req;
-        }
-        my(undef,$N,@keep) = @$req;
-        if (! defined($keep[0])) { @keep = () }
-        &repN($cached,$N,\@keep,$save);
-    }
-    elsif ($req->[0] eq 'thin_set')   # thin set
-    {
-        my(undef,$max_sim,$to_thin) = @$req;
-        my @thinned = &thin($cached,$max_sim,$to_thin);
-        if (@thinned == 0)
-        {
-            print STDERR "failed to thin\n";
-        }
-        else
-        {
-            my $n = @thinned;
-            print "$n\t",join(",",@thinned),"\n\n";
-        }
-    }
-    elsif ($req->[0] eq 'load_sigs') {
-
-        # Signature hash.
-        my %sigs;
-        # Kmer count hash.
-        my %reps;
-        my $file = $req->[1];
-        if ($file =~ /^\d+$/) {
-            $file = $req->[2];
-        }
-        my $sigK;
-        if (! open(my $ih, "<$file")) {
-            print "Could not open signature file $file: $!\n";
-        } else {
-            while (! eof $ih) {
-                my $line = <$ih>;
-                if ($line =~ /^gary/) {
-                    $cached->{gary} = 1;
-                } elsif ($line =~ /^(\S+)\t(\d+\.\d+)/) {
-                    my ($sig, $rep) = ($1, $2);
-                    $sigs{$sig} = $rep;
-                    $reps{$rep}++;
-                    if (! defined $sigK) {
-                        $sigK = length $sig;
-                    }
+            my(undef,$N,$seq) = @$req;
+            if ($seq =~ /^\d+\.\d+/) {
+                my $g = $seq;
+                $seq = get_protein($g);
+                if (! $seq) {
+                    print "Genome $g not found.\n";
                 }
             }
-        }
-        $cached->{signatures} = \%sigs;
-        $cached->{signatureK} = $sigK;
-        $cached->{sigCounts} = \%reps;
-        print "Signature length is $sigK in " . ($cached->{gary} ? "gary" : "strict") . " mode.\n";
-    }
-    elsif ($req->[0] eq 'find_sigs') {
-        # Find signatures in genome.
-        my $genome = $req->[1];
-        my $contigs = get_contigs($genome);
-        if (! $contigs) {
-            print "$genome not found in Shrub or PATRIC.\n";
-        } else {
-            my $name = get_name($genome);
-            if ($name) {
-                print "Search contigs for $genome: $name\n";
-            }
-            my $sigsH = $cached->{signatures};
-            my $repsH = $cached->{sigCounts};
-            my $K = $cached->{signatureK};
-            my %totalHits;
-            my $totLen = 0;
-            for my $contig (@$contigs) {
-                my %hits;
-                my ($id, undef, $seq) = @$contig;
-                my $len = length($seq);
-                $totLen += $len;
-                if ($cached->{gary})
+            if ($seq) {
+                my @reps = &rep1($cached,$N,[]);
+                my ($best_id,$count) = &best_id($cached,\@reps,$N,$seq,undef,undef);
+                if (defined($best_id))
                 {
-                    my $kmers = &RepKmers::extract_kmers(\$seq,$K);
-                    foreach my $kmer (@$kmers)
-                    {
-                        &process_kmer($kmer,$cached,\%hits,\%totalHits);
-                    }
+
+                    print join("\t",($count,
+                                     $best_id,
+                                     $index_to_g->{$best_id},
+                                     $complete->{$index_to_g->{$best_id}})),"\n";
                 }
                 else
                 {
-                    my $n = $len - $K;
-                    for (my $i = 0; $i <= $n; $i++) {
-                        my $kmer = substr($seq, $i, $K);
-                        &process_kmer($kmer,$cached,\%hits,\%totalHits);
-                    }
+                    print "failed to get closest\n";
                 }
-                my %pcts;
-                for my $rep (keys %hits) {
-                    $pcts{$rep} = $hits{$rep} * 100 / $repsH->{$rep};
-                }
-                my ($best, $second) = sort { $pcts{$b} <=> $pcts{$a} } keys %pcts;
-                if (! $best) {
-                    print "$id ($len) had no hits.\n";
-                } else {
-                    $name = get_name($best) || '[unknown]';
-                    my $pct = nearest(0.001, $pcts{$best});
-                    print "$id ($len) hit $best $name [$hits{$best}, $pct]";
-                    if ($second) {
-                        $name = get_name($second) || '[unknown]';
-                        $pct = nearest(0.001, $pcts{$second});
-                        print " and $second $name [$hits{$second}, $pct]";
-                    }
-                    print ".\n";
-                }
-            }
-            my %totPcts;
-            for my $rep (keys %totalHits) {
-                $totPcts{$rep} = $totalHits{$rep} * 100 / $repsH->{$rep};
-            }
-            my @hitList = sort { $totPcts{$b} <=> $totPcts{$a} } keys %totPcts;
-            splice @hitList, 5;
-            print "Whole genome summary ($totLen base pairs).\n";
-            for my $hit (@hitList) {
-                my $name = get_name($hit) || '[unknown]';
-                my $pct = nearest(0.001, $totPcts{$hit});
-                print "$totalHits{$hit} [$pct] hits for $hit $name\n";
             }
         }
-    }
-    elsif ($req->[0] eq 'name') {
-        # Display genome name.
-        my $genome = $req->[1];
-        if (! $genome) {
-            print "No genome ID specified.\n";
-        } else {
-            my $name = get_name($genome);
-            if ($name) {
-                print "$genome is $name.\n";
+        elsif ($req->[0] eq 'measure') # measure closeness
+        {
+            my ($id1, $id2) = ($req->[1], $req->[2]);
+            my ($g1, $g2);
+            if ($id1 =~ /\d+\.\d+/) {
+                $g1 = $id1;
+                $id1 = $g_to_index->{$id1};
             } else {
-                print "$genome not found.\n";
+                $g1 = $index_to_g->{$id1};
+            }
+            if ($id2 =~ /\d+\.\d+/) {
+                $g2 = $id2;
+                $id2 = $g_to_index->{$id2};
+            } else {
+                $g2 = $index_to_g->{$id2};
+            }
+            my $sims = $cached->{sims};
+            my $neighbors = $sims->[$id1];
+            my $n = scalar @$neighbors;
+            my $found = 0;
+            for (my $i = 0; $i < $n && ! $found; $i++) {
+                if ($neighbors->[$i][1] == $id2) {
+                    $found = $neighbors->[$i][0];
+                }
+            }
+            print get_name($g1) . " and " . get_name($g2) . " have $found kmers in common.\n";
+        }
+        elsif ($req->[0] eq "match_tails")  # tail match [seq] returns ID of match
+        {
+            my $seq = $req->[1];
+            my $tail = lc substr($seq,-16);
+            my $tails = $cached->{tails};
+            my $close_g = $tails->{$tail};
+            if (defined($close_g))
+            {
+                my $close_id = $cached->{g_to_index}->{$close_g};
+                print join("\t",($close_id,
+                                 $close_g,
+                                 $complete->{$close_g})),"\n";
+            }
+            else
+            {
+                print "failed for tail $tail\n";
             }
         }
+        elsif ($req->[0] eq 'n_reps')   # N represetative sequences, keeping
+        {
+            my $save = ($req->[-1] =~ /^save=(\S+)/) ? $1 : undef;
+            if ($save) {
+                pop @$req;
+            }
+            my(undef,$N,@keep) = @$req;
+            if (! defined($keep[0])) { @keep = () }
+            &repN($cached,$N,\@keep,$save);
+        }
+        elsif ($req->[0] eq 'thin_set')   # thin set
+        {
+            my(undef,$max_sim,$to_thin) = @$req;
+            my @thinned = &thin($cached,$max_sim,$to_thin);
+            if (@thinned == 0)
+            {
+                print STDERR "failed to thin\n";
+            }
+            else
+            {
+                my $n = @thinned;
+                print "$n\t",join(",",@thinned),"\n\n";
+            }
+        }
+        elsif ($req->[0] eq 'load_sigs') {
+
+            # Signature hash.
+            my %sigs;
+            # Kmer count hash.
+            my %reps;
+            my $file = $req->[1];
+            if ($file =~ /^\d+$/) {
+                $file = $req->[2];
+            }
+            my $sigK;
+            if (! open(my $ih, "<$file")) {
+                print "Could not open signature file $file: $!\n";
+            } else {
+                while (! eof $ih) {
+                    my $line = <$ih>;
+                    if ($line =~ /^gary/) {
+                        $cached->{gary} = 1;
+                    } elsif ($line =~ /^(\S+)\t(\d+\.\d+)/) {
+                        my ($sig, $rep) = ($1, $2);
+                        $sigs{$sig} = $rep;
+                        $reps{$rep}++;
+                        if (! defined $sigK) {
+                            $sigK = length $sig;
+                        }
+                    }
+                }
+            }
+            $cached->{signatures} = \%sigs;
+            $cached->{signatureK} = $sigK;
+            $cached->{sigCounts} = \%reps;
+            print "Signature length is $sigK in " . ($cached->{gary} ? "gary" : "strict") . " mode.\n";
+        }
+        elsif ($req->[0] eq 'find_sigs') {
+            # Find signatures in genome.
+            my $genome = $req->[1];
+            my $contigs = get_contigs($genome);
+            if (! $contigs) {
+                print "$genome not found in Shrub or PATRIC.\n";
+            } else {
+                my $name = get_name($genome);
+                if ($name) {
+                    print "Search contigs for $genome: $name\n";
+                }
+                my $sigsH = $cached->{signatures};
+                my $repsH = $cached->{sigCounts};
+                my $K = $cached->{signatureK};
+                my %totalHits;
+                my $totLen = 0;
+                for my $contig (@$contigs) {
+                    my %hits;
+                    my ($id, undef, $seq) = @$contig;
+                    my $len = length($seq);
+                    $totLen += $len;
+                    if ($cached->{gary})
+                    {
+                        my $kmers = &RepKmers::extract_kmers(\$seq,$K);
+                        foreach my $kmer (@$kmers)
+                        {
+                            &process_kmer($kmer,$cached,\%hits,\%totalHits);
+                        }
+                    }
+                    else
+                    {
+                        my $n = $len - $K;
+                        for (my $i = 0; $i <= $n; $i++) {
+                            my $kmer = substr($seq, $i, $K);
+                            &process_kmer($kmer,$cached,\%hits,\%totalHits);
+                        }
+                    }
+                    my %pcts;
+                    for my $rep (keys %hits) {
+                        $pcts{$rep} = $hits{$rep} * 100 / $repsH->{$rep};
+                    }
+                    my ($best, $second) = sort { $pcts{$b} <=> $pcts{$a} } keys %pcts;
+                    if (! $best) {
+                        print "$id ($len) had no hits.\n";
+                    } else {
+                        $name = get_name($best) || '[unknown]';
+                        my $pct = nearest(0.001, $pcts{$best});
+                        print "$id ($len) hit $best $name [$hits{$best}, $pct]";
+                        if ($second) {
+                            $name = get_name($second) || '[unknown]';
+                            $pct = nearest(0.001, $pcts{$second});
+                            print " and $second $name [$hits{$second}, $pct]";
+                        }
+                        print ".\n";
+                    }
+                }
+                my %totPcts;
+                for my $rep (keys %totalHits) {
+                    $totPcts{$rep} = $totalHits{$rep} * 100 / $repsH->{$rep};
+                }
+                my @hitList = sort { $totPcts{$b} <=> $totPcts{$a} } keys %totPcts;
+                splice @hitList, 5;
+                print "Whole genome summary ($totLen base pairs).\n";
+                for my $hit (@hitList) {
+                    my $name = get_name($hit) || '[unknown]';
+                    my $pct = nearest(0.001, $totPcts{$hit});
+                    print "$totalHits{$hit} [$pct] hits for $hit $name\n";
+                }
+            }
+        }
+        elsif ($req->[0] eq 'name') {
+            # Display genome name.
+            my $genome = $req->[1];
+            if (! $genome) {
+                print "No genome ID specified.\n";
+            } else {
+                my $name = get_name($genome);
+                if ($name) {
+                    print "$genome is $name.\n";
+                } else {
+                    print "$genome not found.\n";
+                }
+            }
+        }
+        else
+        {
+            print &Dumper(["failed request",$req]);
+        }
+        my $t2 = gettimeofday;
+        print $t2-$t1," seconds to execute command\n\n";
     }
-    else
-    {
-        print &Dumper(["failed request",$req]);
-    }
-    my $t2 = gettimeofday;
-    print $t2-$t1," seconds to execute command\n\n";
 }
 
 sub process_kmer {
