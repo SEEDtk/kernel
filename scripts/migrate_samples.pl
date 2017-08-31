@@ -95,16 +95,26 @@ print "Processing input samples.\n";
 for my $sample (@samples) {
     if (! $existing{$sample} && ! $blackList{$sample}) {
         if ($moved < $max) {
-            my $target = "$outDir/$sample";
-            print "Moving $sample...\n";
-            my $numCopied = File::Copy::Recursive::dircopy("$inDir/$sample", $target);
-            if ($numCopied) {
-                print "$numCopied items transferred.\n";
-                $moved++;
+            my $source = "$inDir/$sample";
+            if (! opendir(my $th, $source)) {
+                print "Skipping $sample: $!\n";
             } else {
-                print "Error in copy: $!\n";
-                if (-d $target) {
-                    File::Copy::Recursive::pathrmdir($target);
+                my $found = grep { $_ =~ /\.fastq/ } readdir $th;
+                if (! $found) {
+                    print "$sample is empty.\n";
+                } else {
+                    my $target = "$outDir/$sample";
+                    print "Moving $sample...\n";
+                    my $numCopied = File::Copy::Recursive::dircopy($source, $target);
+                    if ($numCopied) {
+                        print "$numCopied items transferred.\n";
+                        $moved++;
+                    } else {
+                        print "Error in copy: $!\n";
+                        if (-d $target) {
+                            File::Copy::Recursive::pathrmdir($target);
+                        }
+                    }
                 }
             }
         } else {

@@ -91,6 +91,10 @@ Restart non-running jobs in progress.
 
 If specified, completed samples will not be shown, only samples in progress.
 
+=item fix
+
+Remove empty samples.
+
 =back
 
 =cut
@@ -101,6 +105,7 @@ my $opt = ScriptUtils::Opts('directory',
                 ['resume', 'restart failed jobs'],
                 ['terse', 'do not show completed bins'],
                 ['project=s', 'project type for binning jobs', { required => 1 }],
+                ['fix', 'remove empty sample directories'],
                 ['run=i', 'run binning pipeline on new directories', { default => 0 }]);
 my $stats = Stats->new();
 # Get the main directory name.
@@ -201,17 +206,28 @@ for my $dir (@dirs) {
         push @other, "$label: Assembling.\n";
         $stats->Add(dirs1Assembling => 1);
     } else {
-        # Here the directory is downloaded. We may need to run the pipeline.
-        my $startString = "";
-        if ($runCount) {
-            # Check for gz files.
-            opendir(my $dh, $subDir) || die "Could not open directory $subDir: $!";
+        # Here the directory is downloaded. We may need to fix it or run the pipeline.
+        open(my $dh, $subDir) || die "Could not open directory $subDir: $!";
+        my $found = grep { $_ =~ /\.fastq/ } readdir $dh;
+        if (! $found) {
+            my $status = "$label: Empty.";
+            $stats->Add(dirs0Empty => 1);
+            if ($opt->fix) {
+                closdir $dh;
+                File::Copy::Recursive::pathrmdir($subDir);
+                $status .= "  Deleted.\n";
+                $stats->Add(dirsDeleted => 1);
+            }
+            push @other, $status;
+        } elsif ($runCount) {
+            # It's valid, and we want to run it. Check for gz files.
             my $found = grep { $_ =~ /\.fastq\.gz$/ } readdir $dh;
             closedir $dh;
             my $gz = ($found ? '--gz' : '');
             StartJob($dir, $subDir, $gz, 'Started', $label, $proj);
             $runCount--;
         } else {
+            # It's valid, but we are leaving it alone.
             push @downloaded, "$label: Downloaded.\n";
             $stats->Add(dirs0Downloaded => 1);
         }
