@@ -217,6 +217,8 @@ for my $dir (@dirs) {
                 File::Copy::Recursive::pathrmdir($subDir);
                 $status .= "  Deleted.\n";
                 $stats->Add(dirsDeleted => 1);
+            } else {
+                $status .= "\n";
             }
             push @other, $status;
         } elsif ($runCount) {
