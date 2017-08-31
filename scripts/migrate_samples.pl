@@ -95,13 +95,17 @@ print "Processing input samples.\n";
 for my $sample (@samples) {
     if (! $existing{$sample} && ! $blackList{$sample}) {
         if ($moved < $max) {
+            my $target = "$outDir/$sample";
             print "Moving $sample...\n";
-            my $numCopied = File::Copy::Recursive::dircopy("$inDir/$sample", "$outDir/$sample");
+            my $numCopied = File::Copy::Recursive::dircopy("$inDir/$sample", $target);
             if ($numCopied) {
                 print "$numCopied items transferred.\n";
                 $moved++;
             } else {
-                die "Error in copy: $!";
+                print "Error in copy: $!\n";
+                if (-d $target) {
+                    File::Copy::Recursive::pathrmdir($target);
+                }
             }
         } else {
             $remaining++;
