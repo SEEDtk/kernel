@@ -207,13 +207,13 @@ for my $dir (@dirs) {
         $stats->Add(dirs1Assembling => 1);
     } else {
         # Here the directory is downloaded. We may need to fix it or run the pipeline.
-        open(my $dh, $subDir) || die "Could not open directory $subDir: $!";
+        opendir(my $dh, $subDir) || die "Could not open directory $subDir: $!";
         my $found = grep { $_ =~ /\.fastq/ } readdir $dh;
         if (! $found) {
             my $status = "$label: Empty.";
             $stats->Add(dirs0Empty => 1);
             if ($opt->fix) {
-                closdir $dh;
+                closedir $dh;
                 File::Copy::Recursive::pathrmdir($subDir);
                 $status .= "  Deleted.\n";
                 $stats->Add(dirsDeleted => 1);
