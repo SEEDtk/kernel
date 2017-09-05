@@ -208,12 +208,13 @@ for my $dir (@dirs) {
     } else {
         # Here the directory is downloaded. We may need to fix it or run the pipeline.
         opendir(my $dh, $subDir) || die "Could not open directory $subDir: $!";
-        my $found = grep { $_ =~ /\.(?:fastq|fq)/ } readdir $dh;
+        my @files = grep { $_ =~ /\.(?:fastq|fq)/ } readdir $dh;
+        closedir $dh;
+        my $found = scalar @files;
         if (! $found) {
             my $status = "$label: Empty.";
             $stats->Add(dirs0Empty => 1);
             if ($opt->fix) {
-                closedir $dh;
                 File::Copy::Recursive::pathrmdir($subDir);
                 $status .= "  Deleted.\n";
                 $stats->Add(dirsDeleted => 1);
@@ -223,8 +224,7 @@ for my $dir (@dirs) {
             push @other, $status;
         } elsif ($runCount) {
             # It's valid, and we want to run it. Check for gz files.
-            my $found = grep { $_ =~ /q\.gz$/ } readdir $dh;
-            closedir $dh;
+            $found = grep { $_ =~ /q\.gz$/ } @files;
             my $gz = ($found ? '--gz' : '');
             StartJob($dir, $subDir, $gz, 'Started', $label, $proj);
             $runCount--;
