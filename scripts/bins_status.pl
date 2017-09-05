@@ -223,7 +223,7 @@ for my $dir (@dirs) {
             push @other, $status;
         } elsif ($runCount) {
             # It's valid, and we want to run it. Check for gz files.
-            my $found = grep { $_ =~ /\.fastq\.gz$/ } readdir $dh;
+            my $found = grep { $_ =~ /q\.gz$/ } readdir $dh;
             closedir $dh;
             my $gz = ($found ? '--gz' : '');
             StartJob($dir, $subDir, $gz, 'Started', $label, $proj);
