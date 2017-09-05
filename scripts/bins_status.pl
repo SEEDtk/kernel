@@ -208,7 +208,7 @@ for my $dir (@dirs) {
     } else {
         # Here the directory is downloaded. We may need to fix it or run the pipeline.
         opendir(my $dh, $subDir) || die "Could not open directory $subDir: $!";
-        my $found = grep { $_ =~ /\.fastq/ } readdir $dh;
+        my $found = grep { $_ =~ /\.(?:fastq|fq)/ } readdir $dh;
         if (! $found) {
             my $status = "$label: Empty.";
             $stats->Add(dirs0Empty => 1);
