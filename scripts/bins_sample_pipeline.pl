@@ -79,6 +79,10 @@ Paired-end reads. C<synth1.fq> for the left reads and C<synth2.fq> for the right
 
 Interleaved paired-end reads. C<*.fastq> for all of them.
 
+=item PQ
+
+Interleaved paired-end reads. C<*.fq> for all of them.
+
 =item CT
 
 Paired-end reads. C<*_R1_001.fastq> for the left reads and C<*_R2_001.fastq> for the right reads.
@@ -138,6 +142,8 @@ if ($project eq 'HMP') {
     $f2q = "_2.fastq";
 } elsif ($project eq 'AG') {
     $fsq = ".fastq";
+} elsif ($project eq 'PQ') {
+    $fsq = ".fq";
 } elsif ($project eq 'SYNTH') {
     $f1q = "synth1.fq";
     $f2q = "synth2.fq";
