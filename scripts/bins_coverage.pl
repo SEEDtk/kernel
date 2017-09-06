@@ -40,11 +40,14 @@ The command-line options are as follows:
 
 =over 4
 
+=item standard
+
+The coverage is encoded into the sequence ID from the FASTA file. Use this if the FASTA file was output from SPAdes.
+
 =item keyword
 
-Normally, the coverage is taken from the sequence ID in the FASTA file. Instead, the coverage can be coded as a keyword in the
-sequence comments.  If so, the keyword name should be the value of this parameter. The coverage value must be connected to the
-keyword name with an equal sign and the keyword must be only letters and digits.
+The coverage coded as a keyword in the sequence comments.  The keyword name should be the value of this parameter.
+The coverage value must be connected to the keyword name with an equal sign and the keyword must be only letters and digits.
 
 =item lenFiter
 
@@ -65,7 +68,7 @@ directory path; otherwise the current directory is assumed.
 
 =item noData
 
-If specified, then no coverage data is available. A dummy coverage of 50 is generated for each contig.
+No coverage data is available. A dummy coverage of 50 is generated for each contig.
 
 =back
 
@@ -73,6 +76,7 @@ If specified, then no coverage data is available. A dummy coverage of 50 is gene
 
 # Get the command-line parameters.
 my $opt = ScriptUtils::Opts('sampleFile outputDir',
+        ['standard',     'parse coverage data from the sequence IDs'],
         ['keyword=s',    'keyword for coverage data in the sequence comments (if any)'],
         ['covgFiles=s',  'coverage data files (if any)'],
         ['noData',       'no coverage data available'],
@@ -96,22 +100,32 @@ my $stats = Stats->new();
 my $keyword = $opt->keyword;
 my $covgFiles = $opt->covgfiles;
 my $noData = $opt->nodata;
+my $standard = $opt->standard;
 if ($keyword) {
     if ($covgFiles) {
         die "covgFiles and keyword are mutually exclusive.";
     } elsif ($noData) {
         die "noData and keyword are mutually exclusive.";
+    } elsif ($standard) {
+        die "standard and keyword are mutually exclusive.";
     }
     print "Using keyword mode.\n";
 } elsif ($covgFiles) {
     if ($noData) {
         die "covgFiles and noData are mutually exclusive.";
+    } elsif ($standard) {
+        die "covgFiles and standard are mutually exclusive.";
     }
     print "Using coverage file mode.\n";
+} elsif ($standard) {
+    if ($noData) {
+        die "standard and noData are mutually exclusive.";
+    }
+    print "Coverage data will be parsed from sequence IDs.\n";
 } elsif ($noData) {
     print "No coverage data available.\n";
 } else {
-    print "Using standard contig ID mode.\n";
+    print "Coverage information will be inferred from sequence format.\n";
 }
 # This hash will contain coverage vectors if we are in file mode.
 my %covgVectors;
@@ -192,24 +206,39 @@ while (! eof $ih) {
                 map { $covgMean += $_ } @$covg;
                 $covg = join("\t", @$covg);
             }
-        } elsif ($keyword) {
-            if ($comment =~ /\b$keyword=([0-9.]+)/) {
-                $covg = $1;
-                $covgMean = $covg;
-            } else {
-                $stats->Add(missingKeyword => 1);
-                $errors++;
-            }
-        } elsif ($noData) {
-            $covg = 50;
-            $covgMean = 50;
         } else {
-            if ($contigID =~ /cov(?:erage|g)?_([0-9.]+)/) {
-                $covg = $1;
-                $covgMean = $covg;
+            if (! $keyword && ! $standard && ! $noData) {
+                # Here we must compute the type of sequence label.
+                if ($comment =~ /\b(covg|coverage|cov|multi)=[0-9.]+/) {
+                    $keyword = $1;
+                    print "Keyword \"$keyword\" selected.\n";
+                } elsif ($contigID =~ /(?:coverage|covg|cov)_[0-9.]+/) {
+                    $standard = 1;
+                    print "Coverage will be parsed from sequence IDs.\n";
+                } else {
+                    $noData = 1;
+                    print "No coverage data available.\n";
+                }
+            }
+            if ($keyword) {
+                if ($comment =~ /\b$keyword=([0-9.]+)/) {
+                    $covg = $1;
+                    $covgMean = $covg;
+                } else {
+                    $stats->Add(missingKeyword => 1);
+                    $errors++;
+                }
+            } elsif ($noData) {
+                $covg = 50;
+                $covgMean = 50;
             } else {
-                $stats->Add(badContigID => 1);
-                $errors++;
+                if ($contigID =~ /(?:coverage|covg|cov)_([0-9.]+)/) {
+                    $covg = $1;
+                    $covgMean = $covg;
+                } else {
+                    $stats->Add(badContigID => 1);
+                    $errors++;
+                }
             }
         }
         if ($covg) {
