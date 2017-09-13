@@ -122,8 +122,10 @@ for my $genome (sort keys %genomes) {
                 'Role(description)');
             if (@roles) {
                 $fun = join(" $sep ", @roles);
-            } elsif ($fun =~ /^hypo-(.+)/) {
+            } elsif ($funID =~ /^hypo-(.+)/) {
                 $fun = "hypothetical $1";
+            } else {
+                $fun = $funID;
             }
             $funMap{$funID} = $fun;
         }
