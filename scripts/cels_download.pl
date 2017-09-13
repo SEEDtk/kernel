@@ -21,7 +21,8 @@ use strict;
 use warnings;
 use File::Copy::Recursive;
 
-my $dir = "~parrello/SEEDtk/Data/Cancer/CellLines";
+my $dir = "Cancer/CellLines";
+print "Creating directory $dir.\n";
 File::Copy::Recursive::pathmk($dir) || die "Could not create directory: $!";
 chdir($dir);
 my @curlOpts = ('--remote-name', '--silent', '--show-error');
@@ -35,5 +36,5 @@ for (my $i = 1; $i <= 25; $i++) {
     $rc = system('unzip', "$file");
     die "Error code $rc unpacking $file." if $rc;
     print "Deleting $file.\n";
-    kill $file;
+    unlink $file;
 }
