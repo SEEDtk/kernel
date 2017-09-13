@@ -83,7 +83,7 @@ print "Creating GenomeData.\n";
 my $genomeRoot = "$outDir/GenomeData";
 create_dir($genomeRoot);
 # This will map function IDs to normalized function descriptions.
-my %funMap = ('' => 'hypothetical protein');
+my %funMap;
 # Get all the well-behaved genomes.
 print "Loading genome list.\n";
 my %genomes = map { $_->[0] => [$_->[1], $_->[2]] } $shrub->GetAll('Genome', 'Genome(well-behaved) = ?', [1], 'id name contig-file');
@@ -120,7 +120,11 @@ for my $genome (sort keys %genomes) {
         if (! $fun) {
             my @roles = $shrub->GetFlat('Function2Role Role', 'Function2Role(from-link) = ?', [$funID],
                 'Role(description)');
-            $fun = join(" $sep ", @roles);
+            if (@roles) {
+                $fun = join(" $sep ", @roles);
+            } elsif ($fun =~ /^hypo-(.+)/) {
+                $fun = "hypothetical $1";
+            }
             $funMap{$funID} = $fun;
         }
         # Get the location of this feature.
