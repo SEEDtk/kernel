@@ -15,7 +15,7 @@ foreach my $seq (@all_seqs)
         push(@seqs,$seq);
     }
 }
-gjoseqlib::write_fasta('EvalBinning/condensed.fa');
+gjoseqlib::write_fasta('EvalBinning/condensed.fa', \@seqs);
 #my %genomes = map { ($_->[1] =~ /(\d+\.\d+)\t(\S+ \S+)/) ? ($1 => $2) : () } @seqs;
 #foreach my $seq (@seqs)
 #{
