@@ -56,6 +56,7 @@ a 3-column table containing [RoleId,PredictedValue,ActualValue]
 
 =cut
 
+$| = 1;
 # Get the command-line parameters.
 my $opt = ScriptUtils::Opts('', Shrub::script_options(),
                             ['gto=s',   'GenomeTypeObjet', { required => 1 }],
