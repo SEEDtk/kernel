@@ -27,14 +27,15 @@ use SeedUtils;
 
 =head1 Run Quality Checks on Packages
 
-    package_check.pl [ options ] dir
+    package_check.pl [ options ] dir pkg1 pkg2 ... pkgN
 
 This script runs through the packages filling in missing quality reports. Currently, this includes SciKit and
 and CheckM.
 
 =head2 Parameters
 
-The positional parameter is the name of the directory containing the genome packages.
+The first positional parameter is the name of the directory containing the genome packages. Any additional parameters are the
+IDs of the genome packages to check. If no IDs are specified, all packages are checked.
 
 The command-line options are as follows.
 
@@ -59,14 +60,14 @@ If specified, empty directories will be deleted.
 
 $| = 1;
 # Get the command-line parameters.
-my $opt = ScriptUtils::Opts('dir',
+my $opt = ScriptUtils::Opts('dir pkg1 pkg2 ... pkgN',
         ["force:s", 'force regeneration of quality data'],
         ["status", 'only show totals'],
         ["clean", 'delete empty packages']
         );
 my $stats = Stats->new;
 # Get the directory and the package.
-my ($dir) = @ARGV;
+my ($dir, @packages) = @ARGV;
 if (! $dir) {
     die "No packages directory specified.";
 } elsif (! -d $dir) {
@@ -86,9 +87,13 @@ if (! $dir) {
     # This is the cleaning flag.
     my $clean = $opt->clean;
     # Compute the list of packages to process.
-    opendir(my $dh, $dir) || die "Could not open package directory: $!";
-    my @packages = sort grep { $_ =~ /^\d+\.\d+$/ } readdir $dh;
-    print scalar(@packages) . " directories found.\n";
+    if (! @packages) {
+        opendir(my $dh, $dir) || die "Could not open package directory: $!";
+        @packages = sort grep { $_ =~ /^\d+\.\d+$/ } readdir $dh;
+        print scalar(@packages) . " directories found.\n";
+    } else {
+        print "Packages taken from command line.\n";
+    }
     # Loop through the packages..
     for my $package (@packages) {
         $stats->Add(packages => 1);
