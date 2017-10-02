@@ -272,6 +272,7 @@ my $opt = ScriptUtils::Opts('sampleDir workDir',
                 ['binstrength=i',  'number of kmer matches required to bin a contig', { default => 10 }],
                 ['danglen=i',      'kmer length for unbinned-contig DNA matches', { default => 50 }],
                 ['species',        'group by species instead of genus'],
+		['statistics-file=s', 'save statistics data to this file'],
         );
 # Enable access to PATRIC from Argonne.
 $ENV{PERL_LWP_SSL_VERIFY_HOSTNAME} = 0;
@@ -740,6 +741,18 @@ if ($opt->unassembled) {
 }
 # All done.
 print "All done.\n" . $stats->Show();
+if ($opt->statistics_file)
+{
+    if (open(S, ">", $opt->statistics_file))
+    {
+	print S $stats->Show();
+	close(S);
+    }
+    else
+    {
+	warn "Cannot write statistics file " . $opt->statistics_file . ": $!";
+    }
+}
 
 # Save the GTOs to disk and release them from memory.
 sub SaveGTOs {

@@ -82,6 +82,7 @@ my $opt = ScriptUtils::Opts('sampleFile outputDir',
         ['noData',       'no coverage data available'],
         ['lenFilter=i',  'minimum contig length', { default => 0 }],
         ['covgFilter=f', 'minimum contig mean coverage', { default => 0}],
+	['statistics-file=s', 'save statistics data to this file'],
         );
 # Get the positional parameters.
 my ($sampleFile, $outputDir) = @ARGV;
@@ -269,6 +270,18 @@ close $ih;
 close $oh;
 close $fh;
 print "All done\n" . $stats->Show();
+if ($opt->statistics_file)
+{
+    if (open(S, ">", $opt->statistics_file))
+    {
+	print S $stats->Show();
+	close(S);
+    }
+    else
+    {
+	warn "Cannot write statistics file " . $opt->statistics_file . ": $!";
+    }
+}
 if ($errors) {
     print "\n** WARNING ** $errors errors found in input.\n";
 }
