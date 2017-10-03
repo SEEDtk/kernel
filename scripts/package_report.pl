@@ -22,6 +22,8 @@ use warnings;
 use FIG_Config;
 use ScriptUtils;
 use GenomeTypeObject;
+use JSON::XS;
+use Cwd 'abs_path';
 
 =head1 Produce a Quality Report on Genome Packages
 
@@ -180,6 +182,10 @@ If specified, a list of the directories with missing information will be sent to
 
 If specified, a comma-delimited list of sample names. Only packages from the specified sample will be output.
 
+=item json
+
+If specified, emit a JSON-formatted report instead of text.
+
 =back
 
 =cut
@@ -190,8 +196,10 @@ my $opt = ScriptUtils::Opts('dir package',
         ["quiet", 'suppress standard output'],
         ["missing", 'list missing data to error output'],
         ["samples=s", 'only process packages from the specified samples']
+        ["json", 'write the report in json format'],
         );
 # Get the directory and the package.
+my $json_packages = [];
 my ($dir, $package) = @ARGV;
 if (! $dir) {
     die "No packages directory specified.";
@@ -237,10 +245,28 @@ if (! $dir) {
     # Loop through the packages, producing output.
     for my $package (@packages) {
         my $line = produce_report($dir, $package, $force, $report);
-        if (! $opt->quiet) {
-            print $line;
-        }
+	if ($opt->json)
+	{
+	    push(@$json_packages, $line);
+	}
+	else
+	{
+	    if (! $opt->quiet) {
+		print $line;
+	    }
+	}
     }
+}
+
+if ($opt->json)
+{
+    my $path = $dir;
+    $path = abs_path($path) unless $path =~ m,^/,;
+    my $json_report = {
+	package_directory => abs_path($path),
+	packages => $json_packages,
+    };
+    print JSON::XS->new->pretty(1)->canonical(1)->encode($json_report);
 }
 
 # Produce the report for one package.
@@ -329,6 +355,35 @@ sub produce_report {
             }
         }
     }
-    # Return the output line.
+    #
+    # If we are using json, split and emit a structure. Otherwise return the line.
+    #
+
+    if ($opt->json)
+    {
+	my $l = $retVal;
+	chomp $l;
+	my($sample_name, $genome_id, $genome_name, $contigs, $dna, $complete,
+	   $n50, $n70, $n90, $ref_id, $ref_name,
+	   $scikit_coarse, $scikit_fine, $checkm_completeness, $checkm_contamination, $checkm_tax) = split(/\t/, $l);
+	$retVal = {
+	    sample_name => $sample_name,
+	    genome_id => $genome_id,
+	    genome_name => $genome_name,
+	    contigs => 0 + $contigs,
+	    dna_bp => 0 + $dna,
+	    complete => $complete,
+	    n50 => 0 + $n50,
+	    n70 => 0 + $n70,
+	    n90 => 0 + $n90,
+	    scikit_coarse => 0.0 + $scikit_coarse,
+	    scikit_fine => 0.0 + $scikit_fine,
+	    checkm_completeness => 0.0 + $checkm_completeness,
+	    checkm_contamination => 0.0 + $checkm_contamination,
+	    checkm_taxonomy => $checkm_tax,
+	};
+    }
+
+    
     return $retVal;
 }
