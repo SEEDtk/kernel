@@ -195,7 +195,7 @@ my $opt = ScriptUtils::Opts('dir package',
         ["force", 'force regeneration of quality data'],
         ["quiet", 'suppress standard output'],
         ["missing", 'list missing data to error output'],
-        ["samples=s", 'only process packages from the specified samples']
+        ["samples=s", 'only process packages from the specified samples'],
         ["json", 'write the report in json format'],
         );
 # Get the directory and the package.
