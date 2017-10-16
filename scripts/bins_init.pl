@@ -23,7 +23,7 @@ use FIG_Config;
 use Shrub;
 use ScriptUtils;
 use Bin::Compute;
-use Bin::Tetra;
+use TetraMap;
 use KmerRepGenomes;
 use Bin;
 use Stats;
@@ -220,7 +220,7 @@ print "$refCount reference genomes found.\n";
 # This hash will contain all the contigs, it maps each contig ID to a bin object describing the contig's properties.
 my %contigs;
 # Create the tetranucleotide object.
-my $tetra = Bin::Tetra->new($opt->tetra);
+my $tetra = TetraMap->new($opt->tetra);
 # Get the list of universal role IDs.
 my $uniRoles = $loader->GetNamesFromFile(uniRoles => $opt->unis);
 my $uniCount = scalar @$uniRoles;

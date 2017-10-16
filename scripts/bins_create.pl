@@ -23,7 +23,7 @@ use FIG_Config;
 use Shrub;
 use ScriptUtils;
 use Bin::Blast;
-use Bin::Tetra;
+use TetraMap;
 use Bin::Analyze;
 use Bin;
 use Stats;
@@ -244,7 +244,7 @@ my %contigs;
 if ($force || ! -s $reducedFastaFile || ! -s $binFile) {
     # We must process the raw contigs to create the contig bin objects and the reduced FASTA file.
     # Create the tetranucleotide object.
-    my $tetra = Bin::Tetra->new($opt->tetra);
+    my $tetra = TetraMap->new($opt->tetra);
     # Now loop through the contig input file, filtering by length.
     print "Processing tetranucleotide data.\n";
     my $fh = $loader->OpenFasta(contig => $contigFile);
