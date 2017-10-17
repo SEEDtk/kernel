@@ -68,7 +68,7 @@ my $opt = ScriptUtils::Opts('', Shrub::script_options(),
 # Connect to the database.
 my $shrub = Shrub->new_for_script($opt);
 # Compute the distance type.
-my $type = ($opt->dot ? 'dot' : 'dist');
+my $type = ($opt->dist ? 'dist' : 'dot');
 print STDERR "Distance type is '$type'.\n";
 # Get the list of genomes. For each, we need its name and DNA file.
 my $dnaDir = $FIG_Config::shrub_dna;
