@@ -104,7 +104,7 @@ for my $genome (sort keys %genomes) {
     $i++;
     my ($name, $file) = @{$genomes{$genome}};
     print STDERR "Processing $genome $i of $n: $name\n";
-    my $profile = TetraProfile->new($mapper, $chunkSize);
+    my $profile = TetraProfile->new($mapper, chunkSize => $chunkSize);
     $profile->ProcessFasta("$dnaDir/$file");
     print join("\t", $genome, $name, $profile->stats($type)) . "\n";
 }
