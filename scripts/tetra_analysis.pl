@@ -101,6 +101,7 @@ print join("\t", qw(genome name min max mean sdev tol)) . "\n";
 # Loop through the genomes.
 my $i = 0;
 for my $genome (sort keys %genomes) {
+    $i++;
     my ($name, $file) = @{$genomes{$genome}};
     print STDERR "Processing $genome $i of $n: $name\n";
     my $profile = TetraProfile->new($mapper, $chunkSize);
