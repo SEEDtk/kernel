@@ -50,6 +50,7 @@ role appearing in the above file.
 The positional parameter is the name of the directory to contain the output files.
 
 The command-line options are those found in L<Shrub/script_options>.
+
 =cut
 
 # Get the command-line parameters.
