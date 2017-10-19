@@ -3,6 +3,7 @@ use Data::Dumper;
 use Shrub;
 use ScriptUtils;
 
+$| = 1;
 my $opt = ScriptUtils::Opts('', Shrub::script_options(),
         ['gap=i', 'region size in each direction', { default => 5000 }],
         ['roles=s', 'roles.in.subsystems file', { default => 'roles.in.subsystems'}],
