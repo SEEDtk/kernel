@@ -58,7 +58,11 @@ foreach my $tuple (@sorted)
 {
     my($r1,$coupled,$count) = @$tuple;
     my $peg = &exemplar($r1,$coupled,\%roleCache,$shrub);
-    print "$count\t$r1\t$peg\n",&Dumper($coupled),"//\n";
+    print "$count\t$r1\t$peg\n";
+    my @couples = sort { $coupled->{$b} <=> $coupled->{$a} } keys %$coupled;
+    for my $couple (@couples) {
+        print "\t$couple\t$coupled->{$couple}\n";
+    }
 }
 
 sub exemplar {
@@ -66,7 +70,7 @@ sub exemplar {
 
     my $r1_id = role_id($r1, $roleCache, $shrub);
     # The use of "2" restricts us to CoreSEED functions.
-    my %pegs = map { $_ => 0 } $shrub->GetFlat('Role2Function Function2Feature', 'Role2Function(from-link) = ? AND Function2Feature(security) = ?',
+    my %pegs = map { $_ => 0 } $shrub->GetFlat('Function2Feature', 'Function2Feature(from-link) = ? AND Function2Feature(security) = ?',
             [$r1_id, 2], 'Function2Feature(to-link)');
     # Get the IDs of all the roles in which we are interested.
     my %roles = map { role_id($_, $roleCache, $shrub) => 1 } keys %$coupled;
