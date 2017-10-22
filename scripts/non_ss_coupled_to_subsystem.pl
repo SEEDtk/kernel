@@ -61,7 +61,7 @@ foreach my $tuple (@sorted)
     print "$count\t$r1\t$peg\n";
     my @couples = sort { $coupled->{$b} <=> $coupled->{$a} } keys %$coupled;
     for my $couple (@couples) {
-        print "\t$couple\t$coupled->{$couple}\n";
+        print "\t$coupled->{$couple}\t$couple\n";
     }
 }
 
