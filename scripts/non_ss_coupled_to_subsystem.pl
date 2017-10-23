@@ -53,17 +53,28 @@ foreach my $r (sort keys(%poss))
 }
 
 my @sorted = sort { $b->[2] <=> $a->[2] } @tocheck;
-
+my @report2;
+my $reportL;
 foreach my $tuple (@sorted)
 {
     my($r1,$coupled,$count) = @$tuple;
     my $peg = &exemplar($r1,$coupled,\%roleCache,$shrub);
-    print "$count\t$r1\t$peg\n";
+    if ($peg) {
+        $reportL = [];
+    } else {
+        $reportL = \@report2;
+    }
+    push @$reportL, "$count\t$r1\t$peg\n";
     my @couples = sort { $coupled->{$b} <=> $coupled->{$a} } keys %$coupled;
     for my $couple (@couples) {
-        print "\t$coupled->{$couple}\t$couple\n";
+        push @$reportL, "\t$coupled->{$couple}\t$couple\n";
+    }
+    if ($peg) {
+        print @$reportL;
     }
 }
+print  "//", @report2;
+
 
 sub exemplar {
     my($r1,$coupled,$roleCache,$shrub) = @_;
@@ -94,7 +105,7 @@ sub exemplar {
     # Find the best peg.
     my ($retVal, $count) = ('', 0);
     for my $peg (keys %pegs) {
-        if ($pegs{$peg} >= $count) {
+        if ($pegs{$peg} > $count) {
             $retVal = $peg;
             $count = $pegs{$peg};
         }
