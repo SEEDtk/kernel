@@ -26,7 +26,7 @@ use Stats;
 
 =head1 Output Feature Coupling Profile Table
 
-    get_feature_coupling_table.pl [ options ] 
+    get_feature_coupling_table.pl [ options ]
 
 This script will output a file containing feature IDs, locations, roles, and (possibly) protein family IDs for a given list of genomes (found
 in the input file).
@@ -73,14 +73,14 @@ while (! eof $ih) {
         # We need to get the roles, the families, and the location data. The location data is first.
         print STDERR "Reading locations.\n";
         my %locs;
-        my $q = $shrub->Get('Feature2Contig', 'Feature2Contig(from-link) LIKE ?', ["fig|$genomeID.peg.%"], 
+        my $q = $shrub->Get('Feature2Contig', 'Feature2Contig(from-link) LIKE ?', ["fig|$genomeID.peg.%"],
             'Feature2Contig(from-link) Feature2Contig(to-link) Feature2Contig(begin) Feature2Contig(len)');
         while (my $record = $q->Fetch()) {
             my ($fid, $contig, $start, $len) = $record->Values('Feature2Contig(from-link) Feature2Contig(to-link) Feature2Contig(begin) Feature2Contig(len)');
             $stats->Add(locRecord => 1);
             my $end = $start + $len - 1;
             my $oldLoc = $locs{$fid};
-            # We merge the location data so that for each feature we have its overall start and end in a contig. 
+            # We merge the location data so that for each feature we have its overall start and end in a contig.
             if (! $oldLoc) {
                 $locs{$fid} = [$contig, $start, $end];
             } else {
@@ -93,15 +93,20 @@ while (! eof $ih) {
                 }
             }
         }
-        # Now we get the roles for each feature. There may be multiple roles per feature.
+        # Now we get the roles for each feature. We only want single-role features.
         print STDERR "Processing roles.\n";
         my %roles;
-        $q = $shrub->Get('Genome2Feature Feature2Function Function2Role', 'Genome2Feature(from-link) = ? AND Feature2Function(security) = ?', [$genomeID, 0],
-            'Feature2Function(from-link) Function2Role(to-link)');
+        $q = $shrub->Get('Genome2Feature Feature2Function', 'Genome2Feature(from-link) = ? AND Feature2Function(security) = ?', [$genomeID, 0],
+            'Feature2Function(from-link) Feature2Function(to-link)');
         while (my $record = $q->Fetch()) {
             $stats->Add(roleRecord => 1);
-            my ($fid, $role) = $record->Values('Feature2Function(from-link) Function2Role(to-link)');
-            push @{$roles{$fid}}, $role;
+            my ($fid, $role) = $record->Values('Feature2Function(from-link) Feature2Function(to-link)');
+            # Only process the role if it has no separators, that is, if it is a single-role function.
+            if ($role =~ /[^a-z0-9]/i) {
+                $stats->Add(multiRoleFidSkipped => 1);
+            } else {
+                push @{$roles{$fid}}, $role;
+            }
         }
         # Finally, the families.
         print STDERR "Processing families.\n";
@@ -120,29 +125,26 @@ while (! eof $ih) {
             my $roles = $roles{$fid};
             if (! $roles) {
                 $stats->Add(fidNoRoles => 1);
-            } else {
-                $stats->Add(fidOut => 1);
-                if (scalar @$roles > 1) {
-                    $stats->Add(fidMultiRoles => 1);
-                }
-                # Format the feature and location data.
-                my $loc = $locs{$fid};
-                my ($contig, $start, $end) = @$loc;
-                my @row = ($fid, $contig, "$start..$end");
-                # Get any families there might be. If there are none, put in a blank.
-                my $fams = $families{$fid};
-                if (! $fams) {
-                    $fams = [''];
-                    $stats->Add(fidNoFamilies => 1);
-                }
-                if (scalar @$fams > 1) {
-                    $stats->Add(fidMultiFamily => 1);
-                }
-                for my $role (@$roles) {
-                    for my $fam (@$fams) {
-                        print join("\t", @row, $role, $fam) . "\n";
-                        $stats->Add(lineOut => 1);
-                    }
+                $roles = [''];
+            }
+            $stats->Add(fidOut => 1);
+            # Format the feature and location data.
+            my $loc = $locs{$fid};
+            my ($contig, $start, $end) = @$loc;
+            my @row = ($fid, $contig, "$start..$end");
+            # Get any families there might be. If there are none, put in a blank.
+            my $fams = $families{$fid};
+            if (! $fams) {
+                $fams = [''];
+                $stats->Add(fidNoFamilies => 1);
+            }
+            if (scalar @$fams > 1) {
+                $stats->Add(fidMultiFamily => 1);
+            }
+            for my $role (@$roles) {
+                for my $fam (@$fams) {
+                    print join("\t", @row, $role, $fam) . "\n";
+                    $stats->Add(lineOut => 1);
                 }
             }
         }
