@@ -18,7 +18,7 @@ concentration is constant). The difference is computed as the percent difference
 
 =item synergy
 
-The score is the largest difference between the control growth rate and the actual growth rate.
+The score is the largest arithmetic difference between the control growth rate and the actual growth rate.
 
 =item synergy
 
@@ -26,7 +26,7 @@ This is the same as synergy, but rows with negative actual growth rates are disc
 
 =item antagony
 
-The score is the smallest different between the control growth rate and the actual growth rate.
+The score is the smallest arithmetic difference between the control growth rate and the actual growth rate.
 
 =item antagony2
 
@@ -42,7 +42,41 @@ The following additional command-line options are supported.
 
 =item N
 
-Number of results to return.
+Number of results to return. The default is 10.
+
+=item min
+
+If specified, ALL results with a score at or above the specified value will be returned. In this case, the B<N> option will be ignored.
+
+=item summary
+
+If specified, the name of a file into which the number of results output for each pair of drugs will be written.
+
+=item doubles
+
+If specified, only groups with two drugs will be included in the output.
+
+=item grouped
+
+If specified, the output will be sorted by drug group instead of score.
+
+=item names
+
+If specified, the name of a file mapping drug numbers to names. The file should be tab-delimited, with numbers in the first column and
+names in the second, and no headers.
+
+=item significant
+
+The number of results considered significant in the summary report. Score counts lower than this value will not be shown.
+
+=item triples
+
+If specified, the name of a file to contain a report on significant drug triplets.
+
+=item tripsig
+
+The number of scores considered significant for triplets. A set of three drugs is a triplet if each pair in the triplet has this number of
+scores or greater.
 
 =back
 
@@ -54,8 +88,27 @@ use P3Utils;
 # Get the command-line options.
 my $opt = P3Utils::script_opts('criterion', P3Utils::ih_options(),
         ['N=i', 'number to return', { default => 10 }],
+        ['min=f', 'return all groups with a score ge this value'],
+        ['doubles', 'only include groups with two drugs'],
+        ['grouped', 'sort output by drug rather than score'],
+        ['summary=s', 'summary file name'],
+        ['names=s', 'file mapping drug numbers to names'],
+        ['significant=i', 'the number of results considered significant in the summary report', { default => 1 }],
+        ['triples=s', 'triples report file name'],
+        ['tripsig=i', 'the number of results considered significant in the triples report', { default => 7 }],
         );
 my ($criterion) = @ARGV;
+# Check for drug names.
+my %nameH;
+if ($opt->names) {
+    open(my $nh, '<', $opt->names) || die "Could not open name file: $!";
+    while (! eof $nh) {
+        my $line = <$nh>;
+        if ($line =~ /(\d+)\t(.+)/) {
+            $nameH{$1} = $2;
+        }
+    }
+}
 # Open the input file.
 my $ih = P3Utils::ih($opt);
 # Process the header.
@@ -71,26 +124,113 @@ my $count = 0;
 my $lines;
 # This contains the name of the current group.
 my $groupName = '';
+my $drugs = 0;
+my $groups = 0;
 # Loop through the input.
 while (! eof $ih) {
     my $line = <$ih>;
     $line =~ s/[\r\n]+$//;
     my @cols = split /,/, $line;
-    my $group = "$cols[8],$cols[14],$cols[28]";
+    # Compute the drug names. Note drug 2 might not exist.
+    my $drug1 = $nameH{$cols[8]} // $cols[8];
+    my $drug2 = ($cols[14] ? ($nameH{$cols[14]} // $cols[14]) : '');
+    my $group = "$drug1,$drug2,$cols[28]";
+    ($cols[8],$cols[14]) = ($drug1, $drug2);
     if ($group ne $groupName) {
-        ProcessGroup($groupName, $lines, \@saved, $criterion) if $groupName;
+        if (! $opt->doubles || $drugs == 2) {
+            ProcessGroup($groupName, $lines, \@saved, $criterion) if $groupName;
+        }
         $groupName = $group;
+        $drugs = ($cols[14] ? 2 : 1);
         $lines = [];
     }
     push @$lines, \@cols;
 }
 # We don't process the residual-- the file comes with a trailer line.
+# This hash contains counts for our summary report.
+my %summary;
+# This hash contains pairs for our triples report.
+my %pairs;
+# If this is grouped output, resort it.
+if ($opt->grouped) {
+    print STDERR "Sorting groups.\n";
+    my @temp = sort { grp_cmp($a->[2], $b->[2]) } @saved;
+    @saved = @temp;
+}
+print STDERR "Printing groups.\n";
 # Print the saved groups.
 for my $groupData (@saved) {
-    my ($score, $group) = @$groupData;
+    my ($score, $group, $name) = @$groupData;
+    # Count the group.
+    my ($drug1, $drug2) = split /,/, $name;
+    $summary{$drug1}{$drug2}++;
+    $summary{$drug2}{$drug1}++;
+    if ($summary{$drug1}{$drug2} >= $opt->tripsig) {
+        $pairs{$drug1}{$drug2} = 1;
+    }
+    # Write it out.
     for my $line (@$group) {
         print join("\t", $score, @$line) . "\n";
     }
+}
+# Print the summary report if requested.
+if ($opt->summary) {
+    print STDERR "Calculating summary.\n";
+    # Compute the total and the report for each drug.
+    my %totals;
+    my %xref;
+    for my $drug1 (keys %summary) {
+        my $countH = $summary{$drug1};
+        my @others = sort { $countH->{$b} <=> $countH->{$a} } keys %$countH;
+        my $total = 0;
+        for my $drug2 (@others) {
+            my $n = $countH->{$drug2};
+            if ($n >= $opt->significant) {
+                $xref{$drug1}{$drug2} = $n;
+                $xref{$drug2}{$drug1} = $n;
+            }
+            $total += $n;
+        }
+        $totals{$drug1} = $total;
+    }
+    # Now output the summary report.
+    print STDERR "Printing summary.\n";
+    open(my $oh, '>', $opt->summary) || die "Could not open summary file: $!";
+    my @drugs = sort { $totals{$b} <=> $totals{$a} } keys %xref;
+    print $oh join("\t", "Drug", "Count", @drugs) . "\n";
+    for my $drug1 (@drugs) {
+        my @line = ($drug1, $totals{$drug1});
+        for my $drug2 (@drugs) {
+            push @line, $xref{$drug1}{$drug2} // '';
+        }
+        print $oh join("\t", @line) . "\n";
+    }
+}
+# Print the triples report if required.
+if ($opt->triples) {
+    print STDERR "Printing triples.\n";
+    open(my $oh, '>', $opt->triples) || die "Could not open triples file: $!";
+    for my $drug1 (sort keys %pairs) {
+        my @others = sort keys %{$pairs{$drug1}};
+        for (my $i = 0; $i < scalar @others; $i++) {
+            my $drug2 = $others[$i];
+            for (my $j = $i + 1; $j < scalar @others; $j++) {
+                my $drug3 = $others[$j];
+                if ($pairs{$drug2}{$drug3}) {
+                    print $oh "$drug1\t$drug2\t$drug3\n";
+                }
+            }
+        }
+    }
+}
+
+# Sort function for grouped mode.
+sub grp_cmp {
+    my ($a, $b) = @_;
+    my ($da, $ea, $ca) = split /,/, $a;
+    my ($db, $eb, $cb) = split /,/, $b;
+    my $retVal = ($da <=> $db) || ($ea <=> $eb) || ($ca cmp $cb);
+    return $retVal;
 }
 
 # Score a group and merge it into the saved list.
@@ -116,11 +256,19 @@ sub ProcessGroup {
     }
     # Only proceed if we have a score.
     if (defined $score) {
-        # Sort the new group into the saved set.
-        @$saved = sort { $b->[0] <=> $a->[0] } (@$saved, [$score, $lines]);
-        # Insure we are not too big.
-        if (scalar @$saved > $opt->n) {
-            pop @$saved;
+        # Determine the basic criterion for keeping a group.
+        if ($opt->min) {
+            # Here we are keeping everything above the minimum.
+            if ($score >= $opt->min) {
+                @$saved = sort { $b->[0] <=> $a->[0] } (@$saved, [$score, $lines, $groupName]);
+            }
+        } else {
+            # Keeping the top N. Sort the new group into the saved set.
+            @$saved = sort { $b->[0] <=> $a->[0] } (@$saved, [$score, $lines]);
+            # Insure we are not too big.
+            if (scalar @$saved > $opt->n) {
+                pop @$saved;
+            }
         }
     }
 }
