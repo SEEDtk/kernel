@@ -63,7 +63,7 @@ if (! $coreDir) {
 } elsif (! -d "$coreDir/FIG/Data/Subsystems") {
     die "$coreDir does not appear to be a SEED FIGdisk.";
 } elsif (! $outFile) {
-    $outFile = "roles.in.all.subsytems";
+    $outFile = "roles.in.all.subsystems";
     print "Default output file name used.\n";
 }
 # Get the subsystem list.
