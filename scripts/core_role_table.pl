@@ -47,6 +47,7 @@ The command-line options are those found in L<Shrub/script_options>.
 
 =cut
 
+$| = 1;
 # Get the command-line parameters.
 my $opt = ScriptUtils::Opts('coreDir outFile',
             Shrub::script_options(),
@@ -142,4 +143,6 @@ for my $roleID (sort keys %roles) {
     my $roleData = $roles{$roleID};
     my $exp = ($nonExp{$roleID} ? '' : 'X');
     print $oh join("\t", $roleID, @$roleData, $exp) . "\n";
+    $stats->Add(roleOut => 1);
 }
+print "All done: " . $stats->Show();
