@@ -20,6 +20,7 @@ use strict;
 use Data::Dumper;
 use Shrub;
 use ScriptUtils;
+use RoleParse;
 
 =head1 Create Coupling Report
 
@@ -96,17 +97,17 @@ my %in_subsys;
 while (! eof INSS) {
     my $line = <INSS>;
     chomp $line;
-    my ($id, undef, $name, $exp) = split /\t/, $line;
-    $in_subsys{$name} = $id;
+    my ($id, $checksum, $name, $exp) = split /\t/, $line;
+    $in_subsys{$checksum} = $id;
     if ($exp) {
-        $exp{$name} = 1;
+        $exp{$checksum} = 1;
     }
 }
 close(INSS);
 
 my %poss;
 
-my %roleCache;
+my (%roleCache, %roleName);
 
 open(RCF,"<$role_couplesF") || die "could not open $role_couplesF";
 # Skip header line.
@@ -118,14 +119,17 @@ while (defined($_ = <RCF>))
     my($r1,$r2,$count) = split(/\t/,$_);
     next if ($count < $min_count);
     next if (&ignore($r1) || &ignore($r2));
-
-    if ($in_subsys{$r1} && (! $in_subsys{$r2}))
+    my $c1 = RoleParse::Checksum($r1);
+    my $c2 = RoleParse::Checksum($r2);
+    my $id1 = role_id($r1, \%roleCache, \%roleName, $shrub);
+    my $id2 = role_id($r2. \%roleCache, \%roleName, $shrub);
+    if ($in_subsys{$c1} && (! $in_subsys{$c2}))
     {
-        $poss{$r2}->{$r1} = $count;
+        $poss{$id2}->{$id1} = $count;
     }
-    elsif ($in_subsys{$r2} && (! $in_subsys{$r1}))
+    elsif ($in_subsys{$c2} && (! $in_subsys{$c1}))
     {
-        $poss{$r1}->{$r2} = $count;
+        $poss{$id1}->{$id2} = $count;
     }
 }
 
@@ -143,17 +147,17 @@ my $reportL;
 foreach my $tuple (@sorted)
 {
     my($r1,$coupled,$count) = @$tuple;
-    my $peg = &exemplar($r1,$coupled,\%roleCache,$shrub);
+    my $peg = &exemplar($r1,$coupled,\%roleCache,\%roleName,$shrub);
     if ($peg) {
         $reportL = [];
     } else {
         $reportL = \@report2;
     }
-    push @$reportL, "$count\t$r1\t$peg\n";
+    push @$reportL, "$count\t$roleName{$r1}\t$peg\n";
     my @couples = sort { $coupled->{$b} <=> $coupled->{$a} } keys %$coupled;
     for my $couple (@couples) {
         my $exp = ($exp{$couple} ? 'X' : '');
-        push @$reportL, "\t$coupled->{$couple}\t$couple\t$exp\n";
+        push @$reportL, "\t$coupled->{$couple}\t$roleName{$couple}\t$exp\n";
     }
     if ($peg) {
         print @$reportL;
@@ -163,14 +167,13 @@ print  "//", @report2;
 
 
 sub exemplar {
-    my($r1,$coupled,$roleCache,$shrub) = @_;
+    my($r1,$coupled,$roleCache,$roleName,$shrub) = @_;
 
-    my $r1_id = role_id($r1, $roleCache, $shrub);
     # The use of "2" restricts us to CoreSEED functions.
     my %pegs = map { $_ => 0 } $shrub->GetFlat('Function2Feature', 'Function2Feature(from-link) = ? AND Function2Feature(security) = ?',
-            [$r1_id, 2], 'Function2Feature(to-link)');
+            [$r1, 2], 'Function2Feature(to-link)');
     # Get the IDs of all the roles in which we are interested.
-    my %roles = map { role_id($_, $roleCache, $shrub) => 1 } keys %$coupled;
+    my %roles = map { role_id($_, $roleCache, $roleName, $shrub) => 1 } keys %$coupled;
     for my $peg (keys %pegs) {
         # Get the location of this peg.
         my $loc = $shrub->loc_of($peg);
@@ -200,11 +203,12 @@ sub exemplar {
 }
 
 sub role_id {
-    my ($role, $roleCache, $shrub) = @_;
+    my ($role, $roleCache, $roleName, $shrub) = @_;
     my $retVal = $roleCache->{$role};
     if (! defined $retVal) {
         $retVal = $shrub->desc_to_function($role) // '';
         $roleCache->{$role} = $retVal;
+        $roleName->{$retVal} = $role;
     }
     return $retVal;
 }
