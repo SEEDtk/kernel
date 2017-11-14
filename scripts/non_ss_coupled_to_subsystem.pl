@@ -92,11 +92,9 @@ my $role_couplesF = $opt->rolecouples;
 my $min_count     = $opt->min;
 my $shrub         = Shrub->new_for_script($opt);
 my $gap           = $opt->gap;
-print STDERR "Creating role map.\n";
 my $roleMap = RolesInSubsystems->new($shrub, $roles_in_ssF);
 
 my %poss;
-print STDERR "Reading couples file.\n";
 my $progress = 0;
 open(my $rh, "<$role_couplesF") || die "could not open $role_couplesF";
 # Skip header line.
@@ -110,7 +108,6 @@ while (defined($line = <$rh>)) {
     my $id1 = $roleMap->RoleID($r1);
     my $id2 = $roleMap->RoleID($r2);
     $progress++;
-    print STDERR "$progress couples processed.\n" if ($progress % 1000) == 0;
     # Insure both roles are valid (basically, they are not hypothetical or ill-formed).
     if ($id1 && $id2) {
         my $sub1 = $roleMap->in_sub($id1);
@@ -125,7 +122,6 @@ while (defined($line = <$rh>)) {
 close $rh; undef $rh;
 # %poss{r1}{r2} now contains the number of couples of non-subsystem role r1 with subsystem role r2.
 my @tocheck;
-print STDERR "Creating check queue.\n";
 foreach my $r (sort keys(%poss))
 {
     push(@tocheck,[$r,$poss{$r},&best_count($poss{$r})]);
@@ -139,7 +135,6 @@ $progress = 0;
 foreach my $tuple (@sorted)
 {
     $progress++;
-    print STDERR "Checking group $progress.\n";
     my($r1,$coupled,$count) = @$tuple;
     my $peg = &exemplar($r1,$coupled,$roleMap);
     if ($peg) {
