@@ -138,9 +138,9 @@ print STDERR scalar(@sorted) . " couple groups to check.\n";
 $progress = 0;
 foreach my $tuple (@sorted)
 {
-    my($r1,$coupled,$count) = @$tuple;
     $progress++;
-    print "$progress couple groups checked.\n";
+    print STDERR "Checking group $progress.\n";
+    my($r1,$coupled,$count) = @$tuple;
     my $peg = &exemplar($r1,$coupled,$roleMap);
     if ($peg) {
         $reportL = [];
