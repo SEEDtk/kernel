@@ -66,6 +66,10 @@ second role name, and (2) the number of coupling instances. The default is C<rol
 
 The minimum number of coupling instances required for a pair to be significant. The default is C<100>.
 
+=item strict
+
+If specified, experimental roles will not be considered as subsystem roles.
+
 =back
 
 =head2 Procedure
@@ -86,13 +90,14 @@ my $opt = ScriptUtils::Opts('', Shrub::script_options(),
         ['gap=i', 'region size in each direction', { default => 5000 }],
         ['roles=s', 'roles.in.subsystems file', { default => 'roles.in.all.subsystems'}],
         ['roleCouples=s', 'role couples file', { default => 'role.couples.tbl' }],
+        ['strict', 'do not consider experimental roles as part of subsystems'],
         ['min=i', 'minimum count', { default => 100 }]);
 my $roles_in_ssF  = $opt->roles;
 my $role_couplesF = $opt->rolecouples;
 my $min_count     = $opt->min;
 my $shrub         = Shrub->new_for_script($opt);
 my $gap           = $opt->gap;
-my $roleMap = RolesInSubsystems->new($shrub, $roles_in_ssF);
+my $roleMap = RolesInSubsystems->new($shrub, $roles_in_ssF, strict => $opt->strict);
 
 my %poss;
 my $progress = 0;

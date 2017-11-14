@@ -57,7 +57,7 @@ A L<Shrub> object for accessing the database.
 
 =head3 new
 
-    my $roleMap = RolesInSubsystems->new($shrub, $fileName);
+    my $roleMap = RolesInSubsystems->new($shrub, $fileName, %options);
 
 Create a new RolesInSubsystems object populated with subsystem roles.
 
@@ -72,12 +72,24 @@ A L<Shrub> object for accessing the database.
 The name of a roles.in.subsystems file. This is a tab-delimited file, each record containing (0) a role ID, (1) a role checksum, (2) a role name,
 and (3) an option C<X>, indicating an experimental role.
 
+=item options
+
+A hash containing zero or more of the following keys.
+
+=over 8
+
+=item strict
+
+If TRUE, experimental roles will not be considered subsystem roles.
+
+=back
+
 =back
 
 =cut
 
 sub new {
-    my ($class, $shrub, $fileName) = @_;
+    my ($class, $shrub, $fileName, %options) = @_;
     # Create the maps.
     my (%checkMap, %nameMap, %expMap, %subMap);
     # Create the object.
@@ -88,6 +100,8 @@ sub new {
         expMap => \%expMap,
         subMap => \%subMap
     };
+    # Check for strict mode.
+    my $strict = $options{strict};
     # Read the file.
     open(my $ih, '<', $fileName) || die "Could not open $fileName: $!";
     while (! eof $ih) {
@@ -96,7 +110,9 @@ sub new {
         my ($id, $checksum, $name, $xFlag) = split /\t/, $line;
         $checkMap{$checksum} = $id;
         $nameMap{$id} = $name;
-        $subMap{$id} = 1;
+        if (! $xFlag || ! $strict) {
+            $subMap{$id} = 1;
+        }
         if ($xFlag) {
             $expMap{$id} = 1;
         }
