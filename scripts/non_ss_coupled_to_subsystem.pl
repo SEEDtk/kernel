@@ -20,7 +20,7 @@ use strict;
 use Data::Dumper;
 use Shrub;
 use ScriptUtils;
-use RoleParse;
+use RolesInSubsystems;
 
 =head1 Create Coupling Report
 
@@ -66,6 +66,8 @@ second role name, and (2) the number of coupling instances. The default is C<rol
 
 The minimum number of coupling instances required for a pair to be significant. The default is C<100>.
 
+=back
+
 =head2 Procedure
 
 To generate the input files for this program, create a special directory and use the following commands.
@@ -91,49 +93,34 @@ my $min_count     = $opt->min;
 my $shrub         = Shrub->new_for_script($opt);
 my $gap           = $opt->gap;
 
-open(INSS,"<$roles_in_ssF") || die "could not open $roles_in_ssF";
-my %exp;
-my %in_subsys;
-while (! eof INSS) {
-    my $line = <INSS>;
-    chomp $line;
-    my ($id, $checksum, $name, $exp) = split /\t/, $line;
-    $in_subsys{$checksum} = $id;
-    if ($exp) {
-        $exp{$checksum} = 1;
-    }
-}
-close(INSS);
+my $roleMap = RolesInSubsystems->new($shrub, $roles_in_ssF);
 
 my %poss;
 
-my (%roleCache, %roleName);
-
-open(RCF,"<$role_couplesF") || die "could not open $role_couplesF";
+open(my $rh, "<$role_couplesF") || die "could not open $role_couplesF";
 # Skip header line.
-my $line = <RCF>;
+my $line = <$rh>;
 # Loop through the couples.
-while (defined($_ = <RCF>))
-{
-    chomp;
-    my($r1,$r2,$count) = split(/\t/,$_);
+while (defined($line = <$rh>)) {
+    chomp $line;
+    my($r1,$r2,$count) = split(/\t/,$line);
     next if ($count < $min_count);
     next if (&ignore($r1) || &ignore($r2));
-    my $c1 = RoleParse::Checksum($r1);
-    my $c2 = RoleParse::Checksum($r2);
-    my $id1 = role_id($r1, \%roleCache, \%roleName, $shrub);
-    my $id2 = role_id($r2. \%roleCache, \%roleName, $shrub);
-    if ($in_subsys{$c1} && (! $in_subsys{$c2}))
-    {
-        $poss{$id2}->{$id1} = $count;
-    }
-    elsif ($in_subsys{$c2} && (! $in_subsys{$c1}))
-    {
-        $poss{$id1}->{$id2} = $count;
+    my $id1 = $roleMap->RoleID($r1);
+    my $id2 = $roleMap->RoleID($r2);
+    # Insure both roles are valid (basically, they are not hypothetical or ill-formed).
+    if ($id1 && $id2) {
+        my $sub1 = $roleMap->in_sub($id1);
+        my $sub2 = $roleMap->in_sub($id2);
+        if ($sub1 && ! $sub2) {
+            $poss{$id2}{$id1} = $count;
+        } elsif (! $sub1 && $sub2) {
+            $poss{$id1}{$id2} = $count;
+        }
     }
 }
-
-close(RCF);
+close $rh; undef $rh;
+# %poss{r1}{r2} now contains the number of couples of non-subsystem role r1 with subsystem role r2.
 my @tocheck;
 
 foreach my $r (sort keys(%poss))
@@ -147,17 +134,16 @@ my $reportL;
 foreach my $tuple (@sorted)
 {
     my($r1,$coupled,$count) = @$tuple;
-    my $peg = &exemplar($r1,$coupled,\%roleCache,\%roleName,$shrub);
+    my $peg = &exemplar($r1,$coupled,$roleMap);
     if ($peg) {
         $reportL = [];
     } else {
         $reportL = \@report2;
     }
-    push @$reportL, "$count\t$roleName{$r1}\t$peg\n";
+    push @$reportL, join("\t", $count, $roleMap->name($r1), $peg) . "\n";
     my @couples = sort { $coupled->{$b} <=> $coupled->{$a} } keys %$coupled;
     for my $couple (@couples) {
-        my $exp = ($exp{$couple} ? 'X' : '');
-        push @$reportL, "\t$coupled->{$couple}\t$roleName{$couple}\t$exp\n";
+        push @$reportL, join("\t", $coupled->{$couple}, $roleMap->name($couple), $roleMap->is_exp($couple)) . "\n";
     }
     if ($peg) {
         print @$reportL;
@@ -167,13 +153,12 @@ print  "//", @report2;
 
 
 sub exemplar {
-    my($r1,$coupled,$roleCache,$roleName,$shrub) = @_;
-
+    my($r1,$coupled,$roleMap) = @_;
     # The use of "2" restricts us to CoreSEED functions.
     my %pegs = map { $_ => 0 } $shrub->GetFlat('Function2Feature', 'Function2Feature(from-link) = ? AND Function2Feature(security) = ?',
             [$r1, 2], 'Function2Feature(to-link)');
     # Get the IDs of all the roles in which we are interested.
-    my %roles = map { role_id($_, $roleCache, $roleName, $shrub) => 1 } keys %$coupled;
+    my %roles = map { $roleMap->RoleID($_) => 1 } keys %$coupled;
     for my $peg (keys %pegs) {
         # Get the location of this peg.
         my $loc = $shrub->loc_of($peg);
@@ -198,17 +183,6 @@ sub exemplar {
             $retVal = $peg;
             $count = $pegs{$peg};
         }
-    }
-    return $retVal;
-}
-
-sub role_id {
-    my ($role, $roleCache, $roleName, $shrub) = @_;
-    my $retVal = $roleCache->{$role};
-    if (! defined $retVal) {
-        $retVal = $shrub->desc_to_function($role) // '';
-        $roleCache->{$role} = $retVal;
-        $roleName->{$retVal} = $role;
     }
     return $retVal;
 }
