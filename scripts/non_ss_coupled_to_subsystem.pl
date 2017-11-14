@@ -140,7 +140,7 @@ foreach my $tuple (@sorted)
 {
     my($r1,$coupled,$count) = @$tuple;
     $progress++;
-    print "$progress couple groups checked.\n" if ($progress % 100) == 0;
+    print "$progress couple groups checked.\n";
     my $peg = &exemplar($r1,$coupled,$roleMap);
     if ($peg) {
         $reportL = [];
