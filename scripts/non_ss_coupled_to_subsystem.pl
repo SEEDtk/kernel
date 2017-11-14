@@ -145,13 +145,13 @@ foreach my $tuple (@sorted)
     push @$reportL, join("\t", $count, $roleMap->name($r1), $peg) . "\n";
     my @couples = sort { $coupled->{$b} <=> $coupled->{$a} } keys %$coupled;
     for my $couple (@couples) {
-        push @$reportL, join("\t", $coupled->{$couple}, $roleMap->name($couple), $roleMap->is_exp($couple)) . "\n";
+        push @$reportL, join("\t", '', $coupled->{$couple}, $roleMap->name($couple), $roleMap->is_exp($couple)) . "\n";
     }
     if ($peg) {
         print @$reportL;
     }
 }
-print  "//", @report2;
+print  "//\n", @report2;
 
 
 sub exemplar {
@@ -159,8 +159,6 @@ sub exemplar {
     # The use of "2" restricts us to CoreSEED functions.
     my %pegs = map { $_ => 0 } $shrub->GetFlat('Function2Feature', 'Function2Feature(from-link) = ? AND Function2Feature(security) = ?',
             [$r1, 2], 'Function2Feature(to-link)');
-    # Get the IDs of all the roles in which we are interested.
-    my %roles = map { $roleMap->RoleID($_) => 1 } keys %$coupled;
     for my $peg (keys %pegs) {
         # Get the location of this peg.
         my $loc = $shrub->loc_of($peg);
@@ -171,7 +169,7 @@ sub exemplar {
         # Loop through the genes counting roles.
         for my $geneThing (@$geneList) {
             for my $role (split /[\@\;\/]/, $geneThing->[2]) {
-                if ($roles{$role}) {
+                if ($coupled->{$role}) {
                     $pegs{$peg}++;
                 }
             }
