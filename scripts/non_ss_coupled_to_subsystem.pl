@@ -130,7 +130,6 @@ foreach my $r (sort keys(%poss))
 my @sorted = sort { $b->[2] <=> $a->[2] } @tocheck;
 my @report2;
 my $reportL;
-print STDERR scalar(@sorted) . " couple groups to check.\n";
 $progress = 0;
 foreach my $tuple (@sorted)
 {
