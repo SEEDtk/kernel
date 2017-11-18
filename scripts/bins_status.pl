@@ -87,6 +87,11 @@ binning pipelines will be started; all subsequent directories will be left in a 
 
 Restart non-running jobs in progress.
 
+=item maxResume
+
+Maximum number of running jobs to allow when resuming. The default is C<20>. This is always approximate: it is just a
+stopgap to avoid overwhelming the machine.
+
 =item terse
 
 If specified, completed samples will not be shown, only samples in progress.
@@ -106,6 +111,7 @@ my $opt = ScriptUtils::Opts('directory',
                 ['terse', 'do not show completed bins'],
                 ['project=s', 'project type for binning jobs', { required => 1 }],
                 ['fix', 'remove empty sample directories'],
+                ['maxResume=i', 'maximum number of running jobs for resume', { default => 20 }],
                 ['run=i', 'run binning pipeline on new directories', { default => 0 }]);
 my $stats = Stats->new();
 # Get the main directory name.
@@ -131,6 +137,8 @@ for my $job (@jobs) {
 opendir(my $ih, $directory) || die "Could not open directory $directory.";
 my @dirs = sort grep { substr($_,0,1) ne '.' && -d "$directory/$_" } readdir $ih;
 print scalar(@dirs) . " subdirectories found.\n";
+# Get the number of jobs we can resume. Each running job decrements this.
+my $resumeLeft = $opt->maxresume;
 # Groups for printing.
 my (@done, @downloaded, @other);
 for my $dir (@dirs) {
@@ -154,7 +162,11 @@ for my $dir (@dirs) {
     } else {
         $site = "Error";
     }
-    my $run = ($running{$dir} ? ', running' : '');
+    my $run = '';
+    if ($running{$dir}) {
+        $run = ', running';
+        $resumeLeft--;
+    }
     my $label = "$subDir ($site$run)";
     # Determine the status.
     if (-s "$subDir/expect.report.txt") {
@@ -169,8 +181,9 @@ for my $dir (@dirs) {
             $stats->Add(dirs6RastComplete => 1);
         }
     } elsif (-s "$subDir/bin1.gto") {
-        if (! $run && $opt->resume) {
+        if (! $run && $opt->resume && $resumeLeft) {
             StartJob($dir, $subDir, '', 'Restarted', $label, $proj);
+            $resumeLeft--;
         } else {
             my $i = 2;
             while (-s "$subDir/bin$i.gto") { $i++; }
