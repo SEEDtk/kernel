@@ -287,7 +287,7 @@ sub Process {
     # At this point, we have the contigs and the coverage data.
     if ($force || ! -s "$workDir/bins.report.txt") {
         # We need to generate bins.
-        my $rc = system('bins_generate', $workDir);
+        my $rc = system('bins_generate', '--species', $workDir);
         die "Error exit $rc from bins_generate." if $rc;
         $force = 1;
     }

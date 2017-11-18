@@ -67,7 +67,7 @@ The opposite of C<--original>. Only packages not from samples will qualify.
 =item good
 
 If specified, only packages with a fine SciKit score of 85 or more and a CheckM completeness score of 80 or
-more and a properly-annotated Phenylalamine tRNA synthetase will qualify. A package without a
+more, a contamination of 10 or less, and a properly-annotated Phenylalamine tRNA synthetase will qualify. A package without a
 C<quality.tbl> file will automatically not qualify.
 
 =item count
@@ -153,7 +153,7 @@ for my $package (sort @inPackages) {
         my @flds = split /\t/, <$qh>;
         # Note that the fields may be blank if we don't have quality data. This
         # automatically disqualifies the package.
-        if ($flds[12] && $flds[13] && $flds[12] >= 85 && $flds[13] >= 80) {
+        if ($flds[12] && $flds[13] && $flds[12] >= 85 && $flds[13] >= 80 && $flds[14] <= 10) {
             # Here we are probably good. Read the GTO and check the annotations.
             my $gtoFile = "$inDir/$package/bin.gto";
             if (-s $gtoFile) {
