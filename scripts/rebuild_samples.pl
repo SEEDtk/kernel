@@ -127,6 +127,7 @@ for my $sample (@samples) {
         }
         my ($abundance) = glob("$inDir/*_abundance_table.tsv");
         if ($abundance) {
+            print "Abundance file is $inDir/$abundance\n";
             File::Copy::Recursive::fcopy("$inDir/$abundance", $outDir) || die "Could not copy abundance file: $!";
             print "Abundance file copied.\n";
             $stats->Add(abundanceCopied => 1);
