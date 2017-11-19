@@ -118,6 +118,7 @@ for my $sample (@samples) {
         # Here we have a directory into which we want to copy the inputs. First we copy the main files.
         File::Copy::Recursive::fcopy("$inDir/contigs.fasta", $outDir) || die "Could not copy contig file: $!";
         File::Copy::Recursive::fcopy("$inDir/output.contigs2reads.txt", $outDir) || die "Could not copy coverage file: $!";
+        File::Copy::Recursive::pathmk("$inDir/Assembly");
         print "Main files copied.\n";
         $stats->Add(samplesCopied => 1);
         if (-f "$inDir/site.tbl") {
