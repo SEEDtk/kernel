@@ -138,7 +138,8 @@ opendir(my $ih, $directory) || die "Could not open directory $directory.";
 my @dirs = sort grep { substr($_,0,1) ne '.' && -d "$directory/$_" } readdir $ih;
 print scalar(@dirs) . " subdirectories found.\n";
 # Get the number of jobs we can resume. Each running job decrements this.
-my $resumeLeft = $opt->maxresume;
+my $resumeLeft = $opt->maxresume - scalar (keys %running);
+print "$resumeLeft job slots available.\n";
 # Groups for printing.
 my (@done, @downloaded, @other);
 for my $dir (@dirs) {
@@ -165,7 +166,6 @@ for my $dir (@dirs) {
     my $run = '';
     if ($running{$dir}) {
         $run = ', running';
-        $resumeLeft--;
     }
     my $label = "$subDir ($site$run)";
     # Determine the status.
