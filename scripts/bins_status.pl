@@ -174,8 +174,9 @@ for my $dir (@dirs) {
     } elsif ($rastFound && ! -s "$subDir/$dir" . '_abundance_table.tsv') {
         $done = "Done (No Expectations).";
     } elsif ($rastFound) {
-        if (! $run && $opt->resume) {
+        if (! $run && $opt->resume && $resumeLeft) {
             StartJob($dir, $subDir, '', 'Restarted', $label, $proj);
+            $resumeLeft--;
         } else {
             push @other, "$label: RAST Complete.\n";
             $stats->Add(dirs6RastComplete => 1);
@@ -192,8 +193,9 @@ for my $dir (@dirs) {
         }
         $stats->Add(dirs5RastPartial => 1);
     } elsif (-s "$subDir/bins.json") {
-        if (! $run && $opt->resume) {
+        if (! $run && $opt->resume && $resumeLeft) {
             StartJob($dir, $subDir, '', 'Restarted', $label, $proj);
+            $resumeLeft--;
         } else {
             push @other, "$label: Bins Computed.\n";
         }
@@ -202,15 +204,17 @@ for my $dir (@dirs) {
         $stats->Add(noBinsFound => 1);
         $done = "No bins found.";
     } elsif (-s "$subDir/sample.fasta") {
-        if (! $run && $opt->resume) {
+        if (! $run && $opt->resume && $resumeLeft) {
             StartJob($dir, $subDir, '', 'Restarted', $label, $proj);
+            $resumeLeft--;
         } else {
             push @other, "$label: Binning in Progress.\n";
         }
         $stats->Add(dirs3Binning => 1);
     } elsif (-s "$subDir/contigs.fasta") {
-        if (! $run && $opt->resume) {
+        if (! $run && $opt->resume && $resumeLeft) {
             StartJob($dir, $subDir, '', 'Restarted', $label, $proj);
+            $resumeLeft--;
         } else {
             push @other, "$label: Assembled.\n";
         }
