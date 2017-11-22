@@ -96,6 +96,10 @@ stopgap to avoid overwhelming the machine.
 
 If specified, completed samples will not be shown, only samples in progress.
 
+=item rerun
+
+Used when rerunning assemblies.  Does not display assembled bins that are not running.
+
 =item fix
 
 Remove empty samples.
@@ -109,6 +113,7 @@ my $opt = ScriptUtils::Opts('directory',
                 ['clean', 'clean up assembly information for complete samples'],
                 ['resume', 'restart failed jobs'],
                 ['terse', 'do not show completed bins'],
+                ['rerun', 'do not show assembled bins that are not running'],
                 ['project=s', 'project type for binning jobs', { required => 1 }],
                 ['fix', 'remove empty sample directories'],
                 ['maxResume=i', 'maximum number of running jobs for resume', { default => 20 }],
@@ -215,7 +220,7 @@ for my $dir (@dirs) {
         if (! $run && $opt->resume && $resumeLeft) {
             StartJob($dir, $subDir, '', 'Restarted', $label, $proj);
             $resumeLeft--;
-        } else {
+        } elsif (! $run && ! $opt->rerun) {
             push @other, "$label: Assembled.\n";
         }
         $stats->Add(dirs2Assembled => 1);
