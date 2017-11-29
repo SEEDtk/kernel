@@ -25,6 +25,8 @@
 <th>DNA size (bp)</th><td>[% g.dna_bp %]</td>
 </tr><tr>
 <th>Contigs N50 (bp)</th><td>[% g.n50 %]</td>
+</tr><tr>
+<th>Mean Coverage</th><td>[% g.coverage %]</td>
 </tr>
 </table>
 <h2>Potentially Problematic Roles</h2>
