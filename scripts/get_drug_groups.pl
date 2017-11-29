@@ -78,6 +78,10 @@ If specified, the name of a file to contain a report on significant drug triplet
 The number of scores considered significant for triplets. A set of three drugs is a triplet if each pair in the triplet has this number of
 scores or greater.
 
+=item panels
+
+If specified, the name of a file to contain a report on the types of cell lines that are considered significant for each drug.
+
 =back
 
 =cut
@@ -96,6 +100,7 @@ my $opt = P3Utils::script_opts('criterion', P3Utils::ih_options(),
         ['significant=i', 'the number of results considered significant in the summary report', { default => 1 }],
         ['triples=s', 'triples report file name'],
         ['tripsig=i', 'the number of results considered significant in the triples report', { default => 7 }],
+        ['panels=s', 'cell lines type report file name'],
         );
 my ($criterion) = @ARGV;
 # Check for drug names.
@@ -122,6 +127,8 @@ P3Utils::print_cols(['score', @headers]);
 my $count = 0;
 # This array contains the lines for the current group.
 my $lines;
+# This maps each cell line to its panel type.
+my %lineType;
 # This contains the name of the current group.
 my $groupName = '';
 my $drugs = 0;
@@ -136,7 +143,11 @@ while (! eof $ih) {
     my $drug2 = ($cols[14] ? ($nameH{$cols[14]} // $cols[14]) : '');
     my $group = "$drug1,$drug2,$cols[28]";
     ($cols[8],$cols[14]) = ($drug1, $drug2);
+    # Save the panel/line mapping.
+    $lineType{$cols[28]} = $cols[27];
+    # Is this the end of a group?
     if ($group ne $groupName) {
+        # Yes. Set up for the next group.
         if (! $opt->doubles || $drugs == 2) {
             ProcessGroup($groupName, $lines, \@saved, $criterion) if $groupName;
         }
@@ -151,6 +162,10 @@ while (! eof $ih) {
 my %summary;
 # This hash contains pairs for our triples report.
 my %pairs;
+# This hash contains counts for the cell-lines report.
+my %lineCounts;
+# This hash contains panels found in the cell-lines report.
+my %panels;
 # If this is grouped output, resort it.
 if ($opt->grouped) {
     print STDERR "Sorting groups.\n";
@@ -162,13 +177,18 @@ print STDERR "Printing groups.\n";
 for my $groupData (@saved) {
     my ($score, $group, $name) = @$groupData;
     # Count the group.
-    my ($drug1, $drug2) = split /,/, $name;
+    my ($drug1, $drug2, $cellLine) = split /,/, $name;
     $summary{$drug1}{$drug2}++;
     $summary{$drug2}{$drug1}++;
     if ($summary{$drug1}{$drug2} >= $opt->tripsig) {
         $pairs{$drug1}{$drug2} = 1;
     }
-    # Write it out.
+    # Tally the cell line's participation for the drugs.
+    my $panel = $lineType{$cellLine};
+    $lineCounts{$drug1}{$panel}++;
+    $lineCounts{$drug2}{$panel}++;
+    $panels{$panel} = 1;
+    # Write out the group.
     for my $line (@$group) {
         print join("\t", $score, @$line) . "\n";
     }
@@ -210,6 +230,7 @@ if ($opt->summary) {
 if ($opt->triples) {
     print STDERR "Printing triples.\n";
     open(my $oh, '>', $opt->triples) || die "Could not open triples file: $!";
+    print $oh join("\t", 'A', 'B', 'C', 'A with B', 'A with C', 'B with C') . "\n";
     for my $drug1 (sort keys %pairs) {
         my @others = sort keys %{$pairs{$drug1}};
         for (my $i = 0; $i < scalar @others; $i++) {
@@ -217,12 +238,35 @@ if ($opt->triples) {
             for (my $j = $i + 1; $j < scalar @others; $j++) {
                 my $drug3 = $others[$j];
                 if ($pairs{$drug2}{$drug3}) {
-                    print $oh "$drug1\t$drug2\t$drug3\n";
+                    print $oh join("\t", $drug1, $drug2, $drug3, $summary{$drug1}{$drug2}, $summary{$drug1}{$drug3}, $summary{$drug2}{$drug3}) . "\n";
                 }
             }
         }
     }
 }
+# Print the cell-lines report if required.
+if ($opt->panels) {
+    print STDERR "Printing panel report.\n";
+    open(my $oh, '>', $opt->panels) || die "Could not open panels file: $!";
+    my @panels = sort keys %panels;
+    print $oh join("\t", 'drug', @panels) . "\n";
+    # Sort the drugs by synergy.
+    my %drugCounts;
+    for my $drug (keys %lineCounts) {
+        my $panelsH = $lineCounts{$drug};
+        my $total = 0;
+        for my $panel (keys %$panelsH) {
+            $total += $panelsH->{$panel};
+        }
+        $drugCounts{$drug} = $total;
+    }
+    my @drugs = sort { $drugCounts{$b} <=> $drugCounts{$a} } keys %drugCounts;
+    for my $drug (@drugs) {
+        my $panelsH = $lineCounts{$drug};
+        print $oh join("\t", $drug, map { $panelsH->{$_} // 0 } @panels) . "\n";
+    }
+}
+
 
 # Sort function for grouped mode.
 sub grp_cmp {
