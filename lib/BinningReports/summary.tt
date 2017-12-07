@@ -69,6 +69,6 @@ The following bins did not meet the quality criteria:</p>
 <td>[% g.dna_bp %]</td>
 <td>[% g.n50 %]</td>
 <td>[% g.coverage %]</td>
-<td><a href="[% g.genome_id %]/report.html">[% g.ppr %] roles</a></td>
+<td><a href="[% g.report_url %]">[% g.ppr %] roles</a></td>
 </tr>
 [% END %]
