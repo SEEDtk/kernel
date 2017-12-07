@@ -71,13 +71,18 @@ The command-line options are the following.
 
 If specified, the genome group path to use. If a genome group path is specified, it changes the report output.
 
+=item single
+
+If specified, the bins.json data will be omitted from the detail reports.
+
 =back
 
 =cut
 
 # Get the command-line parameters.
 my $opt = ScriptUtils::Opts('testDir',
-        ['group=s', 'genome group path']
+        ['group=s', 'genome group path'],
+        ['single', 'leave off binning-specified data in detail reports'],
         );
 # Use a dummy job ID.
 my $jobID = "58ce6a77-e131-40fe-982b-6a8359e0d4e7";
@@ -128,7 +133,8 @@ for my $gto (@gtos) {
     my $genome = $gto->{id};
     print "Creating detail report for $genome.\n";
     File::Copy::Recursive::pathmk("$testDir/$genome") || die "Could not create $genome: $!";
-    my $detail = BinningReports::Detail($params, $bins_json, "$testDir/details.tt", $gto, \%roleMap);
+    my $binParm = ($opt->single ? undef : $bins_json);
+    my $detail = BinningReports::Detail($params, $binParm, "$testDir/details.tt", $gto, \%roleMap);
     write_html($detail, "$testDir/$genome/report.html");
 }
 

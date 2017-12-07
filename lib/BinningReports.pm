@@ -391,9 +391,10 @@ Produce the detail report for a single bin.
 
 The L</params> structure used to invoke the binning.
 
-=item bins_json
+=item bins_json (optional)
 
-The L</bins_json> structure produced by the binning.
+The L</bins_json> structure produced by the binning. If this is omitted, then coverage and reference-genome data will
+be left off the output page.
 
 =item details_tt
 
@@ -458,12 +459,12 @@ sub Detail {
     my $refGmap = parse_bins_json($bins_json);
     # Now we need to build the bin descriptor from the GTO.
     my %gThing = copy_gto($gto);
-    # Get the matching ppr and refGmap entries.
+    # Get the matching ppr and refGmap entries. Note there may not be a refGmap entry if there was no bins_json.
     my $genomeID = $gto->{id};
     my $genomeName = $gto->{scientific_name};
     my $genomeURL = join('/', URL_BASE, uri_escape($genomeID));
     my $ppr = $gto->{genome_quality_measure}{problematic_roles_report};
-    my $refData = $refGmap->{$genomeName};
+    my $refData = $refGmap->{$genomeName} // {};
     # Problematic roles are stashed here.
     my @pprList;
     # Only proceed if we connected the pieces. We need a fall-back in case of errors.
@@ -571,7 +572,7 @@ Parse the L</bins_json> object and return a map of bin names to coverage and ref
 
 =item bins_json
 
-The L</bins_json> object produced by the binning report.
+The L</bins_json> object produced by the binning report. If this value is undefined, an empty hash will be returned.
 
 =item RETURN
 
@@ -597,20 +598,22 @@ The mean coverage of the bin.
 sub parse_bins_json {
     my ($bins_json) = @_;
     my %retVal;
-    for my $binThing (@$bins_json) {
-        my $name = $binThing->{name};
-        my $refs = $binThing->{refGenomes};
-        my @refList = map { { genome => $_, url => join('/', URL_BASE , uri_escape($_)) } } @$refs;
-        my ($cov, $count) = (0, 0);
-        for my $covItem (@{$binThing->{coverage}}) {
-            $cov += $covItem;
-            $count++;
+    if ($bins_json) {
+        for my $binThing (@$bins_json) {
+            my $name = $binThing->{name};
+            my $refs = $binThing->{refGenomes};
+            my @refList = map { { genome => $_, url => join('/', URL_BASE , uri_escape($_)) } } @$refs;
+            my ($cov, $count) = (0, 0);
+            for my $covItem (@{$binThing->{coverage}}) {
+                $cov += $covItem;
+                $count++;
+            }
+            if ($count > 1) {
+                $cov /= $count;
+            }
+            $cov = int($cov * 100) / 100;
+            $retVal{$name} = { refs => \@refList, coverage => $cov };
         }
-        if ($count > 1) {
-            $cov /= $count;
-        }
-        $cov = int($cov * 100) / 100;
-        $retVal{$name} = { refs => \@refList, coverage => $cov };
     }
     return \%retVal;
 }

@@ -4,6 +4,7 @@
 <th>Genome ID</th><td><a target="_blank" href="[% g.genome_url %]">[% g.genome_id %]</a></td>
 </tr><tr>
 <th>Genome Name</th><td>[% g.genome_name %]</td>
+[% IF g.refs %]
 </tr><tr>
 <th>Reference Genomes</th>
 <td>
@@ -11,6 +12,7 @@
 <a target="_blank" href="[% r.url %]">[% r.genome %]</a><br />
 [% END %]
 </td>
+[% END %]
 </tr><tr>
 <th>Coarse consistency (%)</th><td>[% g.scikit_coarse %]</td>
 </tr><tr>
@@ -25,8 +27,10 @@
 <th>DNA size (bp)</th><td>[% g.dna_bp %]</td>
 </tr><tr>
 <th>Contigs N50 (bp)</th><td>[% g.n50 %]</td>
+[% IF g.coverage %]
 </tr><tr>
 <th>Mean Coverage</th><td>[% g.coverage %]</td>
+[% END %]
 </tr>
 </table>
 <h2>Potentially Problematic Roles</h2>
