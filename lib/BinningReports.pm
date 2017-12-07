@@ -27,30 +27,19 @@ package BinningReports;
 
 =head1 Produce Binning Reports
 
-This package produces binning reports from the output JSON objects. The main method takes as input the various objects and the two templates and
-produces an HTML string for the summary report plus one for each detail report. The method can be tested in a batch testing environment and then
-plugged into the main PATRIC binning engine.
+This package produces binning reports from the output JSON objects. The methods can be tested in a batch environment and then plugged into
+the real PATRIC environment.
 
-=head2 Public Methods
+=head2 Data Structures
 
-=head3 Process
+The following data structures are input to these methods.
 
-    my ($summary, $detailsH) = BinningReports::Process($jobID, $params, $quality_json, $ppr_json, $bins_json, $summary_tt, $detail_tt, $genome_group_path);
+=head3 params
 
-Produce the required quality reports. This includes one summary report plus a detail report for each bin.
-
-=over 4
-
-=item jobID
-
-The PATRIC job identifier for the binning run.
-
-=item params
-
-The parameter structure used to invoke the binning. This should be a hash reference with the following keys. All are optional; however, at least
+This should be a hash reference with the following keys. All are optional; however, at least
 one of C<contigs> and C<paired_end_libs> must be present.
 
-=over 8
+=over 4
 
 =item contigs
 
@@ -66,80 +55,7 @@ Name of the genome group into which output genomes are to be placed.
 
 =back
 
-=item quality_json
-
-A reference to a hash containing the following keys.
-
-=over 8
-
-=item package_directory
-
-The path to the output genome packages.
-
-=item packages
-
-A list of hash references, one per bin, containing the following keys.
-
-=over 8
-
-=item checkm_completeness
-
-The CheckM completeness score of the bin's genome, in percent. High values are good.
-
-=item checkm_contamination
-
-The CheckM contamination score of the bin's genome, in percent. High values are bad.
-
-=item contigs
-
-The number of contigs in the bin's genome.
-
-=item genome_id
-
-The ID of the bin's genome in PATRIC. Each genome ID is completely unique.
-
-=item genome_name
-
-The name given to the bin's genome by the binning software. Each bin will have a name unique to the binning run.
-
-=item n50
-
-The N50 measure of contig size distribution of the bin's genome. A higher number is an indication of better assembly.
-
-=item scikit_coarse
-
-The coarse SciKit consistency score of the bin's genome, in percent. This roughly corresponds to completeness.
-
-=item scikit_fine
-
-The fine SciKit consistency score of the bin's genome, in percent. This is always lower than the coarse score, and is influenced
-by contamination.
-
-=back
-
-=back
-
-=item ppr_json
-
-A reference to a hash containing that maps each genome ID to a sub-hash containing the following keys.
-
-=over 8
-
-=item roles
-
-Reference to a hash that maps each role ID to its name.
-
-=item role_fids
-
-Reference to a hash that maps each role ID to a list of feature IDs for features possessing that role.
-
-=item role_ppr
-
-Reference to a hash that maps each role ID to a 2-tuple consisting of (0) the number of expected occurrences and (1) the number of actual occurrences.
-
-=back
-
-=item bins_json
+=head3 bins_json
 
 Reference to a list of hash references, one per bin, with the following keys.
 
@@ -202,6 +118,111 @@ The length of the tetranucleotide vector for the bin, used to normalize it.
 Reference to an empty hash.
 
 =back
+
+=head3 bin_gto
+
+This is a L<GenomeTypeObject> with the special element C<genome_quality_measure> that contains the following keys.
+
+=over 4
+
+=item checkm_data
+
+Reference to a hash with the following keys.
+
+=over 8
+
+=item Marker lineage
+
+The taxonomic estimate used to check the genome.
+
+=item Completeness
+
+The CheckM completeness percentage.
+
+=item Contamination
+
+The CheckM contamination percentage.
+
+=back
+
+=item fine_consistency
+
+The SciKit fine consistency percentage.
+
+=item coarse_consistency
+
+The SciKit coarse consistency percentage.
+
+=item genome_metrics
+
+Reference to a hash with the following keys.
+
+=over 8
+
+=item totlen
+
+The total length of the genome in base pairs.
+
+=item N50
+
+The N50 statistical estimate of contig lengths. At least half the base pairs are in contigs this length or greater.
+
+=back
+
+=item problematic_roles_report
+
+Reference to a hash with the following keys.
+
+=over 8
+
+=item roles
+
+Reference to a hash that maps each role ID to its name.
+
+=item role_fids
+
+Reference to a hash that maps each role ID to a list of feature IDs for features possessing that role.
+
+=item role_ppr
+
+Reference to a hash that maps each role ID to a 2-tuple consisting of (0) the number of expected occurrences and (1) the number of actual occurrences.
+
+=back
+
+=back
+
+=cut
+
+# Good/Bad criteria
+use constant MIN_CHECKM => 80;
+use constant MIN_SCIKIT => 85;
+use constant MAX_CONTAM => 10;
+
+# URL helpers
+use constant URL_BASE => 'https://www.patricbrc.org/view/Genome';
+use constant FID_URL_BASE => 'https://www.patricbrc.org/view/Genome';
+
+=head2 Public Methods
+
+=head3 Summary
+
+    my $summary = BinningReports::Summary($jobID, $params, $bins_json, $summary_tt, $genome_group_path, \@gtos);
+
+Produce the summary report.
+
+=over 4
+
+=item jobID
+
+The PATRIC job identifier for the binning run.
+
+=item params
+
+The L</params> structure used to invoke the binning.
+
+=item bins_json
+
+The L</bins_json> structure produced by the binning.
 
 =item summary_tt
 
@@ -276,6 +297,104 @@ Reference to a list of bin descriptors for bad bins. The descriptors are identic
 
 =back
 
+=item genome_group_path
+
+The path to the output genome group (if any).
+
+=item gtos
+
+A reference to a list of L</bin_gto> objects for the bins produced.
+
+=item RETURN
+
+Returns the HTML string for the summary report.
+
+=back
+
+=cut
+
+sub Summary {
+    my ($jobID, $params, $bins_json, $summary_tt, $genome_group_path, $gtos) = @_;
+    # Here are the storage places for found, good, and bad. The bin's descriptor goes in the
+    # lists.
+    my %found = (total => 0, good => 0, bad => 0);
+    my (@good, @bad);
+    # First we are going to read through the bins and create a map of bin names to reference genome descriptors and coverages.
+    # Each reference genome descriptor is a hash-ref with members "genome" and "url".
+    my $refGmap = parse_bins_json($bins_json);
+    # Now we loop through the gtos and create the genome descriptors for the good and bad lists.
+    my @bins = sort { quality_score($b) <=> quality_score($a) } @$gtos;
+    for my $bin (@bins) {
+        # Copy the quality entry. This copy will be made into the main object used to describe bins in the output reports.
+        my %gThing = copy_gto($bin);
+        # Get the matching ppr and refGmap entries.
+        my $genomeID = $bin->{id};
+        my $genomeName = $bin->{scientific_name};
+        my $genomeURL = join('/', URL_BASE, uri_escape($genomeID));
+        my $ppr = $bin->{genome_quality_measure}{problematic_roles_report};
+        my $refData = $refGmap->{$genomeName};
+        # Only proceed if we connected the pieces. We need a fall-back in case of errors.
+        if ($ppr && $refData) {
+            # Connect the coverage and reference genome data.
+            $gThing{refs} = $refData->{refs};
+            $gThing{coverage} = $refData->{coverage};
+            $gThing{genome_url} = $genomeURL;
+            # Compute the ppr count.
+            my $pprs = 0;
+            my $pprRoleData = $ppr->{role_problematic};
+            my @pprList;
+            for my $role (keys %$pprRoleData) {
+                my $pa = $pprRoleData->{$role} // [0,0];
+                my ($predicted, $actual) = @$pa;
+                if ($predicted != $actual) {
+                    $pprs++;
+                }
+            }
+            # Store the PPR count in the main descriptor.
+            $gThing{ppr} = $pprs;
+            # Is this bin good or bad?
+            if ($gThing{checkm_completeness} >= MIN_CHECKM && $gThing{scikit_fine} >= MIN_SCIKIT &&
+                    $gThing{checkm_contamination} <= MAX_CONTAM) {
+                push @good, \%gThing;
+                $found{good}++;
+            } else {
+                push @bad, \%gThing;
+                $found{bad}++;
+            }
+            # Update the total-bin count.
+            $found{total}++;
+        }
+    }
+    # We have now compiled the information we need for the report. Create the template engine.
+    my $templateEngine = Template->new(ABSOLUTE => 1);
+    # Allocate the result variable.
+    my $retVal;
+    # Create the summary report parm structure.
+    my $vars = { job_id => $jobID, params => $params, found => \%found, good => \@good, bad => \@bad, group_path => $genome_group_path,
+                 min_checkm => MIN_CHECKM, min_scikit => MIN_SCIKIT, max_contam => MAX_CONTAM };
+    # print STDERR Dumper($vars);
+    # Create the summary report.
+    $templateEngine->process($summary_tt, $vars, \$retVal);
+    # Return the report.
+    return $retVal;
+}
+
+=head3 Detail
+
+    my $detail = BinningReports::Detail($params, $bins_json, $detail_tt, $gto, $roleMap);
+
+Produce the detail report for a single bin.
+
+=over 4
+
+=item params
+
+The L</params> structure used to invoke the binning.
+
+=item bins_json
+
+The L</bins_json> structure produced by the binning.
+
 =item details_tt
 
 The template to be used for each bin's detail report. This template expects the following variables.
@@ -316,140 +435,78 @@ The URL to list the features.
 
 =back
 
-=item genome_group_path
+=item gto
 
-The path to the output genome group (if any).
+The L</bin_gto> for the bin.
 
 =item roleMap
 
-A reference to a hash mapping role IDs to role descriptions.
+Reference to a hash mapping each role ID to a role name.
 
 =item RETURN
 
-Returns a two-element list. The first is the HTML for the summary report. The second is a reference to a hash mapping each bin's genome ID
-to the HTML string for its detail report.
+Returns the HTML string for the detail report.
 
 =back
 
 =cut
 
-# Good/Bad criteria
-use constant MIN_CHECKM => 80;
-use constant MIN_SCIKIT => 85;
-use constant MAX_CONTAM => 10;
-
-# URL helpers
-use constant URL_BASE => 'https://www.patricbrc.org/view/Genome';
-use constant FID_URL_BASE => 'https://www.patricbrc.org/view/Genome';
-
-sub Process {
-    my ($jobID, $params, $quality_json, $ppr_json, $bins_json, $summary_tt, $detail_tt, $genome_group_path, $roleMap) = @_;
-    # We need to create $found, $good, and $bad for the summary report. We also need to create an object for each
-    # detail report. The detail report objects go into this hash.
-    my %detailParms;
-    # Here are the storage places for found, good, and bad. The "g" item from the bin's descriptor goes in these
-    # lists.
-    my %found = (total => 0, good => 0, bad => 0);
-    my (@good, @bad);
+sub Detail {
+    my ($params, $bins_json, $detail_tt, $gto, $roleMap) = @_;
     # First we are going to read through the bins and create a map of bin names to reference genome descriptors and coverages.
     # Each reference genome descriptor is a hash-ref with members "genome" and "url".
-    my %refGmap;
-    for my $binThing (@$bins_json) {
-        my $name = $binThing->{name};
-        my $refs = $binThing->{refGenomes};
-        my @refList = map { { genome => $_, url => join('/', URL_BASE , uri_escape($_)) } } @$refs;
-        my ($cov, $count) = (0, 0);
-        for my $covItem (@{$binThing->{coverage}}) {
-            $cov += $covItem;
-            $count++;
-        }
-        if ($count > 1) {
-            $cov /= $count;
-        }
-        $cov = int($cov * 100) / 100;
-        $refGmap{$name} = { refs => \@refList, coverage => $cov };
-    }
-    # The quality_json is the master bin list. As we process it, we connect each entry to its matching data in ppr_report.json and
-    # %refGmap.
-    my $packagesL = $quality_json->{packages};
-    my @packages = sort { quality_score($b) <=> quality_score($a) } @$packagesL;
-    for my $bin (@packages) {
-        # Copy the package entry. This copy will be made into the main object used to describe bins in the output reports.
-        my %gThing = %$bin;
-        # Get the matching ppr and refGmap entries.
-        my $genomeID = $bin->{genome_id};
-        my $genomeName = $bin->{genome_name};
-        my $genomeURL = join('/', URL_BASE, uri_escape($genomeID));
-        my $ppr = $ppr_json->{$genomeID};
-        my $refData = $refGmap{$genomeName};
-        # Only proceed if we connected the pieces. We need a fall-back in case of errors.
-        if ($ppr && $refData) {
-            # Connect the coverage and reference genome data.
-            $gThing{refs} = $refData->{refs};
-            $gThing{coverage} = $refData->{coverage};
-            $gThing{genome_url} = $genomeURL;
-            # Create the ppr descriptor for the bin. This also nets us the ppr count.
-            my $pprs = 0;
-            my $pprRoleFids = $ppr->{role_fids};
-            my $pprRoleData = $ppr->{role_ppr};
-            my @pprList;
-            for my $role (sort keys %$pprRoleData) {
-                my $pa = $pprRoleData->{$role} // [0,0];
-                my ($predicted, $actual) = @$pa;
-                if ($predicted != $actual) {
-                    $pprs++;
-                    my $roleName = $roleMap->{$role} // $role;
-                    my $fidList = $pprRoleFids->{$role} // [];
-                    my $n_fids = scalar @$fidList;
-                    my %pprThing = (role => $roleName, predicted => $predicted, actual => $actual, n_fids => $n_fids);
-                    $pprThing{fid_url} = fid_list_url($fidList);
-                    push @pprList, \%pprThing;
-                }
+    my $refGmap = parse_bins_json($bins_json);
+    # Now we need to build the bin descriptor from the GTO.
+    my %gThing = copy_gto($gto);
+    # Get the matching ppr and refGmap entries.
+    my $genomeID = $gto->{id};
+    my $genomeName = $gto->{scientific_name};
+    my $genomeURL = join('/', URL_BASE, uri_escape($genomeID));
+    my $ppr = $gto->{genome_quality_measure}{problematic_roles_report};
+    my $refData = $refGmap->{$genomeName};
+    # Problematic roles are stashed here.
+    my @pprList;
+    # Only proceed if we connected the pieces. We need a fall-back in case of errors.
+    if ($ppr && $refData) {
+        # Connect the coverage and reference genome data.
+        $gThing{refs} = $refData->{refs};
+        $gThing{coverage} = $refData->{coverage};
+        $gThing{genome_url} = $genomeURL;
+        # Create the ppr descriptor for the bin. This also nets us the ppr count.
+        my $pprs = 0;
+        my $pprRoleFids = $ppr->{role_fids};
+        my $pprRoleData = $ppr->{role_problematic};
+        for my $role (sort keys %$pprRoleData) {
+            my $pa = $pprRoleData->{$role} // [0,0];
+            my ($predicted, $actual) = @$pa;
+            if ($predicted != $actual) {
+                $pprs++;
+                my $roleName = $roleMap->{$role} // $role;
+                my $fidList = $pprRoleFids->{$role} // [];
+                my $n_fids = scalar @$fidList;
+                my %pprThing = (role => $roleName, predicted => $predicted, actual => $actual, n_fids => $n_fids);
+                $pprThing{fid_url} = fid_list_url($fidList);
+                push @pprList, \%pprThing;
             }
-            # Store the PPR count in the main descriptor.
-            $gThing{ppr} = $pprs;
-            # Attach this data to the bin.
-            $detailParms{$genomeID} = { g => \%gThing, p => \@pprList };
-            # Is this bin good or bad?
-            if ($gThing{checkm_completeness} >= MIN_CHECKM && $gThing{scikit_fine} >= MIN_SCIKIT &&
-                    $gThing{checkm_contamination} <= MAX_CONTAM) {
-                push @good, \%gThing;
-                $found{good}++;
-            } else {
-                push @bad, \%gThing;
-                $found{bad}++;
-            }
-            # Update the total-bin count.
-            $found{total}++;
         }
+        # Store the PPR count in the main descriptor.
+        $gThing{ppr} = $pprs;
     }
-    # We have now compiled the information we need for each report. Create the template engine.
+    # Create the template engine.
     my $templateEngine = Template->new(ABSOLUTE => 1);
-    # Allocate the result variables.
-    my ($summary, %detailsH);
-    # Create the summary report parm structure.
-    my $vars = { job_id => $jobID, params => $params, found => \%found, good => \@good, bad => \@bad, group_path => $genome_group_path,
-                 min_checkm => MIN_CHECKM, min_scikit => MIN_SCIKIT, max_contam => MAX_CONTAM };
+    my $retVal;
+    my $vars = { g => \%gThing, p => \@pprList };
     # print STDERR Dumper($vars);
-    # Create the summary report.
-    $templateEngine->process($summary_tt, $vars, \$summary);
-    # Loop through the bins.
-    for my $bin (keys %detailParms) {
-        $vars = $detailParms{$bin};
-        my $detail;
-        # print STDERR Dumper($vars);
-        $templateEngine->process($detail_tt, $vars, \$detail);
-        $detailsH{$bin} = $detail;
-    }
-    # Return the reports.
-    return ($summary, \%detailsH);
+    $templateEngine->process($detail_tt, $vars, \$retVal);
+    # Return the report.
+    return $retVal;
 }
 
 =head3 quality_score
 
     my $sortVal = BinningReports::quality_score($g);
 
-Determine the quality score for a package object from the quality_json structure. A higher quality score means a better bin.
+Determine the quality score for a L</bin_gto>. A higher quality score means a better bin.
 
 =over 4
 
@@ -467,7 +524,8 @@ Returns a score that is higher for better bins.
 
 sub quality_score {
     my ($g) = @_;
-    my $retVal = $g->{checkm_completeness} + 1.1 * $g->{scikit_fine} - 5 * $g->{checkm_contamination};
+    my $q = $g->{genome_quality_measure};
+    my $retVal = $q->{checkm_data}{Completeness} + 1.1 * $q->{fine_consistency} - 5 * $q->{checkm_data}{Contamination};
     return $retVal;
 }
 
@@ -501,7 +559,139 @@ sub fid_list_url {
         $retVal = "https://www.patricbrc.org/view/FeatureList/?in(patric_id,($list))";
     }
     return $retVal;
+}
 
+=head3 parse_bins_json
+
+    my $refGMap = BinningReports::parse_bins_json($bins_json);
+
+Parse the L</bins_json> object and return a map of bin names to coverage and reference genome information.
+
+=over 4
+
+=item bins_json
+
+The L</bins_json> object produced by the binning report.
+
+=item RETURN
+
+Returns a reference to a hash that maps each bin name to a sub-hash with the following keys.
+
+=over 8
+
+=item refs
+
+Reference to a list of reference genome descriptors, each a hash reference with keys C<genome> (the genome ID) and
+C<url> (the PATRIC URL for the genome page).
+
+=item coverage
+
+The mean coverage of the bin.
+
+=back
+
+=back
+
+=cut
+
+sub parse_bins_json {
+    my ($bins_json) = @_;
+    my %retVal;
+    for my $binThing (@$bins_json) {
+        my $name = $binThing->{name};
+        my $refs = $binThing->{refGenomes};
+        my @refList = map { { genome => $_, url => join('/', URL_BASE , uri_escape($_)) } } @$refs;
+        my ($cov, $count) = (0, 0);
+        for my $covItem (@{$binThing->{coverage}}) {
+            $cov += $covItem;
+            $count++;
+        }
+        if ($count > 1) {
+            $cov /= $count;
+        }
+        $cov = int($cov * 100) / 100;
+        $retVal{$name} = { refs => \@refList, coverage => $cov };
+    }
+    return \%retVal;
+}
+
+=head3 copy_gto
+
+    my %gHash = BinningReports::copy_gto($gto);
+
+Extract the quality data from a binning L<GenomeTypeObject>.
+
+=over 4
+
+=item gto
+
+A L</bin_gto> object for the bin.
+
+=item RETURN
+
+Returns a hash containing the following keys.
+
+=over 8
+
+=item checkm_completeness
+
+The percent CheckM completeness score for the bin.
+
+=item checkm_contamination
+
+The percent CheckM contamination score for the bin.
+
+=item genome_id
+
+The genome ID for the bin.
+
+=item genome_name
+
+The name of the bin.
+
+=item contigs
+
+The number of contigs in the bin.
+
+=item dna_bp
+
+The size of the bin in DNA base pairs.
+
+=item n50
+
+The N50 statistical score for the contig sizes.
+
+=item scikit_coarse
+
+The coarse consistency.
+
+=item scikit_fine
+
+The fine consistency.
+
+=back
+
+=back
+
+=cut
+
+sub copy_gto {
+    my ($gto) = @_;
+    my %retVal = (
+        genome_id => $gto->{id},
+        genome_name => $gto->{scientific_name},
+    );
+    my $qData = $gto->{genome_quality_measure};
+    $retVal{scikit_coarse} = $qData->{coarse_consistency};
+    $retVal{scikit_fine} = $qData->{fine_consistency};
+    my $metrics = $qData->{genome_metrics};
+    $retVal{n50} = $metrics->{N50};
+    $retVal{dna_bp} = $metrics->{totlen};
+    $retVal{contigs} = scalar @{$gto->{contigs}};
+    my $checkm = $qData->{checkm_data};
+    $retVal{checkm_completeness} = $checkm->{Completeness};
+    $retVal{checkm_contamination} = $checkm->{Contamination};
+    return %retVal;
 }
 
 1;

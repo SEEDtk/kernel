@@ -43,14 +43,6 @@ following input files.
 
 A JSON file containing the bin definition structure.
 
-=item ppr_report.json
-
-A JSON file containing the potentially-problematic-roles report structure.
-
-=item quality.json
-
-A JSON file containing the quality report structure.
-
 =item summary.tt
 
 An HTML template file for the summary report.
@@ -62,6 +54,10 @@ An HTML template file for each detail report.
 =item params.json
 
 A JSON file containing the parameter structure.
+
+=item NNNNNN.N.genome
+
+A binning L<GenomeTypeObject> for the bin that produced genome I<NNNNNN.N>.
 
 =back
 
@@ -108,27 +104,32 @@ close $ih; undef $ih;
 # Get the input files.
 print "Reading input files.\n";
 my $bins_json = SeedUtils::read_encoded_object("$testDir/bins.json");
-my $ppr_report_json = SeedUtils::read_encoded_object("$testDir/ppr_report.json");
-my $quality_json = SeedUtils::read_encoded_object("$testDir/quality.json");
 my $params = SeedUtils::read_encoded_object("$testDir/params.json");
-# Clear the old reports.
 opendir(my $dh, $testDir) || die "Could not open $testDir: $!";
-my @old = grep { $_ =~ /^\d+\.\d+$/ && -d "$testDir/$_" } readdir $dh;
-close $dh; undef $dh;
+my @all = readdir $dh;
+closedir $dh; undef $dh;
+my @genomes = grep { $_ =~ /^\d+\.\d+\.genome$/ } @all;
+my @gtos;
+for my $genome (@genomes) {
+    my $gto = SeedUtils::read_encoded_object("$testDir/$genome");
+    push @gtos, $gto;
+}
+# Clear the old reports.
+my @old = grep { $_ =~ /^\d+\.\d+$/ && -d "$testDir/$_" } @all;
 for my $dir (@old) {
     print "Deleting $testDir/$dir\n";
     File::Copy::Recursive::pathrmdir("$testDir/$dir") || die "Could not delete $dir: $!";
 }
 # Generate the reports.
-print "Invoking binning reports module.\n";
-my ($summary, $detailsH) = BinningReports::Process($jobID, $params, $quality_json, $ppr_report_json, $bins_json, "$testDir/summary.tt", "$testDir/details.tt", $opt->group,
-        \%roleMap);
-# Write out the reports.
-print "Storing output files.\n";
+print "Creating summary report.\n";
+my $summary = BinningReports::Summary($jobID, $params, $bins_json, "$testDir/summary.tt", $opt->group, \@gtos);
 write_html($summary, "$testDir/summary.html");
-for my $dir (keys %$detailsH) {
-    File::Copy::Recursive::pathmk("$testDir/$dir") || die "Could not create $dir: $!";
-    write_html($detailsH->{$dir}, "$testDir/$dir/report.html");
+for my $gto (@gtos) {
+    my $genome = $gto->{id};
+    print "Creating detail report for $genome.\n";
+    File::Copy::Recursive::pathmk("$testDir/$genome") || die "Could not create $genome: $!";
+    my $detail = BinningReports::Detail($params, $bins_json, "$testDir/details.tt", $gto, \%roleMap);
+    write_html($detail, "$testDir/$genome/report.html");
 }
 
 sub write_html {
