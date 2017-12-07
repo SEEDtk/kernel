@@ -106,6 +106,8 @@ while (my $line = <$ih>) {
     }
 }
 close $ih; undef $ih;
+# This will hold the report URLs.
+my %urlMap;
 # Get the input files.
 print "Reading input files.\n";
 my $bins_json = SeedUtils::read_encoded_object("$testDir/bins.json");
@@ -118,6 +120,7 @@ my @gtos;
 for my $genome (@genomes) {
     my $gto = SeedUtils::read_encoded_object("$testDir/$genome");
     push @gtos, $gto;
+    $urlMap{$genome} = "$genome/report.html";
 }
 # Clear the old reports.
 my @old = grep { $_ =~ /^\d+\.\d+$/ && -d "$testDir/$_" } @all;
@@ -127,7 +130,7 @@ for my $dir (@old) {
 }
 # Generate the reports.
 print "Creating summary report.\n";
-my $summary = BinningReports::Summary($jobID, $params, $bins_json, "$testDir/summary.tt", $opt->group, \@gtos);
+my $summary = BinningReports::Summary($jobID, $params, $bins_json, "$testDir/summary.tt", $opt->group, \@gtos, \%urlMap);
 write_html($summary, "$testDir/summary.html");
 for my $gto (@gtos) {
     my $genome = $gto->{id};

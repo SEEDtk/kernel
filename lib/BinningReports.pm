@@ -206,7 +206,7 @@ use constant FID_URL_BASE => 'https://www.patricbrc.org/view/Genome';
 
 =head3 Summary
 
-    my $summary = BinningReports::Summary($jobID, $params, $bins_json, $summary_tt, $genome_group_path, \@gtos);
+    my $summary = BinningReports::Summary($jobID, $params, $bins_json, $summary_tt, $genome_group_path, \@gtos, \%report_url_map);
 
 Produce the summary report.
 
@@ -272,10 +272,49 @@ Number of bad bins.
 
 =item good
 
-Reference to a list of bin descriptors for good bins. Each descriptor contains the bin's entry from the I<quality_json> structure
-described above, plus the following members.
+Reference to a list of bin descriptors for good bins. Each descriptor contains the following members.
 
 =over 12
+
+=item genome_id
+
+The ID of the bin's genome.
+
+=item genome_url
+
+The URL of the PATRIC page for the bin's genome.
+
+=item genome_name
+
+The name of the bin.
+
+=item scikit_coarse
+
+The coarse consistency score.
+
+=item scikit_fine
+
+The fine consistency score.
+
+=item checkm_completeness
+
+The CheckM completeness score.
+
+=item checkm_contamination
+
+The CheckM contamination score.
+
+=item contigs
+
+The number of contigs in the bin.
+
+=item dna_bp
+
+The total number of DNA base pairs in the bin.
+
+=item n50
+
+The N50 statistical measure of contig lengths.
 
 =item ppr
 
@@ -288,6 +327,10 @@ A list of reference genome descriptors, each a hash reference containing the gen
 =item coverage
 
 The mean coverage for the bin.
+
+=item report_url
+
+URL for the bin's report page.
 
 =back
 
@@ -304,6 +347,10 @@ The path to the output genome group (if any).
 =item gtos
 
 A reference to a list of L</bin_gto> objects for the bins produced.
+
+=item report_url_map
+
+A reference to a hash mapping each bin's genome ID to the URL for its report page.
 
 =item RETURN
 
@@ -329,7 +376,7 @@ sub Summary {
         my %gThing = copy_gto($bin);
         # Get the matching ppr and refGmap entries.
         my $genomeID = $bin->{id};
-	$gThing{report_url} = $report_url_map->{$bin->{id}};
+        $gThing{report_url} = $report_url_map->{$bin->{id}};
         my $genomeName = $bin->{scientific_name};
         my $genomeURL = join('/', URL_BASE, uri_escape($genomeID));
         my $ppr = $bin->{genome_quality_measure}{problematic_roles_report};
