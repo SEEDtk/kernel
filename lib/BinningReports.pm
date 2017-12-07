@@ -314,7 +314,7 @@ Returns the HTML string for the summary report.
 =cut
 
 sub Summary {
-    my ($jobID, $params, $bins_json, $summary_tt, $genome_group_path, $gtos) = @_;
+    my ($jobID, $params, $bins_json, $summary_tt, $genome_group_path, $gtos, $report_url_map) = @_;
     # Here are the storage places for found, good, and bad. The bin's descriptor goes in the
     # lists.
     my %found = (total => 0, good => 0, bad => 0);
@@ -329,6 +329,7 @@ sub Summary {
         my %gThing = copy_gto($bin);
         # Get the matching ppr and refGmap entries.
         my $genomeID = $bin->{id};
+	$gThing{report_url} = $report_url_map->{$bin->{id}};
         my $genomeName = $bin->{scientific_name};
         my $genomeURL = join('/', URL_BASE, uri_escape($genomeID));
         my $ppr = $bin->{genome_quality_measure}{problematic_roles_report};
