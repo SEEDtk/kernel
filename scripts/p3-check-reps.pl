@@ -54,6 +54,7 @@ use RepGenomeDb;
 use File::Copy::Recursive;
 use Stats;
 
+$| = 1;
 # Get the command-line options.
 my $opt = P3Utils::script_opts('inDir outDir', P3Utils::col_options(), P3Utils::ih_options(),
         );
