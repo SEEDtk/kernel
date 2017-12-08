@@ -123,7 +123,10 @@ while (! eof $ih) {
         my %results;
         for my $result (@$resultList) {
             my ($genome, $name, $prot, $protLen) = @$result;
-            if (! exists $results{$genome}) {
+            if (! $prot) {
+                print "WARNING: $genome $name has to identifying protein.\n";
+                $stats->Add(genomeNoProt => 1);
+            } elsif (! exists $results{$genome}) {
                 $results{$genome} = $result;
             } else {
                 $stats->Add(redundantProt => 1);
@@ -153,6 +156,9 @@ while (! eof $ih) {
         }
     }
 }
+# Checkpoint our results.
+print "Saving results of initial run.\n";
+$repDB->Save($outDir);
 # Now we need to process the outliers.
 my $nOutliers = scalar @outliers;
 print "$nOutliers outlier genomes found.\n";

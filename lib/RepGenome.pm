@@ -20,6 +20,7 @@ package RepGenome;
 
     use strict;
     use warnings;
+    use Carp;
 
 =head1 Representative Genome Descriptor
 
@@ -282,6 +283,11 @@ sub check_genome {
     my $kMap = $self->{kMap};
     # This will count the kmers in common.
     my $retVal = 0;
+    if (! $protSeq) { ##DEBUG
+        confess "Missing protein sequence in check_genome against $self->{id}.";
+    } elsif (! $K) {
+        confess "Invalid kmer length in check_genome against $self->{id}.";
+    }
     # Loop through the kmers of the incoming sequence.
     my $len = length($protSeq) - $K;
     for (my $i=0; $i < $len; $i++) {
