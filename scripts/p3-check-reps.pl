@@ -84,7 +84,7 @@ if (! $outDir) {
 }
 # Create the PATRIC filter and column clauses for genome queries.
 my @filter = (['eq', 'product', 'Phenylalanyl-tRNA synthetase alpha chain']);
-my @cols = qw(genome_id genome_name aa_sequence aa_len);
+my @cols = qw(genome_id genome_name aa_sequence);
 # Create the database from the input directory.
 print "Creating database from $inDir.\n";
 my $repDB = RepGenomeDb->new_from_dir($inDir, verbose => 1);
@@ -118,23 +118,29 @@ while (! eof $ih) {
         print scalar(@lost) . " genomes in this batch are not yet in the database.\n";
         # Ask PATRIC for the names and identifying proteins of the un-represented genomes.
         my $resultList = P3Utils::get_data_keyed($p3, 'feature', \@filter, \@cols, \@lost, 'genome_id');
-        # The resultList entries are in the form [$genome, $name, $prot, $protLen]. Get the longest
+        # The resultList entries are in the form [$genome, $name, $prot]. Get the longest
         # protein for each genome.
         my %results;
         for my $result (@$resultList) {
-            my ($genome, $name, $prot, $protLen) = @$result;
+            my ($genome, $name, $prot) = @$result;
+            # Check the protein.
             if (! $prot) {
                 print "WARNING: $genome $name has to identifying protein.\n";
                 $stats->Add(genomeNoProt => 1);
-            } elsif (! exists $results{$genome}) {
-                $results{$genome} = $result;
             } else {
-                $stats->Add(redundantProt => 1);
-                print "WARNING: $genome $name has a redundant identifying protein.\n";
-                if ($protLen > $results{$genome}[3]) {
-                    # It's a better protein, so keep it.
-                    $stats->Add(redundantProt => 1);
+                # Add the protein length to the result array.
+                my $protLen = len($prot);
+                push @$result, $protLen;
+                if (! exists $results{$genome}) {
                     $results{$genome} = $result;
+                } else {
+                    $stats->Add(redundantProt => 1);
+                    print "WARNING: $genome $name has a redundant identifying protein.\n";
+                    if ($protLen > $results{$genome}[3]) {
+                        # It's a better protein, so keep it.
+                        $stats->Add(redundantProt => 1);
+                        $results{$genome} = $result;
+                    }
                 }
             }
         }
