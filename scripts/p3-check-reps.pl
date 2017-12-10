@@ -129,7 +129,7 @@ while (! eof $ih) {
                 $stats->Add(genomeNoProt => 1);
             } else {
                 # Add the protein length to the result array.
-                my $protLen = len($prot);
+                my $protLen = length $prot;
                 push @$result, $protLen;
                 if (! exists $results{$genome}) {
                     $results{$genome} = $result;
@@ -186,7 +186,12 @@ for ($i = 0; $i < $nOutliers; $i++) {
     }
 }
 # Now we process the scores until we run out of outliers.
-while (@outliers) {
+# We checkpoint each time this counter drops to zero.
+my $lastCheck = 1000;
+# We stop everything when this switch is tripped.
+my $done = 0;
+# Here is the loop.
+while (@outliers && ! $done) {
     print "Searching for most popular genome among $nOutliers outliers.\n";
     # Find the genome with the most similarities.
     my ($b, $best) = (0, count($xref->[0], $minScore));
@@ -200,42 +205,62 @@ while (@outliers) {
     my $bestID = $bestGenome->id();
     my $bestName = $bestGenome->name();
     print "Best genome is $bestID $bestName with $best neighbors.\n";
-    # This list will contain the indices of the outliers we are keeping; that is, the
-    # ones not similar to the best one.
-    my @keepers;
-    my $connected = 0;
-    # Loop through the outliers, connecting the similar genomes to the best one.
-    for ($i = 0; $i < $nOutliers; $i++) {
-        my $score = $xref->[$b][$i];
-        if ($score >= $minScore) {
-            $bestGenome->AddGenome($outliers[$i]->id(), $score);
-            $stats->Add(genomeConnected => 1);
-            $connected++;
-        } else {
-            push @keepers, $i;
+    if ($best <= 1) {
+        print "End of useful genomes.\n";
+        $done = 1;
+    } else {
+        # This list will contain the indices of the outliers we are keeping; that is, the
+        # ones not similar to the best one.
+        my @keepers;
+        my $connected = 0;
+        # Loop through the outliers, connecting the similar genomes to the best one.
+        for ($i = 0; $i < $nOutliers; $i++) {
+            my $score = $xref->[$b][$i];
+            if ($score >= $minScore) {
+                $bestGenome->AddGenome($outliers[$i]->id(), $score);
+                $stats->Add(genomeConnected => 1);
+                $connected++;
+            } else {
+                push @keepers, $i;
+            }
         }
-    }
-    print "$connected genomes represented by $bestID.\n";
-    # Add the best genome to the database.
-    $repDB->AddRepObject($bestGenome);
-    $stats->Add(newRepAdded => 1);
-    # Form the new outliers list.
-    @outliers = map { $outliers[$_] } @keepers;
-    $nOutliers = scalar @outliers;
-    # Form the new xref. We map the old indices to the new ones, which eliminates the
-    # genomes we connected above.
-    my @newXref;
-    print "Reorganizing the remaining $nOutliers genomes.\n";
-    for ($i = 0; $i < $nOutliers; $i++) {
-        for ($j = 0; $j < $nOutliers; $j++) {
-            $newXref[$i][$j] = $xref->[$keepers[$i]][$keepers[$j]];
+        print "$connected genomes represented by $bestID.\n";
+        # Add the best genome to the database.
+        $repDB->AddRepObject($bestGenome);
+        $stats->Add(newRepAdded => 1);
+        # Form the new outliers list.
+        @outliers = map { $outliers[$_] } @keepers;
+        $nOutliers = scalar @outliers;
+        # Check for a checkpoint.
+        $lastCheck -= $connected;
+        if ($lastCheck <= 0) {
+            print "Saving results to $outDir.\n";
+            $repDB->Save($outDir);
         }
+        # Form the new xref. We map the old indices to the new ones, which eliminates the
+        # genomes we connected above.
+        my @newXref;
+        print "Reorganizing the remaining $nOutliers genomes.\n";
+        for ($i = 0; $i < $nOutliers; $i++) {
+            for ($j = 0; $j < $nOutliers; $j++) {
+                $newXref[$i][$j] = $xref->[$keepers[$i]][$keepers[$j]];
+            }
+        }
+        $xref = \@newXref;
     }
-    $xref = \@newXref;
 }
 # All the outliers have been added to the database.
 print "Saving to $outDir.\n";
 $repDB->Save($outDir);
+if (@outliers) {
+    print "Table of useless outliers.\n";
+    print "id\tname\n";
+    for my $outlier (@outliers) {
+        print join("\t", $outlier->id(), $outlier->name()) . "\n";
+        $stats->Add(uselessGenome => 1);
+    }
+    print "\n";
+}
 print "All done.\n" . $stats->Show();
 
 
