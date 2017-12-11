@@ -236,6 +236,7 @@ while (@outliers && ! $done) {
         if ($lastCheck <= 0) {
             print "Saving results to $outDir.\n";
             $repDB->Save($outDir);
+            $lastCheck = 1000;
         }
         # Form the new xref. We map the old indices to the new ones, which eliminates the
         # genomes we connected above.
