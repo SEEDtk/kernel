@@ -295,6 +295,46 @@ sub find_rep {
     return ($repID, $score);
 }
 
+=head3 rep_list
+
+    my $repHash = $repDB->rep_list();
+
+Return a list of the IDs of the representative genomes in this database.
+
+=cut
+
+sub rep_list {
+    my ($self) = @_;
+    my $gMap = $self->{gMap};
+    return [sort keys %$gMap];
+}
+
+=head3 rep_object
+
+    my $repGenome = $repDB->rep_object($genomeID);
+
+Return the L<RepGenome> object for the genome with the specified ID, or C<undef> if the genome is not found.
+
+=over 4
+
+=item genomeID
+
+The ID of the genome whose L<RepGenome> object is desired.
+
+=item RETURN
+
+Returns the L<RepGenome> object for the identified genome, or C<undef> if the genome is not in the database.
+
+=back
+
+=cut
+
+sub rep_object {
+    my ($self, $genomeID) = @_;
+    my $gMap = $self->{gMap};
+    my $retVal = $gMap->{$genomeID};
+    return $retVal;
+}
 
 =head2 Public Manipulation Methods
 

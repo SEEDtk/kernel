@@ -254,13 +254,13 @@ while (@outliers && ! $done) {
 print "Saving to $outDir.\n";
 $repDB->Save($outDir);
 if (@outliers) {
-    print "Table of useless outliers.\n";
-    print "id\tname\n";
+    print "Printing useless outliers.\n";
+    open (my $oh, '>', "$outDir/useless.tbl") || die "Could not open useless-outlier file: $!";
+    print $oh "id\tname\n";
     for my $outlier (@outliers) {
-        print join("\t", $outlier->id(), $outlier->name()) . "\n";
+        print $oh join("\t", $outlier->id(), $outlier->name()) . "\n";
         $stats->Add(uselessGenome => 1);
     }
-    print "\n";
 }
 print "All done.\n" . $stats->Show();
 
