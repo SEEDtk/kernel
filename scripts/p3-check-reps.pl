@@ -37,13 +37,22 @@ The positional parameters are the input directory and the output directory. The 
 
 The standard input can be overridden using the options in L<P3Utils/ih_options>. It should contain PATRIC genome IDs in the key column.
 
-Additional command-line options are those given in L<P3Utils/col_options> (to select the input column).
+Additional command-line options are those given in L<P3Utils/col_options> (to select the input column) plus the following.
+
+=over 4
+
+=item checkOnly
+
+If specified, no new representative genomes will be computed. The genomes that were unrepresented will be output to the file
+C<outliers.tbl> in the output directory.
+
+=back
 
 =head2 Output Files
 
 The standard output will contain a progress report.
 
-The output directory will contain an updated version of the input directory with all the genomes represented.
+The output directory will contain an updated version of the input directory with as many genomes represented as possible.
 
 =cut
 
@@ -57,6 +66,7 @@ use Stats;
 $| = 1;
 # Get the command-line options.
 my $opt = P3Utils::script_opts('inDir outDir', P3Utils::col_options(), P3Utils::ih_options(),
+        ['checkOnly', 'check for representation only-- do not add new representative genomes']
         );
 # Create the statistics object.
 my $stats = Stats->new();
@@ -168,102 +178,115 @@ $repDB->Save($outDir);
 # Now we need to process the outliers.
 my $nOutliers = scalar @outliers;
 print "$nOutliers outlier genomes found.\n";
-# Loop through the outliers, computing a cross-reference. The cross-reference is a two-dimensional table
-# of similarity scores, indexed by the genome's position in the outlier list.
-my $xref = [];
-my ($i, $j);
-for ($i = 0; $i < $nOutliers; $i++) {
-    my $repGenome = $outliers[$i];
-    print "Cross-referencing " . $repGenome->id() . "\n";
-    # Copy the scores already computed.
-    for ($j = 0; $j < $i; $j++) {
-        $xref->[$i][$j] = $xref->[$j][$i];
-    }
-    # Compute the remaining scores.
-    for ($j = $i; $j < $nOutliers; $j++) {
-        my $prot = $outliers[$j]->prot();
-        $xref->[$i][$j] = $repGenome->check_genome($prot);
-    }
-}
-# Now we process the scores until we run out of outliers.
-# We checkpoint each time this counter drops to zero.
-my $lastCheck = 1000;
-# We stop everything when this switch is tripped.
-my $done = 0;
-# Here is the loop.
-while (@outliers && ! $done) {
-    print "Searching for most popular genome among $nOutliers outliers.\n";
-    # Find the genome with the most similarities.
-    my ($b, $best) = (0, count($xref->[0], $minScore));
-    for ($i = 1; $i < $nOutliers; $i++) {
-        my $count = count($xref->[$i], $minScore);
-        if ($count > $best) {
-            $b = $i; $best = $count;
+if ($opt->checkonly) {
+    # We don't want to update the representatives, we just want a list of outliers.
+    open(my $oh, '>', "$outDir/outliers.tbl") || die "Could not open outliers file: $!";
+    print "Saving list of outliers.\n";
+    dump_outliers("$outDir/outliers.tbl", \@outliers);
+} else {
+    # Loop through the outliers, computing a cross-reference. The cross-reference is a two-dimensional table
+    # of similarity scores, indexed by the genome's position in the outlier list.
+    my $xref = [];
+    my ($i, $j);
+    for ($i = 0; $i < $nOutliers; $i++) {
+        my $repGenome = $outliers[$i];
+        print "Cross-referencing " . $repGenome->id() . "\n";
+        # Copy the scores already computed.
+        for ($j = 0; $j < $i; $j++) {
+            $xref->[$i][$j] = $xref->[$j][$i];
+        }
+        # Compute the remaining scores.
+        for ($j = $i; $j < $nOutliers; $j++) {
+            my $prot = $outliers[$j]->prot();
+            $xref->[$i][$j] = $repGenome->check_genome($prot);
         }
     }
-    my $bestGenome = $outliers[$b];
-    my $bestID = $bestGenome->id();
-    my $bestName = $bestGenome->name();
-    print "Best genome is $bestID $bestName with $best neighbors.\n";
-    if ($best <= 1) {
-        print "End of useful genomes.\n";
-        $done = 1;
-    } else {
-        # This list will contain the indices of the outliers we are keeping; that is, the
-        # ones not similar to the best one.
-        my @keepers;
-        my $connected = 0;
-        # Loop through the outliers, connecting the similar genomes to the best one.
-        for ($i = 0; $i < $nOutliers; $i++) {
-            my $score = $xref->[$b][$i];
-            if ($score >= $minScore) {
-                $bestGenome->AddGenome($outliers[$i]->id(), $score);
-                $stats->Add(genomeConnected => 1);
-                $connected++;
-            } else {
-                push @keepers, $i;
+    # Now we process the scores until we run out of outliers.
+    # We checkpoint each time this counter drops to zero.
+    my $lastCheck = 1000;
+    # We stop everything when this switch is tripped.
+    my $done = 0;
+    # Here is the loop.
+    while (@outliers && ! $done) {
+        print "Searching for most popular genome among $nOutliers outliers.\n";
+        # Find the genome with the most similarities.
+        my ($b, $best) = (0, count($xref->[0], $minScore));
+        for ($i = 1; $i < $nOutliers; $i++) {
+            my $count = count($xref->[$i], $minScore);
+            if ($count > $best) {
+                $b = $i; $best = $count;
             }
         }
-        print "$connected genomes represented by $bestID.\n";
-        # Add the best genome to the database.
-        $repDB->AddRepObject($bestGenome);
-        $stats->Add(newRepAdded => 1);
-        # Form the new outliers list.
-        @outliers = map { $outliers[$_] } @keepers;
-        $nOutliers = scalar @outliers;
-        # Check for a checkpoint.
-        $lastCheck -= $connected;
-        if ($lastCheck <= 0) {
-            print "Saving results to $outDir.\n";
-            $repDB->Save($outDir);
-            $lastCheck = 1000;
-        }
-        # Form the new xref. We map the old indices to the new ones, which eliminates the
-        # genomes we connected above.
-        my @newXref;
-        print "Reorganizing the remaining $nOutliers genomes.\n";
-        for ($i = 0; $i < $nOutliers; $i++) {
-            for ($j = 0; $j < $nOutliers; $j++) {
-                $newXref[$i][$j] = $xref->[$keepers[$i]][$keepers[$j]];
+        my $bestGenome = $outliers[$b];
+        my $bestID = $bestGenome->id();
+        my $bestName = $bestGenome->name();
+        if ($best <= 1) {
+            print "End of useful genomes.\n";
+            $done = 1;
+        } else {
+            print "Best genome is $bestID $bestName with $best neighbors.\n";
+            # This list will contain the indices of the outliers we are keeping; that is, the
+            # ones not similar to the best one.
+            my @keepers;
+            my $connected = 0;
+            # Loop through the outliers, connecting the similar genomes to the best one.
+            for ($i = 0; $i < $nOutliers; $i++) {
+                my $score = $xref->[$b][$i];
+                if ($score >= $minScore) {
+                    $bestGenome->AddGenome($outliers[$i]->id(), $score);
+                    $stats->Add(genomeConnected => 1);
+                    $connected++;
+                } else {
+                    push @keepers, $i;
+                }
             }
+            print "$connected genomes represented by $bestID.\n";
+            # Add the best genome to the database.
+            $repDB->AddRepObject($bestGenome);
+            $stats->Add(newRepAdded => 1);
+            # Form the new outliers list.
+            @outliers = map { $outliers[$_] } @keepers;
+            $nOutliers = scalar @outliers;
+            # Check for a checkpoint.
+            $lastCheck -= $connected;
+            if ($lastCheck <= 0) {
+                print "Saving results to $outDir.\n";
+                $repDB->Save($outDir);
+                $lastCheck = 1000;
+            }
+            # Form the new xref. We map the old indices to the new ones, which eliminates the
+            # genomes we connected above.
+            my @newXref;
+            print "Reorganizing the remaining $nOutliers genomes.\n";
+            for ($i = 0; $i < $nOutliers; $i++) {
+                for ($j = 0; $j < $nOutliers; $j++) {
+                    $newXref[$i][$j] = $xref->[$keepers[$i]][$keepers[$j]];
+                }
+            }
+            $xref = \@newXref;
         }
-        $xref = \@newXref;
     }
-}
-# All the outliers have been added to the database.
-print "Saving to $outDir.\n";
-$repDB->Save($outDir);
-if (@outliers) {
-    print "Printing useless outliers.\n";
-    open (my $oh, '>', "$outDir/useless.tbl") || die "Could not open useless-outlier file: $!";
-    print $oh "id\tname\n";
-    for my $outlier (@outliers) {
-        print $oh join("\t", $outlier->id(), $outlier->name()) . "\n";
-        $stats->Add(uselessGenome => 1);
+    # All the outliers have been added to the database.
+    print "Saving to $outDir.\n";
+    $repDB->Save($outDir);
+    if (@outliers) {
+        print "Printing useless outliers.\n";
+        dump_outliers("$outDir/useless.tbl", \@outliers);
     }
 }
 print "All done.\n" . $stats->Show();
 
+
+# Write out the list of remaining outliers.
+sub dump_outliers {
+    my ($fileName, $outliers) = @_;
+    open (my $oh, '>', $fileName) || die "Could not open outlier file: $!";
+    print $oh "id\tname\tprot\n";
+    for my $outlier (@outliers) {
+        print $oh join("\t", $outlier->id(), $outlier->name(), $outlier->prot()) . "\n";
+        $stats->Add(unprocessedGenome => 1);
+    }
+}
 
 # Count the good similarities in a list of scores.
 sub count {
