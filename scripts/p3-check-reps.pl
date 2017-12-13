@@ -202,9 +202,14 @@ if ($opt->filter) {
             if ($aaLen < 209 || $aaLen > 405) {
                 print "$id $name has a bad protein length.\n";
             } else {
+                # We need to do a quality check here. Get the GTO and write its FASTA
+                # and JSON to disk.
                 print "Retrieving GTO for $id $name.\n";
                 my $gto = $p3->gto_of($id);
+                $gto->write_contigs_to_file("$pDir/bin.fa");
                 $gto->destroy_to_file("$pDir/bin.gto");
+                undef $gto;
+                # We do the SciKit check first, because it's faster.
                 my $cmd = "gto_consistency $pDir/bin.gto $pDir/Eval $FIG_Config::global/FunctionPredictors $FIG_Config::global/roles.in.subsystems $FIG_Config::global/roles.to.use";
                 SeedUtils::run($cmd);
                 $stats->Add(sciKitRun => 1);
@@ -223,7 +228,6 @@ if ($opt->filter) {
                 if ($score >= 85) {
                     # We have passed SciKit. Now try CheckM.
                     print "Creating FASTA for $id $name.\n";
-                    $gto->write_contigs_to_file("$pDir/bin.fa");
                     $cmd = "checkm lineage_wf --tmpdir $FIG_Config::temp -x fa --file $pDir/checkm.log $pDir $pDir/Eval";
                     SeedUtils::run($cmd);
                     $stats->Add(checkMrun => 1);
@@ -247,7 +251,7 @@ if ($opt->filter) {
                     }
                 }
                 # Clean up all the working files from the checkers.
-                Path::File::Recursive::pathempty($pDir);
+                File::Copy::Recursive::pathempty($pDir);
             }
         }
     }
