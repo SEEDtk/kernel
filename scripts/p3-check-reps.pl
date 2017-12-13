@@ -214,7 +214,7 @@ if ($opt->filter) {
                 SeedUtils::run($cmd);
                 $stats->Add(sciKitRun => 1);
                 my $score = 0;
-                if (! open(my $fh, '<', "$pDir/Eval/evaluate.log")) {
+                if (! open(my $fh, '<', "$pDir/Eval/SciKit/evaluate.log")) {
                     print "WARNING: Cannot open output from Scikit: $!\n";
                 } else {
                     while (! eof $fh) {
