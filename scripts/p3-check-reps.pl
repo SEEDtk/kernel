@@ -210,7 +210,7 @@ if ($opt->filter) {
                 $gto->destroy_to_file("$pDir/bin.gto");
                 undef $gto;
                 # We do the SciKit check first, because it's faster.
-                my $cmd = "gto_consistency $pDir/bin.gto $pDir/Eval $FIG_Config::global/FunctionPredictors $FIG_Config::global/roles.in.subsystems $FIG_Config::global/roles.to.use";
+                my $cmd = "gto_consistency $pDir/bin.gto $pDir/Eval/SciKit $FIG_Config::global/FunctionPredictors $FIG_Config::global/roles.in.subsystems $FIG_Config::global/roles.to.use";
                 SeedUtils::run($cmd);
                 $stats->Add(sciKitRun => 1);
                 my $score = 0;
@@ -228,7 +228,8 @@ if ($opt->filter) {
                 if ($score >= 85) {
                     # We have passed SciKit. Now try CheckM.
                     print "Creating FASTA for $id $name.\n";
-                    $cmd = "checkm lineage_wf --tmpdir $FIG_Config::temp -x fa --file $pDir/checkm.log $pDir $pDir/Eval";
+                    File::Copy::Recursive::pathmk("$pDir/Eval/CheckM");
+                    $cmd = "checkm lineage_wf --tmpdir $FIG_Config::temp -x fa --file $pDir/checkm.log $pDir $pDir/Eval/CheckM";
                     SeedUtils::run($cmd);
                     $stats->Add(checkMrun => 1);
                     my ($checkMscore, $checkMcontam) = (0, 999);
