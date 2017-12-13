@@ -66,7 +66,8 @@ use Stats;
 $| = 1;
 # Get the command-line options.
 my $opt = P3Utils::script_opts('inDir outDir', P3Utils::col_options(), P3Utils::ih_options(),
-        ['checkOnly', 'check for representation only-- do not add new representative genomes']
+        ['checkOnly', 'check for representation only-- do not add new representative genomes'],
+        ['filter', 'perform a good-genome analysis on the unrepresented genomes'],
         );
 # Create the statistics object.
 my $stats = Stats->new();
@@ -108,6 +109,8 @@ my $ih = P3Utils::ih($opt);
 my ($outHeaders, $keyCol) = P3Utils::process_headers($ih, $opt);
 # This will be a list of RepGenome objects for the un-represented genomes.
 my @outliers;
+# This will be a hash of bad genome IDs.
+my %bad;
 # Loop through the input.
 while (! eof $ih) {
     my $couplets = P3Utils::get_couplets($ih, $keyCol, $opt);
@@ -129,14 +132,16 @@ while (! eof $ih) {
         # Ask PATRIC for the names and identifying proteins of the un-represented genomes.
         my $resultList = P3Utils::get_data_keyed($p3, 'feature', \@filter, \@cols, \@lost, 'genome_id');
         # The resultList entries are in the form [$genome, $name, $prot]. Get the longest
-        # protein for each genome.
-        my %results;
+        # protein for each genome. We also track obviously bad genomes.
+        my (%results);
         for my $result (@$resultList) {
             my ($genome, $name, $prot) = @$result;
             # Check the protein.
             if (! $prot) {
                 print "WARNING: $genome $name has to identifying protein.\n";
                 $stats->Add(genomeNoProt => 1);
+                $stats->Add(badGenome => 1);
+                $bad{$genome} = 1;
             } else {
                 # Add the protein length to the result array.
                 my $protLen = length $prot;
@@ -145,10 +150,13 @@ while (! eof $ih) {
                     $results{$genome} = $result;
                 } else {
                     $stats->Add(redundantProt => 1);
-                    print "WARNING: $genome $name has a redundant identifying protein.\n";
+                    if (! $bad{$genome}) {
+                        print "WARNING: $genome $name has a redundant identifying protein.\n";
+                        $bad{$genome} = 1;
+                        $stats->Add(badGenome => 1);
+                    }
                     if ($protLen > $results{$genome}[3]) {
                         # It's a better protein, so keep it.
-                        $stats->Add(redundantProt => 1);
                         $results{$genome} = $result;
                     }
                 }
@@ -178,6 +186,76 @@ $repDB->Save($outDir);
 # Now we need to process the outliers.
 my $nOutliers = scalar @outliers;
 print "$nOutliers outlier genomes found.\n";
+if ($opt->filter) {
+    print "Filtering for bad outliers.\n";
+    my $pDir = "$outDir/Temp";
+    if (! -d $pDir) {
+        File::Path::Recursive::pathmk($pDir);
+    }
+    my @good;
+    for my $outlier (@outliers) {
+        my $id = $outlier->id();
+        my $name = $outlier->name();
+        if (! $bad{$id}) {
+            # Check the protein length.
+            my $aaLen = length $outlier->prot();
+            if ($aaLen < 209 || $aaLen > 405) {
+                print "$id $name has a bad protein length.\n";
+            } else {
+                print "Retrieving GTO for $id $name.\n";
+                my $gto = $p3->gto_of($id);
+                $gto->destroy_to_file("$pDir/bin.gto");
+                my $cmd = "gto_consistency $pDir/bin.gto $pDir/Eval $FIG_Config::global/FunctionPredictors $FIG_Config::global/roles.in.subsystems $FIG_Config::global/roles.to.use";
+                SeedUtils::run($cmd);
+                $stats->Add(sciKitRun => 1);
+                my $score = 0;
+                if (! open(my $fh, '<', "$pDir/Eval/evaluate.log")) {
+                    print "WARNING: Cannot open output from Scikit: $!\n";
+                } else {
+                    while (! eof $fh) {
+                        my $line = <$fh>;
+                        if ($line =~ /^Fine_Consistency=\s+(.+)%/) {
+                            $score = $1;
+                        }
+                    }
+                }
+                print "SciKit fine score is $score.\n";
+                if ($score >= 85) {
+                    # We have passed SciKit. Now try CheckM.
+                    print "Creating FASTA for $id $name.\n";
+                    $gto->write_contigs_to_file("$pDir/bin.fa");
+                    $cmd = "checkm lineage_wf --tmpdir $FIG_Config::temp -x fa --file $pDir/checkm.log $pDir $pDir/Eval";
+                    SeedUtils::run($cmd);
+                    $stats->Add(checkMrun => 1);
+                    my ($checkMscore, $checkMcontam) = (0, 999);
+                    if (! open(my $fh, '<', "$pDir/checkm.log")) {
+                        print "WARNING: Cannot open output from CheckM: $!";
+                        while (! eof $fh) {
+                            my $line = <$fh>;
+                            if ($line =~ /^\s+bin\s+/) {
+                                my @cols = split /\s+/, $line;
+                                $checkMscore = $cols[13];
+                                $checkMcontam = $cols[14];
+                            }
+                        }
+                        close $fh;
+                    }
+                    print "CheckM score is $checkMscore complete, $checkMcontam contamination.\n";
+                    if ($checkMscore >= 80 && $checkMcontam <= 10) {
+                        push @good, $outlier;
+                        $stats->Add(goodOutlier => 1);
+                    }
+                }
+                # Clean up all the working files from the checkers.
+                Path::File::Recursive::pathempty($pDir);
+            }
+        }
+    }
+    # End of outlier loop.
+    @outliers = @good;
+    $nOutliers = scalar @outliers;
+    print "$nOutliers outlier genomes are good.\n";
+}
 if ($opt->checkonly) {
     # We don't want to update the representatives, we just want a list of outliers.
     open(my $oh, '>', "$outDir/outliers.tbl") || die "Could not open outliers file: $!";
