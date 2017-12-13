@@ -190,7 +190,7 @@ if ($opt->filter) {
     print "Filtering for bad outliers.\n";
     my $pDir = "$outDir/Temp";
     if (! -d $pDir) {
-        File::Path::Recursive::pathmk($pDir);
+        File::Copy::Recursive::pathmk($pDir);
     }
     my @good;
     for my $outlier (@outliers) {
