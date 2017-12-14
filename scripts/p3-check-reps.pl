@@ -209,6 +209,18 @@ if ($opt->filter) {
                 $gto->write_contigs_to_file("$pDir/bin.fa");
                 $gto->destroy_to_file("$pDir/bin.gto");
                 undef $gto;
+                # Clean up past working files from the checkers.
+                print "Cleaning work directories.\n";
+                if (-d "$pDir/Eval/SciKit") {
+                    File::Copy::Recursive::pathempty("$pDir/Eval/SciKit") || die "Could not clean SciKit working directory: $!";
+                } else {
+                    File::Copy::Recursive::pathmk("$pDir/Eval/SciKit") || die "Could not create SciKit working directory: $!";
+                }
+                if (-d "$pDir/Eval/CheckM") {
+                    File::Copy::Recursive::pathempty("$pDir/Eval/CheckM") || die "Could not clean CheckM working directory: $!";
+                } else {
+                    File::Copy::Recursive::pathmk("$pDir/Eval/CheckM") || die "Could not create CheckM working directory: $!";
+                }
                 # We do the SciKit check first, because it's faster.
                 my $cmd = "gto_consistency $pDir/bin.gto $pDir/Eval/SciKit $FIG_Config::global/FunctionPredictors $FIG_Config::global/roles.in.subsystems $FIG_Config::global/roles.to.use";
                 SeedUtils::run($cmd);
@@ -250,9 +262,6 @@ if ($opt->filter) {
                         $stats->Add(goodOutlier => 1);
                     }
                 }
-                # Clean up all the working files from the checkers.
-                File::Copy::Recursive::pathempty("$pDir/Eval/SciKit") || die "Could not clean SciKit working directory: $!";
-                File::Copy::Recursive::pathempty("$pDir/Eval/Checkm") || die "Could not clean CheckM working directory: $!";
             }
         }
     }
