@@ -252,7 +252,8 @@ if ($opt->filter) {
                     }
                 }
                 # Clean up all the working files from the checkers.
-                File::Copy::Recursive::pathempty($pDir) || die "Could not clean $pDir: $!";
+                #File::Copy::Recursive::pathempty($pDir) || die "Could not clean $pDir: $!";
+                pathempty($pDir) || die "Could not clean $pDir: $!";
             }
         }
     }
@@ -381,4 +382,63 @@ sub count {
         }
     }
     return $retVal;
+}
+
+
+### DEBUG
+
+sub pathempty {
+   my $pth = shift;
+
+   return 2 if !-d $pth;
+
+   my @names;
+   my $pth_dh;
+   if ( $] < 5.006 ) {
+       opendir(PTH_DH, $pth) or return;
+       @names = grep !/^\.+$/, readdir(PTH_DH);
+   }
+   else {
+       opendir($pth_dh, $pth) or return;
+       @names = grep !/^\.+$/, readdir($pth_dh);
+   }
+
+   for my $name (@names) {
+      my ($name_ut) = $name =~ m{ (.*) }xms;
+      my $flpth     = File::Spec->catdir($pth, $name_ut);
+      print STDERR "Processing $flpth.\n";
+      if( -l $flpth ) {
+              unlink $flpth or return;
+      }
+      elsif(-d $flpth) {
+          pathrmdir($flpth) or return;
+      }
+      else {
+          unlink $flpth or return;
+      }
+   }
+
+   if ( $] < 5.006 ) {
+       closedir PTH_DH;
+   }
+   else {
+       closedir $pth_dh;
+   }
+
+   1;
+}
+
+
+sub pathrmdir {
+    my $dir = shift;
+    if( -e $dir ) {
+        return if !-d $dir;
+    }
+    else {
+        return 2;
+    }
+
+    pathempty($dir) or return;
+    print STDERR "Removing $dir.\n";
+    rmdir $dir or return;
 }
