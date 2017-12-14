@@ -227,14 +227,14 @@ if ($opt->filter) {
                 print "SciKit fine score is $score.\n";
                 if ($score >= 85) {
                     # We have passed SciKit. Now try CheckM.
-                    print "Creating FASTA for $id $name.\n";
-                    File::Copy::Recursive::pathmk("$pDir/Eval/CheckM");
+                    File::Copy::Recursive::pathmk("$pDir/Eval/CheckM") || die "Could not create CheckM output directory: $!";
                     $cmd = "checkm lineage_wf --tmpdir $FIG_Config::temp -x fa --file $pDir/checkm.log $pDir $pDir/Eval/CheckM";
                     SeedUtils::run($cmd);
                     $stats->Add(checkMrun => 1);
                     my ($checkMscore, $checkMcontam) = (0, 999);
                     if (! open(my $fh, '<', "$pDir/checkm.log")) {
                         print "WARNING: Cannot open output from CheckM: $!";
+                    } else {
                         while (! eof $fh) {
                             my $line = <$fh>;
                             if ($line =~ /^\s+bin\s+/) {
@@ -252,7 +252,7 @@ if ($opt->filter) {
                     }
                 }
                 # Clean up all the working files from the checkers.
-                File::Copy::Recursive::pathempty($pDir);
+                File::Copy::Recursive::pathempty($pDir) || die "Could not clean $pDir: $!";
             }
         }
     }
