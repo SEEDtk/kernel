@@ -138,7 +138,7 @@ while (! eof $ih) {
             my ($genome, $name, $prot) = @$result;
             # Check the protein.
             if (! $prot) {
-                print "WARNING: $genome $name has to identifying protein.\n";
+                print "WARNING: $genome $name has no identifying protein.\n";
                 $stats->Add(genomeNoProt => 1);
                 $stats->Add(badGenome => 1);
                 $bad{$genome} = 1;
@@ -196,7 +196,9 @@ if ($opt->filter) {
     for my $outlier (@outliers) {
         my $id = $outlier->id();
         my $name = $outlier->name();
-        if (! $bad{$id}) {
+        if ($bad{$id}) {
+            print "$id $name has too many seed proteins.\n";
+        } else {
             # Check the protein length.
             my $aaLen = length $outlier->prot();
             if ($aaLen < 209 || $aaLen > 405) {
