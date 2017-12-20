@@ -1,4 +1,4 @@
-=head1 Description
+=head1 Preliminary Check for Good Genomes
 
     p3-good-check.pl [options] inDir outDir
 
@@ -13,6 +13,16 @@ The positional parameters are the names of the input and output directories.
 The input directory must contain a C<good.patric.tbl> file containing the known good-genome IDs, and a C<bad.patric.tbl> file containing the known
 bad-genome IDs. New versions of these files will be put into the output directory and the list of genomes to check will be written to C<check.tbl>.
 
+The command-line options are as follows:
+
+=over 4
+
+=item genomes
+
+If specified, the name of a tab-delimited file containing (0) the ID and (1) the name of each genome to check. The default is to check all public genomes.
+
+=back
+
 =cut
 
 use strict;
@@ -24,7 +34,8 @@ use SeedUtils;
 
 $| = 1;
 # Get the command-line options.
-my $opt = P3Utils::script_opts('inDir outDir');
+my $opt = P3Utils::script_opts('inDir outDir',
+        ['genomes=s', 'check only genomes in the specified file']);
 # Get the working directory.
 my ($inDir, $outDir) = @ARGV;
 if (! $inDir) {
@@ -41,15 +52,30 @@ my $p3 = P3DataAPI->new();
 # To start, we get the known-genome information.
 my $goodH = read_ids("$inDir/good.patric.tbl");
 my $badH = read_ids("$inDir/bad.patric.tbl");
-# Now get all of the genome IDs from PATRIC.
-my $genomeList = P3Utils::get_data($p3, genome => [['eq', 'public', 1]], ['genome_id', 'genome_name']);
-my ($count, $total) = (0, scalar(@$genomeList));
-print scalar(@$genomeList) . " genomes found in PATRIC.\n";
+# Now get all of the genome IDs and names.
+my $genomeList = [];
+if ($opt->genomes) {
+    # Here we have a file of IDs and names.
+    print "Reading genomes from file.\n";
+    open(my $ih, '<', $opt->genomes) || die "Could not open genome file: $!";
+    while (! eof $ih) {
+        my $line = <$ih>;
+        if ($line =~ /^(\S+)\t(.+)/) {
+            push @$genomeList, [$1, $2];
+        }
+    }
+} else {
+    print "Reading genomes from PATRIC.\n";
+    $genomeList = P3Utils::get_data($p3, genome => [['eq', 'public', 1]], ['genome_id', 'genome_name']);
+}
+my $total = scalar(@$genomeList);
+print "$total genomes to check.\n";
 # Sort the output.
 $genomeList = [ sort { $a->[0] cmp $b->[0] } @$genomeList ];
 # Create the temp directory for the SciKit tool.
 my $pDir = "$outDir/Temp";
 if (! -d $pDir) {
+    print "Creating temp directories for SciKit.\n";
     File::Copy::Recursive::pathmk($pDir);
     File::Copy::Recursive::pathmk("$pDir/SciKit");
 }
@@ -62,7 +88,6 @@ my @queue;
 # Run through the PATRIC genomes.
 for my $genomeEntry (@$genomeList) {
     my ($id, $name) = @$genomeEntry;
-    $count++;
     # Check the hashes first.
     if ($goodH->{$id}) {
         record($genomeEntry, $gh);
@@ -74,7 +99,7 @@ for my $genomeEntry (@$genomeList) {
     }
 }
 # Process the residual.
-print "Processing residual." . scalar(@queue) . " left to check.\n";
+print "Processing residual.  " . scalar(@queue) . " left to check.\n";
 my $n = scalar @queue - 1;
 for (my $i = 0; $i <= $n; $i++) {
     my $j = $i + 100; $j = $n if $j > $n;
@@ -119,9 +144,9 @@ sub process_batch {
                 record($genomeData, $bh);
                 print "$genome $name has a bad protein length.\n";
             } else {
-                # Here we need to start checking the quality.
-                # We need to do a quality check here. Get the GTO and write its FASTA
-                # and JSON to disk.
+                # We need to do a quality check here. Get the GTO and write its
+                # JSON to disk.
+                my $start = time;
                 print "Retrieving GTO for $genome $name.\n";
                 my $gto = $p3->gto_of($genome);
                 $gto->destroy_to_file("$pDir/bin.gto");
@@ -142,7 +167,7 @@ sub process_batch {
                         }
                     }
                 }
-                print "SciKit fine score is $score.\n";
+                print "SciKit fine score is $score. " . (time - $start) . " seconds to check.\n";
                 if ($score < 85) {
                     print "$genome $name rejected by SciKit.\n";
                     record($genomeData, $bh);
