@@ -101,8 +101,8 @@ for my $genomeEntry (@$genomeList) {
 # Process the residual.
 print "Processing residual.  " . scalar(@queue) . " left to check.\n";
 my $n = scalar @queue - 1;
-for (my $i = 0; $i <= $n; $i++) {
-    my $j = $i + 100; $j = $n if $j > $n;
+for (my $i = 0; $i <= $n; $i += 100) {
+    my $j = $i + 99; $j = $n if $j > $n;
     my $subset = [ @queue[$i .. $j]];
     process_batch($subset);
 }
