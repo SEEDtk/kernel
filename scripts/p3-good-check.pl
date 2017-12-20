@@ -51,9 +51,9 @@ if (! -d $pDir) {
     File::Copy::Recursive::pathmk("$pDir/SciKit");
 }
 # Open the output files.
-my $gh = IO::File->new("$outDir/good.patric.tbl") || die "Could not open output good.patric.tbl: $!";
-my $bh = IO::File->new("$outDir/bad.patric.tbl") || die "Could not open output bad.patric.tbl: $!";
-my $ch = IO::File->new("$outDir/check.tbl") || die "Could not open output check.tbl: $!";
+my $gh = IO::File->new(">$outDir/good.patric.tbl") || die "Could not open output good.patric.tbl: $!";
+my $bh = IO::File->new(">$outDir/bad.patric.tbl") || die "Could not open output bad.patric.tbl: $!";
+my $ch = IO::File->new(">$outDir/check.tbl") || die "Could not open output check.tbl: $!";
 # This list will accumulate a batch of genomes of unknown provenance.
 my @queue;
 # Run through the PATRIC genomes.
