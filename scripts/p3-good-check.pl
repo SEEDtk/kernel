@@ -43,7 +43,10 @@ my $goodH = read_ids("$inDir/good.patric.tbl");
 my $badH = read_ids("$inDir/bad.patric.tbl");
 # Now get all of the genome IDs from PATRIC.
 my $genomeList = P3Utils::get_data($p3, genome => [['eq', 'public', 1]], ['genome_id', 'genome_name']);
+my ($count, $total) = (0, scalar(@$genomeList));
 print scalar(@$genomeList) . " genomes found in PATRIC.\n";
+# Sort the output.
+$genomeList = [ sort { $a->[0] cmp $b->[0] } @$genomeList ];
 # Create the temp directory for the SciKit tool.
 my $pDir = "$outDir/Temp";
 if (! -d $pDir) {
@@ -59,6 +62,7 @@ my @queue;
 # Run through the PATRIC genomes.
 for my $genomeEntry (@$genomeList) {
     my ($id, $name) = @$genomeEntry;
+    $count++;
     # Check the hashes first.
     if ($goodH->{$id}) {
         record($genomeEntry, $gh);
@@ -69,12 +73,14 @@ for my $genomeEntry (@$genomeList) {
         push @queue, $genomeEntry;
         # Process every 100 genomes.
         if (scalar(@queue) >= 100) {
+            print "Processing batch. Progress is $count of $total.\n";
             process_batch(\@queue);
             @queue = ();
         }
     }
 }
 # Process the residual.
+print "Processing residual." . scalar(@queue) . " left to check.\n";
 process_batch(\@queue);
 print "All done.\n";
 
