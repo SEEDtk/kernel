@@ -22,6 +22,7 @@ use IO::Handle;
 use File::Copy::Recursive;
 use SeedUtils;
 
+$| = 1;
 # Get the command-line options.
 my $opt = P3Utils::script_opts('inDir outDir');
 # Get the working directory.
@@ -41,7 +42,7 @@ my $p3 = P3DataAPI->new();
 my $goodH = read_ids("$inDir/good.patric.tbl");
 my $badH = read_ids("$inDir/bad.patric.tbl");
 # Now get all of the genome IDs from PATRIC.
-my $genomeList = P3Utils::get_data($p3, genome => [], ['genome_id', 'genome_name']);
+my $genomeList = P3Utils::get_data($p3, genome => [['eq', 'public', 1]], ['genome_id', 'genome_name']);
 print scalar(@$genomeList) . " genomes found in PATRIC.\n";
 # Create the temp directory for the SciKit tool.
 my $pDir = "$outDir/Temp";
