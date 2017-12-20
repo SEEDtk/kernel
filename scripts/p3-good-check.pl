@@ -71,17 +71,16 @@ for my $genomeEntry (@$genomeList) {
     } else {
         # Here we need to queue up the genome for further processing.
         push @queue, $genomeEntry;
-        # Process every 100 genomes.
-        if (scalar(@queue) >= 100) {
-            print "Processing batch. Progress is $count of $total.\n";
-            process_batch(\@queue);
-            @queue = ();
-        }
     }
 }
 # Process the residual.
 print "Processing residual." . scalar(@queue) . " left to check.\n";
-process_batch(\@queue);
+my $n = scalar @queue - 1;
+for (my $i = 0; $i <= $n; $i++) {
+    my $j = $i + 100; $j = $n if $j > $n;
+    my $subset = [ @queue[$i .. $j]];
+    process_batch($subset);
+}
 print "All done.\n";
 
 
