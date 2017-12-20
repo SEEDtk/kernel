@@ -46,6 +46,15 @@ Additional command-line options are those given in L<P3Utils/col_options> (to se
 If specified, no new representative genomes will be computed. The genomes that were unrepresented will be output to the file
 C<outliers.tbl> in the output directory.
 
+=item filter
+
+If specified, the outlier genomes will be filtered so that only good ones are checked for representatives.
+
+=item middle
+
+If specified, a similarity score indicating a middle similarity distance. The file C<middle.tbl> will be written containing
+the genomes that are less similar than the main score but more similar than this score.
+
 =back
 
 =head2 Output Files
@@ -68,6 +77,7 @@ $| = 1;
 my $opt = P3Utils::script_opts('inDir outDir', P3Utils::col_options(), P3Utils::ih_options(),
         ['checkOnly', 'check for representation only-- do not add new representative genomes'],
         ['filter', 'perform a good-genome analysis on the unrepresented genomes'],
+        ['middle=i', 'alternate similarity score for use in determining mid-distance genomes']
         );
 # Create the statistics object.
 my $stats = Stats->new();
@@ -103,12 +113,16 @@ my $repDB = RepGenomeDb->new_from_dir($inDir, verbose => 1);
 my $K = $repDB->K();
 my $minScore = $repDB->score();
 print "Kmer size is $K and minimum similarity is $minScore.\n";
+# Compute the middle distance.
+my $midScore = $opt->middle || $minScore;
 # Open the input file.
 my $ih = P3Utils::ih($opt);
 # Read the incoming headers.
 my ($outHeaders, $keyCol) = P3Utils::process_headers($ih, $opt);
 # This will be a list of RepGenome objects for the un-represented genomes.
 my @outliers;
+# This will be a list of RepGenome objects for un-represented genomes at the middle distance.
+my @middle;
 # This will be a hash of bad genome IDs.
 my %bad;
 # Loop through the input.
@@ -172,10 +186,17 @@ while (! eof $ih) {
                 $repDB->Connect($repID, $genome, $score);
                 $stats->Add(genomeConnected => 1);
             } else {
-                print "$genome $name is an outlier. Best score was $score.\n";
                 my $repGenome = RepGenome->new($genome, name => $name, prot => $prot, K => $K);
+                if ($score >= $midScore) {
+                    # Here we are at the middle distance.
+                    print "$genome $name is at the middle distance from $repID with similarity $score.\n";
+                    push @middle, $repGenome;
+                    $stats->Add(genomeMiddle => 1);
+                } else {
+                    print "$genome $name is an outlier. Best score was $score.\n";
+                    $stats->Add(genomeOutlier => 1);
+                }
                 push @outliers, $repGenome;
-                $stats->Add(genomeOutlier => 1);
             }
         }
     }
@@ -183,6 +204,9 @@ while (! eof $ih) {
 # Checkpoint our results.
 print "Saving results of initial run.\n";
 $repDB->Save($outDir);
+if ($opt->middle) {
+    dump_outliers("$outDir/middle.tbl", \@middle);
+}
 # Now we need to process the outliers.
 my $nOutliers = scalar @outliers;
 print "$nOutliers outlier genomes found.\n";
@@ -366,6 +390,7 @@ if ($opt->checkonly) {
     if (@outliers) {
         print "Printing useless outliers.\n";
         dump_outliers("$outDir/useless.tbl", \@outliers);
+        $stats->Add(unprocessedGenome => scalar @outliers);
     }
 }
 print "All done.\n" . $stats->Show();
@@ -378,7 +403,6 @@ sub dump_outliers {
     print $oh "id\tname\tprot\n";
     for my $outlier (@outliers) {
         print $oh join("\t", $outlier->id(), $outlier->name(), $outlier->prot()) . "\n";
-        $stats->Add(unprocessedGenome => 1);
     }
 }
 
