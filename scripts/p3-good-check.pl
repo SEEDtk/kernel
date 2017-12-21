@@ -10,8 +10,9 @@ It will output a list of newly-discovered bad genomes and a list of genomes that
 
 The positional parameters are the names of the input and output directories.
 
-The input directory must contain a C<good.patric.tbl> file containing the known good-genome IDs, and a C<bad.patric.tbl> file containing the known
-bad-genome IDs. New versions of these files will be put into the output directory and the list of genomes to check will be written to C<check.tbl>.
+The input directory must contain a C<good.patric.tbl> file containing the known good-genome IDs, a C<bad.patric.tbl> file containing the known
+bad-genome IDs, and an optional C<check.tbl> file containing the IDs of genomes to run through CheckM.
+New versions of these files will be put into the output directory and the list of genomes to check will be written to C<check.tbl>.
 
 The command-line options are as follows:
 
@@ -52,6 +53,10 @@ my $p3 = P3DataAPI->new();
 # To start, we get the known-genome information.
 my $goodH = read_ids("$inDir/good.patric.tbl");
 my $badH = read_ids("$inDir/bad.patric.tbl");
+my $checkH = {};
+if (-s "$inDir/check.tbl") {
+    $checkH = read_ids("$inDir/check.tbl");
+}
 # Now get all of the genome IDs and names.
 my $genomeList = [];
 if ($opt->genomes) {
@@ -93,6 +98,8 @@ for my $genomeEntry (@$genomeList) {
         record($genomeEntry, $gh);
     } elsif ($badH->{$id}) {
         record($genomeEntry, $bh);
+    } elsif ($checkH-{$id}) {
+        record($genomeEntry, $ch);
     } else {
         # Here we need to queue up the genome for further processing.
         push @queue, $genomeEntry;
