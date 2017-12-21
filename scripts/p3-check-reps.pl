@@ -209,7 +209,12 @@ if ($opt->middle) {
 }
 # Now we need to process the outliers.
 my $nOutliers = scalar @outliers;
-print "$nOutliers outlier genomes found.\n";
+my $mCount = scalar @middle;
+my $nCount = $nOutliers - $mCount;
+print "$nOutliers un-represented genomes found.\n";
+if ($opt->middle) {
+    print "$mCount at the middle distance, $nCount true outliers.\n";
+}
 if ($opt->filter) {
     print "Filtering for bad outliers.\n";
     my $pDir = "$outDir/Temp";
@@ -401,7 +406,7 @@ sub dump_outliers {
     my ($fileName, $outliers) = @_;
     open (my $oh, '>', $fileName) || die "Could not open outlier file: $!";
     print $oh "id\tname\tprot\n";
-    for my $outlier (@outliers) {
+    for my $outlier (@$outliers) {
         print $oh join("\t", $outlier->id(), $outlier->name(), $outlier->prot()) . "\n";
     }
 }
