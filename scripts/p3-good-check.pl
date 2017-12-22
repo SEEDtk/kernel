@@ -46,7 +46,8 @@ if (! $inDir) {
 } elsif (! $outDir) {
     die "No output directory specified.";
 } elsif (! -d $outDir) {
-    die "Invalid or missing output directory $outDir.";
+    print "Creating $outDir.\n";
+    File::Copy::Recursive::pathmk($outDir) || die "Could not create output directory: $!";
 }
 # Get access to PATRIC.
 my $p3 = P3DataAPI->new();
