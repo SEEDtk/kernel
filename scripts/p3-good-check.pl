@@ -98,7 +98,7 @@ for my $genomeEntry (@$genomeList) {
         record($genomeEntry, $gh);
     } elsif ($badH->{$id}) {
         record($genomeEntry, $bh);
-    } elsif ($checkH-{$id}) {
+    } elsif ($checkH->{$id}) {
         record($genomeEntry, $ch);
     } else {
         # Here we need to queue up the genome for further processing.
@@ -106,7 +106,7 @@ for my $genomeEntry (@$genomeList) {
     }
 }
 # Process the residual.
-print "Processing residual.  " . scalar(@queue) . " left to check.\n";
+print "Processing queue.  " . scalar(@queue) . " to check.\n";
 my $n = scalar @queue - 1;
 for (my $i = 0; $i <= $n; $i += 100) {
     my $j = $i + 99; $j = $n if $j > $n;
