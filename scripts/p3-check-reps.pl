@@ -300,6 +300,7 @@ if ($opt->filter) {
     @outliers = @good;
     $nOutliers = scalar @outliers;
     print "$nOutliers outlier genomes are good.\n";
+    dump_outliers("$outDir/good.outliers.tbl", \@outliers);
 }
 if ($opt->checkonly) {
     # We don't want to update the representatives, we just want a list of outliers.
