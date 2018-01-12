@@ -70,6 +70,7 @@ use P3Utils;
 use RepGenomeDb;
 use File::Copy::Recursive;
 use Stats;
+use RoleParse;
 
 $| = 1;
 # Get the command-line options.
@@ -105,6 +106,8 @@ if (! $outDir) {
 # Create the PATRIC filter and column clauses for genome queries.
 my @filter = (['eq', 'product', 'Phenylalanyl-tRNA synthetase alpha chain']);
 my @cols = qw(genome_id genome_name product aa_sequence);
+# Save the checksum for the seed role.
+my $roleCheck = "WCzieTC/aZ6262l19bwqgw";
 # Create the database from the input directory.
 print "Creating database from $inDir.\n";
 my $repDB = RepGenomeDb->new_from_dir($inDir, verbose => 1);
@@ -150,12 +153,13 @@ while (! eof $ih) {
         for my $result (@$resultList) {
             my ($genome, $name, $function, $prot) = @$result;
             # Check the protein.
+            my $check = RoleParse::Checksum($function // '');
             if (! $prot) {
                 print "WARNING: $genome $name has no identifying protein.\n";
                 $stats->Add(genomeNoProt => 1);
                 $stats->Add(badGenome => 1);
                 $bad{$genome} = 1;
-            } elsif ($function !~ /^phenylalanyl-tRNA synthetase alpha chain/i) {
+            } elsif ($check ne $roleCheck) {
                 # Here the function matched but it is not really the same.
                 $stats->Add(funnyProt => 1);
             } else {
