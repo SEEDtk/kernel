@@ -1,4 +1,3 @@
-
 =head1 Check For Representative Genomes
 
     p3-check-reps.pl [options] inDir outDir
@@ -105,7 +104,7 @@ if (! $outDir) {
 }
 # Create the PATRIC filter and column clauses for genome queries.
 my @filter = (['eq', 'product', 'Phenylalanyl-tRNA synthetase alpha chain']);
-my @cols = qw(genome_id genome_name aa_sequence);
+my @cols = qw(genome_id genome_name product aa_sequence);
 # Create the database from the input directory.
 print "Creating database from $inDir.\n";
 my $repDB = RepGenomeDb->new_from_dir($inDir, verbose => 1);
@@ -145,17 +144,20 @@ while (! eof $ih) {
         print scalar(@lost) . " genomes in this batch are not yet in the database.\n";
         # Ask PATRIC for the names and identifying proteins of the un-represented genomes.
         my $resultList = P3Utils::get_data_keyed($p3, 'feature', \@filter, \@cols, \@lost, 'genome_id');
-        # The resultList entries are in the form [$genome, $name, $prot]. Get the longest
+        # The resultList entries are in the form [$genome, $name, $function, $prot]. Get the longest
         # protein for each genome. We also track obviously bad genomes.
         my (%results);
         for my $result (@$resultList) {
-            my ($genome, $name, $prot) = @$result;
+            my ($genome, $name, $function, $prot) = @$result;
             # Check the protein.
             if (! $prot) {
                 print "WARNING: $genome $name has no identifying protein.\n";
                 $stats->Add(genomeNoProt => 1);
                 $stats->Add(badGenome => 1);
                 $bad{$genome} = 1;
+            } elsif ($function !~ /^phenylalanyl-tRNA synthetase alpha chain/i) {
+                # Here the function matched but it is not really the same.
+                $stats->Add(funnyProt => 1);
             } else {
                 # Add the protein length to the result array.
                 my $protLen = length $prot;

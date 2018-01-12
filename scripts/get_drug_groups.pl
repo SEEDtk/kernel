@@ -16,11 +16,15 @@ The positional parameter is the name of the criterion to apply. Currently, the f
 The score is the largest difference between growth rates for adjacent drug concentrations for one of the drugs (that is, the other drug's
 concentration is constant). The difference is computed as the percent difference relative to the larger growth rate.
 
+=item minergy
+
+The score is the arithmetic difference between the control growth rate and the actual growth rate for the dosages with the lowest actual growth rate.
+
 =item synergy
 
 The score is the largest arithmetic difference between the control growth rate and the actual growth rate.
 
-=item synergy
+=item synergy2
 
 This is the same as synergy, but rows with negative actual growth rates are discarded.
 
@@ -34,7 +38,8 @@ This is the same as antagony, but rows with negative actual growth rates are dis
 
 =back
 
-The standard input can be overridden using the options in L<P3Utils/ih_options>.
+The standard input can be overridden using the options in L<P3Utils/ih_options>. It should be a comma-delimited file containing
+the NCI60 test data.
 
 The following additional command-line options are supported.
 
@@ -166,6 +171,9 @@ my %pairs;
 my %lineCounts;
 # This hash contains panels found in the cell-lines report.
 my %panels;
+# Sort the output.
+print STDERR "Sorting results.\n";
+@saved = sort { $b->[0] <=> $a->[0] } @saved;
 # If this is grouped output, resort it.
 if ($opt->grouped) {
     print STDERR "Sorting groups.\n";
@@ -287,6 +295,8 @@ sub ProcessGroup {
     my $score;
     if ($criterion eq 'deltaDiff') {
         $score = DeltaDiff($lines);
+    } elsif ($criterion eq 'minergy') {
+        $score = Minergy($lines);
     } elsif ($criterion eq 'synergy') {
         $score = Synergy($lines);
     } elsif ($criterion eq 'synergy2') {
@@ -301,10 +311,10 @@ sub ProcessGroup {
     # Only proceed if we have a score.
     if (defined $score) {
         # Determine the basic criterion for keeping a group.
-        if ($opt->min) {
+        if (defined $opt->min) {
             # Here we are keeping everything above the minimum.
             if ($score >= $opt->min) {
-                @$saved = sort { $b->[0] <=> $a->[0] } (@$saved, [$score, $lines, $groupName]);
+                push @$saved, [$score, $lines, $groupName];
             }
         } else {
             # Keeping the top N. Sort the new group into the saved set.
@@ -372,6 +382,23 @@ sub Synergy {
     }
     return $retVal;
 }
+
+# Minergy score. (Expected - Actual) for lowest actual.
+sub Minergy {
+    my ($lines) = @_;
+    my ($bestActual, $bestExpected);
+    for my $line (@$lines) {
+        my ($expected, $actual) = ($line->[EXPECTED()], $line->[GROWTH()]);
+        if (defined $expected && defined $actual) {
+            if (! defined $bestActual || $actual < $bestActual) {
+                ($bestActual, $bestExpected) = ($actual, $expected);
+            }
+        }
+    }
+    my $retVal = ($bestExpected - $bestActual);
+    return $retVal;
+}
+
 
 # Modified Synergy score. Expected - Actual, Actual >= 0
 sub Synergy2 {
