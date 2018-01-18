@@ -186,6 +186,10 @@ If specified, a comma-delimited list of sample names. Only packages from the spe
 
 If specified, emit a JSON-formatted report instead of text.
 
+=item log
+
+If specified, progress will be written to the standard error output.
+
 =back
 
 =cut
@@ -197,7 +201,10 @@ my $opt = ScriptUtils::Opts('dir package',
         ["missing", 'list missing data to error output'],
         ["samples=s", 'only process packages from the specified samples'],
         ["json", 'write the report in json format'],
+        ["log|verbose|v", "show progress on STDERR"],
         );
+# Get the log option.
+my $log = $opt->log;
 # Get the directory and the package.
 my $json_packages = [];
 my ($dir, $package) = @ARGV;
@@ -219,14 +226,16 @@ if (! $dir) {
         push @packages, $package;
         $force = 1;
     } else {
+        print STDERR "Reading directory $dir.\n" if $log;
         # Here we want multiple packages.
         opendir(my $dh, $dir) || die "Could not open package directory: $!";
         # Check for filtering.
         if (! $opt->samples) {
             # No filtering. Get all the packages.
-            @packages = grep { $_ =~ /^\d+\.\d+$/ } readdir $dh;
+            @packages = sort grep { $_ =~ /^\d+\.\d+$/ } readdir $dh;
         } else {
             # Loop through the packages, seeking ones from the specified sample.
+            print STDERR "Filtering for samples.\n" if $log;
             my %samples = map { $_ => 1 } split /,/, $opt->samples;
             for my $package (sort grep { $_ =~ /^\d+\.\d+$/ } readdir $dh) {
                 if (open(my $ih, '<', "$dir/$package/data.tbl")) {
@@ -243,28 +252,28 @@ if (! $dir) {
         }
     }
     # Loop through the packages, producing output.
+    my $total = scalar @packages;
+    my $count = 0;
+    print STDERR "$total packages to process.\n" if $log;
     for my $package (@packages) {
         my $line = produce_report($dir, $package, $force, $report);
-	if ($opt->json)
-	{
-	    push(@$json_packages, $line);
-	}
-	else
-	{
-	    if (! $opt->quiet) {
-		print $line;
-	    }
-	}
+        if ($opt->json)	{
+            push(@$json_packages, $line);
+        } else {
+            if (! $opt->quiet) {
+                print $line;
+            }
+        }
+        $count++;
+        print STDERR "$count of $total packages processed.\n" if $log && ($count % 100 == 0);
     }
 }
-
-if ($opt->json)
-{
+if ($opt->json) {
     my $path = $dir;
     $path = abs_path($path) unless $path =~ m,^/,;
     my $json_report = {
-	package_directory => abs_path($path),
-	packages => $json_packages,
+        package_directory => abs_path($path),
+        packages => $json_packages,
     };
     print JSON::XS->new->pretty(1)->canonical(1)->encode($json_report);
 }
@@ -361,29 +370,29 @@ sub produce_report {
 
     if ($opt->json)
     {
-	my $l = $retVal;
-	chomp $l;
-	my($sample_name, $genome_id, $genome_name, $contigs, $dna, $complete,
-	   $n50, $n70, $n90, $ref_id, $ref_name,
-	   $scikit_coarse, $scikit_fine, $checkm_completeness, $checkm_contamination, $checkm_tax) = split(/\t/, $l);
-	$retVal = {
-	    sample_name => $sample_name,
-	    genome_id => $genome_id,
-	    genome_name => $genome_name,
-	    contigs => 0 + $contigs,
-	    dna_bp => 0 + $dna,
-	    complete => $complete,
-	    n50 => 0 + $n50,
-	    n70 => 0 + $n70,
-	    n90 => 0 + $n90,
-	    scikit_coarse => 0.0 + $scikit_coarse,
-	    scikit_fine => 0.0 + $scikit_fine,
-	    checkm_completeness => 0.0 + $checkm_completeness,
-	    checkm_contamination => 0.0 + $checkm_contamination,
-	    checkm_taxonomy => $checkm_tax,
-	};
+        my $l = $retVal;
+        chomp $l;
+        my($sample_name, $genome_id, $genome_name, $contigs, $dna, $complete,
+           $n50, $n70, $n90, $ref_id, $ref_name,
+           $scikit_coarse, $scikit_fine, $checkm_completeness, $checkm_contamination, $checkm_tax) = split(/\t/, $l);
+        $retVal = {
+            sample_name => $sample_name,
+            genome_id => $genome_id,
+            genome_name => $genome_name,
+            contigs => 0 + $contigs,
+            dna_bp => 0 + $dna,
+            complete => $complete,
+            n50 => 0 + $n50,
+            n70 => 0 + $n70,
+            n90 => 0 + $n90,
+            scikit_coarse => 0.0 + $scikit_coarse,
+            scikit_fine => 0.0 + $scikit_fine,
+            checkm_completeness => 0.0 + $checkm_completeness,
+            checkm_contamination => 0.0 + $checkm_contamination,
+            checkm_taxonomy => $checkm_tax,
+        };
     }
 
-    
+
     return $retVal;
 }
