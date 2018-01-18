@@ -185,8 +185,7 @@ while (! eof $ih) {
         # Now loop through the genomes, checking for representatives.
         for my $genome (keys %results) {
             print "Checking $genome.\n";
-            my (undef, $name, $prot) = @{$results{$genome}};
-            print "Protein for $genome is $prot.\n"; ##DEBUG
+            my (undef, $name, undef, $prot) = @{$results{$genome}};
             my ($repID, $score) = $repDB->find_rep($prot);
             if ($score >= $minScore) {
                 print "$genome $name assigned to $repID with similarity $score.\n";
