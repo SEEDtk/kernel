@@ -186,6 +186,7 @@ while (! eof $ih) {
         for my $genome (keys %results) {
             print "Checking $genome.\n";
             my (undef, $name, $prot) = @{$results{$genome}};
+            print "Protein for $genome is $prot.\n"; ##DEBUG
             my ($repID, $score) = $repDB->find_rep($prot);
             if ($score >= $minScore) {
                 print "$genome $name assigned to $repID with similarity $score.\n";
