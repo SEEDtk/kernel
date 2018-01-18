@@ -174,12 +174,13 @@ print scalar(keys %genomes) . " genomes with good genus information.\n";
 # Release the genome list memory.
 @genomes = ();
 # Now we need to get all the features for the seed role.
-my ($funcName) = $shrub->GetFlat("Function", 'Function(id) = ?', [$opt->seedrole], 'Function(description)');
-print "Function name is $funcName.\n";
-# Clean the function name for PATRIC and ask for features.
-$funcName =~ s/[()]/ /g;
-my @prots = $p3->query("genome_feature", ["select", "patric_id", "genome_id"],
-        ["eq", "annotation", "PATRIC"], ["eq", "product", qq("$funcName")]);
+my ($roleData) = $shrub->GetAll("Role", 'Role(id) = ?', [$opt->seedrole], 'Role(description) Role(checksum)');
+my ($roleName, $roleCheck) = @$roleData;
+print "Role name is $roleName.\n";
+# Clean the role name for PATRIC and ask for features.
+$roleName =~ s/[()]/ /g;
+my @prots = $p3->query("genome_feature", ["select", "patric_id", "genome_id", "product"],
+        ["eq", "annotation", "PATRIC"], ["eq", "product", qq("$roleName")]);
 # This will hold our protein batch.
 my %prots;
 my $batchCount = 0;
@@ -190,10 +191,14 @@ for my $prot (@prots) {
     my $genomeID = $prot->{genome_id};
     my $protID = $prot->{patric_id};
     my $genomeName = $genomes{$genomeID};
+    my $protCheck = RoleParse::Checksum($prot->{product});
     $stats->Add(protFound => 1);
     if (! $genomeName) {
         # Relevant genome is ambiguously classified.
         $stats->Add(protBadGenome => 1);
+    } elsif ($protCheck ne $roleCheck) {
+        # Wrong role returned.
+        $stats->Add(protWrongRole => 1);
     } else {
         # Compute the label/comment combination for this protein.
         $prots{$protID} = ($glabel ? "$genomeID $protID" : "$protID $genomeID" ) . "\t$genomeName";
