@@ -32,7 +32,15 @@ the representative genome).
 print "Reading FASTA file.\n";
 my @tuples = gjoseqlib::read_fasta("$dataD/6.1.1.20.fasta");
 (@tuples > 0) || die "Missing $dataD/6.1.1.20.fasta";
-my %seqs = map { ($_->[1] => $_->[2]) } @tuples;
+my %seqs;
+for my $tuple (@tuples) {
+    my ($id,$comment,$aa) = @$tuple;
+    if ($id =~ /(\d+\.\d+)/) {
+        $seqs{$1} = uc $aa;
+    } elsif ($comment =~ /^(\d+\.\d+)/) {
+        $seqs{$1} = uc $aa;
+    }
+}
 print "Reading genome list.\n";
 open(GENOMES,"<$dataD/complete.genomes")
     || die "Missing $dataD/complete.genomes";
