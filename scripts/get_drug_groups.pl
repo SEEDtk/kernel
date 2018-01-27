@@ -87,6 +87,12 @@ scores or greater.
 
 If specified, the name of a file to contain a report on the types of cell lines that are considered significant for each drug.
 
+=item pairs
+
+If specified, the name of a file to contain a pair report. This option requires that the C<min> option also be present.
+For each drug pair, the pair report displays the mean synergy score across all cell lines, the number of cell lines with
+a score higher than the minimum, and the mean score for the cell lines higher than the minimum.
+
 =back
 
 =cut
@@ -105,6 +111,7 @@ my $opt = P3Utils::script_opts('criterion', P3Utils::ih_options(),
         ['significant=i', 'the number of results considered significant in the summary report', { default => 1 }],
         ['triples=s', 'triples report file name'],
         ['tripsig=i', 'the number of results considered significant in the triples report', { default => 7 }],
+        ['pairs=s', 'drug pair report file name'],
         ['panels=s', 'cell lines type report file name'],
         );
 my ($criterion) = @ARGV;
@@ -134,6 +141,8 @@ my $count = 0;
 my $lines;
 # This maps each cell line to its panel type.
 my %lineType;
+# This array tracks totals for the pairs report. Each pair will map to [total-sum, total-count, part-sum, part-count].
+my %pTotals;
 # This contains the name of the current group.
 my $groupName = '';
 my $drugs = 0;
@@ -154,7 +163,7 @@ while (! eof $ih) {
     if ($group ne $groupName) {
         # Yes. Set up for the next group.
         if (! $opt->doubles || $drugs == 2) {
-            ProcessGroup($groupName, $lines, \@saved, $criterion) if $groupName;
+            ProcessGroup($groupName, $lines, \@saved, $criterion, \%pTotals) if $groupName;
         }
         $groupName = $group;
         $drugs = ($cols[14] ? 2 : 1);
@@ -199,6 +208,18 @@ for my $groupData (@saved) {
     # Write out the group.
     for my $line (@$group) {
         print join("\t", $score, @$line) . "\n";
+    }
+}
+# Print the pairs report if requested.
+if ($opt->pairs) {
+    print STDERR "Computing pairs report.\n";
+    open(my $oh, '>', $opt->pairs) || die "Could not open pairs output file: $!";
+    print $oh join("\t", 'Drug 1', 'Drug 2', 'Mean', 'Significant', 'Mean Significant') . "\n";
+    for my $pair (sort keys %pTotals) {
+        my ($tot, $count, $sTot, $sCount) = @{$pTotals{$pair}};
+        my $mean = ($count ? $tot / $count : 0);
+        my $sMean = ($sCount ? $sTot / $sCount : 0);
+        print $oh join("\t", $pair, $mean, $sCount, $sMean) . "\n";
     }
 }
 # Print the summary report if requested.
@@ -287,7 +308,7 @@ sub grp_cmp {
 
 # Score a group and merge it into the saved list.
 sub ProcessGroup {
-    my ($groupName, $lines, $saved, $criterion) = @_;
+    my ($groupName, $lines, $saved, $criterion, $pTotals) = @_;
     if (++$count % 1000 == 0) {
         print STDERR "Processing group $count: $groupName.\n";
     }
@@ -310,12 +331,20 @@ sub ProcessGroup {
     }
     # Only proceed if we have a score.
     if (defined $score) {
+        # Get the pair name.
+        my ($d1, $d2) = sort split /,/, $groupName;
+        my $pairName = "$d1\t$d2";
         # Determine the basic criterion for keeping a group.
         if (defined $opt->min) {
+            # Since we have a minimum, we need to accumulate the pair stuff.
+            my $old = $pTotals->{$pairName} // [0,0,0,0];
+            $old->[0] += $score; $old->[1]++;
             # Here we are keeping everything above the minimum.
             if ($score >= $opt->min) {
                 push @$saved, [$score, $lines, $groupName];
+                $old->[2] += $score; $old->[3]++;
             }
+            $pTotals->{$pairName} = $old;
         } else {
             # Keeping the top N. Sort the new group into the saved set.
             @$saved = sort { $b->[0] <=> $a->[0] } (@$saved, [$score, $lines]);
