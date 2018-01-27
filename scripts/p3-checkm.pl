@@ -118,7 +118,7 @@ while (! eof $ih) {
     print "Reading CheckM results.\n";
     open(my $ch, "<$outDir/evaluate.txt") || die "Could not open CheckM output file: $!";
     while (! eof $ch) {
-        my $line = <$ih>;
+        my $line = <$ch>;
         $stats->Add(checkMLineIn => 1);
         my @cols = split /\s+/, $line;
         if ($cols[1] =~ /(\d+\.\d+)/) {
