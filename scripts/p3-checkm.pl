@@ -93,8 +93,8 @@ while (! eof $ih) {
     # Loop through the genomes one at a time, creating the FASTA files and saving the names.
     my %names;
     for my $result (@$results) {
-        my $id = $result->{genome_id};
-        $names{$id} = $result->{genome_name};
+        my $id = $result->[0];
+        $names{$id} = $result->[1];
         print "Reading sequences for $id: $names{$id}\n";
         $stats->Add(genomesProcessed => 1);
         my $triples = $p3->fasta_of($id);
