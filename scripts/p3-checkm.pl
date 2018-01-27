@@ -47,6 +47,7 @@ use Stats;
 use File::Copy::Recursive;
 use SeedUtils;
 
+$| = 1;
 # Get the command-line options.
 my $opt = P3Utils::script_opts('outDir', P3Utils::ih_options(),
                 ['col|c=s', 'column number (1-based) or name', { default => 0 }],
@@ -79,8 +80,8 @@ my $ih = P3Utils::ih($opt);
 # Read the incoming headers.
 my ($outHeaders, $keyCol) = P3Utils::process_headers($ih, $opt);
 # Open the output files.
-open(my $gh, "$outDir/good.patric.tbl") || die "Could not open good output file: $!";
-open(my $bh, "$outDir/bad.patric.tbl") || die "Could not open bad output file: $!";
+open(my $gh, ">$outDir/good.patric.tbl") || die "Could not open good output file: $!";
+open(my $bh, ">$outDir/bad.patric.tbl") || die "Could not open bad output file: $!";
 # Loop through the input.
 while (! eof $ih) {
     my $couplets = P3Utils::get_couplets($ih, $keyCol, $opt);
