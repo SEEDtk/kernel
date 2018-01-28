@@ -127,7 +127,7 @@ sub process_hits {
     foreach my $g (sort { $frac_hits{$b} <=> $frac_hits{$a} } keys %frac_hits)
     {
         next if ($frac_hits{$g} == 0.0);
-        print STDOUT (join("\t", ($g, 100.0*$frac_hits{$g}, $g2name->{$g})), "\n");
+        print STDOUT (join("\t", ($g, 100.0*$frac_hits{$g}, $num_hits_for_g{$g}, $g2name->{$g})), "\n");
     }
 }
 
