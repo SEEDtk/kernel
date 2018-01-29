@@ -45,7 +45,7 @@ for my $tuple (@tuples) {
 print "Reading genome list.\n";
 open(GENOMES,"<$dataD/complete.genomes")
     || die "Missing $dataD/complete.genomes";
-my %g_names = map { ($_ =~ /^(\S+)\t(\S.*\S)$/) ? ($1 => $2) : () } <GENOMES>;
+my %g_names = map { ($_ =~ /^(\S+)\t(.+)$/) ? ($1 => $2) : () } <GENOMES>;
 close(GENOMES);
 
 my @genomes    = sort { $a <=> $b } keys(%g_names);
