@@ -332,7 +332,7 @@ sub ProcessGroup {
     # Only proceed if we have a score.
     if (defined $score) {
         # Get the pair name.
-        my ($d1, $d2) = sort split /,/, $groupName;
+        my ($d1, $d2) = split /,/, $groupName;
         my $pairName = "$d1\t$d2";
         # Determine the basic criterion for keeping a group.
         if (defined $opt->min) {
