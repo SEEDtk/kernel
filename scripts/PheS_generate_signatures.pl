@@ -27,6 +27,7 @@ the representative genome).
 
 =cut
 
+$| = 1;
 (my $dataD = shift @ARGV)
     || die "usage: pheS_generate_signatures Data";
 print "Reading FASTA file.\n";
@@ -47,8 +48,8 @@ open(GENOMES,"<$dataD/complete.genomes")
 my %g_names = map { ($_ =~ /^(\S+)\t(\S.*\S)$/) ? ($1 => $2) : () } <GENOMES>;
 close(GENOMES);
 
-my @gids    = sort { $a <=> $b } keys(%g_names);
-my $total = scalar @gids;
+my @genomes    = sort { $a <=> $b } keys(%g_names);
+my $total = scalar @genomes;
 print "$total genomes found.\n";
 my $K = 8;
 if (open(K,"<$dataD/K"))
@@ -64,7 +65,7 @@ print "Kmer size is $K.\n";
 # my $aa_alphabet = "ACDEFGHIKLMNPQRSTVWY";
 my %kmers;
 my $count = 0;
-foreach my $gid (@gids)
+foreach my $gid (@genomes)
 {
     my $aa = uc $seqs{$gid};
     if (! $aa) { die "missing sequence for $gid" }
@@ -87,6 +88,7 @@ open(KMERS,">$dataD/PheS.signatures")
 my $kTotal = scalar keys %kmers;
 my $found = 0;
 $count = 0;
+my %sigs;
 foreach my $kmer (keys(%kmers))
 {
     my $gidH = $kmers{$kmer};
@@ -95,8 +97,15 @@ foreach my $kmer (keys(%kmers))
     {
         print KMERS join("\t",($kmer,$gids[0])),"\n";
         $found++;
+        $sigs{$gids[0]}++;
     }
     $count++;
     print "$count of $kTotal kmers processed. $found signatures found.\n" if $count % 1000 == 0;
 }
-print "All done. $found signatures found in $total genomes.\n";
+print "All done. $found signatures found in $total genomes.\n\n";
+print "genome_id\tcount\tname\n";
+for my $gid (@genomes) {
+    my $count = $sigs{$gid} // 0;
+    my $name = $g_names{$gid} // '<unknown>';
+    print "$gid\t$count\t$name\n";
+}

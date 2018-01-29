@@ -295,7 +295,7 @@ sub find_rep {
     return ($repID, $score);
 }
 
-=head3 coount_rep
+=head3 count_rep
 
     my $count = $repDB->count_rep($prot, $score);
 
@@ -334,6 +334,48 @@ sub count_rep {
     }
     # Return the count.
     return $retVal;
+}
+
+
+=head3 list_reps
+
+    my $repList = $repDB->list_reps($prot, $score);
+
+List the representative genomes for the specified protein with the specified similarity or better.
+
+=over 4
+
+=item prot
+
+The identifying protein sequence to use for the similarity determination.
+
+=item score
+
+The minimum acceptable similarity score.
+
+=item RETURN
+
+Returns a reference to a hash mapping the IDs of close genomes to their similarity score.
+
+=back
+
+=cut
+
+sub list_reps {
+    my ($self, $prot, $score) = @_;
+    # This will be the return hash.
+    my %retVal;
+    # Loop through the genomes, looking for good matches.
+    my $gMap = $self->{gMap};
+    for my $genome (keys %$gMap) {
+        my $repGenome = $gMap->{$genome};
+        my $gScore = $repGenome->check_genome($prot);
+        if ($gScore >= $score) {
+            $retVal{$genome} = $gScore;
+        }
+    }
+    # Return the hash.
+    return \%retVal;
 }
 
 
