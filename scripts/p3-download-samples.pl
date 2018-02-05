@@ -115,12 +115,12 @@ for my $sample (@samples) {
                 $stats->Add(sampleError => 1);
             } else {
                 $stats->Add(sampleDownloaded => 1);
-            }
-            if ($siteName) {
-                # Here we need a site file.
-                print "Creating site file for $siteTitle.\n";
-                open(my $oh, ">$target/site.tbl") || die "Could not open site file in $target: $!";
-                print $oh join("\t", 'NCBI', $siteName, $siteTitle) . "\n";
+                if ($siteName) {
+                    # Here we need a site file.
+                    print "Creating site file for $siteTitle.\n";
+                    open(my $oh, ">$target/site.tbl") || die "Could not open site file in $target: $!";
+                    print $oh join("\t", 'NCBI', $siteName, $siteTitle) . "\n";
+                }
             }
         }
     }
