@@ -708,7 +708,9 @@ if ($opt->unassembled) {
     }
     print "Finalizing mobile element kmers from $placeCount sequences.\n";
     $kmerDB->Finalize();
-    close $oh;
+    close $oh; undef $oh;
+    # This file will contain the leftover contigs.
+    open($oh, ">$sampleDir/unbinned.fasta") || die "Could not open unbinned-contigs file: $!";
     # Now read the unplaced contigs and try to place them with the mobile elements.
     print "Processing unplaced contigs for mobile elements.\n";
     ($contigCount, $placeCount) = (0, 0);
@@ -727,6 +729,7 @@ if ($opt->unassembled) {
         } else {
             # No definite bin. Leave the contig unplaced.
             $stats->Add(unplacedContigMobile => 1);
+            print $oh ">$contig $comment\n$sequence\n";
         }
         if ($contigCount % 1000 == 0) {
             print "$contigCount contigs processed, $placeCount placed.\n";
@@ -736,7 +739,7 @@ if ($opt->unassembled) {
     # Sort the bins and create the initial report.
     my @sorted = sort { Bin::cmp($a, $b) } @binList;
     print "Writing bins to output.\n";
-    undef $oh;
+    close $oh; undef $oh;
     open($oh, ">$workDir/bins.json") || die "Could not open bins.json file: $!";
     for my $bin (@sorted) {
         $bin->Write($oh);
