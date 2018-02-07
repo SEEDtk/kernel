@@ -7,7 +7,7 @@ use FastA;
 my %binCounts; # #bins -> [count,min,max,tot]
 my $binDir = "$FIG_Config::data/Bins_HMP";
 opendir(my $dh, $binDir) || die "Could not open bins directory: $!";
-my @samples = grep { -s "$binDir/$_/bins.report.txt" } readdir $dh;
+my @samples = sort grep { -s "$binDir/$_/bins.report.txt" } readdir $dh;
 for my $sample (@samples) {
     print STDERR "Processing $sample.\n";
     open(my $ih, "<$binDir/$sample/bins.report.txt") || die "Could not open bin report: $!";
