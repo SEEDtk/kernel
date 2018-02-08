@@ -3,13 +3,14 @@ use FIG_Config;
 use ScriptUtils;
 use Stats;
 use FastA;
+use Number::Format;
 
+my $f = new Number::Format(decimal_digits => 0, thousands_sep => ',');
 my %binCounts; # #bins -> [count,min,max,tot]
 my $binDir = "$FIG_Config::data/Bins_HMP";
 opendir(my $dh, $binDir) || die "Could not open bins directory: $!";
 my @samples = sort grep { -s "$binDir/$_/bins.report.txt" } readdir $dh;
 for my $sample (@samples) {
-    print STDERR "Processing $sample.\n";
     open(my $ih, "<$binDir/$sample/bins.report.txt") || die "Could not open bin report: $!";
     my $binCount = 0;
     while (! eof $ih) {
@@ -27,6 +28,7 @@ for my $sample (@samples) {
             $bp += length $seq;
         }
     }
+    print STDERR "$sample has $binCount bins and $bp base pairs.\n";
     my $countData = $binCounts{$binCount};
     if (! $countData) {
         $binCounts{$binCount} = [1, $bp, $bp, $bp];
@@ -41,6 +43,6 @@ print STDERR "Writing results.\n";
 print "#bins\tnum\tmin\tmax\tmean\n";
 for my $count (sort { $a <=> $b } keys %binCounts) {
     my ($num, $min, $max, $tot) = @{$binCounts{$count}};
-    my $mean = sprintf("%f.2", $tot/$num);
-    print join("\t", $num, $min, $max, $mean) . "\n";
+    my @row = map { $f->format_number($_) } ($count, $num, $min, $max, $tot/$num);
+    print join("\t", @row) . "\n";
 }
