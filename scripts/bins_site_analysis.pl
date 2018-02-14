@@ -50,7 +50,7 @@ Name of the good-genome directory.
 $| = 1;
 # Get the command-line parameters.
 my $opt = ScriptUtils::Opts('site_name binDir',
-        ['good=s', 'good-genomes directory', "$FIG_Config::data/GoodPackages"],
+        ['good=s', 'good-genomes directory', { default => "$FIG_Config::data/GoodPackages"}],
         );
 # Get the parameters.
 my ($siteName, $binDir) = @ARGV;
