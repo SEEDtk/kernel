@@ -102,7 +102,7 @@ for my $binJob (@binJobs) {
             # This will be the current bin number.
             my $idx = 1;
             # This will count the good and bad bins.
-            my ($good, $bad);
+            my ($good, $bad) = (0, 0);
             # Loop through the bins.
             while (! $done) {
                 # Check for a bin GTO.
