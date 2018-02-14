@@ -333,7 +333,7 @@ sub ProcessGroup {
     if (defined $score) {
         # Get the pair name.
         my ($d1, $d2) = split /,/, $groupName;
-        my $pairName = "$d1\t$d2";
+        my $pairName = join("\t", sort ($d1, $d2));
         # Determine the basic criterion for keeping a group.
         if (defined $opt->min) {
             # Since we have a minimum, we need to accumulate the pair stuff.
