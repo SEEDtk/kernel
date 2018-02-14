@@ -117,6 +117,8 @@ for my $binJob (@binJobs) {
                         $bad++;
                         $stats->Add(binsBad => 1);
                     }
+                    # Get the next one.
+                    $idx++;
                 } else {
                     # We don't have one, so we are done.
                     $done = 1;
