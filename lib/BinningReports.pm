@@ -296,13 +296,25 @@ The coarse consistency score.
 
 The fine consistency score.
 
+=item scikit_color
+
+A style tag for the background color of the fine consistency score, or a null string.
+
 =item checkm_completeness
 
 The CheckM completeness score.
 
+=item completeness_color
+
+A style tag for the background color of the checkm completeness score, or a null string.
+
 =item checkm_contamination
 
 The CheckM contamination score.
+
+=item contamination_color
+
+A style tag for the background color of the checkm contamination score, or a null string.
 
 =item contigs
 
@@ -360,6 +372,8 @@ Returns the HTML string for the summary report.
 
 =cut
 
+use constant WARN_COLOR => q(style="background-color: gold");
+
 sub Summary {
     my ($jobID, $params, $bins_json, $summary_tt, $genome_group_path, $gtos, $report_url_map) = @_;
     # Here are the storage places for found, good, and bad. The bin's descriptor goes in the
@@ -401,8 +415,24 @@ sub Summary {
             # Store the PPR count in the main descriptor.
             $gThing{ppr} = $pprs;
             # Is this bin good or bad?
-            if ($gThing{checkm_completeness} >= MIN_CHECKM && $gThing{scikit_fine} >= MIN_SCIKIT &&
-                    $gThing{checkm_contamination} <= MAX_CONTAM) {
+            my $good = 1;
+            $gThing{scikit_color} = "";
+            $gThing{completeness_color} = "";
+            $gThing{contamination_color} = "";
+            if ($gThing{checkm_completeness} < MIN_CHECKM) {
+                $gThing{completeness_color} = WARN_COLOR;
+                $good = 0;
+            }
+            if ($gThing{scikit_fine} < MIN_SCIKIT) {
+                $gThing{scikit_color} = WARN_COLOR;
+                $good = 0;
+            }
+            if ($gThing{checkm_contamination} > MAX_CONTAM) {
+                $gThing{contamination_color} = WARN_COLOR;
+                $good = 0;
+            }
+            # Now we know.
+            if ($good) {
                 push @good, \%gThing;
                 $found{good}++;
             } else {
@@ -482,6 +512,30 @@ The URL to list the features.
 
 =back
 
+=item c
+
+A contig descriptor for the bin, consisting of a list of structures, one per problematic contig. Each structure contains the following fields.
+
+=over 12
+
+=item name
+
+The contig name.
+
+=item len
+
+The contig length, in base pairs.
+
+=item n_fids
+
+The number of features containing problematic roles.
+
+=item fid_url
+
+The URL to list the features.
+
+=back
+
 =back
 
 =item gto
@@ -515,8 +569,12 @@ sub Detail {
     my $refData = $refGmap->{$genomeName} // {};
     # Problematic roles are stashed here.
     my @pprList;
+    # The contig structures are stashed here.
+    my @contigs;
     # Only proceed if we connected the pieces. We need a fall-back in case of errors.
     if ($ppr && $refData) {
+        # This will hold the IDs of all the funky features.
+        my %pprFids;
         # Connect the coverage and reference genome data.
         $gThing{refs} = $refData->{refs};
         $gThing{coverage} = $refData->{coverage};
@@ -536,15 +594,43 @@ sub Detail {
                 my %pprThing = (role => $roleName, predicted => $predicted, actual => $actual, n_fids => $n_fids);
                 $pprThing{fid_url} = fid_list_url($fidList);
                 push @pprList, \%pprThing;
+                # Save the feature IDs in the PPR fid hash.
+                for my $fid (@$fidList) {
+                    $pprFids{$fid} = 1;
+                }
             }
         }
         # Store the PPR count in the main descriptor.
         $gThing{ppr} = $pprs;
+        # Now we need to create the contigs structure. First we find all the contigs
+        # containing problematic roles.
+        my %contigs;
+        my $gFidList = $gto->{features};
+        for my $fThing (@$gFidList) {
+            my $fid = $fThing->{id};
+            if ($pprFids{$fid}) {
+                my $contig = $fThing->{location}[0][0];
+                push @{$contigs{$contig}}, $fid;
+            }
+        }
+        # Now we create the structure itself.
+        my $gContigs = $gto->{contigs};
+        for my $cThing (@$gContigs) {
+            my $contigID = $cThing->{id};
+            my $fidList = $contigs{$contigID};
+            if ($fidList) {
+                my $nFids = scalar @$fidList;
+                my $url = fid_list_url($fidList);
+                my $contigDatum = { name => $contigID, len => length($cThing->{dna}),
+                                    n_fids => $nFids, fid_url => $url };
+                push @contigs, $contigDatum;
+            }
+        }
     }
     # Create the template engine.
     my $templateEngine = Template->new(ABSOLUTE => 1);
     my $retVal;
-    my $vars = { g => \%gThing, p => \@pprList };
+    my $vars = { g => \%gThing, p => \@pprList, c => \@contigs };
     # print STDERR Dumper($vars);
     $templateEngine->process($detail_tt, $vars, \$retVal);
     # Return the report.

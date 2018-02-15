@@ -120,7 +120,8 @@ my @gtos;
 for my $genome (@genomes) {
     my $gto = SeedUtils::read_encoded_object("$testDir/$genome");
     push @gtos, $gto;
-    $urlMap{$genome} = "$genome/report.html";
+    my ($genomeID) = $genome =~ /^(\d+\.\d+)/;
+    $urlMap{$genomeID} = "$genomeID/report.html";
 }
 # Clear the old reports.
 my @old = grep { $_ =~ /^\d+\.\d+$/ && -d "$testDir/$_" } @all;

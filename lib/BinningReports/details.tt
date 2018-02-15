@@ -1,4 +1,7 @@
 <h1>Results for Bin [% g.genome_id %]</h1>
+
+<p><a href="https://docs.patricbrc.org//tutorial/metagenomic_binning/metagenomic_output.html#the-genome-report">Tutorial for this page.</a></p>
+
 <table class="p3basic">
 <tr>
 <th>Genome ID</th><td><a target="_blank" href="[% g.genome_url %]">[% g.genome_id %]</a></td>
@@ -54,6 +57,23 @@
 [% ELSE -%]
 <td>[% r.n_fids %] features</td>
 [% END -%]
+</tr>
+[% END -%]
+</table>
+
+<h3>Potentially Problematic Roles by Contig</h3>
+
+<table class='p3basic'>
+<tr>
+<th>Contig Name</th>
+<th>Length (bp)</th>
+<th>Feature link</th>
+</tr>
+[% FOR d IN c %]
+<tr>
+<td style=''>[% d.name %]</td>
+<td>[% d.len %]</td>
+<td><a target="_blank" href="[% d.fid_url %]">[% d.n_fids %] feature[% IF d.n_fids > 1 %]s[% END %]</a></td>
 </tr>
 [% END -%]
 </table>
