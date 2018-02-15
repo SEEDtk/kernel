@@ -1,5 +1,7 @@
 <h1>Metagenomics Binning Report for job [% job_id %]</h1>
 
+<p><a href="https://docs.patricbrc.org//tutorial/metagenomic_binning/metagenomic_output.html#the-binning-output-directory">Tutorial for this page.</a></p>
+
 <h2>Input data</h2>
 <p>[% IF params.contigs %]
 Contigs file [% params.contigs %]
@@ -62,9 +64,9 @@ The following bins did not meet the quality criteria:</p>
 [% END %]
 </td>
 <td>[% g.scikit_coarse %]</td>
-<td>[% g.scikit_fine %]</td>
-<td>[% g.checkm_completeness %]</td>
-<td>[% g.checkm_contamination %]</td>
+<td [% g.scikit_color %]>[% g.scikit_fine %]</td>
+<td [% g.completeness_color %]>[% g.checkm_completeness %]</td>
+<td [% g.contamination_color %]>[% g.checkm_contamination %]</td>
 <td>[% g.contigs %]</td>
 <td>[% g.dna_bp %]</td>
 <td>[% g.n50 %]</td>
