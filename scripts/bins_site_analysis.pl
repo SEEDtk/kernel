@@ -90,42 +90,40 @@ for my $binJob (@binJobs) {
         my $line = <$sh>;
         (undef, $site) = split /\t/, $line;
     }
-    if (-z "$jobDir/bins.rast.json") {
-        # Here the bin job is for the site, but has no bins.
-        $stats->Add(jobNoGenomes => 1);
-    } else {
-        # Here we have a bin job in the correct site which produced genomes.
-        $stats->Add(jobWithGenomes => 1);
-        print STDERR "Processing $binJob.\n";
-        # This will be set to TRUE when we have processed all the bins.
-        my $done;
-        # This will be the current bin number.
-        my $idx = 1;
-        # Loop through the bins.
-        while (! $done) {
-            # Check for a bin GTO.
-            if (-s "$jobDir/bin$idx.gto") {
-                # We have one. Extract the ID and check for quality.
-                my $gto = GenomeTypeObject->create_from_file("$jobDir/bin$idx.gto");
-                my $id = $gto->{id};
-                if ($goods{$id}) {
-                    $good++;
-                    $stats->Add(binsGood => 1);
-                } else {
-                    $bad++;
-                    $stats->Add(binsBad => 1);
-                }
-                # Count the contigs.
-                for my $contig (@{$gto->{contigs}}) {
-                    $bpBinned += length($contig->{dna});
-                }
-                # Get the next one.
-                $idx++;
+    print STDERR "Processing $binJob.\n";
+    # This will be set to TRUE when we have processed all the bins.
+    my $done;
+    # This will be the current bin number.
+    my $idx = 1;
+    # Loop through the bins.
+    while (! $done) {
+        # Check for a bin GTO.
+        if (-s "$jobDir/bin$idx.gto") {
+            # We have one. Extract the ID and check for quality.
+            my $gto = GenomeTypeObject->create_from_file("$jobDir/bin$idx.gto");
+            my $id = $gto->{id};
+            if ($goods{$id}) {
+                $good++;
+                $stats->Add(binsGood => 1);
             } else {
-                # We don't have one, so we are done.
-                $done = 1;
+                $bad++;
+                $stats->Add(binsBad => 1);
             }
+            # Count the contigs.
+            for my $contig (@{$gto->{contigs}}) {
+                $bpBinned += length($contig->{dna});
+            }
+            # Get the next one.
+            $idx++;
+        } else {
+            # We don't have one, so we are done.
+            $done = 1;
         }
+    }
+    if ($good + $bad == 0) {
+        $stats->Add(jobBinless => 1);
+    } else {
+        $stats->Add(jobWithBins => 1);
     }
     # Now count the total base pairs for the sample.
     open(my $ih, "<$jobDir/contigs.fasta") || die "Could not open contigs.fasta for $jobDir: $!";
@@ -159,7 +157,7 @@ for my $site (sort keys %report) {
         }
         # Count this job (the job worked if the bpBinned > 0).
         $total++;
-        if ($tuple->[3] > 0) {
+        if ($tuple->[4] > 0) {
             $worked++;
         }
     }

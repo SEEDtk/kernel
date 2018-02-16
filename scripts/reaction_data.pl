@@ -68,6 +68,10 @@ A constant delimiter C<//>.
 
 A tab-delimited file, one line per compound, containing (0) the compound ID and (1) the compound name.
 
+=item cofactors.tbl
+
+A tab-delimited file, identical to the above, but only containing common compounds.
+
 =back
 
 =head2 Parameters
@@ -101,7 +105,7 @@ if (! $outDir) {
     die "Invalid output directory $outDir.";
 } elsif (! -d $outDir) {
     print "Creating $outDir.\n";
-    File::Copy::Recursive($outDir);
+    File::Copy::Recursive::pathmk($outDir);
 }
 # Connect to the database.
 print "Connecting to the database.\n";
@@ -118,7 +122,7 @@ if (! $opt->genome) {
             'Genome2Feature(from-link) = ? AND Feature2Function(security) = ?', [$genome, 0], 'Complex2Reaction(to-link)');
 }
 print scalar(keys %reactions) . " reactions found.\n";
-# The compounds will be kept in here. It maps IDs to names.
+# The compounds will be kept in here. It maps IDs to [name, commonFlag].
 my %compounds;
 # Open the main output file.
 open(my $oh, ">$outDir/reactions.txt") || die "Could not open reactions.txt: $!";
@@ -126,7 +130,7 @@ my $count = 0;
 # Loop through the reactions.
 for my $rxn (sort keys %reactions) {
     my @formulaData = $shrub->GetAll('Reaction Reaction2Compound Compound', 'Reaction(id) = ?', [$rxn],
-            "Reaction(direction) Reaction2Compound(product) Reaction2Compound(stoichiometry) Compound(id) Compound(label)");
+            "Reaction(direction) Reaction2Compound(product) Reaction2Compound(stoichiometry) Compound(id) Compound(label) Compound(cofactor)");
     # Only proceed if we found something.
     if (@formulaData) {
         # This will contain the compounds. 0 is substrates, 1 is products.
@@ -137,9 +141,9 @@ for my $rxn (sort keys %reactions) {
         my $dir;
         for my $formulaDatum (@formulaData) {
             # Get the information for this compound.
-            my ($direction, $product, $stoich, $cID, $cForm) = @$formulaDatum;
+            my ($direction, $product, $stoich, $cID, $cForm, $cFlag) = @$formulaDatum;
             # Save the compound for the compound file.
-            $compounds{$cID} = $cForm;
+            $compounds{$cID} = [$cForm, $cFlag];
             # Create the formula element.
             my $compound = ($stoich > 1 ? "$stoich*" : '') . $cForm;
             # Save it in the appropriate  formula queue.
@@ -163,10 +167,16 @@ for my $rxn (sort keys %reactions) {
     }
 }
 # Write out the compound report.
-print "Writing compound report.\n";
+print "Writing compound reports.\n";
 close $oh; undef $oh;
 open($oh, ">$outDir/compounds.tbl") || die "Could not open compounds.tbl: $!";
+open(my $ch, ">$outDir/cofactors.tbl") || die "Could not open cofactors.tbl: $!";
 for my $cID (sort keys %compounds) {
-    print $oh "$cID\t$compounds{$cID}\n";
+    my ($name, $cFlag) = @{$compounds{$cID}};
+    my $line = "$cID\t$name\n";
+    print $oh $line;
+    if ($cFlag) {
+        print $ch $line;
+    }
 }
 print "All done.\n";
