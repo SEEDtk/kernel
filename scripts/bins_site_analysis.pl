@@ -74,7 +74,7 @@ my @binJobs = sort grep { -f "$binDir/$_/bins.rast.json" } readdir $dh;
 closedir $dh; undef $dh;
 print STDERR scalar(@binJobs) . " completed bin jobs found.\n";
 # This hash will store a list of binning-data tuples by site. Each tuple will be
-# [bpTotal, #good, #bad, bpBinned, bpUnbinned].
+# [name, bpTotal, #good, #bad, bpBinned, bpUnbinned].
 my %report;
 # Loop through the bins.
 for my $binJob (@binJobs) {
@@ -126,20 +126,20 @@ for my $binJob (@binJobs) {
                 $done = 1;
             }
         }
-        # Now count the total base pairs for the sample.
-        open(my $ih, "<$jobDir/contigs.fasta") || die "Could not open contigs.fasta for $jobDir: $!";
-        while (! eof $ih) {
-            my $line = <$ih>;
-            chomp $line;
-            if ($line =~ /^>/) {
-                $stats->Add(sampleContigsRead => 1);
-            } else {
-                $bpTotal += length($line);
-            }
-        }
-        # Save the results.
-        push @{$report{$site}}, [$bpTotal, $good, $bad, $bpBinned, $bpTotal - $bpBinned];
     }
+    # Now count the total base pairs for the sample.
+    open(my $ih, "<$jobDir/contigs.fasta") || die "Could not open contigs.fasta for $jobDir: $!";
+    while (! eof $ih) {
+        my $line = <$ih>;
+        chomp $line;
+        if ($line =~ /^>/) {
+            $stats->Add(sampleContigsRead => 1);
+        } else {
+            $bpTotal += length($line);
+        }
+    }
+    # Save the results.
+    push @{$report{$site}}, [$binJob, $bpTotal, $good, $bad, $bpBinned, $bpTotal - $bpBinned];
 }
 # Now we process the output, one site at a time.
 print STDERR "Producing reports.\n";
@@ -148,13 +148,13 @@ for my $site (sort keys %report) {
     my @tuples = sort { $a->[1] <=> $b->[1] } @{$report{$site}};
     # Accumulate totals for the summary.
     my ($worked, $total) = (0, 0);
-    my @totals = (0, 0, 0, 0, 0);
+    my @totals = (0, 0, 0, 0, 0, 0);
     print join(" ", map { uc $_ } split /_/, $site) . " Binning Results\n";
     print join("\t", qw(size good bad binned unbinned) ) . "\n";
     for my $tuple (@tuples) {
         # Print this job.
         print join("\t", @$tuple) . "\n";
-        for (my $i = 0; $i < 5; $i++) {
+        for (my $i = 1; $i < 6; $i++) {
             $totals[$i] += $tuple->[$i];
         }
         # Count this job (the job worked if the bpBinned > 0).
@@ -164,8 +164,7 @@ for my $site (sort keys %report) {
         }
     }
     # Finish the site report.
-    print join("\t", '----------', '---', '---', '----------', '----------') . "\n";
-    print join("\t", @totals) . "\n";
-    print "$total jobs, $worked found bins.\n\n";
+    print join("\t", '-----------', '----------', '---', '---', '----------', '----------') . "\n";
+    print join("\t", "$total ($worked)", @totals) . "\n\n";
 }
 print STDERR "All done.\n" . $stats->Show();
