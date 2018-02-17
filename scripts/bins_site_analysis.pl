@@ -148,7 +148,7 @@ for my $site (sort keys %report) {
     my ($worked, $total) = (0, 0);
     my @totals = (0, 0, 0, 0, 0, 0);
     print join(" ", map { uc $_ } split /_/, $site) . " Binning Results\n";
-    print join("\t", qw(size good bad binned unbinned) ) . "\n";
+    print join("\t", qw(name size good bad binned unbinned) ) . "\n";
     for my $tuple (@tuples) {
         # Print this job.
         print join("\t", @$tuple) . "\n";
@@ -163,6 +163,6 @@ for my $site (sort keys %report) {
     }
     # Finish the site report.
     print join("\t", '-----------', '----------', '---', '---', '----------', '----------') . "\n";
-    print join("\t", "$total ($worked)", @totals) . "\n\n";
+    print join("\t", "$total ($worked)", @totals[1 .. 5]) . "\n\n";
 }
 print STDERR "All done.\n" . $stats->Show();
