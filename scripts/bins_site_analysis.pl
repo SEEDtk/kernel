@@ -141,28 +141,13 @@ for my $binJob (@binJobs) {
 }
 # Now we process the output, one site at a time.
 print STDERR "Producing reports.\n";
+print join("\t", qw(site name size good bad binned unbinned) ) . "\n";
 for my $site (sort keys %report) {
     # Sort the site data by total base pairs.
     my @tuples = sort { $a->[1] <=> $b->[1] } @{$report{$site}};
-    # Accumulate totals for the summary.
-    my ($worked, $total) = (0, 0);
-    my @totals = (0, 0, 0, 0, 0, 0);
-    print join(" ", map { uc $_ } split /_/, $site) . " Binning Results\n";
-    print join("\t", qw(name size good bad binned unbinned) ) . "\n";
     for my $tuple (@tuples) {
         # Print this job.
-        print join("\t", @$tuple) . "\n";
-        for (my $i = 1; $i < 6; $i++) {
-            $totals[$i] += $tuple->[$i];
-        }
-        # Count this job (the job worked if the bpBinned > 0).
-        $total++;
-        if ($tuple->[4] > 0) {
-            $worked++;
-        }
+        print join("\t", $site, @$tuple) . "\n";
     }
-    # Finish the site report.
-    print join("\t", '-----------', '----------', '---', '---', '----------', '----------') . "\n";
-    print join("\t", "$total ($worked)", @totals[1 .. 5]) . "\n\n";
 }
 print STDERR "All done.\n" . $stats->Show();
