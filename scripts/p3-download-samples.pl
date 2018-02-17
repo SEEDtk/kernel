@@ -31,6 +31,10 @@ If specified, the output directory will be emptied before starting.
 If specified, the name to be put into a C<site.tbl> file in the output folder. This should be
 a lower case site name without spaces, such as is used in the HMP project.
 
+=item gzip
+
+If specified, the output files will be in gzip format.
+
 =back
 
 =cut
@@ -47,7 +51,8 @@ $| = 1;
 my $opt = P3Utils::script_opts('outDir srs1 srs2 ... srsN', P3Utils::col_options(), P3Utils::ih_options(),
         ['missing', 'only download new samples'],
         ['clear', 'erase output directory before starting'],
-        ['site=s', 'site name to specify']
+        ['site=s', 'site name to specify'],
+        ['gzip', 'output files should be compressed']
         );
 # Create a statistics object.
 my $stats = Stats->new();
@@ -58,6 +63,7 @@ if ($opt->site) {
     $siteName = $opt->site;
     $siteTitle = join(' ', map { ucfirst $_ } split /_/, $siteName);
 }
+my $gzip = $opt->gzip;
 # Get the output directory.
 my ($outDir, @ids) = @ARGV;
 if (! $outDir) {
@@ -92,7 +98,7 @@ my $sampleTot = scalar @samples;
 print "$sampleTot samples selected for downloading.\n";
 my $count = 0;
 # Create the SRAlib object.
-my $sra = SRAlib->new(logH => \*STDOUT, stats => $stats);
+my $sra = SRAlib->new(logH => \*STDOUT, stats => $stats, gzip => $gzip);
 # Loop through the samples.
 for my $sample (@samples) {
     $count++;
