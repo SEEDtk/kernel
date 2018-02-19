@@ -74,7 +74,7 @@ my @binJobs = sort grep { -f "$binDir/$_/bins.rast.json" } readdir $dh;
 closedir $dh; undef $dh;
 print STDERR scalar(@binJobs) . " completed bin jobs found.\n";
 # This hash will store a list of binning-data tuples by site. Each tuple will be
-# [name, bpTotal, #good, #bad, bpBinned, bpUnbinned].
+# [name, bpTotal, #good, #bad, bpBinned, bpUnbinned, bpCovg].
 my %report;
 # Loop through the bins.
 for my $binJob (@binJobs) {
@@ -125,23 +125,31 @@ for my $binJob (@binJobs) {
     } else {
         $stats->Add(jobWithBins => 1);
     }
-    # Now count the total base pairs for the sample.
+    # Now count the total base pairs for the sample and compute the coverage.
+    my ($covg, $len) = (0, 0);
     open(my $ih, "<$jobDir/contigs.fasta") || die "Could not open contigs.fasta for $jobDir: $!";
     while (! eof $ih) {
         my $line = <$ih>;
         chomp $line;
-        if ($line =~ /^>/) {
+        if ($line =~/^>NODE_\d+_length_(\d+)_cov_(\d+\.\d+)/) {
+            $stats->Add(spadesContigsRead => 1);
+            my ($covg0, $len0) = ($1, $2);
+            $covg += $covg0 * $len0;
+            $len += $len0;
+        } elsif ($line =~ /^>/) {
             $stats->Add(sampleContigsRead => 1);
         } else {
             $bpTotal += length($line);
         }
     }
+    # Compute the coverage.
+    $covg = ($len ? $covg / $len : "n/k");
     # Save the results.
-    push @{$report{$site}}, [$binJob, $bpTotal, $good, $bad, $bpBinned, $bpTotal - $bpBinned];
+    push @{$report{$site}}, [$binJob, $bpTotal, $good, $bad, $bpBinned, $bpTotal - $bpBinned, $covg];
 }
 # Now we process the output, one site at a time.
 print STDERR "Producing reports.\n";
-print join("\t", qw(site name size good bad binned unbinned) ) . "\n";
+print join("\t", qw(site name size good bad binned unbinned coverage) ) . "\n";
 for my $site (sort keys %report) {
     # Sort the site data by total base pairs.
     my @tuples = sort { $a->[1] <=> $b->[1] } @{$report{$site}};
