@@ -104,6 +104,10 @@ Used when rerunning assemblies.  Does not display assembled bins that are not ru
 
 Remove empty samples.
 
+=item backout
+
+Back out incomplete assemblies. This means removing the C<Assembly> directory so that the assembly can be restarted.
+
 =back
 
 =cut
@@ -116,6 +120,7 @@ my $opt = ScriptUtils::Opts('directory',
                 ['rerun', 'do not show assembled bins that are not running'],
                 ['project=s', 'project type for binning jobs', { required => 1 }],
                 ['fix', 'remove empty sample directories'],
+                ['backout', 'back out incomplete assemblies'],
                 ['maxResume=i', 'maximum number of running jobs for resume', { default => 20 }],
                 ['run=i', 'run binning pipeline on new directories', { default => 0 }]);
 my $stats = Stats->new();
@@ -128,7 +133,7 @@ if (! $directory) {
 }
 # Save the options.
 my $clean = $opt->clean;
-my $runCount = $opt->run;
+my $runCount = $opt->run // 0;
 my $proj = $opt->project;
 # Get a hash of the running subdirectories.
 my %running;
@@ -225,8 +230,15 @@ for my $dir (@dirs) {
         }
         $stats->Add(dirs2Assembled => 1);
     } elsif (-d "$subDir/Assembly") {
-        push @other, "$label: Assembling.\n";
-        $stats->Add(dirs1Assembling => 1);
+        if (! $run && $opt->backout) {
+            File::Copy::Recursive::pathrmdir("$subDir/Assembly");
+            $stats->Add(assemblyBackout => 1);
+            push @other, "$label: Downloaded.\n";
+            $stats->Add(dirs0Downloaded => 1);
+        } else {
+            push @other, "$label: Assembling.\n";
+            $stats->Add(dirs1Assembling => 1);
+        }
     } else {
         # Here the directory is downloaded. We may need to fix it or run the pipeline.
         opendir(my $dh, $subDir) || die "Could not open directory $subDir: $!";
@@ -244,7 +256,7 @@ for my $dir (@dirs) {
                 $status .= "\n";
             }
             push @other, $status;
-        } elsif ($runCount) {
+        } elsif ($runCount > 0) {
             # It's valid, and we want to run it. Check for gz files.
             $found = grep { $_ =~ /q\.gz$/ } @files;
             my $gz = ($found ? '--gz' : '');
