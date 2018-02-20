@@ -133,7 +133,7 @@ for my $binJob (@binJobs) {
         chomp $line;
         if ($line =~/^>NODE_\d+_length_(\d+)_cov_(\d+\.\d+)/) {
             $stats->Add(spadesContigsRead => 1);
-            my ($covg0, $len0) = ($1, $2);
+            my ($len0, $covg0) = ($1, $2);
             $covg += $covg0 * $len0;
             $len += $len0;
         } elsif ($line =~ /^>/) {
