@@ -487,7 +487,7 @@ sub rep {
     my $fh = $save ? \*SAVE : \*STDOUT;
     my @reps = &rep1($cached,$max_sim,$keep);
     my $n = @reps;
-    print "$max_sim\t$n\n\n";
+    print "max similarity $max_sim\t number found $n\n\n";
     print_reps($fh, $cached, \@reps,$keepMap);
     if ($save) { close(SAVE) }
 }
@@ -533,7 +533,7 @@ sub repN {
 #       $_ = @reps; print STDERR "$_ $N mid=$mid lo=$lo hi=$hi\n";
     }
     my $n = @reps;
-    print "$n\t",join(",",@reps),"\n\n";
+    print "found $n using mid = $mid\t",join(",",@reps),"\n\n";
     print_reps($fh,$cached,\@reps, {});
     if ($save) { close(SAVE); }
 }
