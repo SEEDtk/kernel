@@ -125,8 +125,8 @@ for my $binJob (@binJobs) {
     } else {
         $stats->Add(jobWithBins => 1);
     }
-    # Now count the total base pairs for the sample and compute the coverage.
-    my ($covg, $len) = (0, 0);
+    # Now count the total base pairs for the sample and compute the coverage and average length.
+    my ($covg, $len, $count) = (0, 0, 0);
     open(my $ih, "<$jobDir/contigs.fasta") || die "Could not open contigs.fasta for $jobDir: $!";
     while (! eof $ih) {
         my $line = <$ih>;
@@ -136,16 +136,21 @@ for my $binJob (@binJobs) {
             my ($len0, $covg0) = ($1, $2);
             $covg += $covg0 * $len0;
             $len += $len0;
+            $count++;
         } elsif ($line =~ /^>/) {
             $stats->Add(sampleContigsRead => 1);
         } else {
             $bpTotal += length($line);
         }
     }
-    # Compute the coverage.
-    $covg = ($len ? $covg / $len : "n/k");
+    # Compute the coverage and mean length.
+    my ($avgCovg, $avgLen) = ("n/k", "n/k");
+    if ($count > 0 && $len > 0) {
+        $avgCovg = $covg / $len;
+        $avgLen = $len / $count;
+    }
     # Save the results.
-    push @{$report{$site}}, [$binJob, $bpTotal, $good, $bad, $bpBinned, $bpTotal - $bpBinned, $covg];
+    push @{$report{$site}}, [$binJob, $bpTotal, $good, $bad, $bpBinned, $bpTotal - $bpBinned, $avgCovg, $avgLen];
 }
 # Now we process the output, one site at a time.
 print STDERR "Producing reports.\n";
