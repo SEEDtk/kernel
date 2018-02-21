@@ -249,7 +249,7 @@ for my $dir (@dirs) {
         if (! $found) {
             my $status = "$label: Empty.";
             $stats->Add(dirs0Empty => 1);
-            if ($fix) {
+            if ($fix ne 'none') {
                 File::Copy::Recursive::pathrmdir($subDir);
                 $status .= "  Deleted.\n";
                 $stats->Add(dirsDeleted => 1);
