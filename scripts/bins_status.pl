@@ -102,7 +102,7 @@ Used when rerunning assemblies.  Does not display assembled bins that are not ru
 
 =item fix
 
-Remove empty samples.
+If c<all>, all unprocessed samples will be removed. If C<empty>, all empty samples will be removed. The default is C<none>.
 
 =item backout
 
@@ -119,7 +119,7 @@ my $opt = ScriptUtils::Opts('directory',
                 ['terse', 'do not show completed bins'],
                 ['rerun', 'do not show assembled bins that are not running'],
                 ['project=s', 'project type for binning jobs', { required => 1 }],
-                ['fix', 'remove empty sample directories'],
+                ['fix=s', 'remove unprocessed sample directories', { default => 'none' }],
                 ['backout', 'back out incomplete assemblies'],
                 ['maxResume=i', 'maximum number of running jobs for resume', { default => 20 }],
                 ['run=i', 'run binning pipeline on new directories', { default => 0 }]);
@@ -135,6 +135,7 @@ if (! $directory) {
 my $clean = $opt->clean;
 my $runCount = $opt->run // 0;
 my $proj = $opt->project;
+my $fix = $opt->fix;
 # Get a hash of the running subdirectories.
 my %running;
 my @jobs = `ps -AF`;
@@ -248,7 +249,7 @@ for my $dir (@dirs) {
         if (! $found) {
             my $status = "$label: Empty.";
             $stats->Add(dirs0Empty => 1);
-            if ($opt->fix) {
+            if ($fix) {
                 File::Copy::Recursive::pathrmdir($subDir);
                 $status .= "  Deleted.\n";
                 $stats->Add(dirsDeleted => 1);
@@ -262,6 +263,10 @@ for my $dir (@dirs) {
             my $gz = ($found ? '--gz' : '');
             StartJob($dir, $subDir, $gz, 'Started', $label, $proj);
             $runCount--;
+        } elsif (! $run && $fix eq 'all') {
+            # It's valid, and we are deleting it.
+            File::Copy::Recursive::pathrmdir($subDir);
+            $stats->Add(dirsDeleted => 1);
         } else {
             # It's valid, but we are leaving it alone.
             push @downloaded, "$label: Downloaded.\n";
