@@ -73,6 +73,7 @@ if (!-d $output_dir) {
 
 my @funcs = map { m/^\d+\t(\S+)/ ? $1 : () } SeedUtils::file_read("$data_dir/col.h");
 chomp @funcs;
+print STDERR scalar(@funcs) . " functions in table.\n";
 
 my %func_to_col = map { chomp; m/^(\d+)\t(\S+)/ ? ($2 => $1) : () } &SeedUtils::file_read("$data_dir/col.h");
 
@@ -85,7 +86,7 @@ sub worker {
         print STDERR "Could not find column for func='$func' -- skipping\n";
         next;
     } else {
-        print STDERR "Processing $func.\n";
+        print STDERR "Processing $col: $func.\n";
     }
 
     my $probDir = "$output_dir/$func";
@@ -110,6 +111,7 @@ sub worker {
         \undef, \undef, $train_err_fh
         );
 }
+print STDERR "All done.\n";
 exit(0);
 
 
