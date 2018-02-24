@@ -467,7 +467,7 @@ Produce the detail report for a single bin.
 
 =item params
 
-The L</params> structure used to invoke the binning.
+The L</params> structure used to invoke the binning. This is for future use only, and currently may be an empty hash.
 
 =item bins_json (optional)
 

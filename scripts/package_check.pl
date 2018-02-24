@@ -54,6 +54,10 @@ If specified, no evaluations will be performed, only the status will be displaye
 
 If specified, empty directories will be deleted.
 
+=item nocheckm
+
+If specified, no CheckM evaluations will be performed.
+
 =back
 
 =cut
@@ -62,6 +66,7 @@ $| = 1;
 # Get the command-line parameters.
 my $opt = ScriptUtils::Opts('dir pkg1 pkg2 ... pkgN',
         ["force:s", 'force regeneration of quality data'],
+        ["nocheckm", 'skip CheckM evaluations'],
         ["status", 'only show totals'],
         ["clean", 'delete empty packages']
         );
@@ -86,6 +91,8 @@ if (! $dir) {
     }
     # This is the cleaning flag.
     my $clean = $opt->clean;
+    # This is the checkM flag. If FALSE, we will not do checkMs.
+    my $checkmFlag = ($opt->nocheckm ? 0 : 1);
     # Compute the list of packages to process.
     if (! @packages) {
         opendir(my $dh, $dir) || die "Could not open package directory: $!";
@@ -114,9 +121,11 @@ if (! $dir) {
             # Process CheckM.
             my $outDir = "$pDir/EvalByCheckm";
             my $cmd = "checkm lineage_wf --tmpdir $FIG_Config::temp -x fa --file $pDir/evaluate.log $pDir $outDir";
-            $ok = Process(CheckM => $outDir, $force{CheckM}, $package, $cmd, $opt->status);
-            if ($ok) {
-                File::Copy::Recursive::fmove("$pDir/evaluate.log", "$pDir/EvalByCheckm/evaluate.log");
+            if ($checkmFlag) {
+                $ok = Process(CheckM => $outDir, $force{CheckM}, $package, $cmd, $opt->status);
+                if ($ok) {
+                    File::Copy::Recursive::fmove("$pDir/evaluate.log", "$pDir/EvalByCheckm/evaluate.log");
+                }
             }
             # Process SciKit.
             $outDir = "$pDir/EvalBySciKit";

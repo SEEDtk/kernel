@@ -125,21 +125,24 @@ if (! $opt->recursive) {
     push @samples, $sampleDir;
 } else {
     opendir(my $dh, $sampleDir) || die "Could not open sample directory: $!";
-    push @samples, map { "$sampleDir/$_" } grep { substr($_, 0, 1) ne '.' && -d "$sampleDir/$_" } readdir $dh;
+    push @samples, map { "$sampleDir/$_" } sort grep { substr($_, 0, 1) ne '.' && -d "$sampleDir/$_" } readdir $dh;
 }
+my $total = scalar @samples;
+my $count = 0;
 for my $sample (@samples) {
     $stats->Add(samples => 1);
+    $count++;
     if (! -s "$sample/bins.rast.json") {
-        print "Skipping $sample: incomplete.\n";
+        print "Skipping ($count of $total) $sample: incomplete.\n";
         $stats->Add(sampleSkipped => 1);
     } elsif (! -s "$sample/bin1.gto") {
-        print "Skipping $sample: no bins.\n";
+        print "Skipping ($count of $total) $sample: no bins.\n";
         $stats->Add(sampleEmpty => 1);
     } else {
         # Get the sample name.
         my @pieces = split /[\\\/:]/, $sample;
         my $sampleName = pop @pieces;
-        print "Sample name is $sampleName.\n";
+        print "Sample name is  ($count of $total) $sampleName.\n";
         Bin::Package::CreateFromSample($sample, $sampleName, $stats, $opt->force, $packageDir);
     }
 }
