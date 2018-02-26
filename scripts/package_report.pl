@@ -24,6 +24,7 @@ use ScriptUtils;
 use GenomeTypeObject;
 use JSON::XS;
 use Cwd 'abs_path';
+use GPUtils;
 
 =head1 Produce a Quality Report on Genome Packages
 
@@ -101,6 +102,10 @@ CheckM evaluation contamination (percent)
 =item 16
 
 CheckM taxonomy classification
+
+=item 17
+
+C<1> for a good genome, C<0> for a bad one.
 
 =back
 
@@ -348,6 +353,9 @@ sub produce_report {
                     push @missing, 'SciKit';
                 }
             }
+            # Is this a good genomes?
+            my $seedFlag = GPUtils::good_seed($gto);
+            my $goodFlag = (($seedFlag && $scikitFScore && $scikitFScore >= 85 && $checkMscore && $checkMscore >= 80 && $checkMcontam <= 10) ? 1 : 0);
             # Assemble the output line.
             my $refGenome = $dataVals{'Ref Genome'} // $dataVals{'Source Package'} // $dataVals{'Source Database'} // '';
             my $refName = $dataVals{'Ref Name'} // 'derived';
@@ -355,7 +363,7 @@ sub produce_report {
             $retVal = join("\t", $sampleName, $package, $dataVals{'Genome Name'}, $dataVals{'Contigs'},
                     $dataVals{'Base pairs'}, $metricsH->{complete}, $metricsH->{N50}, $metricsH->{N70},
                     $metricsH->{N90}, $refGenome, $refName, $scikitCScore, $scikitFScore, $checkMscore, $checkMcontam,
-                    $checkMtaxon) . "\n";
+                    $checkMtaxon, $goodFlag) . "\n";
             open(my $oh, '>', "$pDir/quality.tbl") || die "Could not write to quality file for $package: $!";
             print $oh $retVal;
             # Check for the missing report.
