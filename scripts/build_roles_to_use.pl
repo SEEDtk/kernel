@@ -79,10 +79,7 @@ for my $role (@roles) {
     my $line = <$ih>;
     chomp $line;
     my @values = split /\t/, $line;
-    my (undef, $min, @data) = @values;
-    for my $value (@data) {
-        $min = $value if $value < $min;
-    }
+    my $min = $values[3];
     if ($min < $opt->min) {
         print "$role rejected: min accuracy $min.\n";
         $rejected++;
