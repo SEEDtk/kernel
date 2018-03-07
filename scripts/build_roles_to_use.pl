@@ -91,7 +91,7 @@ for my $role (@roles) {
         $kept++;
     }
     $count++;
-    print "$count of $total roles processed: $kept kept, $rejected rejected.\n" if ($count % 200 == 0);
+    print "** $count of $total roles processed: $kept kept, $rejected rejected.\n" if ($count % 200 == 0);
 }
 # All done.
 close $oh;
