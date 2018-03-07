@@ -70,11 +70,12 @@ opendir(my $dh, $predDir) || die "Could not open Predictors: $!";
 my @roles = sort grep { -f "$predDir/$_/Classifiers/RandomForestClassifier/accuracy" } readdir $dh;
 closedir $dh;
 my $total = scalar @roles;
+print "$total predictors found.\n";
 # Count the number of roles processed, kept, and rejected.
 my ($count, $kept, $rejected) = (0,0,0);
 # Loop through the predictors.
 for my $role (@roles) {
-    open(my $ih, "<$predDir/$_/Classifiers/RandomForestClassifier/accuracy") || die "Could not open accuracy file for $role: $!";
+    open(my $ih, "<$predDir/$role/Classifiers/RandomForestClassifier/accuracy") || die "Could not open accuracy file for $role: $!";
     my $line = <$ih>;
     chomp $line;
     my @values = split /\t/, $line;
