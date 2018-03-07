@@ -4,8 +4,9 @@
 
     build_predictor_set [options] probDir
 
-This is the final step in creating function predictors, after L<build_matrix.pl>. It takes as input the probdir
-from that script and creates predictors for the individual roles in the subdirectory C<Predictors>.
+This is the third step in creating function predictors, after L<build_matrix.pl>. It takes as input the probdir
+from that script and creates predictors for the individual roles in the subdirectory C<Predictors>. After this,
+use L<build_roles_to_use.pl>.
 
 =head2 Parameters
 

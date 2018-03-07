@@ -17,19 +17,23 @@ The positional parameters are the name of the C<raw.table> file, the name of the
 filter file. If specified, the filter file contains a list of the permissible roles. (If used, this should be
 a subset of the C<roles.in.subsystems> output by L<build_role_tables.pl>).
 
-The output directory cannot already exist.
+The output directory cannot already exist unless the C<--clear> option is specified.
 
 =cut
 
 use strict;
 use warnings;
 use Data::Dumper;
-
+use ScriptUtils;
 use SeedUtils;
+use File::Copy::Recursive;
 
 my %funcs;
 my %genomes;
 my %counts;
+
+my $opt = ScriptUtils::Opts('raw.table probDir roles.to.use',
+        ['clear', 'overwrite previous results']);
 
 my ($table_file, $probDir, $keep) = @ARGV;
 
@@ -44,8 +48,18 @@ if ($keep) {
 
 if (!-d $probDir) {
     mkdir($probDir) or die "Could not create probDir '$probDir'";
-}
-else {
+} elsif ($opt->clear) {
+    print "Clearing $probDir.\n";
+    if (-d "$probDir/Predictors") {
+        File::Copy::Recursive::pathrmdir("$probDir/Predictors") || die "Could not clear Predictors directory: $!";
+    }
+    my @files = qw(col.h roles.mapped roles.not_mapped row.h X);
+    for my $file (@files) {
+        if (-f "$probDir/$file") {
+            unlink "$probDir/$file";
+        }
+    }
+} else {
     die "ERROR: probDir '$probDir' already exists";
 }
 
