@@ -18,7 +18,7 @@ The command-line options are
 
 =item clear
 
-If specified, the output directory will be erased if it currently exists; otherwise, an existing output directory
+If specified, the C<Predictors> directory will be erased if it currently exists; otherwise, an existing output directory
 will cause an error.
 
 =item fraction
@@ -67,7 +67,7 @@ if (!-d $output_dir) {
 } elsif (! $opt->clear) {
     die "Output-directory '$output_dir' already exists";
 } else {
-    print "Clearing output directory.\n";
+    print STDERR "Clearing output directory.\n";
     File::Copy::Recursive::pathempty($output_dir);
 }
 

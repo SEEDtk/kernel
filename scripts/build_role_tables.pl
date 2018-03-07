@@ -53,6 +53,7 @@ The command-line options are those found in L<Shrub/script_options>.
 
 =cut
 
+$| = 1;
 # Get the command-line parameters.
 my $opt = ScriptUtils::Opts('outDir',
                 Shrub::script_options(),
