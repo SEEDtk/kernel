@@ -93,6 +93,11 @@ If specified, the name of a file to contain a pair report. This option requires 
 For each drug pair, the pair report displays the mean synergy score across all cell lines, the number of cell lines with
 a score higher than the minimum, and the mean score for the cell lines higher than the minimum.
 
+=item clines
+
+If specified, the name of a file to contain a cell lines report. The cell lines report contains the cell line name, its cancer
+type, and then one column per drug containing the number of synergistic pairs for that drug with that cell line.
+
 =back
 
 =cut
@@ -113,6 +118,7 @@ my $opt = P3Utils::script_opts('criterion', P3Utils::ih_options(),
         ['tripsig=i', 'the number of results considered significant in the triples report', { default => 7 }],
         ['pairs=s', 'drug pair report file name'],
         ['panels=s', 'cell lines type report file name'],
+        ['clines=s', 'cell lines drug report file name'],
         );
 my ($criterion) = @ARGV;
 # Check for drug names.
@@ -178,6 +184,8 @@ my %summary;
 my %pairs;
 # This hash contains counts for the cell-lines report.
 my %lineCounts;
+# This hash contains counts for the cell-lines drug report. It has synergy counts for {line}{drug}.
+my %lineDrugs;
 # This hash contains panels found in the cell-lines report.
 my %panels;
 # Sort the output.
@@ -205,14 +213,36 @@ for my $groupData (@saved) {
     $lineCounts{$drug1}{$panel}++;
     $lineCounts{$drug2}{$panel}++;
     $panels{$panel} = 1;
+    $lineDrugs{$cellLine}{$drug1}++;
+    $lineDrugs{$cellLine}{$drug2}++;
     # Write out the group.
     for my $line (@$group) {
         print join("\t", $score, @$line) . "\n";
     }
 }
+print STDERR "Calculating summary.\n";
+# Compute the total and the report for each drug.
+my %totals;
+my %xref;
+for my $drug1 (keys %summary) {
+    my $countH = $summary{$drug1};
+    my @others = sort { $countH->{$b} <=> $countH->{$a} } keys %$countH;
+    my $total = 0;
+    for my $drug2 (@others) {
+        my $n = $countH->{$drug2};
+        if ($n >= $opt->significant) {
+            $xref{$drug1}{$drug2} = $n;
+            $xref{$drug2}{$drug1} = $n;
+        }
+        $total += $n;
+    }
+    $totals{$drug1} = $total;
+}
+print STDERR "Sorting drugs.\n";
+my @drugs = sort { $totals{$b} <=> $totals{$a} } keys %xref;
 # Print the pairs report if requested.
 if ($opt->pairs) {
-    print STDERR "Computing pairs report.\n";
+    print STDERR "Printing pairs report.\n";
     open(my $oh, '>', $opt->pairs) || die "Could not open pairs output file: $!";
     print $oh join("\t", 'Drug 1', 'Drug 2', 'Mean', 'Significant', 'Mean Significant') . "\n";
     for my $pair (sort keys %pTotals) {
@@ -222,30 +252,21 @@ if ($opt->pairs) {
         print $oh join("\t", $pair, $mean, $sCount, $sMean) . "\n";
     }
 }
+# Print the line-drugs report if requested.
+if ($opt->clines) {
+    print STDERR "Printing line-drugs report.\n";
+    open(my $oh, '>', $opt->clines) || die "Could not open cell lines output file: $!";
+    print $oh join("\t", 'Line', 'Panel', @drugs) . "\n";
+    for my $line (sort keys %lineDrugs) {
+        my $drugsH = $lineDrugs{$line};
+        print $oh join("\t", $line, $lineType{$line}, map { $drugsH->{$_} // '' } @drugs) . "\n";
+    }
+}
 # Print the summary report if requested.
 if ($opt->summary) {
-    print STDERR "Calculating summary.\n";
-    # Compute the total and the report for each drug.
-    my %totals;
-    my %xref;
-    for my $drug1 (keys %summary) {
-        my $countH = $summary{$drug1};
-        my @others = sort { $countH->{$b} <=> $countH->{$a} } keys %$countH;
-        my $total = 0;
-        for my $drug2 (@others) {
-            my $n = $countH->{$drug2};
-            if ($n >= $opt->significant) {
-                $xref{$drug1}{$drug2} = $n;
-                $xref{$drug2}{$drug1} = $n;
-            }
-            $total += $n;
-        }
-        $totals{$drug1} = $total;
-    }
     # Now output the summary report.
     print STDERR "Printing summary.\n";
     open(my $oh, '>', $opt->summary) || die "Could not open summary file: $!";
-    my @drugs = sort { $totals{$b} <=> $totals{$a} } keys %xref;
     print $oh join("\t", "Drug", "Count", @drugs) . "\n";
     for my $drug1 (@drugs) {
         my @line = ($drug1, $totals{$drug1});
