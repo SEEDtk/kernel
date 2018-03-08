@@ -73,7 +73,7 @@ my $opt = ScriptUtils::Opts('',
         );
 my $stats = Stats->new();
 # Get the merge file. We need to map each old taxon to its new version.
-open(my $mh, "<$FIG_Config::data/Inputs/Others/merged.dmp") || die "Could not open merged.dmp: $!";
+open(my $mh, "<$FIG_Config::data/Inputs/Other/merged.dmp") || die "Could not open merged.dmp: $!";
 my %merge;
 while (! eof $mh) {
     my $line = <$mh>;
