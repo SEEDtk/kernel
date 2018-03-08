@@ -49,6 +49,7 @@ require Proc::ParallelLoop;
 use ScriptUtils;
 use SeedUtils;
 
+$| = 1;
 my $opt = ScriptUtils::Opts('probDir',
         ['fraction|f=f', 'fraction of entries to keep in random samples', { default => 0.2 }],
         ['classifier|c=s', 'type of classifier to use', { default => 'RandomForestClassifier'}],
