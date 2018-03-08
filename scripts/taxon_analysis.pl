@@ -99,7 +99,7 @@ while (! eof $ih) {
             # This is a new group. Get its parent and name.
             my ($taxInfo) = $shrub->GetAll('TaxonomicGrouping IsInTaxonomicGroup', 'TaxonomicGrouping(id) = ?', [$taxon], 'scientific-name domain IsInTaxonomicGroup(to-link)');
             if (! $taxInfo) {
-                die "Taxonomic grouping $taxon not found.";
+                print STDERR "Taxonomic grouping $taxon not found for $genome.\n";
             } else {
                 my ($name, $domain, $parent) = @$taxInfo;
                 $taxNames{$taxon} = $name;
@@ -108,17 +108,23 @@ while (! eof $ih) {
                 $stats->Add(taxGroupFound => 1);
             }
         }
-        # Add us into this group.
-        if ($taxRoles{$taxon}) {
-            for (my $i = 0; $i < scalar @roles; $i++) { $taxRoles{$taxon}[$i] += $array[$i] }
-            $stats->Add(taxGroupReused => 1);
+        # Only proceed if this is a valid grouping.
+        if (! $taxName) {
+            $stats->Add(taxonInvalid => 1);
+            $taxon = '';
         } else {
-            $taxRoles{$taxon} = [ @array ];
-            $stats->Add(taxGroup => 1);
+            # Add us into this group.
+            if ($taxRoles{$taxon}) {
+                for (my $i = 0; $i < scalar @roles; $i++) { $taxRoles{$taxon}[$i] += $array[$i] }
+                $stats->Add(taxGroupReused => 1);
+            } else {
+                $taxRoles{$taxon} = [ @array ];
+                $stats->Add(taxGroup => 1);
+            }
+            $taxCounts{$taxon}++;
+            # Get the next group.
+            $taxon = $taxParent{$taxon};
         }
-        $taxCounts{$taxon}++;
-        # Get the next group.
-        $taxon = $taxParent{$taxon};
     }
     $stats->Add(genomeProcessed => 1);
     $count++;
