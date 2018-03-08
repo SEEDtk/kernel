@@ -65,14 +65,16 @@ if (! -d $data_dir) {
 my $output_dir = "$data_dir/Predictors";
 if (!-d $output_dir) {
     mkdir $output_dir;
-} elsif (! $opt->clear) {
-    die "Output-directory '$output_dir' already exists";
-} else {
+} elsif ($opt->clear) {
     print STDERR "Clearing output directory.\n";
     File::Copy::Recursive::pathempty($output_dir);
 }
-
-my @funcs = map { m/^\d+\t(\S+)/ ? $1 : () } SeedUtils::file_read("$data_dir/col.h");
+# Get the current directories so we can skip them.
+opendir(my $dh, $output_dir) || die "Could not open $output_dir: $!";
+my %already = map { $_ => 1 } grep { -s "$output_dir/$_/Classifiers/$classifier/accuracy" } readdir $dh;
+closedir $dh;
+print STDERR scalar(keys %already) . " functions already processed.\n";
+my @funcs = grep { ! $already{$_} } map { m/^\d+\t(\S+)/ ? $1 : () } SeedUtils::file_read("$data_dir/col.h");
 chomp @funcs;
 print STDERR scalar(@funcs) . " functions in table.\n";
 
