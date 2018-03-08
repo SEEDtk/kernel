@@ -111,10 +111,10 @@ while (! eof $ih) {
         # Add us into this group.
         if ($taxRoles{$taxon}) {
             for (my $i = 0; $i < scalar @roles; $i++) { $taxRoles{$taxon}[$i] += $array[$i] }
-            $stats->Add(taxGroup => 1);
+            $stats->Add(taxGroupReused => 1);
         } else {
             $taxRoles{$taxon} = [ @array ];
-            $stats->Add(taxGroupReused => 1);
+            $stats->Add(taxGroup => 1);
         }
         $taxCounts{$taxon}++;
         # Get the next group.
