@@ -72,6 +72,16 @@ my $opt = ScriptUtils::Opts('',
         ['rMin|r=i', 'minimum number of roles for a useful group', { default => 100 }]
         );
 my $stats = Stats->new();
+# Get the merge file. We need to map each old taxon to its new version.
+open(my $mh, "<$FIG_Config::data/Inputs/Others/merged.dmp") || die "Could not open merged.dmp: $!";
+my %merge;
+while (! eof $mh) {
+    my $line = <$mh>;
+    if ($line =~ /(\d+)\t\|\t(\d+)/) {
+        $merge{$1} = $2;
+        $stats->Add(taxonMergeRead => 1);
+    }
+}
 # Connect to the database.
 print STDERR "Connecting to the database.\n";
 my $shrub = Shrub->new_for_script($opt);
@@ -94,6 +104,12 @@ print STDERR "Processing genomes from input.\n";
 while (! eof $ih) {
     my ($genome, $taxon, @array) = ScriptUtils::get_line($ih);
     while ($taxon) {
+        # Make sure we have the latest version of this tax ID.
+        if ($merge{$taxon}) {
+            $taxon = $merge{$taxon};
+            $stats->Add(taxonMapped => 1);
+        }
+        # Get the taxon name.
         my $taxName = $taxNames{$taxon};
         if (! $taxName) {
             # This is a new group. Get its parent and name.
@@ -131,8 +147,9 @@ while (! eof $ih) {
     print STDERR "$count genomes processed.\n" if ($count % 1000 == 0);
 }
 # Now we run through the taxonomic groupings producing the output.
+print STDERR scalar(keys %taxRoles) . " total groups found.\n";
 my @goodTaxes = sort grep { $taxCounts{$_} >= $opt->size } keys %taxRoles;
-print STDERR "Producing output." . scalar(@goodTaxes) . " sufficiently large groups found.\n";
+print STDERR "Producing output.  " . scalar(@goodTaxes) . " sufficiently large groups found.\n";
 print join("\t", 'TaxID', 'Name', @roles) . "\n";
 for my $taxon (@goodTaxes) {
     $stats->Add(checkedGroups => 1);
