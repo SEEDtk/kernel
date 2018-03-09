@@ -196,7 +196,7 @@ for my $taxon (sort keys %taxRoles) {
     # This will be the <1,0> list.
     my @marks;
     # This will be the role ID list.
-    my @roles;
+    my @ids;
     # This counts the marker roles.
     my $roleCount = 0;
     # Loop through all the roles for this taxon.
@@ -207,7 +207,7 @@ for my $taxon (sort keys %taxRoles) {
         push @marks, $mark;
         if ($mark) {
             $roleCount++;
-            push @roles, $role;
+            push @ids, $role;
         }
     }
     print $sh join("\t", @header, $taxCounts{$taxon}, $roleCount) . "\n";
@@ -220,7 +220,7 @@ for my $taxon (sort keys %taxRoles) {
     } else {
         print "$taxon: $taxNames{$taxon} is good-- $roleCount markers found in $taxCounts{$taxon} genomes.\n";
         print $th join("\t", @header, @marks) . "\n";
-        print $rh join("\t", @header, @roles) . "\n";
+        print $rh join("\t", @header, @ids) . "\n";
         $stats->Add(groupsGood => 1);
         $stats->Add(markers => $roleCount);
     }
