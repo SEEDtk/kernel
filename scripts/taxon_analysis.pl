@@ -26,14 +26,31 @@ use Stats;
 
 =head1 Analysis Role Frequency by Taxonomy
 
-    taxon_analysis.pl [ options ]
+    taxon_analysis.pl [ options ] outDir
 
 This script determines the universal roles for taxonomic groupings. A I<universal role> is one that occurs singly 95% of the time in genomes
 of a given taxonomic grouping. The script takes as input a matrix of the singly-occurring roles in each known good genome. This matrix can
 be used to compute the universal roles for each taxonomic grouping in the Shrub.
 
-Progress messages are sent to STDERR. The output will be a tab-delimited file, one row per taxonomic grouping, containing the taxonomy ID,
-the group name, and the universal roles found.
+Progress messages are sent to the standard output. The output directory will contain the following files, all tab-delimited.
+
+=over 4
+
+=item taxon.tbl
+
+A list of the useful taxonomic groupings, one per line, containing the taxonomic ID, the name, and an indicator (C<1> or C<0>) of the
+required roles, one role per column.
+
+=item sizes.tbl
+
+A list of all taxonomic groupings, one per line, containing (0) the taxonomic ID, (1) the number of genomes, and (2) the number of
+required roles.
+
+=item roles.tbl
+
+A list of the useful taxonomic groupings, one per line, containing the taxonomic ID, the name, and a list of required role IDs.
+
+=back
 
 =head2 Parameters
 
@@ -56,6 +73,10 @@ Minimum number of genomes in a taxonomic grouping required for the grouping to b
 
 Minimum number of roles for a taxonomic grouping for it to be considered useful in determining completeness.
 
+=item merge
+
+The name of the NCBI taxonomy database file containing mappings from old taxon IDs to new ones.
+
 =back
 
 The input file contains a header row with the role IDs in it. The first column of each data line should contain the genome ID, the second the
@@ -63,17 +84,27 @@ taxonomic ID, and the remaining columns a C<1> for a singly-occurring role and C
 
 =cut
 
+$| = 1;
 # Get the command-line parameters.
-my $opt = ScriptUtils::Opts('',
+my $opt = ScriptUtils::Opts('outDir',
         Shrub::script_options(),
         ScriptUtils::ih_options(),
         ['min|m=f', 'minimum threshold percentage', { default => 95 }],
         ['size|s=i', 'minimum number of genomes per group', { default => 100 }],
-        ['rMin|r=i', 'minimum number of roles for a useful group', { default => 100 }]
+        ['rMin|r=i', 'minimum number of roles for a useful group', { default => 100 }],
+        ['merge=s', 'NCBI taxonomy merge file', { default => "$FIG_Config::data/Inputs/Other/merged.dmp" }]
         );
 my $stats = Stats->new();
+# Verify the output directory.
+my ($outDir) = @ARGV;
+if (! $outDir) {
+    die "No output directory specified.";
+} elsif (! -d $outDir) {
+    print "Creating $outDir.\n";
+    File::Copy::Recursive::pathmk($outDir);
+}
 # Get the merge file. We need to map each old taxon to its new version.
-open(my $mh, "<$FIG_Config::data/Inputs/Other/merged.dmp") || die "Could not open merged.dmp: $!";
+open(my $mh, '<', $opt->merge) || die "Could not open merged.dmp: $!";
 my %merge;
 while (! eof $mh) {
     my $line = <$mh>;
@@ -83,7 +114,7 @@ while (! eof $mh) {
     }
 }
 # Connect to the database.
-print STDERR "Connecting to the database.\n";
+print "Connecting to the database.\n";
 my $shrub = Shrub->new_for_script($opt);
 # Open the input file.
 my $ih = ScriptUtils::IH($opt->input);
@@ -99,7 +130,7 @@ my %taxRoles;
 my %taxParent;
 # Use this to time trace messages.
 my $count = 0;
-print STDERR "Processing genomes from input.\n";
+print "Processing genomes from input.\n";
 # Loop through the input.
 while (! eof $ih) {
     my ($genome, $taxon, @array) = ScriptUtils::get_line($ih);
@@ -144,32 +175,54 @@ while (! eof $ih) {
     }
     $stats->Add(genomeProcessed => 1);
     $count++;
-    print STDERR "$count genomes processed.\n" if ($count % 1000 == 0);
+    print "$count genomes processed.\n" if ($count % 100 == 0);
 }
-# Now we run through the taxonomic groupings producing the output.
-print STDERR scalar(keys %taxRoles) . " total groups found.\n";
-my @goodTaxes = sort grep { $taxCounts{$_} >= $opt->size } keys %taxRoles;
-print STDERR "Producing output.  " . scalar(@goodTaxes) . " sufficiently large groups found.\n";
-print join("\t", 'TaxID', 'Name', @roles) . "\n";
-for my $taxon (@goodTaxes) {
+# Now we run through the taxonomic groupings producing the output. Create the output files.
+print scalar(keys %taxRoles) . " total groups found.\n";
+open(my $sh, ">$outDir/sizes.tbl") || die "Could not open sizes.tbl: $!";
+print $sh join("\t", 'TaxID', 'Name', 'Size', '#Roles') . "\n";
+open(my $rh, ">$outDir/roles.tbl") || die "Could not open roles.tbl: $!";
+print $rh join("\t", 'TaxID', 'Name', 'Required Roles') . "\n";
+open(my $th, ">$outDir/taxon.tbl") || die "Could not open taxon.tbl: $!";
+print $th join("\t", 'TaxID', 'Name', @roles) . "\n";
+# Get the number of roles.
+my $nRoles = scalar @roles;
+for my $taxon (sort keys %taxRoles) {
     $stats->Add(checkedGroups => 1);
     my $gTotal = $taxCounts{$taxon};
     my $gMin = int(($opt->min * $gTotal + 99) / 100);
-    my @output = ($taxon, $taxNames{$taxon});
+    my $tCounts = $taxRoles{$taxon};
+    my @header = ($taxon, $taxNames{$taxon});
+    # This will be the <1,0> list.
+    my @marks;
+    # This will be the role ID list.
+    my @roles;
     # This counts the marker roles.
     my $roleCount = 0;
-    # Loop through all the roles, putting 0 normally and 1 for markers.
-    for my $val (@{$taxRoles{$taxon}}) {
+    # Loop through all the roles for this taxon.
+    for (my $i = 0; $i < $nRoles; $i++) {
+        my $val = $tCounts->[$i];
+        my $role = $roles[$i];
         my $mark = (($val >= $gMin) ? 1 : 0);
-        $roleCount += $mark;
-        push @output, $mark;
+        push @marks, $mark;
+        if ($mark) {
+            $roleCount++;
+            push @roles, $role;
+        }
     }
-    if ($roleCount >= $opt->rmin) {
-        print join("\t", @output) . "\n";
-        $stats->Add(goodGroups => 1);
-        $stats->Add(markers => $roleCount);
+    print $sh join("\t", @header, $taxCounts{$taxon}, $roleCount) . "\n";
+    if ($taxCounts{$taxon} < $opt->size) {
+        $stats->Add(groupTooSmall => 1);
+        print "$taxon: $taxNames{$taxon} is too small ($taxCounts{$taxon} genomes).\n";
+    } elsif ($roleCount < $opt->rmin) {
+        $stats->Add(groupBad => 1);
+        print "$taxon: $taxNames{$taxon} has too few marker roles ($roleCount).\n";
     } else {
-        $stats->Add(badGroups => 1);
+        print "$taxon: $taxNames{$taxon} is good-- $roleCount markers found in $taxCounts{$taxon} genomes.\n";
+        print $th join("\t", @header, @marks) . "\n";
+        print $rh join("\t", @header, @roles) . "\n";
+        $stats->Add(groupsGood => 1);
+        $stats->Add(markers => $roleCount);
     }
 }
-print STDERR "All done.\n" . $stats->Show();
+print "All done.\n" . $stats->Show();

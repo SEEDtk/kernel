@@ -43,6 +43,8 @@ The command-line options are as follows:
 
 Minimum acceptable accuracy for a predictor, in percent. The default is C<90.0>.
 
+=back
+
 =cut
 
 # Get the command-line parameters.
