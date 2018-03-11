@@ -29,8 +29,8 @@ use Stats;
     taxon_analysis.pl [ options ] outDir
 
 This script determines the universal roles for taxonomic groupings. A I<universal role> is one that occurs singly 95% of the time in genomes
-of a given taxonomic grouping. The script takes as input a matrix of the singly-occurring roles in each known good genome. This matrix can
-be used to compute the universal roles for each taxonomic grouping in the Shrub.
+of a given taxonomic grouping. The script takes as input a matrix of the singly-occurring roles in each known good genome (the output of
+L<p3-role-matrix.pl>). This matrix can be used to compute the universal roles for each taxonomic grouping in the Shrub.
 
 Progress messages are sent to the standard output. The output directory will contain the following files, all tab-delimited.
 

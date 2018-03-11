@@ -47,6 +47,7 @@ Minimum acceptable accuracy for a predictor, in percent. The default is C<90.0>.
 
 =cut
 
+$| = 1;
 # Get the command-line parameters.
 my $opt = ScriptUtils::Opts('probDir outDir',
         ['min=f', 'minimum acceptable accuracy', { default => 90.0 }],
@@ -79,15 +80,19 @@ my ($count, $kept, $rejected) = (0,0,0);
 for my $role (@roles) {
     open(my $ih, "<$predDir/$role/Classifiers/RandomForestClassifier/accuracy") || die "Could not open accuracy file for $role: $!";
     my $line = <$ih>;
-    chomp $line;
-    my @values = split /\t/, $line;
-    my $min = $values[3];
-    if ($min < $opt->min) {
-        print "$role rejected: min accuracy $min.\n";
-        $rejected++;
+    if (! $line) {
+        print "WARNING: No accuracy found for $role.\n";
     } else {
-        print $oh join("\t", $role, $min) . "\n";
-        $kept++;
+        chomp $line;
+        my @values = split /\t/, $line;
+        my $min = $values[3];
+        if ($min < $opt->min) {
+            print "$role rejected: min accuracy $min.\n";
+            $rejected++;
+        } else {
+            print $oh join("\t", $role, $min) . "\n";
+            $kept++;
+        }
     }
     $count++;
     print "** $count of $total roles processed: $kept kept, $rejected rejected.\n" if ($count % 200 == 0);
