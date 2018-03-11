@@ -82,6 +82,7 @@ for my $role (@roles) {
     my $line = <$ih>;
     if (! $line) {
         print "WARNING: No accuracy found for $role.\n";
+        $rejected++;
     } else {
         chomp $line;
         my @values = split /\t/, $line;
