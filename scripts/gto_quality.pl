@@ -31,7 +31,7 @@ use GenomeTypeObject;
     gto_quality.pl [ options ] inDir
 
 This script will take as input a directory of L<GenomeTypeObject> files and run the SciKit quality check on each one.
-The output will be a three-column file of genomeID, genome name, coarse quality measure, and fine quality measure.
+The output will be a four-column file of genomeID, genome name, coarse quality measure, and fine quality measure.
 
 =head2 Parameters
 
