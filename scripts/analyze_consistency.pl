@@ -117,11 +117,11 @@ close $ih; undef $ih;
 # Now we list the problematic roles.
 open(my $oh, ">$evalDir/roles.tbl") || die "Could not open roles.tbl: $!";
 print "Writing problematic roles.\n";
-print $oh join("\t", qw(Role Expect Actual Fids)) . "\n";
+print $oh join("\t", qw(Role Description Expect Actual Fids)) . "\n";
 for my $id (sort keys %ppr) {
     my $fids = $roleFids{$id} // [];
     my $tuple = $ppr{$id};
-    print $oh join("\t", $id, @$tuple, @$fids) . "\n";
+    print $oh join("\t", $id, $roleNames{$id}, @$tuple, @$fids) . "\n";
 }
 close $oh; undef $oh;
 # Now we must analyze the contigs. This hash contains contig lengths.
@@ -201,10 +201,10 @@ for my $feature (@$featureList) {
 }
 # Now we write the contig report.
 open($oh, ">$evalDir/contigs.tbl") || die "Could not open contigs.tbl: $!";
-print $oh join("\t", qw(Contig Good Bad BadFids)) . "\n";
+print $oh join("\t", qw(Contig Len Good Bad BadFids)) . "\n";
 for my $contig (sort keys %contigLens) {
     my @badFids = @{$contigBad{$contig}};
-    print $oh join("\t", $contig, $contigGood{$contig}, scalar(@badFids), @badFids) . "\n";
+    print $oh join("\t", $contig, $contigLens{$contig}, $contigGood{$contig}, scalar(@badFids), @badFids) . "\n";
 }
 close $oh; undef $oh;
 print "All done.\n" . $stats->Show();

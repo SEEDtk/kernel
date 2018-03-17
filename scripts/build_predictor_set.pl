@@ -48,6 +48,7 @@ use File::Path qw(make_path remove_tree);
 require Proc::ParallelLoop;
 use ScriptUtils;
 use SeedUtils;
+use File::Copy::Recursive;
 
 $| = 1;
 my $opt = ScriptUtils::Opts('probDir',
