@@ -66,6 +66,7 @@ if (! $outDir) {
     File::Copy::Recursive::pathmk($outDir) || die "Could not create $outDir: $!";
 }
 # Get the output file.
+print "Analyzing predictors.\n";
 open(my $oh, ">$outDir/roles.to.use") || die "Could not open output file: $!";
 # Loop through the predictors.
 my $predDir = "$probDir/Predictors";

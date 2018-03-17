@@ -27,7 +27,7 @@ use Data::Dumper;
 use ScriptUtils;
 use SeedUtils;
 use File::Copy::Recursive;
-
+$| = 1;
 my %funcs;
 my %genomes;
 my %counts;
