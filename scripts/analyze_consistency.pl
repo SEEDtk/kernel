@@ -30,8 +30,8 @@ use Stats;
 
 This script processes the output from the consistency checker for a specified L<GenomeTypeObject>. The output lists the problematic roles and
 the contigs containing those roles. For each problematic role, we will output the role name, the predicted and actual occurrences, and the
-features containing the role. For each contig, we will output the contig length, the number of features with good roles, and the features
-containing problematic roles.
+features containing the role. For each contig, we will output the contig length, the number of features with good roles, the number of local features,
+and the features containing problematic roles.
 
 =head2 Parameters
 
@@ -128,6 +128,8 @@ close $oh; undef $oh;
 my %contigLens;
 # This hash contains the number of good roles.
 my %contigGood;
+# This hash contains the number of local features.
+my %contigLocal;
 # This hash contains a maps each contig to a list of the bad features.
 my %contigBad;
 # Get the list of contigs. First we compute the lengths and initialize the other hashes.
@@ -138,6 +140,7 @@ for my $contig (@$contigList) {
     my $len = length($contig->{dna});
     $contigLens{$id} = $len;
     $contigGood{$id} = 0;
+    $contigLocal{$id} = 0;
     $contigBad{$id} = [];
     $stats->Add(contigIn => 1);
 }
@@ -163,6 +166,16 @@ for my $feature (@$featureList) {
             # No location, so we don't care.
             $stats->Add(featureNoLocation => 1);
         } else {
+            # First, check to see if the feature is local or alien. It is alien if it is not in a local protein family.
+            my $local = 0;
+            my $fam = $feature->{family_assignments};
+            if ($fam)  {
+                for my $famItem (@$fam) {
+                    if ($famItem->[0] eq 'PLFAM') {
+                        $local = 1;
+                    }
+                }
+            }
             # Are we good, bad, both, or neutral? We go through this rigamarole so that no feature gets counted twice for the same type.
             # So, a feature with 2 bad roles must not be counted as 2 bad features.
             my ($isGood, $isBad) = (0, 0);
@@ -174,7 +187,7 @@ for my $feature (@$featureList) {
                     $isGood++;
                 }
             }
-            if ($isGood || $isBad) {
+            if ($isGood || $isBad || $local) {
                 # We have something to record. Get the contig IDs.
                 my @contigs = map { $_->[0] } @$loc;
                 # Loop through the contigs.
@@ -191,6 +204,10 @@ for my $feature (@$featureList) {
                             push @{$contigBad{$contig}}, $fid;
                             $stats->Add(badRoleInContig => 1);
                         }
+                        if ($local) {
+                            $contigLocal{$contig}++;
+                            $stats->Add(localRoleInContig => 1);
+                        }
                     }
                 }
             }
@@ -201,10 +218,10 @@ for my $feature (@$featureList) {
 }
 # Now we write the contig report.
 open($oh, ">$evalDir/contigs.tbl") || die "Could not open contigs.tbl: $!";
-print $oh join("\t", qw(Contig Len Good Bad BadFids)) . "\n";
+print $oh join("\t", qw(Contig Len Good Local Bad BadFids)) . "\n";
 for my $contig (sort keys %contigLens) {
     my @badFids = @{$contigBad{$contig}};
-    print $oh join("\t", $contig, $contigLens{$contig}, $contigGood{$contig}, scalar(@badFids), @badFids) . "\n";
+    print $oh join("\t", $contig, $contigLens{$contig}, $contigGood{$contig}, $contigLocal{$contig}, scalar(@badFids), @badFids) . "\n";
 }
 close $oh; undef $oh;
 print "All done.\n" . $stats->Show();
