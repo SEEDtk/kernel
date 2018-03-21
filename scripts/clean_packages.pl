@@ -135,7 +135,7 @@ eval {
         if ($missing && -s "$thisDir/bin$suffix.fa") {
             print "Cleaned FASTA already processed-- skipping.\n";
         } else {
-            my $rc = system("gto_consistency", $temp, $predictor, "$FIG_Config::global/roles.in.subsystems", $rolesToUse);
+            my $rc = system("gto_consistency", "$thisDir/bin.gto", $temp, $predictor, "$FIG_Config::global/roles.in.subsystems", $rolesToUse);
             if ($rc) {
                 die "Error in gto_consistency: rc = $rc.";
             }
