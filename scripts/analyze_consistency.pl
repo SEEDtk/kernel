@@ -26,7 +26,7 @@ use Stats;
 
 =head1 Analyze Output from the Consistency Checker
 
-    analyze_consistency.pl [ options ] gto evalDir
+    analyze_consistency.pl [ options ] gto evalDir outDir
 
 This script processes the output from the consistency checker for a specified L<GenomeTypeObject>. The output lists the problematic roles and
 the contigs containing those roles. For each problematic role, we will output the role name, the predicted and actual occurrences, and the
@@ -36,6 +36,7 @@ and the features containing problematic roles.
 =head2 Parameters
 
 The positional parameters are the file name of the GTO and the name of the directory into which the consistency-checker output was placed.
+The optional third parameter contains the name of the directory for the output files. If it is omitted, the evaluation directory will be used.
 
 The output files will be placed into the specified directory:  C<contigs.tbl> will contain the contig analysis and C<roles.tbl> the
 role analysis.
@@ -49,16 +50,18 @@ The command-line options will be as follows:
 Name of the file containing the master ID-to-name mapping file for roles. The default is C<roles.in.subsystems> in the global data
 directory. The file contains role IDs in the first column, checksums in the second column, and names in the last column.
 
+=back
+
 =cut
 
 # Get the command-line parameters.
-my $opt = ScriptUtils::Opts('gto evalDir',
+my $opt = ScriptUtils::Opts('gto evalDir outDir',
         ['roleFile=s', 'master role mapping file', { default => "$FIG_Config::global/roles.in.subsystems"}]
         );
 # Create a statistics object.
 my $stats = Stats->new();
 # Check the positional parameters.
-my ($gtoF, $evalDir) = @ARGV;
+my ($gtoF, $evalDir, $outDir) = @ARGV;
 if (! $gtoF) {
     die "No GTO specified.";
 } elsif (! -s $gtoF) {
@@ -67,6 +70,11 @@ if (! $gtoF) {
     die "Evaluation directory not specified.";
 } elsif (! -s "$evalDir/evaluate.out") {
     die "$evalDir does not appear to contain evaluation output.";
+}
+if (! $outDir) {
+    $outDir = $evalDir;
+} elsif (! -d $outDir) {
+    die "Missing or invalid output directory $outDir.";
 }
 # Read in the GTO.
 print "Reading GTO from $gtoF.\n";
@@ -115,7 +123,7 @@ while (! eof $ih) {
 }
 close $ih; undef $ih;
 # Now we list the problematic roles.
-open(my $oh, ">$evalDir/roles.tbl") || die "Could not open roles.tbl: $!";
+open(my $oh, ">$outDir/roles.tbl") || die "Could not open roles.tbl: $!";
 print "Writing problematic roles.\n";
 print $oh join("\t", qw(Role Description Expect Actual Fids)) . "\n";
 for my $id (sort keys %ppr) {
@@ -217,7 +225,7 @@ for my $feature (@$featureList) {
     print "$count of $total features processed.\n" if $count % 1000 == 0;
 }
 # Now we write the contig report.
-open($oh, ">$evalDir/contigs.tbl") || die "Could not open contigs.tbl: $!";
+open($oh, ">$outDir/contigs.tbl") || die "Could not open contigs.tbl: $!";
 print $oh join("\t", qw(Contig Len Good Local Bad BadFids)) . "\n";
 for my $contig (sort keys %contigLens) {
     my @badFids = @{$contigBad{$contig}};
