@@ -147,6 +147,9 @@ eval {
             if ($rc) {
                 die "Error in improve_consistency: rc = $rc.";
             }
+            # Clear the temp directory.
+            print "Clearing $temp.\n";
+            File::Copy::Recursive::pathempty($temp) || die "Could not clear temp directory: $!";
         }
     }
 };
