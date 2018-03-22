@@ -63,6 +63,10 @@ The command-line options are the following.
 If specified, only packages that have not been previously cleaned using the specified suffix will be processed. In other words, in the default case
 (suffix is C<1>), packages with a C<bin1.fa> will not be cleaned.
 
+=item force
+
+If specified, then all packages will be cleaned. Otherwise, packages already marked as good will be skipped.
+
 =item suffix
 
 The suffix to use when creating the new FASTA files. The default is C<1>, which will create C<bin1.fa> files.
@@ -83,6 +87,7 @@ Name of the temporary directory to use for evaluation output. The default is gen
 my $opt = ScriptUtils::Opts('packageDir',
         ['missing', 'only process new packages'],
         ['suffix=s', 'suffix to use when creating new FASTA files', { default => '1' }],
+        ['force', 'process packages even if they are already good'],
         ['predictor=s', 'function predictor directory to use', { default => "$FIG_Config::data/FunctionPredictors.Big" }],
         ['temp=s', 'temporary output directory'],
         );
@@ -90,6 +95,7 @@ my $opt = ScriptUtils::Opts('packageDir',
 my $missing = $opt->missing;
 my $suffix = $opt->suffix;
 my $predictor = $opt->predictor;
+my $force = $opt->force;
 # Check the predictor directory for a roles.to.use.
 my $rolesToUse;
 if (-s "$predictor/roles.to.use") {
@@ -132,9 +138,20 @@ eval {
         $count++;
         print "Processing $package ($count of $total).\n";
         my $thisDir = "$packageDir/$package";
-        if ($missing && -s "$thisDir/bin$suffix.fa") {
+        my $skip;
+        if (! $force && -s "$thisDir/quality.tbl") {
+            open(my $ih, "$thisDir/quality.tbl") || die "Could not open quality.tbl: $!";
+            my @fields = ScriptUtils::get_line($ih);
+            if ($fields[16]) {
+                print "Package marked as good-- skipping.\n";
+                $skip = 1;
+            }
+        }
+        if (! $skip && $missing && -s "$thisDir/bin$suffix.fa") {
             print "Cleaned FASTA already processed-- skipping.\n";
-        } else {
+            $skip = 1;
+        }
+        if (! $skip) {
             my $rc = system("gto_consistency", "$thisDir/bin.gto", $temp, $predictor, "$FIG_Config::global/roles.in.subsystems", $rolesToUse);
             if ($rc) {
                 die "Error in gto_consistency: rc = $rc.";
@@ -143,7 +160,7 @@ eval {
             if ($rc) {
                 die "Error in analyze_consistency: rc = $rc.";
             }
-            $rc = system("improve_consistency", "--input=$thisDir/contigs.tbl", $thisDir);
+            $rc = system("improve_consistency", "--input=$thisDir/contigs.tbl", "--suffix=$suffix", $thisDir);
             if ($rc) {
                 die "Error in improve_consistency: rc = $rc.";
             }
