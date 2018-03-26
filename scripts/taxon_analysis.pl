@@ -182,7 +182,7 @@ print scalar(keys %taxRoles) . " total groups found.\n";
 open(my $sh, ">$outDir/sizes.tbl") || die "Could not open sizes.tbl: $!";
 print $sh join("\t", 'TaxID', 'Name', 'Size', '#Roles') . "\n";
 open(my $rh, ">$outDir/roles.tbl") || die "Could not open roles.tbl: $!";
-print $rh join("\t", 'TaxID', 'Name', 'Required Roles') . "\n";
+print $rh join("\t", 'TaxID', 'Name', 'Size', 'Required Roles') . "\n";
 open(my $th, ">$outDir/taxon.tbl") || die "Could not open taxon.tbl: $!";
 print $th join("\t", 'TaxID', 'Name', @roles) . "\n";
 # Get the number of roles.
@@ -220,7 +220,7 @@ for my $taxon (sort keys %taxRoles) {
     } else {
         print "$taxon: $taxNames{$taxon} is good-- $roleCount markers found in $taxCounts{$taxon} genomes.\n";
         print $th join("\t", @header, @marks) . "\n";
-        print $rh join("\t", @header, @ids) . "\n";
+        print $rh join("\t", @header, $taxCounts{$taxon}, @ids) . "\n";
         $stats->Add(groupsGood => 1);
         $stats->Add(markers => $roleCount);
     }
