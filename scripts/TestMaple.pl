@@ -18,6 +18,7 @@ for my $taxon (@taxa) {
             my ($id, $name, $domainFlag) = @$taxData;
             print "Parent of $taxon is $id: $name.\n";
             $done = $domainFlag;
+            $taxon = $id;
         }
     }
     print "\n";
