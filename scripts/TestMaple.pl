@@ -5,7 +5,7 @@ use Stats;
 use Shrub;
 
 my $shrub = Shrub->new();
-my @taxa = qw(1100 1120941 1236494 411483);
+my @taxa = qw(1100 1120941 1236494 411483 83333);
 for my $taxon (@taxa) {
     my $done;
     while (! $done) {
@@ -15,9 +15,9 @@ for my $taxon (@taxa) {
             print "No parent found for $taxon.\n";
             $done = 1;
         } else {
-            my ($id, $name, $domainFlag) = @$taxData;
+            my ($id, $name) = @$taxData;
             print "Parent of $taxon is $id: $name.\n";
-            $done = $domainFlag;
+            $done = ($id == 1);
             $taxon = $id;
         }
     }

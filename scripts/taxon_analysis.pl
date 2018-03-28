@@ -24,7 +24,7 @@ use Shrub;
 use ScriptUtils;
 use Stats;
 
-=head1 Analysis Role Frequency by Taxonomy
+=head1 Analyze Role Frequency by Taxonomy
 
     taxon_analysis.pl [ options ] outDir
 
