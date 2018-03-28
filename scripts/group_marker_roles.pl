@@ -24,6 +24,8 @@ use Shrub;
 use ScriptUtils;
 use Stats;
 use POSIX qw(ceil);
+use Time::HiRes;
+use Data::Dump;
 
 =head1 Group Marker Roles and Assign Weights
 
@@ -83,7 +85,7 @@ my $shrub = Shrub->new_for_script($opt);
 # This will contain the known pairs. Each pair is identified by the two role IDs, sorted and space-delimited.
 # A value of C<1> means a cluster, a value of C<-1> means not a cluster.
 my %pairs;
-# This will contain the list of features for each role processed.
+# This will contain the count of features for each role processed.
 my %roleFeats;
 # Open the output file.
 open(my $oh, ">$workDir/weighted.tbl") || die "Could not open weighted.tbl: $!";
@@ -92,6 +94,7 @@ print "Work directory is $workDir.\n";
 open(my $ih, "<$workDir/roles.tbl") || die "Could not open roles.tbl: $!";
 my $line = <$ih>;
 while (! eof $ih) {
+    my $start = time;
     # Get the taxonomic group's id, name, and roles.
     my ($taxon, $name, undef, @roles) = ScriptUtils::get_line($ih);
     print "Processing $taxon: $name. " . scalar(@roles) . " marker roles.\n";
@@ -112,26 +115,24 @@ while (! eof $ih) {
             $stats->Add(roleAllKnown => 1);
         } else {
             $stats->Add(roleChecked => 1);
+            print ".";
             # Get the features for this role.
-            my $fids = $roleFeats{$role};
-            if (! $fids) {
-                $fids = [ $shrub->GetFlat('Role2Function Function2Feature', 'Role2Function(from-link) = ? AND Function2Feature(security) = ?',
-                        [$role, 0], 'Function2Feature(to-link)') ];
-                $roleFeats{$role} = $fids;
+            my $fidCount = $roleFeats{$role};
+            if (! $fidCount) {
+                $fidCount = $shrub->GetCount('Role2Function Function2Feature', 'Role2Function(from-link) = ? AND Function2Feature(security) = ?',
+                        [$role, 0], 'Function2Feature(to-link)');
+                $roleFeats{$role} = $fidCount;
                 $stats->Add(roleFeaturesRead => 1);
             } else {
                 $stats->Add(roleFeaturesFound => 1);
             }
-            my $fidCount = scalar @$fids;
-            print "$fidCount features found for $role.\n";
-            # Now we count the number of pairings in %residual.
-            for my $fid (@$fids) {
-                my %clustered = map { $_ => 1 } grep { exists $residual{$_} } $shrub->GetFlat('Feature2Cluster Cluster2Feature Feature2Function Function2Role',
-                        'Feature2Cluster(from-link) = ? AND Feature2Function(security) = ?', [$fid, 0],
-                        'Function2Role(to-link)');
-                for my $role2 (keys %clustered) {
-                    $residual{$role2}++;
-                }
+            # Now we count the number of pairings in %residual. Get all the clustered roles for each feature.
+            my $q = $shrub->Get('Role2Function Function2Feature Feature2Cluster Cluster2Feature Feature2Function Function2Role',
+                'Role2Function(from-link) = ? AND Function2Feature(security) = ? AND Feature2Function(security) = ?',
+                [$role, 0,0], 'Function2Feature(to-link) Function2Role(to-link)');
+            while (my $record = $q->Fetch()) {
+                my ($role2) = $record->PrimaryValue('Function2Role(to-link)');
+                $residual{$role2}++;
             }
             my $minCount = int(($fidCount * $min + 99) / 100);
             # Determine the pairing of these roles.
@@ -146,6 +147,7 @@ while (! eof $ih) {
             }
         }
     }
+    print "\n";
     # Now the status is known for all the role pairs in this taxonomic grouping. Form them into partitions.
     my $partitionList = partition(\@roles, \%pairs);
     my $groupCount = scalar(@$partitionList);
@@ -162,6 +164,7 @@ while (! eof $ih) {
         }
     }
     print $oh "//\n";
+    print int(time - $start) . " seconds to process group.\n";
 }
 print "All done.\n" . $stats->Show();
 
@@ -182,6 +185,7 @@ sub partition {
         if (! defined $group) {
             $group = scalar(@retVal);
             $gHash = { $role => $group };
+            $roles{$role} = $group;
             push @retVal, $gHash;
             $stats->Add(groupCreated => 1);
         } else {
@@ -196,6 +200,7 @@ sub partition {
                 if (! defined $group2) {
                     # The other role is not in a group. Add it to this one.
                     $gHash->{$role2} = 1;
+                    $roles{$role2} = $group;
                     $stats->Add(groupRoleAdd => 1);
                 } elsif ($group == $group2) {
                     # The other role is already in the same group.
@@ -208,10 +213,12 @@ sub partition {
                         $gHash->{$roleX} = 1;
                         $stats->Add(groupMerged => 1);
                     }
+                    $retVal[$group2] = undef;
                 }
             }
         }
     }
     # Compress and return the list of hashes.
-    return [ grep { $_ } @retVal];
+    my $retVal = [ grep { $_ } @retVal ];
+    return $retVal;
 }
