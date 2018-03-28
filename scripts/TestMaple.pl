@@ -10,7 +10,7 @@ for my $taxon (@taxa) {
     my $done;
     while (! $done) {
         my ($taxData) = $shrub->GetAll('IsInTaxonomicGroup TaxonomicGrouping', 'IsInTaxonomicGroup(from-link) = ?', [$taxon],
-            'TaxonomicGrouping(id) TaxonomicGrouping(name) TaxonomicGrouping(domain)');
+            'TaxonomicGrouping(id) TaxonomicGrouping(scientific-name) TaxonomicGrouping(domain)');
         if (! $taxData) {
             print "No parent found for $taxon.\n";
             $done = 1;
