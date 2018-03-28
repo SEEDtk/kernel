@@ -48,6 +48,7 @@ use File::Path qw(make_path remove_tree);
 require Proc::ParallelLoop;
 use ScriptUtils;
 use SeedUtils;
+use File::Copy::Recursive;
 
 $| = 1;
 my $opt = ScriptUtils::Opts('probDir',
@@ -71,6 +72,7 @@ if (!-d $output_dir) {
     File::Copy::Recursive::pathempty($output_dir);
 }
 # Get the current directories so we can skip them.
+print "Checking output directory.\n";
 opendir(my $dh, $output_dir) || die "Could not open $output_dir: $!";
 my %already = map { $_ => 1 } grep { -s "$output_dir/$_/Classifiers/$classifier/accuracy" } readdir $dh;
 closedir $dh;

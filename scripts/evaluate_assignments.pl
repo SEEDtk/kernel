@@ -133,16 +133,20 @@ sub worker {
 #   print STDERR "Processing '$role'\n";
 
     my $accuracy = &SeedUtils::file_read("$trainDir/Predictors/$role/Classifiers/$classifier/accuracy");
-    chomp $accuracy;
+    my ($worst, $median) = (0, 0);
+    if (! $accuracy) {
+        print STDERR ("$role\tno accuracy data\t-- warning\n");
+    } else {
+        chomp $accuracy;
 
-    my @fields = split /\t/, $accuracy;
-    my $worst  = $fields[2];
-    my $median = $fields[4];
-    if ($worst < 90.0) {
-        print STDERR ("$role\tworst-case accuracy=", sprintf("%.2f", $worst), "\t-- warning\n");
-        # return;
+        my @fields = split /\t/, $accuracy;
+        $worst  = $fields[2];
+        $median = $fields[4];
+        if ($worst < 90.0) {
+            print STDERR ("$role\tworst-case accuracy=", sprintf("%.2f", $worst), "\t-- warning\n");
+            # return;
+        }
     }
-
     my $col = $train_role_to_index{$role};
     my $tmpDir = "$FIG_Config::temp/tmp.pareach_eval.$role.$$";
 

@@ -66,6 +66,7 @@ if (! $outDir) {
     File::Copy::Recursive::pathmk($outDir) || die "Could not create $outDir: $!";
 }
 # Get the output file.
+print "Analyzing predictors.\n";
 open(my $oh, ">$outDir/roles.to.use") || die "Could not open output file: $!";
 # Loop through the predictors.
 my $predDir = "$probDir/Predictors";
@@ -86,7 +87,7 @@ for my $role (@roles) {
     } else {
         chomp $line;
         my @values = split /\t/, $line;
-        my $min = $values[3];
+        my $min = $values[2];
         if ($min < $opt->min) {
             print "$role rejected: min accuracy $min.\n";
             $rejected++;
