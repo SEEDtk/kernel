@@ -97,7 +97,8 @@ while (! eof $ih) {
     my $start = time;
     # Get the taxonomic group's id, name, and roles.
     my ($taxon, $name, undef, @roles) = ScriptUtils::get_line($ih);
-    print "Processing $taxon: $name. " . scalar(@roles) . " marker roles.\n";
+    my $markerCount = scalar(@roles);
+    print "Processing $taxon: $name. $markerCount marker roles.\n";
     # Sort the roles and save a copy. This is a two-pass process.
     my @sorted = sort @roles;
     @roles = @sorted;
@@ -120,7 +121,7 @@ while (! eof $ih) {
             my $fidCount = $roleFeats{$role};
             if (! $fidCount) {
                 $fidCount = $shrub->GetCount('Role2Function Function2Feature', 'Role2Function(from-link) = ? AND Function2Feature(security) = ?',
-                        [$role, 0], 'Function2Feature(to-link)');
+                        [$role, 2], 'Function2Feature(to-link)');
                 $roleFeats{$role} = $fidCount;
                 $stats->Add(roleFeaturesRead => 1);
             } else {
@@ -129,7 +130,7 @@ while (! eof $ih) {
             # Now we count the number of pairings in %residual. Get all the clustered roles for each feature.
             my $q = $shrub->Get('Role2Function Function2Feature Feature2Cluster Cluster2Feature Feature2Function Function2Role',
                 'Role2Function(from-link) = ? AND Function2Feature(security) = ? AND Feature2Function(security) = ?',
-                [$role, 0,0], 'Function2Feature(to-link) Function2Role(to-link)');
+                [$role, 2, 2], 'Function2Feature(to-link) Function2Role(to-link)');
             while (my $record = $q->Fetch()) {
                 my ($role2) = $record->PrimaryValue('Function2Role(to-link)');
                 $residual{$role2}++;
@@ -151,7 +152,8 @@ while (! eof $ih) {
     # Now the status is known for all the role pairs in this taxonomic grouping. Form them into partitions.
     my $partitionList = partition(\@roles, \%pairs);
     my $groupCount = scalar(@$partitionList);
-    print "$groupCount role groups found.\n";
+    print "$groupCount role groups found for $markerCount roles.\n";
+    $stats->Add(groupDelta => ($markerCount - $groupCount));
     # Finally, we print this taxonomic group.
     print $oh "$taxon\t$groupCount\t$name\n";
     $stats->Add(taxonOut => 1);
