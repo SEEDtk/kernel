@@ -4,8 +4,6 @@ use ScriptUtils;
 use Stats;
 use GPUtils;
 
-print STDERR "Connecting to PATRIC.\n";
-my $p3 = P3DataAPI->new();
 print STDERR "Processing GenomePackages.\n";
 my $gHash = GPUtils::get_all('GenomePackages');
 print STDERR "Preparing files.\n";
