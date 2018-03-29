@@ -2,24 +2,23 @@ use strict;
 use FIG_Config;
 use ScriptUtils;
 use Stats;
-use Shrub;
+use GPUtils;
 
-my $shrub = Shrub->new();
-my @taxa = qw(1100 1120941 1236494 411483 83333);
-for my $taxon (@taxa) {
-    my $done;
-    while (! $done) {
-        my ($taxData) = $shrub->GetAll('IsInTaxonomicGroup TaxonomicGrouping', 'IsInTaxonomicGroup(from-link) = ?', [$taxon],
-            'TaxonomicGrouping(id) TaxonomicGrouping(scientific-name) TaxonomicGrouping(domain)');
-        if (! $taxData) {
-            print "No parent found for $taxon.\n";
-            $done = 1;
-        } else {
-            my ($id, $name) = @$taxData;
-            print "Parent of $taxon is $id: $name.\n";
-            $done = ($id == 1);
-            $taxon = $id;
-        }
-    }
-    print "\n";
+print STDERR "Connecting to PATRIC.\n";
+my $p3 = P3DataAPI->new();
+print STDERR "Processing GenomePackages.\n";
+my $gHash = GPUtils::get_all('GenomePackages');
+print STDERR "Preparing files.\n";
+open(my $ih, "<funny.tbl") || die "Could not open funny.tbl: $!";
+open(my $oh, ">incorrect.tbl") || die "Could not open incorrect.tbl: $!";
+my $line = <$ih>; chomp $line;
+print $oh "$line\tref_genome\tlength\n";
+# Read the genomes of interest.
+print STDERR "Reading funny table.\n";
+while (! eof $ih) {
+    my ($id, @cols) = ScriptUtils::get_line($ih);
+    my $gData = GPUtils::get_data($gHash, $id);
+    my $refID = $gData->{'Ref Genome'};
+    my $len = $gData->{'Base pairs'};
+    print $oh join("\t", $id, @cols, $refID, $len) . "\n";
 }
