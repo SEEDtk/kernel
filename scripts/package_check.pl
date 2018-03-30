@@ -137,6 +137,14 @@ if (! $dir) {
             $stats->Add(emptyPackages => 1);
         } else {
             my ($outDir, $cmd);
+            # Process CheckG.
+            $outDir = "$pDir/EvalByCheckG";
+            $cmd = "check_gto --eval --quiet $outDir $pDir/bin.gto";
+            $ok = Process(CheckG => $outDir, $force{CheckG}, $package, $cmd, $opt->status);
+            # Process SciKit.
+            $outDir = "$pDir/EvalBySciKit";
+            $cmd = "gto_consistency $pDir/bin.gto $outDir $predictors $roleFile $rolesToUse";
+            $ok = Process(SciKit => $outDir, $force{SciKit}, $package, $cmd, $opt->status);
             # Process CheckM if the user wants it.
             $outDir = "$pDir/EvalByCheckm";
             $cmd = "checkm lineage_wf --tmpdir $FIG_Config::temp -x fa --file $pDir/evaluate.log $pDir $outDir";
@@ -146,14 +154,6 @@ if (! $dir) {
                     File::Copy::Recursive::fmove("$pDir/evaluate.log", "$pDir/EvalByCheckm/evaluate.log");
                 }
             }
-            # Process SciKit.
-            $outDir = "$pDir/EvalBySciKit";
-            $cmd = "gto_consistency $pDir/bin.gto $outDir $predictors $roleFile $rolesToUse";
-            $ok = Process(SciKit => $outDir, $force{SciKit}, $package, $cmd, $opt->status);
-            # Process CheckG.
-            $outDir = "$pDir/EvalByCheckG";
-            $cmd = "check_gto --eval --quiet $outDir $pDir/bin.gto";
-            $ok = Process(CheckG => $outDir, $force{CheckG}, $package, $cmd, $opt->status);
         }
     }
 }
