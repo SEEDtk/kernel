@@ -14,7 +14,7 @@ if (!-d $output_dir) {
         or die "Could not create output-directory: '$output_dir'";
 }
 else {
-    warn "WARNING -- Output-directory already exists: '$output_dir'";
+    print "Re-using output directory $output_dir.\n";
 }
 
 
