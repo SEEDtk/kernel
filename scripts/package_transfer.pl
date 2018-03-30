@@ -135,6 +135,7 @@ if ($noqual && ($count || $move)) {
     die "Cannot specify NOQUAL if not in COPY mode.";
 }
 # Get the list of incoming packages.
+print "Gathering input list.\n";
 opendir(my $dh, $inDir) || die "Could not open input directory $inDir: $!";
 my @inPackages = grep { -s "$inDir/$_/data.tbl" } readdir $dh;
 closedir $dh; undef $dh;
