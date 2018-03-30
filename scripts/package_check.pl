@@ -152,7 +152,7 @@ if (! $dir) {
             $ok = Process(SciKit => $outDir, $force{SciKit}, $package, $cmd, $opt->status);
             # Process CheckG.
             $outDir = "$pDir/EvalByCheckG";
-            $cmd = "check_gto --eval $outDir $pDir/bin.gto";
+            $cmd = "check_gto --eval --quiet $outDir $pDir/bin.gto";
             $ok = Process(CheckG => $outDir, $force{CheckG}, $package, $cmd, $opt->status);
         }
     }
