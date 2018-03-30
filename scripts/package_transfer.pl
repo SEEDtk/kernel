@@ -74,6 +74,10 @@ C<quality.tbl> file will automatically not qualify.
 
 If specified, the qualifying packages will be counted but not moved or copied.
 
+=item noqual
+
+If specified, quality information will not be copied.
+
 =back
 
 =cut
@@ -88,6 +92,7 @@ my $opt = ScriptUtils::Opts('inDir outDir',
         ['good', 'only good packages qualify'],
         ['original', 'only packages from unmodified bins qualify'],
         ['derived', 'only modified or non-bin packages qualify'],
+        ['noqual', 'do not move quality information']
         );
 my $stats = Stats->new();
 # Get the input and output directories.
@@ -124,6 +129,10 @@ my $original = $opt->original;
 my $derived = $opt->derived;
 if ($original && $derived) {
     die "Cannot specified both ORIGINAL and DERIVED.";
+}
+my $noqual = $opt->noqual;
+if ($noqual && ($count || $move)) {
+    die "Cannot specify NOQUAL if not in COPY mode.";
 }
 # Get the list of incoming packages.
 opendir(my $dh, $inDir) || die "Could not open input directory $inDir: $!";
@@ -205,6 +214,12 @@ for my $package (sort @inPackages) {
                     # Move does not delete the directory, so we have to do that here.
                     File::Copy::Recursive::pathrmdir("$inDir/$package");
                     $stats->Add(sourceMoved => 1);
+                } elsif ($noqual) {
+                    print "Copying base $package to $outDir.\n";
+                    File::Copy::Recursive::pathmk("$outDir/$package");
+                    for my $file (qw(bin.fa bin.gto data.tbl)) {
+                        File::Copy::Recursive::fcopy("$inDir/$package/$file", "$outDir/$package");
+                    }
                 } else {
                     print "Copying $package to $outDir.\n";
                     File::Copy::Recursive::dircopy("$inDir/$package", "$outDir/$package");
