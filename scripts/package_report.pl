@@ -93,15 +93,15 @@ SciKit fine evaluation score (percent)
 
 =item 14
 
-CheckM evaluation completeness (percent)
+CheckG evaluation completeness (percent)
 
 =item 15
 
-CheckM evaluation contamination (percent)
+CheckG evaluation contamination (percent)
 
 =item 16
 
-CheckM taxonomy classification
+CheckG taxonomy classification
 
 =item 17
 
@@ -145,10 +145,10 @@ Ref Name
 
 =back
 
-=item EvalByCheckm/evaluate.log
+=item EvalByCheckG/evaluate.log
 
-CheckM results file. The fourth line of this file contains space-delimited fields, the first of which is the word C<bin>. The second field is the
-CheckM taxonomy classification. The thirteenth is the checkM completeness and the fourteenth is the checkM contamination score.
+CheckG results file. The second line of this file contains tab-delimited fields, containing (0) the completeness
+score, (1) the contamination score, and (3) the taxonomic grouping used. Note that the third field (2) is not used.
 
 =item EvalBySciKit/evaluate.log
 
@@ -313,24 +313,18 @@ sub produce_report {
             # This will list the missing scores.
             my @missing;
             # Get the checkm scores.
-            my ($checkMscore, $checkMcontam, $checkMtaxon) = ('', '', '');
-            if (-d "$pDir/EvalByCheckm") {
+            my ($checkGscore, $checkGcontam, $checkGtaxon) = ('', '', '');
+            if (-d "$pDir/EvalByCheckG") {
                 my $found;
-                if (open(my $fh, '<', "$pDir/EvalByCheckm/evaluate.log")) {
-                    while (! eof $fh) {
-                        my $line = <$fh>;
-                        if ($line =~ /^\s+bin\s+/) {
-                            my @cols = split /\s+/, $line;
-                            $checkMtaxon = $cols[2];
-                            $checkMscore = $cols[13];
-                            $checkMcontam = $cols[14];
-                            $found = 1;
-                        }
-                    }
+                if (open(my $fh, '<', "$pDir/EvalByCheckG/evaluate.log")) {
+                    my $line = <$fh>;
+                    $line = <$fh>; chomp $line;
+                    ($checkGscore, $checkGcontam, undef, $checkGtaxon) = split /\t/, $line;
+                    $found = 1;
                     close $fh;
                 }
                 if (! $found) {
-                    push @missing, 'Checkm';
+                    push @missing, 'CheckG';
                 }
             }
             # Get the scikit score.
@@ -355,15 +349,15 @@ sub produce_report {
             }
             # Is this a good genomes?
             my $seedFlag = GPUtils::good_seed($gto);
-            my $goodFlag = (($seedFlag && $scikitFScore && $scikitFScore >= 85 && $checkMscore && $checkMscore >= 80 && $checkMcontam <= 10) ? 1 : 0);
+            my $goodFlag = (($seedFlag && $scikitFScore && $scikitFScore >= 85 && $checkGscore && $checkGscore >= 80 && $checkGcontam <= 15) ? 1 : 0);
             # Assemble the output line.
             my $refGenome = $dataVals{'Ref Genome'} // $dataVals{'Source Package'} // $dataVals{'Source Database'} // '';
             my $refName = $dataVals{'Ref Name'} // 'derived';
             my $sampleName = $dataVals{'Sample Name'} // 'Derived';
             $retVal = join("\t", $sampleName, $package, $dataVals{'Genome Name'}, $dataVals{'Contigs'},
                     $dataVals{'Base pairs'}, $metricsH->{complete}, $metricsH->{N50}, $metricsH->{N70},
-                    $metricsH->{N90}, $refGenome, $refName, $scikitCScore, $scikitFScore, $checkMscore, $checkMcontam,
-                    $checkMtaxon, $goodFlag) . "\n";
+                    $metricsH->{N90}, $refGenome, $refName, $scikitCScore, $scikitFScore, $checkGscore, $checkGcontam,
+                    $checkGtaxon, $goodFlag) . "\n";
             open(my $oh, '>', "$pDir/quality.tbl") || die "Could not write to quality file for $package: $!";
             print $oh $retVal;
             # Check for the missing report.
@@ -382,7 +376,7 @@ sub produce_report {
         chomp $l;
         my($sample_name, $genome_id, $genome_name, $contigs, $dna, $complete,
            $n50, $n70, $n90, $ref_id, $ref_name,
-           $scikit_coarse, $scikit_fine, $checkm_completeness, $checkm_contamination, $checkm_tax) = split(/\t/, $l);
+           $scikit_coarse, $scikit_fine, $checkg_completeness, $checkg_contamination, $checkg_tax) = split(/\t/, $l);
         $retVal = {
             sample_name => $sample_name,
             genome_id => $genome_id,
@@ -395,12 +389,11 @@ sub produce_report {
             n90 => 0 + $n90,
             scikit_coarse => 0.0 + $scikit_coarse,
             scikit_fine => 0.0 + $scikit_fine,
-            checkm_completeness => 0.0 + $checkm_completeness,
-            checkm_contamination => 0.0 + $checkm_contamination,
-            checkm_taxonomy => $checkm_tax,
+            checkg_completeness => 0.0 + $checkg_completeness,
+            checkg_contamination => 0.0 + $checkg_contamination,
+            checkg_taxonomy => $checkg_tax,
         };
     }
-
 
     return $retVal;
 }

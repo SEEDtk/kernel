@@ -161,16 +161,8 @@ for my $package (sort @inPackages) {
     if (open(my $qh, '<', "$inDir/$package/quality.tbl")) {
         $stats->Add(qualityFileFound => 1);
         my @flds = split /\t/, <$qh>;
-        # Note that the fields may be blank if we don't have quality data. This
-        # automatically disqualifies the package.
-        if ($flds[12] && $flds[13] && $flds[12] >= 85 && $flds[13] >= 80 && $flds[14] <= 10) {
-            # Here we are probably good. Read the GTO and check the annotations.
-            my $gtoFile = "$inDir/$package/bin.gto";
-            if (-s $gtoFile) {
-                my $gto = GenomeTypeObject->create_from_file("$inDir/$package/bin.gto");
-                $isGood = GPUtils::good_seed($gto);
-            }
-        }
+        # The goodness flag is the last field.
+        $isGood = pop @flds;
     }
     # Compute the sample's properties.
     my $isOriginal = ($sampleName && lc $sampleName ne 'derived');
