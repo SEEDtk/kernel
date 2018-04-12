@@ -164,10 +164,10 @@ for my $genome (sort keys %$genomeHash) {
         # Is this a good bin?
         my $details = $gto->{genome_quality_measure};
         my $goodSeed = (GPUtils::good_seed($gto) ? 'Y' : '');
-        my $coarse = $details->{consis_data}{Coarse_Consistency};
-        my $fine =   $details->{consis_data}{Fine_Consistency};
-        my $complt = $details->{checkg_data}{Completeness};
-        my $contam = $details->{checkg_data}{Contamination};
+        my $coarse = $details->{consis_data}{Coarse_Consistency} // '';
+        my $fine =   $details->{consis_data}{Fine_Consistency} // '';
+        my $complt = $details->{checkg_data}{Completeness} // '';
+        my $contam = $details->{checkg_data}{Contamination} // '';
         my $good = ($goodSeed && $fine >= 85 && $complt >= 80 && $contam <= 15);
         # Compute the report URL.
         my $reportUrl = File::Spec->abs2rel("$gDir/report.html", $pDir);
