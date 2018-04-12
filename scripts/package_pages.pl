@@ -59,6 +59,7 @@ The file name of the web page template. The default is C<BinningReports/details.
 
 =cut
 
+$| = 1;
 # Get the command-line parameters.
 my $opt = ScriptUtils::Opts('pDir',
         ['roleFile|rolefile|r=s', 'role mapping file', { default => "$FIG_Config::global/roles.in.subsystems" }],
