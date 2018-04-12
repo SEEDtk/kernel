@@ -24,6 +24,7 @@ use ScriptUtils;
 use Stats;
 use GPUtils;
 use BinningReports;
+use Template;
 
 =head1 Generate Report Web Pages for Genome Packages
 
@@ -31,7 +32,7 @@ use BinningReports;
 
 This script will run through all of the genome packages in a directory. For those with completed quality
 evaluations, it will create an HTML page (report.html) that contains a quality report. This page can be accessed to
-analyze the problematic roles on PATRIC.
+analyze the problematic roles on PATRIC. A master page will be created in C<report.html> of the main directory.
 
 =head2 Parameters
 
@@ -51,9 +52,9 @@ file.
 
 If specified, reports will not be generated for packages that already have them.
 
-=item template
+=item tDir
 
-The file name of the web page template. The default is C<BinningReports/details.tt> in the kernel library directory.
+The name of the directory containing the web page templates.
 
 =back
 
@@ -64,7 +65,7 @@ $| = 1;
 my $opt = ScriptUtils::Opts('pDir',
         ['roleFile|rolefile|r=s', 'role mapping file', { default => "$FIG_Config::global/roles.in.subsystems" }],
         ['missing', 'only process packages without pre-existing reports'],
-        ['template=s', 'detail template file', { default => "$FIG_Config::mod_base/kernel/lib/BinningReports/details.tt" }],
+        ['tDir|tdir|templates=s', 'template file directory', { default => "$FIG_Config::mod_base/kernel/lib/BinningReports" }],
         );
 my $stats = Stats->new();
 # Get the package directory.
@@ -85,11 +86,14 @@ while (! eof $rh) {
     $nameMap{$id} = $name;
     $stats->Add(roleIn => 1);
 }
-# Load the template.
-open(my $ih, '<', $opt->template) || die "Could not open template file: $!";
+# This will hold the parameters for the master report.
+my %master;
+# Load the detail template.
+my $tDir = $opt->tdir;
+open(my $ih, "<$tDir/details.tt") || die "Could not open detail template file: $!";
 my $detailsT = join("", <$ih>);
 close $ih;
-# Build the HTML prefix.
+# Build the HTML prefix and suffix.
 my $prefix = <<'END_HTML';
 <html>
 <head>
@@ -141,6 +145,35 @@ for my $genome (sort keys %$genomeHash) {
         print $oh "$prefix\n$html\n$suffix\n";
         $stats->Add(reportOut => 1);
         close $oh;
+        # Is this a good bin?
+        my $details = $gto->{genome_quality_measure};
+        my $goodSeed = (GPUtils::good_seed($gto) ? 'Y' : '');
+        my $coarse = $details->{consis_data}{Coarse_Consistency};
+        my $fine =   $details->{consis_data}{Fine_Consistency};
+        my $complt = $details->{checkg_data}{Completeness};
+        my $contam = $details->{checkg_data}{Contamination};
+        my $good = ($goodSeed && $fine >= 85 && $complt >= 80 && $contam <= 15);
+        # Add our data to the master report.
+        my $genomeData = {genome_url => "https://www.patricbrc.org/view/Genome/$genome",
+                genome_id => $genome, report_url => "$genome/report.html", genome_name => $gto->{scientific_name},
+                scikit_coarse => $coarse, scikit_fine => $fine, checkg_completeness => $complt,
+                checkg_contamination => $contam, good_seed => $goodSeed};
+        if ($good) {
+            $master{good_count}++;
+            push @{$master{good}}, $genomeData;
+        } else {
+            $master{bad_count}++;
+            push @{$master{bad}}, $genomeData;
+        }
     }
 }
+# Now output the master report.
+my $templateEngine = Template->new(ABSOLUTE => 1);
+my $vars = \%master;
+my $html;
+open(my $th, "<$tDir/master.tt") || die "Could not open master template: $!";
+$templateEngine->process($th, $vars, \$html);
+open(my $oh, ">$pDir/report.html") || die "Could not open master output: $!";
+print $oh "$prefix\n$html\n$suffix\n";
+close $oh;
 print "All done.\n" . $stats->Show();

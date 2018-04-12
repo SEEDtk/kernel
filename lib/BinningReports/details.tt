@@ -1,4 +1,4 @@
-<h1>Results for Bin [% g.genome_id %]</h1>
+<h1>Results for [% g.genome_id %]</h1>
 
 <p><a href="https://docs.patricbrc.org//tutorial/metagenomic_binning/metagenomic_output.html#the-genome-report">Tutorial for this page.</a></p>
 

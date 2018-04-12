@@ -206,11 +206,10 @@ Reference to a hash mapping each contig ID to its length.
 # Good/Bad criteria
 use constant MIN_CHECKM => 80;
 use constant MIN_SCIKIT => 85;
-use constant MAX_CONTAM => 10;
+use constant MAX_CONTAM => 15;
 
 # URL helpers
 use constant URL_BASE => 'https://www.patricbrc.org/view/Genome';
-use constant FID_URL_BASE => 'https://www.patricbrc.org/view/Genome';
 
 =head2 Public Methods
 
