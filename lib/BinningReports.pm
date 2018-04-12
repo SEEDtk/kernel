@@ -24,6 +24,8 @@ package BinningReports;
     use File::Basename;
     use Template;
     use Data::Dumper;
+    use RoleParse;
+    use SeedUtils;
 
 =head1 Produce Binning Reports
 
@@ -125,33 +127,41 @@ This is a L<GenomeTypeObject> with the special element C<genome_quality_measure>
 
 =over 4
 
-=item checkm_data
+=item checkg_data
 
 Reference to a hash with the following keys.
 
 =over 8
 
-=item Marker lineage
+=item Group
 
 The taxonomic estimate used to check the genome.
 
 =item Completeness
 
-The CheckM completeness percentage.
+The completeness percentage.
 
 =item Contamination
 
-The CheckM contamination percentage.
+The contamination percentage.
 
 =back
 
-=item fine_consistency
+=item consis_data
 
-The SciKit fine consistency percentage.
+Reference to a hash with the following keys.
 
-=item coarse_consistency
+=over 8
 
-The SciKit coarse consistency percentage.
+=item Fine_consistency
+
+The fine consistency percentage.
+
+=item Coarse_consistency
+
+The coarse consistency percentage.
+
+=back
 
 =item genome_metrics
 
@@ -174,10 +184,6 @@ The N50 statistical estimate of contig lengths. At least half the base pairs are
 Reference to a hash with the following keys.
 
 =over 8
-
-=item roles
-
-Reference to a hash that maps each role ID to its name.
 
 =item role_fids
 
@@ -510,6 +516,10 @@ The number of features containing the problematic role.
 
 The URL to list the features.
 
+=item comment
+
+An optional comment about the role.
+
 =back
 
 =item c
@@ -582,22 +592,20 @@ sub Detail {
         # Create the ppr descriptor for the bin. This also nets us the ppr count.
         my $pprs = 0;
         my $pprRoleFids = $ppr->{role_fids};
-        my $pprRoleData = $ppr->{role_problematic};
+        my $pprRoleData = $ppr->{role_ppr};
         for my $role (sort keys %$pprRoleData) {
             my $pa = $pprRoleData->{$role} // [0,0];
-            my ($predicted, $actual) = @$pa;
-            if ($predicted != $actual) {
-                $pprs++;
-                my $roleName = $roleMap->{$role} // $role;
-                my $fidList = $pprRoleFids->{$role} // [];
-                my $n_fids = scalar @$fidList;
-                my %pprThing = (role => $roleName, predicted => $predicted, actual => $actual, n_fids => $n_fids);
-                $pprThing{fid_url} = fid_list_url($fidList);
-                push @pprList, \%pprThing;
-                # Save the feature IDs in the PPR fid hash.
-                for my $fid (@$fidList) {
-                    $pprFids{$fid} = 1;
-                }
+            my ($predicted, $actual, $comment) = @$pa;
+            $pprs++;
+            my $roleName = $roleMap->{$role} // $role;
+            my $fidList = $pprRoleFids->{$role} // [];
+            my $n_fids = scalar @$fidList;
+            my %pprThing = (role => $roleName, predicted => $predicted, actual => $actual, n_fids => $n_fids, comment => $comment);
+            $pprThing{fid_url} = fid_list_url($fidList);
+            push @pprList, \%pprThing;
+            # Save the feature IDs in the PPR fid hash.
+            for my $fid (@$fidList) {
+                $pprFids{$fid} = 1;
             }
         }
         # Store the PPR count in the main descriptor.
@@ -631,7 +639,7 @@ sub Detail {
     my $templateEngine = Template->new(ABSOLUTE => 1);
     my $retVal;
     my $vars = { g => \%gThing, p => \@pprList, c => \@contigs };
-    # print STDERR Dumper($vars);
+    # print STDERR Dumper($vars->{g});
     $templateEngine->process($detail_tt, $vars, \$retVal);
     # Return the report.
     return $retVal;
@@ -694,6 +702,42 @@ sub fid_list_url {
         $retVal = "https://www.patricbrc.org/view/FeatureList/?in(patric_id,($list))";
     }
     return $retVal;
+}
+
+=head3 add_comment
+
+    add_comment($tuple, $fid, $predicate);
+
+Add a comment to a problematic role tuple. The comment relates to a specific feature ID, which must be hyperlinked.
+The predicate describes the feature.
+
+=over 4
+
+=item tuple
+
+A problematic role tuple. The third element is the comment.
+
+=item fid
+
+The ID of the feature being described.
+
+=item predicate
+
+A sentence predicate of which the feature is the subject.
+
+=back
+
+=cut
+
+sub add_comment {
+    my ($tuple, $fid, $predicate) = @_;
+    # Hyperlink the feature ID.
+    my $url = fid_list_url([$fid]);
+    my $comment = "<a href=\"$url\">$fid</a> $predicate";
+    if ($tuple->[2]) {
+        $comment = "  $comment";
+    }
+    $tuple->[2] .= $comment;
 }
 
 =head3 parse_bins_json
@@ -819,16 +863,129 @@ sub copy_gto {
         genome_name => $gto->{scientific_name},
     );
     my $qData = $gto->{genome_quality_measure};
-    $retVal{scikit_coarse} = $qData->{coarse_consistency};
-    $retVal{scikit_fine} = $qData->{fine_consistency};
+    my $consis = $qData->{consis_data};
+    # print STDERR Dumper($consis);
+    $retVal{scikit_coarse} = $consis->{Coarse_Consistency};
+    $retVal{scikit_fine} = $consis->{Fine_Consistency};
     my $metrics = $qData->{genome_metrics};
     $retVal{n50} = $metrics->{N50};
     $retVal{dna_bp} = $metrics->{totlen};
     $retVal{contigs} = scalar @{$gto->{contigs}};
-    my $checkm = $qData->{checkm_data};
-    $retVal{checkm_completeness} = $checkm->{Completeness};
-    $retVal{checkm_contamination} = $checkm->{Contamination};
+    my $checkg = $qData->{checkg_data};
+    $retVal{checkg_completeness} = $checkg->{Completeness};
+    $retVal{checkg_contamination} = $checkg->{Contamination};
     return %retVal;
 }
+
+=head3 UpdateGTO
+
+    BinningReports::UpdateGTO($gto, $skDir, $cgDir, \%roleMap);
+
+Merge the quality measures into a L<GenomeTypeObject>. The C<genome_quality_measure> member will be created with all the
+associated sub-members required by the binning detail report. The resultant GTO can be passed to the L</Detail> method
+for creation of a binning report page.
+
+=over 4
+
+=item gto
+
+A L<GenomeTypeObject> to be updated with quality information.
+
+=item skDir
+
+The name of the directory containing the output from the consistency tool.
+
+=item cgDir
+
+The name of the directory containing the output from the completeness tool.
+
+=item roleMap
+
+Reference to a hash mapping each role ID to a checksum.
+
+=back
+
+=cut
+
+sub UpdateGTO {
+    my ($gto, $skDir, $cgDir, $roleMap) = @_;
+    # This will be our quality measure object.
+    my %q;
+    # Start with the metrics.
+    my $metricH = $gto->metrics();
+    $q{genome_metrics} = $metricH;
+    # This hash will contain the potentially problematic roles. Each role is mapped to its expected and
+    # actual occurrences. Both the consistency and completeness checker have problematic roles. We do the
+    # completeness checker first, so if any roles overlap, the consistency checker overrides the completeness
+    # result.
+    my %ppr;
+    if (open(my $ih, "<$cgDir/evaluate.out")) {
+        while (! eof $ih) {
+            my $line = <$ih>;
+            my ($role, $actual) = ($line =~ /^(\S+)\t(\d+)/);
+            if ($role && $actual != 1) {
+                $ppr{$role} = [1, $actual, 'Universal role.'];
+            }
+        }
+    }
+    if (open(my $ih, "<$skDir/evaluate.out")) {
+        while (! eof $ih) {
+            my $line = <$ih>;
+            my ($role, $pred, $actual) = ($line =~ /^(\S+)\t(\d+)\S*\t(\d+)/);
+            if ($role && $pred != $actual) {
+                $ppr{$role} = [$pred, $actual, ''];
+            }
+        }
+    }
+    # Now we need to map the roles to feature IDs. This hash will map a role ID to a list of features.
+    # We step through all the features, and if the checksum matches a role ID in the PPR, we put it in
+    # that ID's list.
+    my %fids;
+    for my $feature (@{$gto->{features}}) {
+        my $fid = $feature->{id};
+        my $function = $feature->{function};
+        my @roles = SeedUtils::roles_of_function($function);
+        for my $role (@roles) {
+            my $roleID = $roleMap->{RoleParse::Checksum($role)};
+            if ($roleID && $ppr{$roleID}) {
+                push @{$fids{$roleID}}, $fid;
+                my $aa = $feature->{protein_translation};
+                if ($aa && length($aa) < 40) {
+                    add_comment($ppr{$roleID}, $fid, 'is very short.');
+                }
+            }
+        }
+    }
+    # We are almost done. We have the problematic role report data. Now we need the actual numbers.
+    my %checkGdata;
+    if (open(my $ih, "<$cgDir/evaluate.log")) {
+        my $line = <$ih>;
+        chomp $line;
+        my @keys = split /\t/, $line;
+        while (! eof $ih) {
+            $line = <$ih>;
+            chomp $line;
+            my @data = split /\t/, $line;
+            for my $key (@keys) {
+                $checkGdata{$key} = shift @data;
+            }
+        }
+    }
+    my %skData;
+    if (open(my $ih, "<$skDir/evaluate.log")) {
+        while (! eof $ih) {
+            my $line = <$ih>;
+            if ($line =~ /^([^_]+_Consistency)=\t([0-9\.]+)\%/) {
+                $skData{$1} = $2;
+            }
+        }
+    }
+    # All of this must now be assembled into the GTO.
+    $q{checkg_data} = \%checkGdata;
+    $q{consis_data} = \%skData;
+    $q{problematic_roles_report} = { role_fids => \%fids, role_ppr => \%ppr };
+    $gto->{genome_quality_measure} = \%q;
+}
+
 
 1;

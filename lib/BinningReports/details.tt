@@ -21,9 +21,9 @@
 </tr><tr>
 <th>Fine consistency (%)</th><td>[% g.scikit_fine %]</td>
 </tr><tr>
-<th>CheckM completeness (%)</th><td>[% g.checkm_completeness %]</td>
+<th>Completeness (%)</th><td>[% g.checkg_completeness %]</td>
 </tr><tr>
-<th>CheckM contamination (%)</th><td>[% g.checkm_contamination %]</td>
+<th>Contamination (%)</th><td>[% g.checkg_contamination %]</td>
 </tr><tr>
 <th>Contig count</th><td>[% g.contigs %]</td>
 </tr><tr>
@@ -46,6 +46,7 @@
 <th>Predicted<br>count</th>
 <th>Annotated<br>count</th>
 <th>Feature link</th>
+<th>Comment</th>
 </tr>
 [% FOR r IN p %]
 <tr>
@@ -57,6 +58,7 @@
 [% ELSE -%]
 <td>[% r.n_fids %] features</td>
 [% END -%]
+<td>[% r.comment %]</td>
 </tr>
 [% END -%]
 </table>
