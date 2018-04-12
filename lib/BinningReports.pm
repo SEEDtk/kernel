@@ -195,6 +195,10 @@ Reference to a hash that maps each role ID to a 2-tuple consisting of (0) the nu
 
 =back
 
+=item contigs
+
+Reference to a hash mapping each contig ID to its length.
+
 =back
 
 =cut
@@ -576,6 +580,7 @@ sub Detail {
     my $genomeName = $gto->{scientific_name};
     my $genomeURL = join('/', URL_BASE, uri_escape($genomeID));
     my $ppr = $gto->{genome_quality_measure}{problematic_roles_report};
+    my $contigH = $gto->{genome_quality_measure}{contigs};
     my $refData = $refGmap->{$genomeName} // {};
     # Problematic roles are stashed here.
     my @pprList;
@@ -629,7 +634,7 @@ sub Detail {
             if ($fidList) {
                 my $nFids = scalar @$fidList;
                 my $url = fid_list_url($fidList);
-                my $contigDatum = { name => $contigID, len => length($cThing->{dna}),
+                my $contigDatum = { name => $contigID, len => $contigH->{$contigID},
                                     n_fids => $nFids, fid_url => $url };
                 push @contigs, $contigDatum;
             }
@@ -738,6 +743,89 @@ sub add_comment {
         $comment = "  $comment";
     }
     $tuple->[2] .= $comment;
+}
+
+=head3 analyze_feature
+
+    my $comment = BinningReport::analyze_feature($gto, $feature, $roleThing);
+
+Analyze the feature to produce a comment on why it may be problematic. We currentl check for a short
+protein, a protein near the edge of a contig, and a protein in a short contig.
+
+=over 4
+
+=item gto
+
+The L<GenomeTypeObject> for the genome of interest.
+
+=item feature
+
+The feature descriptor for the feature of interest.
+
+=item roleThing
+
+A tuple containing (0) the number of predicted role occurrences, (1) the number of actual role occurrences, and
+(2) the current comment.
+
+=item RETURN
+
+Returns the predicate for a sentence about the feature whose subject would be the feature ID.
+
+=back
+
+=cut
+
+sub analyze_feature {
+    my ($gto, $feature, $roleThing) = @_;
+    # This will contain comments. We string them together at the end.
+    my @comments;
+    # Get the contig length hash.
+    my $contigH = $gto->{genome_quality_measure}{contigs};
+    # Check the protein length.
+    my $aa = $feature->{protein_translation};
+    if ($aa && length($aa) < 50) {
+        push @comments, 'is a short protein';
+    }
+    # Check the feature location.
+    my $loc = $feature->{location};
+    if (scalar(@$loc) > 1) {
+        push @comments, 'has multiple locations';
+    } else {
+        my $locTuple = $loc->[0];
+        my ($contig, $begin, $strand, $length) = @$locTuple;
+        my $contigLen = $contigH->{$contig};
+        if ($strand eq '+') {
+            if ($begin < 5) {
+                push @comments, 'starts near the start of the contig';
+            }
+            if ($begin + $length + 5 > $contigLen) {
+                push @comments, 'ends near the end of the contig';
+            }
+        } else {
+            if ($contigLen - $begin < 5) {
+                push @comments, 'starts near the end of the contig';
+            }
+            if ($begin - $length < 5) {
+                push @comments, 'ends near the start of the contig';
+            }
+        }
+        if ($contigLen < 500) {
+            push @comments, 'is in a short contig';
+        }
+    }
+    # String all the comments together,
+    my $retVal;
+    if (! @comments) {
+        $retVal = '';
+    } else {
+        my $last = (pop @comments) . ".";
+        if (@comments) {
+            $retVal = join(", ", @comments, "and $last");
+        } else {
+            $retVal = $last;
+        }
+    }
+    return $retVal;
 }
 
 =head3 parse_bins_json
@@ -911,6 +999,13 @@ sub UpdateGTO {
     my ($gto, $skDir, $cgDir, $roleMap) = @_;
     # This will be our quality measure object.
     my %q;
+    $gto->{genome_quality_measure} = \%q;
+    # The first thing is to create an index of contig lengths.
+    my %contigs;
+    for my $contig (@{$gto->{contigs}}) {
+        $contigs{$contig->{id}} = length($contig->{dna});
+    }
+    $q{contigs} = \%contigs;
     # Start with the metrics.
     my $metricH = $gto->metrics();
     $q{genome_metrics} = $metricH;
@@ -949,9 +1044,9 @@ sub UpdateGTO {
             my $roleID = $roleMap->{RoleParse::Checksum($role)};
             if ($roleID && $ppr{$roleID}) {
                 push @{$fids{$roleID}}, $fid;
-                my $aa = $feature->{protein_translation};
-                if ($aa && length($aa) < 40) {
-                    add_comment($ppr{$roleID}, $fid, 'is very short.');
+                my $comment = analyze_feature($gto, $feature, $ppr{$roleID});
+                if ($comment) {
+                    add_comment($ppr{$roleID}, $fid, $comment);
                 }
             }
         }
@@ -984,7 +1079,6 @@ sub UpdateGTO {
     $q{checkg_data} = \%checkGdata;
     $q{consis_data} = \%skData;
     $q{problematic_roles_report} = { role_fids => \%fids, role_ppr => \%ppr };
-    $gto->{genome_quality_measure} = \%q;
 }
 
 
