@@ -1,6 +1,6 @@
 <h1>Genome Package Directory Report</h1>
 
-<h2>[% good_count %] Good Bins</h2>
+<h2>Good Bins ([% good_count %])</h2>
 <table class='p3basic'>
 [% PROCESS qual_headers %]
 [% FOR g IN good %]
@@ -8,7 +8,7 @@
 [% END %]
 </table>
 
-<h2>[% bad_count %] Bad Bins</h2>
+<h2>Bad Bins ([% bad_count %])</h2>
 <table class='p3basic'>
 [% PROCESS qual_headers %]
 [% FOR g IN bad %]

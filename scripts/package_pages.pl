@@ -25,6 +25,8 @@ use Stats;
 use GPUtils;
 use BinningReports;
 use Template;
+use File::Spec;
+use File::Copy::Recursive;
 
 =head1 Generate Report Web Pages for Genome Packages
 
@@ -56,6 +58,10 @@ If specified, reports will not be generated for packages that already have them.
 
 The name of the directory containing the web page templates.
 
+=item wDir
+
+If specified, the name of a web directory to contain a copy of the pages.
+
 =back
 
 =cut
@@ -66,6 +72,7 @@ my $opt = ScriptUtils::Opts('pDir',
         ['roleFile|rolefile|r=s', 'role mapping file', { default => "$FIG_Config::global/roles.in.subsystems" }],
         ['missing', 'only process packages without pre-existing reports'],
         ['tDir|tdir|templates=s', 'template file directory', { default => "$FIG_Config::mod_base/kernel/lib/BinningReports" }],
+        ['wDir|wdir|webDir|webdir|w=s', 'proposed web directory']
         );
 my $stats = Stats->new();
 # Get the package directory.
@@ -74,6 +81,15 @@ if (! $pDir) {
     die "No package directory specified.";
 } elsif (! -d $pDir) {
     die "Package directory $pDir missing or invalid.";
+}
+# Check for a web directory.
+my $wDir = $opt->wdir;
+if ($wDir && ! -d $wDir) {
+    print "Creating web directory $wDir.\n";
+    File::Copy::Recursive::pathmk($wDir) || die "Could not create $wDir: $!";
+} else {
+    print "Clearing web directory $wDir.\n";
+    File::Copy::Recursive::pathempty($wDir) || die "Could not empty $wDir: $!";
 }
 # Get the missing option.
 my $missing = $opt->missing;
@@ -153,9 +169,11 @@ for my $genome (sort keys %$genomeHash) {
         my $complt = $details->{checkg_data}{Completeness};
         my $contam = $details->{checkg_data}{Contamination};
         my $good = ($goodSeed && $fine >= 85 && $complt >= 80 && $contam <= 15);
+        # Compute the report URL.
+        my $reportUrl = File::Spec->abs2rel("$gDir/report.html", $pDir);
         # Add our data to the master report.
         my $genomeData = {genome_url => "https://www.patricbrc.org/view/Genome/$genome",
-                genome_id => $genome, report_url => "$genome/report.html", genome_name => $gto->{scientific_name},
+                genome_id => $genome, report_url => $reportUrl, genome_name => $gto->{scientific_name},
                 scikit_coarse => $coarse, scikit_fine => $fine, checkg_completeness => $complt,
                 checkg_contamination => $contam, good_seed => $goodSeed};
         if ($good) {
@@ -164,6 +182,10 @@ for my $genome (sort keys %$genomeHash) {
         } else {
             $master{bad_count}++;
             push @{$master{bad}}, $genomeData;
+        }
+        # If there is a web directory, copy the report.
+        if ($wDir) {
+            File::Copy::Recursive::fcopy("$gDir/report.html", "$wDir/$reportUrl") || die "Could not copy to $reportUrl: $!";
         }
     }
 }
@@ -176,4 +198,8 @@ $templateEngine->process($th, $vars, \$html);
 open(my $oh, ">$pDir/report.html") || die "Could not open master output: $!";
 print $oh "$prefix\n$html\n$suffix\n";
 close $oh;
+# If there is a web directory, copy the master.
+if ($wDir) {
+    File::Copy::Recursive::fcopy("$pDir/report.html", "$wDir/report.html") || die "Could not copy master report: $!";
+}
 print "All done.\n" . $stats->Show();
