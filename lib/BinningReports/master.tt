@@ -9,7 +9,7 @@
 </table>
 
 <h2>Bad Bins ([% bad_count %])</h2>
-<table class='p3basic'>
+<table class="p3basic">
 [% PROCESS qual_headers %]
 [% FOR g IN bad %]
 [% PROCESS qual_row %]

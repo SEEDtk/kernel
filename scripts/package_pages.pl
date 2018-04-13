@@ -109,23 +109,15 @@ my %master;
 my $tDir = $opt->tdir;
 open(my $ih, "<$tDir/details.tt") || die "Could not open detail template file: $!";
 my $detailsT = join("", <$ih>);
-close $ih;
+close $ih; undef $ih;
 # Build the HTML prefix and suffix.
-my $prefix = <<'END_HTML';
-<html>
-<head>
-<style type="text/css">
-    table.p3basic,
-        th, td, tr {
-            border-style: double;
-            border-collapse: collapse;
-            vertical-align: top;
+my $prefix = "<html><head>\n<style type=\"text/css\">\n";
+open($ih, "<$tDir/packages.css") || die "Could not open style file: $!";
+while (! eof $ih) {
+    $prefix .= <$ih>;
 }
-</style>
-</head>
-<body>
-
-END_HTML
+close $ih; undef $ih;
+$prefix .= "</style></head><body>\n";
 my $suffix = "\n</body></html>\n";
 # Loop through the directories.
 for my $pDir (@pDirs) {
