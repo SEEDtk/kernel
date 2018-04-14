@@ -166,7 +166,8 @@ for my $pDir (@pDirs) {
                 my $fine =   $details->{consis_data}{Fine_Consistency} // '';
                 my $complt = $details->{checkg_data}{Completeness} // '';
                 my $contam = $details->{checkg_data}{Contamination} // '';
-                my $good = ($goodSeed && $fine >= 85 && $complt >= 80 && $contam <= 15);
+                my $good = ($goodSeed && $fine ne '' && $fine >= 85 && _
+                        $complt ne '' && $complt >= 80 && $contam ne '' && $contam <= 15);
                 # Compute the report URL.
                 my $reportUrl = "$genome.html";
                 # Add our data to the master report.
