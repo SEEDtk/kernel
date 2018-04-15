@@ -28,7 +28,7 @@ use Stats;
 
     taxon_analysis.pl [ options ] outDir
 
-This script determines the universal roles for taxonomic groupings. A I<universal role> is one that occurs singly 95% of the time in genomes
+This script determines the universal roles for taxonomic groupings. A I<universal role> is one that occurs singly 97% of the time in genomes
 of a given taxonomic grouping. The script takes as input a matrix of the singly-occurring roles in each known good genome (the output of
 L<p3-role-matrix.pl>). This matrix can be used to compute the universal roles for each taxonomic grouping in the Shrub.
 
@@ -63,7 +63,7 @@ input file) plus the following.
 
 =item min
 
-Minimum percentage of genomes in a taxonomic grouping that must contain a role for it to be considered universal. The default is C<95>.
+Minimum percentage of genomes in a taxonomic grouping that must contain a role for it to be considered universal. The default is C<97>.
 
 =item size
 
