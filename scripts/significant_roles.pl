@@ -61,11 +61,15 @@ for my $packageDir (@pDirs) {
             open(my $ih, "<$gDir/EvalBySciKit/evaluate.out") || die "Could not open evaluation for $genome: $!";
             while (! eof $ih) {
                 my ($id, $predicted, $actual) = ScriptUtils::get_line($ih);
-                if ($predicted != $actual) {
-                    $rolesUsed{$id}++;
-                    $stats->Add(roleMattered => 1);
+                if (! defined $predicted || ! defined $actual) {
+                    $stats->Add(badLine => 1);
                 } else {
-                    $stats->Add(roleNotMattered => 1);
+                    if ($predicted != $actual) {
+                        $rolesUsed{$id}++;
+                        $stats->Add(roleMattered => 1);
+                    } else {
+                        $stats->Add(roleNotMattered => 1);
+                    }
                 }
             }
             $totalGenomes++;
