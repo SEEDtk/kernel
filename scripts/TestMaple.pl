@@ -75,7 +75,7 @@ for my $genome (sort keys %$gHash) {
                 if ($useful > 0) {
                     $ures = Math::Round::nearest(0.01, $count * 100 / $useful);
                 }
-                push @cols, $result;
+                push @cols, $result, $ures;
                 print join("\t", @cols) . "\n";
             }
         }
