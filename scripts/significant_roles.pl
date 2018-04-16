@@ -27,47 +27,49 @@ use Math::Round;
 
 =head1 Find Significant Roles in Quality Evaluations
 
-    significant_roles.pl [ options ] packageDir
+    significant_roles.pl [ options ] pDir1 pDir2 ... pDirN
 
 This script analyzes all the quality evaluations for a set of genome packages and outputs the roles that made a difference.
 
 =head2 Parameters
 
-The positional parameter is the name of a genome package directory.
+The positional parameters are the named of genome package directories to check.
 
 =cut
 
 $| = 1;
 # Get the command-line parameters.
-my $opt = ScriptUtils::Opts('packageDir',
+my $opt = ScriptUtils::Opts('pDir1 pDir2 ... pDirN',
         );
 my $stats = Stats->new();
-# Get the package directory.
-my ($packageDir) = @ARGV;
+# Get the package directories.
+my (@pDirs) = @ARGV;
 # This will track the number of times each role makes a difference.
 my %rolesUsed;
 # This will track the total genomes processed.
 my $totalGenomes = 0;
-# Get the packages and loop through them.
-print STDERR "Processing $packageDir.\n";
-my $gHash = GPUtils::get_all($packageDir);
-for my $genome (keys %$gHash) {
-    my $gDir = $gHash->{$genome};
-    $stats->Add(packagesFound => 1);
-    if (-s "$gDir/EvalBySciKit/evaluate.out") {
-        print STDERR "Checking $genome.\n";
-        $stats->Add(evaluationsFound => 1);
-        open(my $ih, "<$gDir/EvalBySciKit/evaluate.out") || die "Could not open evaluation for $genome: $!";
-        while (! eof $ih) {
-            my ($id, $predicted, $actual) = ScriptUtils::get_line($ih);
-            if ($predicted != $actual) {
-                $rolesUsed{$id}++;
-                $stats->Add(roleMattered => 1);
-            } else {
-                $stats->Add(roleNotMattered => 1);
+for my $packageDir (@pDirs) {
+    # Get the packages and loop through them.
+    print STDERR "Processing $packageDir.\n";
+    my $gHash = GPUtils::get_all($packageDir);
+    for my $genome (keys %$gHash) {
+        my $gDir = $gHash->{$genome};
+        $stats->Add(packagesFound => 1);
+        if (-s "$gDir/EvalBySciKit/evaluate.out") {
+            print STDERR "Checking $genome.\n";
+            $stats->Add(evaluationsFound => 1);
+            open(my $ih, "<$gDir/EvalBySciKit/evaluate.out") || die "Could not open evaluation for $genome: $!";
+            while (! eof $ih) {
+                my ($id, $predicted, $actual) = ScriptUtils::get_line($ih);
+                if ($predicted != $actual) {
+                    $rolesUsed{$id}++;
+                    $stats->Add(roleMattered => 1);
+                } else {
+                    $stats->Add(roleNotMattered => 1);
+                }
             }
+            $totalGenomes++;
         }
-        $totalGenomes++;
     }
 }
 my @roleSort = sort { $rolesUsed{$b} <=> $rolesUsed{$a} } keys %rolesUsed;
