@@ -95,7 +95,7 @@ open(my $oh, ">$gtoDir/report.tbl") || die "Could not open report.tbl: $!";
 print $oh join("\t", qw(fileName completeness contamination multiplicity group coarse fine)) . "\n";
 # Get the list of GTOs.
 print "Reading input directory.\n";
-open(my $dh, $gtoDir) || die "Could not open $gtoDir: $!";
+opendir(my $dh, $gtoDir) || die "Could not open $gtoDir: $!";
 my @gtos = grep { $_ =~ /\.gto$/ } readdir $dh;
 closedir $dh;
 print scalar(@gtos) . " found in $gtoDir.\n";
