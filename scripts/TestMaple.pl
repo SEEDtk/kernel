@@ -64,7 +64,7 @@ for my $genome (sort keys %$gHash) {
                                 $count++;
                             }
                         }
-                        if ($predicted >= 0 && $actual >= 0) {
+                        if ($predicted > 0 || $actual > 0) {
                             $useful++;
                             $stats->Add(usefulRole => 1);
                             if ($predicted == $actual) {

@@ -28,7 +28,7 @@ use Stats;
 
     build_role_tables.pl [ options ] outDir
 
-This script builds two tab delimited files in a specified output directory. It is the first step in creating
+This script builds three tab delimited files in a specified output directory. It is the first step in creating
 function predictors. The second step is L<build_matrix.pl>.
 
 =over 4
@@ -42,6 +42,10 @@ every feature in well-behaved genomes that is currently in a subsystem.
 
 This file contains (0) a role ID, (1) a role checksum, and (2) a role description in each record. There is one record for every
 role appearing in the above file.
+
+=item roles.to.use
+
+This file contains (0) a role ID. There is one record for every role that appears in at least 100 genomes.
 
 =back
 
@@ -101,9 +105,23 @@ while (my $roleData = $q->Fetch()) {
 }
 # Now output the list of roles used.
 close $oh; undef $oh;
+print "Writing roles.in.subsystems and roles.to.use.\n";
 open($oh, ">$outDir/roles.in.subsystems") || die "Could not open roles.in.subsystems: $!";
+open(my $rh, ">$outDir/roles.to.use") || die "Could not open roles.to.use: $!";
 for my $roleID (sort keys %rolePegs) {
     print $oh "$roleID\t$roles{$roleID}[0]\t$roles{$roleID}[1]\n";
     $stats->Add(roleOutput => 1);
+    my @pegs = keys %{$rolePegs{$roleID}};
+    my %genomes;
+    for my $peg (@pegs) {
+        my $genome = SeedUtils::genome_of($peg);
+        $genomes{$genome} = 1;
+    }
+    my $count = scalar keys %genomes;
+    if ($count >= 100) {
+        print "$count genomes found for $roleID.\n";
+        print $oh "$roleID\n";
+        $stats->Add(roleUsed => 1);
+    }
 }
 print "All done.\n" . $stats->Show();
