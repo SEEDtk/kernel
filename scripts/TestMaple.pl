@@ -5,6 +5,7 @@ use Stats;
 use GPUtils;
 use Math::Round;
 
+$| = 1;
 my $stats = Stats->new();
 # Start by getting the significant roles.
 open(my $ih, "<important_roles.tbl") || die "Could not open important_roles: $!";
@@ -13,12 +14,15 @@ my %sigRoles = map { ($_ =~ /^(\S+)/) => 1 } <$ih>;
 my $totRoles = scalar keys %sigRoles;
 print STDERR "$totRoles significant roles found in file.\n";
 # Open up GenomePackages and ModPackages.
+print STDERR "Loading GenomePackages.\n";
 my $gHash = GPUtils::get_all('GenomePackages');
+print STDERR "Loading ModPackages.\n";
 my $mHash = GPUtils::get_all('ModPackages');
 # Write the header.
 print join("\t", qw(genome name evalConG evalConF evalGcomplt evalGcontam scikitG scikitF checkMcomplt checkMcontam sigRoles) ) . "\n";
 # We read the quality rows for both versions, then propose an alternate score for
 # the ModPackages SciKit.
+print STDERR "Looping through genomes.\n";
 for my $genome (sort keys %$gHash) {
     my $mDir = $mHash->{$genome};
     my $gDir = $gHash->{$genome};
