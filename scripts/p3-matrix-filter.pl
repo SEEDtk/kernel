@@ -32,40 +32,45 @@ while (! eof $ih) {
     my %good;
     for my $result (@$resultList) {
         my ($genomeID, $taxons) = @$result;
-        my $domain = $taxons->[1];
-        if ( !grep { $_ eq $domain } qw(Bacteria Archaea Eukaryota) ) {
-            $domain = $taxons->[0];
-        }
-        if ($domain ne 'Archaea') {
-            $good{$genomeID} = 1;
-            $stats->Add(nonArchaea => 1);
+        if (! $taxons) {
+            print "No taxon lineage found for $genomeID.";
+            $stats->Add(badTaxon => 1);
         } else {
-            File::Copy::Recursive::pathempty('TempSciKit');
-            print "Checking $genomeID.\n";
-            my $gto = $p3->gto_of($genomeID);
-            $gto->destroy_to_file('TempSciKit/bin.gto');
-            # Compute the quality.
-            my $cmd = "gto_consistency TempSciKit/bin.gto TempSciKit/results $FIG_Config::global/FunctionPredictors $FIG_Config::global/roles.in.subsystems $FIG_Config::global/roles.to.use";
-            SeedUtils::run($cmd);
-            # Read in the results.
-            open(my $qh, "<TempSciKit/results/evaluate.log") || die "Could not open $genomeID quality log: $!";
-            my $fqual;
-            while (! eof $qh) {
-                my $line = <$qh>;
-                if ($line =~ /Fine_Consistency=\s+(\d+(?:\.\d+)?)%/) {
-                    $fqual = $1;
-                }
+            my $domain = $taxons->[1];
+            if ( !grep { $_ eq $domain } qw(Bacteria Archaea Eukaryota) ) {
+                $domain = $taxons->[0];
             }
-            if (! $fqual) {
-                print "$genomeID quality check failed.\n";
-                $stats->Add(archaeaFail => 1);
+            if ($domain ne 'Archaea') {
+                $good{$genomeID} = 1;
+                $stats->Add(nonArchaea => 1);
             } else {
-                print "$genomeID is $fqual consistent.\n";
-                if ($fqual && $fqual >= 85) {
-                    $good{$genomeID} = 1;
-                    $stats->Add(archaeaGood => 1);
+                File::Copy::Recursive::pathempty('TempSciKit');
+                print "Checking $genomeID.\n";
+                my $gto = $p3->gto_of($genomeID);
+                $gto->destroy_to_file('TempSciKit/bin.gto');
+                # Compute the quality.
+                my $cmd = "gto_consistency TempSciKit/bin.gto TempSciKit/results $FIG_Config::global/FunctionPredictors $FIG_Config::global/roles.in.subsystems $FIG_Config::global/roles.to.use";
+                SeedUtils::run($cmd);
+                # Read in the results.
+                open(my $qh, "<TempSciKit/results/evaluate.log") || die "Could not open $genomeID quality log: $!";
+                my $fqual;
+                while (! eof $qh) {
+                    my $line = <$qh>;
+                    if ($line =~ /Fine_Consistency=\s+(\d+(?:\.\d+)?)%/) {
+                        $fqual = $1;
+                    }
+                }
+                if (! $fqual) {
+                    print "$genomeID quality check failed.\n";
+                    $stats->Add(archaeaFail => 1);
                 } else {
-                    $stats->Add(archaeaBad => 1);
+                    print "$genomeID is $fqual consistent.\n";
+                    if ($fqual && $fqual >= 85) {
+                        $good{$genomeID} = 1;
+                        $stats->Add(archaeaGood => 1);
+                    } else {
+                        $stats->Add(archaeaBad => 1);
+                    }
                 }
             }
         }
