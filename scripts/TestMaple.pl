@@ -32,14 +32,14 @@ for my $genome (sort keys %$gHash) {
         $stats->Add(missingMQuality => 1);
     } else {
         my @flds = ScriptUtils::get_line($qh);
-        my @cols = ($genome, $flds[2], $flds[11..15]);
+        my @cols = ($genome, $flds[2], @flds[11..14]);
         close $qh; undef $qh;
         if (! open($qh, "<$gDir/quality.tbl")) {
             print STDERR "Could not open GenomePackages quality file for $genome: $!\n";
             $stats->Add(missingGQuality => 1);
         } else {
             @flds = ScriptUtils::get_line($qh);
-            push @cols, $flds[11..15];
+            push @cols, @flds[11..14];
             close $qh; undef $qh;
             if (! open(my $ih, "<$mDir/EvalBySciKit/evaluate.out")) {
                 print STDERR "Could not open ModPackages role analysis: $!\n";
@@ -51,13 +51,12 @@ for my $genome (sort keys %$gHash) {
                     my ($role, $predicted, $actual) = ScriptUtils::get_line($ih);
                     if (! $role) {
                         $stats->Add(badRole => 1);
-                        if (defined $predicted && defined $actual && $sigRoles{$role}) {
-                            $stats->Add(importantRole => 1);
-                            $total++;
-                            if ($predicted == $actual) {
-                                $count++;
-                                $stats->Add(goodRole => 1);
-                            }
+                    } elsif (defined $predicted && defined $actual && $sigRoles{$role}) {
+                        $stats->Add(importantRole => 1);
+                        $total++;
+                        if ($predicted == $actual) {
+                            $count++;
+                            $stats->Add(goodRole => 1);
                         }
                     }
                 }
@@ -65,7 +64,7 @@ for my $genome (sort keys %$gHash) {
                 if ($total > 0) {
                     $result = Math::Round::nearest(0.01, $count * 100 / $total);
                 }
-                push @cols, $total;
+                push @cols, $result;
                 print join("\t", @cols) . "\n";
             }
         }
