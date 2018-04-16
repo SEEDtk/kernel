@@ -18,7 +18,7 @@ my $ih = P3Utils::ih($opt);
 # Open the output file.
 open(my $oh, ">CheckG/newMatrix.tbl") || die "Could not open output: $!";
 my $headers = <$ih>;
-print $headers;
+print $oh $headers;
 if (! -d 'TempSciKit') {
     File::Copy::Recursive::pathmk('TempSciKit') || die "Could not create temp dir: $!";
 }
@@ -74,7 +74,7 @@ while (! eof $ih) {
     for my $couplet (@$couplets) {
         my ($genomeID, $line) = @$couplet;
         if ($good{$genomeID} && $good{$genomeID} == 1) {
-            P3Utils::print_cols($line);
+            P3Utils::print_cols($line, oh => $oh);
         }
     }
 }
