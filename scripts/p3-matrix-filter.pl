@@ -33,7 +33,7 @@ while (! eof $ih) {
     for my $result (@$resultList) {
         my ($genomeID, $taxons) = @$result;
         if (! $taxons) {
-            print "No taxon lineage found for $genomeID.";
+            print "No taxon lineage found for $genomeID.\n";
             $stats->Add(badTaxon => 1);
         } else {
             my $domain = $taxons->[1];
