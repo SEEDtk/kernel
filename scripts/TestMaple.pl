@@ -19,7 +19,7 @@ my $gHash = GPUtils::get_all('GenomePackages');
 print STDERR "Loading ModPackages.\n";
 my $mHash = GPUtils::get_all('ModPackages');
 # Write the header.
-print join("\t", qw(genome name evalConG evalConF evalGcomplt evalGcontam scikitG scikitF checkMcomplt checkMcontam sigRoles) ) . "\n";
+print join("\t", qw(genome name evalConG evalConF evalGcomplt evalGcontam scikitG scikitF checkMcomplt checkMcontam sigRoles uflRoles) ) . "\n";
 # We read the quality rows for both versions, then propose an alternate score for
 # the ModPackages SciKit.
 print STDERR "Looping through genomes.\n";
@@ -50,7 +50,7 @@ for my $genome (sort keys %$gHash) {
                 $stats->Add(openFail => 1);
             } else {
                 print STDERR "Processing $genome.\n";
-                my ($count, $total) = (0, 0);
+                my ($count, $total, $useful) = (0, 0);
                 while (! eof $ih) {
                     my ($role, $predicted, $actual) = ScriptUtils::get_line($ih);
                     if (! $role) {
@@ -62,11 +62,18 @@ for my $genome (sort keys %$gHash) {
                             $count++;
                             $stats->Add(goodRole => 1);
                         }
+                        if ($predicted >= 0 && $actual >= 0) {
+                            $useful++;
+                            $stats->Add(usefulRole => 1);
+                        }
                     }
                 }
-                my $result = 0;
+                my ($result, $ures) = (0, 0);
                 if ($total > 0) {
                     $result = Math::Round::nearest(0.01, $count * 100 / $total);
+                }
+                if ($useful > 0) {
+                    $ures = Math::Round::nearest(0.01, $count * 100 / $useful);
                 }
                 push @cols, $result;
                 print join("\t", @cols) . "\n";
