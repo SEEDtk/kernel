@@ -126,7 +126,9 @@ for my $gto (@gtos) {
             $coarse = $1;
         }
     }
+    push @cols, $coarse, $fine;
     close $ih; undef $ih;
+    print $oh join("\t", @cols) . "\n";
     # Clear the temp directory.
     File::Copy::Recursive::pathempty($tempDir) || die "Could not clear $tempDir: $!";
 }
