@@ -120,7 +120,7 @@ for my $roleID (sort keys %rolePegs) {
     my $count = scalar keys %genomes;
     if ($count >= 100) {
         print "$count genomes found for $roleID.\n";
-        print $oh "$roleID\n";
+        print $rh "$roleID\n";
         $stats->Add(roleUsed => 1);
     }
 }
