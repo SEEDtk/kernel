@@ -31,6 +31,8 @@ use Stats;
 This script builds three tab delimited files in a specified output directory. It is the first step in creating
 function predictors. The second step is L<build_matrix.pl>.
 
+IMPORTANT NOTE: /vol/patric3/fams/I<date>/kmers/function.index contains the functions currently in PATRIC.
+
 =over 4
 
 =item raw.table
