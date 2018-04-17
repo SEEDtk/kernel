@@ -81,15 +81,15 @@ while (defined($line = <$table_fh>)) {
     chomp $line;
     my (undef, $funcID, $fid) = split /\t/, $line;
 
+    my $genome = &SeedUtils::genome_of($fid);
+    $genomes{$genome} = 1;
+
     if ($keep) {
         next unless $funcs{$funcID};
     }
     else {
         $funcs{$funcID} = 1;
     }
-
-    my $genome = &SeedUtils::genome_of($fid);
-    $genomes{$genome} = 1;
 
     ++$counts{$genome}->{$funcID} ;
 }
