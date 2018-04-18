@@ -1,5 +1,40 @@
 #!/usr/bin/env perl
 
+=head1 Cross-validate a SciKit classifier/predictor within a "Problem Directory"
+
+    classifier_cross_validation -d probDir -f fraction -c classifier -s sweeps -o output -e log/errors
+
+Mandatory input: A "Problem Directory." (Usual source is build_matrix)
+
+Output: An estimate of the classifier/predictor's accuracy.
+Leaves detailed reports in subdirectory ProbDir/Classifiers/ClassifierType/.
+
+=head2 Parameters
+
+=over 4
+
+=item ProbDir
+
+The name of a "Problem Directory" containing the following data:
+
+    ProbDir
+        X
+        y
+        col.h (optional)
+        row.h (optional)
+
+X is a tab-seperated matrix of numeric input values.
+Each row is an instance; each column is an attribute.
+
+y is a vector of output target values.
+
+row.h and col.h are "human-readable" labels for the matrix/vector indices.
+Each line is a tab-seperated triple: (indexNumber, shortLabel, optional_LongLabel).
+
+=back
+
+=cut
+
 use IPC::Run3;
 
 use strict;
@@ -13,31 +48,29 @@ use File::Basename qw(basename);
 use File::Path qw( make_path remove_tree );
 use FIG_Config;
 
-my $usage;
 
-my $probDir;
-my $fraction   = 0.2;
-my $num_sweeps = 10;
-my $classifier = 'RandomForestClassifier';
-my $output;
-my $error;
-my $help;
-
-use Getopt::Long;
-my $rc = GetOptions(
-    'probDir=s'    => \$probDir,
-    'fraction=f'   => \$fraction,
-    'sweeps=i'     => \$num_sweeps,
-    'classifier=s' => \$classifier,
-    'output=s'     => \$output,
-    'error=s'      => \$error,
+use ScriptUtils;
+my $opt = ScriptUtils::Opts( '',
+			     [ 'probDir|d=s',    'Problem Directory',                      {} ],
+			     [ 'fraction|f=f',   'Test fraction during cross-validation',  {default => 0.2} ],
+			     [ 'sweeps|s=i',     'Number of cross-validation sweeps',      {default =>  10} ],
+			     [ 'classifier|c=s', 'Type of classifier or predictor',        {default => 'RandomForestClassifier'} ],
+			     [ 'output|o=s',     'Output file (D:STDOUT)',                 {} ],
+			     [ 'error|e=s',      'Log/Error file (D:STDERR)',              {} ],
+			     [ 'tmpdir|t=s',     'Location for Temporary Directory',       {default => $FIG_Config::temp} ],
+			     [ 'verbose|v',      'Verbose mode',                           {} ],
+			     [ 'debug|D',        'Debug mode (prevents cleanup)',          {} ],
     );
-print STDERR qq(\nrc=$rc\n\n) if $ENV{VERBOSE};
 
-if (!$rc || $help) {
-    warn qq(\n   usage: $usage\n\n);
-    exit(0);
-}
+my $probDir    = $opt->probdir;
+my $fraction   = $opt->fraction;
+my $num_sweeps = $opt->sweeps;
+my $classifier = $opt->classifier;
+my $output     = $opt->output;
+my $error      = $opt->error;
+my $tmpdir     = $opt->tmpdir;
+our $verbose   = $opt->verbose || $ENV{VERBOSE};
+our $debug     = $opt->debug   || $ENV{DEBUG};
 
 unless ($probDir && $fraction && $classifier) {
     if (@ARGV == 3) {
@@ -47,6 +80,7 @@ unless ($probDir && $fraction && $classifier) {
         die "Missing arguments";
     }
 }
+die "Problem Directory '$probDir' does not exist" unless (-d $probDir);
 
 
 my $out_fh;
@@ -72,9 +106,9 @@ else {
 #+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 #...Define scratch directory names...
 #-----------------------------------------------------------------------
-my $trainDir = $FIG_Config::temp . '/tmp.' . basename($probDir) . q(.train.) . $$;
-my $testDir  = $FIG_Config::temp . '/tmp.' . basename($probDir) . q(.test.) . $$;
-my $result_file  = $FIG_Config::temp . q(/tmp.apply.result.) . $$;
+my $trainDir    = $tmpdir . '/tmp.' . basename($probDir) . q(.train.) . $$;
+my $testDir     = $tmpdir . '/tmp.' . basename($probDir) . q(.test.) . $$;
+my $result_file = $tmpdir . q(/tmp.apply.result.) . $$;
 
 
 #+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
@@ -93,17 +127,17 @@ for (my $sweep=1; $sweep <= $num_sweeps; ++$sweep) {
 
     remove_tree($trainDir, $testDir);
 
-    print $err_fh "Doing split\n" if $ENV{VERBOSE};
+    print $err_fh "Doing split\n" if $verbose;
     &run_safe([ "split_probdir", $probDir, $trainDir, $testDir, $fraction ],
               \undef, \undef, $err_fh
         ) || die "Split failed on sweep=$sweep: $?, $!";
 
-    print $err_fh "Doing train\n" if $ENV{VERBOSE};
+    print $err_fh "Doing train\n" if $verbose;
     &run_safe([ "train_classifier", $trainDir, $classifier ],
               \undef, \undef, $train_err_fh
         ) || die "Training failed on sweep=$sweep: $?, $!";
 
-    print $err_fh "Doing apply\n" if $ENV{VERBOSE};
+    print $err_fh "Doing apply\n" if $verbose;
     my $apply_out_fh = new IO::File;
     $apply_out_fh->open( qq(> $result_file) );
     &run_safe([ "apply_classifier", $testDir, $trainDir, $classifier ],
@@ -120,8 +154,11 @@ for (my $sweep=1; $sweep <= $num_sweeps; ++$sweep) {
           my ($idx, $true, $pred) = split /\t/;
           if ($true == $pred) { ++$num_right; }
     } @result;
-    my $acc = sprintf("%.2f", 100.0 * $num_right / $num_instances );
-
+    my $acc = sprintf("%.2f", $num_instances 
+		      ? 100.0 * $num_right / $num_instances
+		      : 0.0
+	);
+    
     push @acc, $acc;
     print $train_err_fh "$acc\n\n";
 }
@@ -129,14 +166,20 @@ for (my $sweep=1; $sweep <= $num_sweeps; ++$sweep) {
 
 
 my $mean = 0;
+my $num_acc = (scalar @acc);   #...should equal $num_sweeps, but just in case...
 map { $mean += $_ } @acc;
-$mean /= (scalar @acc);
+$mean /= $num_acc;
 $mean  = sprintf("%.2f", $mean);
 
-print $train_err_fh "Average accuracy: $mean\n";
-print $out_fh (join("\t", ($classifier, $mean, $acc[0], $acc[$#acc/4], $acc[$#acc/2], $acc[-$#acc/4], $acc[-1])), "\n");
+my ($Qmin, $Q1, $Q2, $Q3, $Qmax) = ($acc[0], $acc[$num_acc/4], $acc[$num_acc/2], $acc[-1-$num_acc/4], $acc[-1]);
 
-remove_tree($trainDir, $testDir, $result_file);
+my $trimean = (0.25) * ($Q1 + (2.0)*$Q2 + $Q3);   #...Tukey's Trimean (robust mean estimator)...
+my $iqr     = ($Q3 - $Q1);                        #...Interquartile Range (robust range estimator)...
+
+print $train_err_fh "Average accuracy: $mean\n";
+print $out_fh (join("\t", ($classifier, $mean, $Qmin, $Q1, $Q2, $Q3, $Qmax, $trimean, $iqr)), "\n");
+
+remove_tree($trainDir, $testDir, $result_file) unless $debug;
 
 exit(0);
 
@@ -144,9 +187,10 @@ exit(0);
 
 sub run_safe {
     my ( $args, $in_fh, $out_fh, $err_fh ) = @_;
-#   print $err_fh Dumper($in_fh, $out_fh, $err_fh);
+    print $err_fh Dumper($args, $in_fh, $out_fh, $err_fh) if $debug;
 
     if (my $rc = run3( $args, $in_fh, $out_fh, $err_fh )) {
+    	print $err_fh "//\n\n" if $debug;
         return $rc;
     }
     else {

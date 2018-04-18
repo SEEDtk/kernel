@@ -41,7 +41,11 @@ The command-line options are as follows:
 
 =item min
 
-Minimum acceptable accuracy for a predictor, in percent. The default is C<90.0>.
+Minimum acceptable trimean accuracy for a predictor, in percent. The default is C<93.0>.
+
+=item iqr
+
+Maximum acceptable interquartile range, in percent. The default is C<5.0>.
 
 =back
 
@@ -50,7 +54,8 @@ Minimum acceptable accuracy for a predictor, in percent. The default is C<90.0>.
 $| = 1;
 # Get the command-line parameters.
 my $opt = ScriptUtils::Opts('probDir outDir',
-        ['min=f', 'minimum acceptable accuracy', { default => 90.0 }],
+        ['min=f', 'minimum acceptable trimean', { default => 93.0 }],
+        ['iqr=f', 'maximum acceptable IQR', { default => 5.0 }]
         );
 my ($probDir, $outDir) = @ARGV;
 if (! $probDir) {
@@ -65,6 +70,9 @@ if (! $outDir) {
 } elsif (! -d $outDir) {
     File::Copy::Recursive::pathmk($outDir) || die "Could not create $outDir: $!";
 }
+# Get the options.
+my $tm_min = $opt->min;
+my $iqr_max = $opt->iqr;
 # Get the output file.
 print "Analyzing predictors.\n";
 open(my $oh, ">$outDir/roles.to.use") || die "Could not open output file: $!";
@@ -87,12 +95,12 @@ for my $role (@roles) {
     } else {
         chomp $line;
         my @values = split /\t/, $line;
-        my $min = $values[2];
-        if ($min < $opt->min) {
-            print "$role rejected: min accuracy $min.\n";
+        my ($tm, $iqr) = @values[7 .. 8];
+        if ($tm < $tm_min || $iqr > $iqr_max) {
+            print "$role rejected: triMean = $tm, IQR = $iqr.\n";
             $rejected++;
         } else {
-            print $oh join("\t", $role, $min) . "\n";
+            print $oh join("\t", $role, $tm, $iqr) . "\n";
             $kept++;
         }
     }
