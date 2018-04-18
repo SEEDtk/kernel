@@ -54,7 +54,7 @@ A list of the useful taxonomic groupings, one per line, containing the taxonomic
 
 =head2 Parameters
 
-There are no positional parameters.
+There positional parameter is the name of the output directory.
 
 The command-line options are those found in L<Shrub/script_options> (to specify the database) and L<ScriptUtils/ih_options> (to specify the
 input file) plus the following.
@@ -94,9 +94,9 @@ $| = 1;
 my $opt = ScriptUtils::Opts('outDir',
         Shrub::script_options(),
         ScriptUtils::ih_options(),
-        ['min|m=f', 'minimum threshold percentage', { default => 95 }],
+        ['min|m=f', 'minimum threshold percentage', { default => 97 }],
         ['size|s=i', 'minimum number of genomes per group', { default => 100 }],
-        ['rMin|r=i', 'minimum number of roles for a useful group', { default => 100 }],
+        ['rMin|r=i', 'minimum number of roles for a useful group', { default => 90 }],
         ['merge=s', 'NCBI taxonomy merge file', { default => "$FIG_Config::data/Inputs/Other/merged.dmp" }],
         ['unique|u', 'only use one genome per taxonomic ID'],
         );

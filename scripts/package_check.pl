@@ -29,8 +29,8 @@ use SeedUtils;
 
     package_check.pl [ options ] dir pkg1 pkg2 ... pkgN
 
-This script runs through the packages filling in missing quality reports. Currently, this includes SciKit and
-and CheckG. CheckM is optionally available.
+This script runs through the packages filling in missing quality reports. Currently, this includes SciKit (EvalCon) and
+and CheckG (EvalG). CheckM is optionally available.
 
 =head2 Parameters
 

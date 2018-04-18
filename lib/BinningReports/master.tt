@@ -22,8 +22,8 @@
 <th>Genome Name</th>
 <th>Coarse consistency (%)</th>
 <th>Fine consistency (%)</th>
-<th>CheckG completeness (%)</th>
-<th>CheckG contamination (%)</th>
+<th>EvalG completeness (%)</th>
+<th>EvalG contamination (%)</th>
 <th>Good Seed</th>
 </tr>
 [% END %]
