@@ -234,7 +234,6 @@ for my $taxon (sort keys %taxRoles) {
     print $sh join("\t", @header, $taxCounts{$taxon}, $roleCount) . "\n";
     if ($taxCounts{$taxon} < $opt->size) {
         $stats->Add(groupTooSmall => 1);
-        print "$taxon: $taxNames{$taxon} is too small ($taxCounts{$taxon} genomes).\n";
     } elsif ($roleCount < $opt->rmin) {
         $stats->Add(groupBad => 1);
         print "$taxon: $taxNames{$taxon} has too few marker roles ($roleCount).\n";
