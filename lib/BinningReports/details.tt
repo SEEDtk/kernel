@@ -25,6 +25,8 @@
 </tr><tr>
 <th>Contamination (%)</th><td>[% g.checkg_contamination %]</td>
 </tr><tr>
+<th>Evaluation Group</th><td>[% g.checkg_group %]</td>
+</tr><tr>
 <th>Contig count</th><td>[% g.contigs %]</td>
 </tr><tr>
 <th>DNA size (bp)</th><td>[% g.dna_bp %]</td>

@@ -961,6 +961,7 @@ sub copy_gto {
     my $checkg = $qData->{checkg_data};
     $retVal{checkg_completeness} = $checkg->{Completeness};
     $retVal{checkg_contamination} = $checkg->{Contamination};
+    $retVal{checkg_group} = $checkg->{Group};
     return %retVal;
 }
 
