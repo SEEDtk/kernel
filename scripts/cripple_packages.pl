@@ -57,6 +57,7 @@ If specified, the output directory will be cleared before processing.
 
 =cut
 
+$| = 1;
 # Get the command-line parameters.
 my $opt = ScriptUtils::Opts('inDir outDir',
         ['removal|r=f', 'percent of features to remove', { default => 25 }],
