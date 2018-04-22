@@ -199,6 +199,11 @@ Reference to a hash that maps each role ID to a 2-tuple consisting of (0) the nu
 
 Reference to a hash mapping each contig ID to its length.
 
+=item contig_data
+
+Reference to a hash mapping each contig ID to a list consisting of the number of features containing good roles followed by
+the IDs of all the features containing bad roles.
+
 =back
 
 =cut
@@ -547,6 +552,10 @@ The number of features containing problematic roles.
 
 The URL to list the features.
 
+=item good
+
+The number of good features in the contig.
+
 =back
 
 =back
@@ -580,6 +589,7 @@ sub Detail {
     my $genomeURL = join('/', URL_BASE, uri_escape($genomeID));
     my $ppr = $gto->{genome_quality_measure}{problematic_roles_report};
     my $contigH = $gto->{genome_quality_measure}{contigs};
+    my $contigCountH = $gto->{genome_quality_measure}{contig_data};
     my $refData = $refGmap->{$genomeName} // {};
     # Problematic roles are stashed here.
     my @pprList;
@@ -614,27 +624,14 @@ sub Detail {
         }
         # Store the PPR count in the main descriptor.
         $gThing{ppr} = $pprs;
-        # Now we need to create the contigs structure. First we find all the contigs
-        # containing problematic roles.
-        my %contigs;
-        my $gFidList = $gto->{features};
-        for my $fThing (@$gFidList) {
-            my $fid = $fThing->{id};
-            if ($pprFids{$fid}) {
-                my $contig = $fThing->{location}[0][0];
-                push @{$contigs{$contig}}, $fid;
-            }
-        }
-        # Now we create the structure itself.
-        my $gContigs = $gto->{contigs};
-        for my $cThing (@$gContigs) {
-            my $contigID = $cThing->{id};
-            my $fidList = $contigs{$contigID};
-            if ($fidList) {
-                my $nFids = scalar @$fidList;
-                my $url = fid_list_url($fidList);
+        # Now we need to create the contigs structure.
+        for my $contigID (sort keys %$contigCountH) {
+            my ($good, @fids) = @{$contigCountH->{$contigID}};
+            my $nFids = scalar @fids;
+            if ($nFids) {
+                my $url = fid_list_url(\@fids);
                 my $contigDatum = { name => $contigID, len => $contigH->{$contigID},
-                                    n_fids => $nFids, fid_url => $url };
+                                    n_fids => $nFids, fid_url => $url, good => $good };
                 push @contigs, $contigDatum;
             }
         }
@@ -672,7 +669,8 @@ Returns a score that is higher for better bins.
 sub quality_score {
     my ($g) = @_;
     my $q = $g->{genome_quality_measure};
-    my $retVal = $q->{checkm_data}{Completeness} + 1.1 * $q->{fine_consistency} - 5 * $q->{checkm_data}{Contamination};
+    my $retVal = $q->{checkg_data}{Completeness} + 1.1 * $q->{consis_data}{'Fine Consistency'} -
+            5 * $q->{checkg_data}{Contamination};
     return $retVal;
 }
 
@@ -1009,6 +1007,8 @@ sub UpdateGTO {
     # Start with the metrics.
     my $metricH = $gto->metrics();
     $q{genome_metrics} = $metricH;
+    # This hash will contain the good roles. Good roles have a matching predicted and actual count.
+    my %good;
     # This hash will contain the potentially problematic roles. Each role is mapped to its expected and
     # actual occurrences. Both the consistency and completeness checker have problematic roles. We do the
     # completeness checker first, so if any roles overlap, the consistency checker overrides the completeness
@@ -1018,8 +1018,12 @@ sub UpdateGTO {
         while (! eof $ih) {
             my $line = <$ih>;
             my ($role, $actual) = ($line =~ /^(\S+)\t(\d+)/);
-            if ($role && $actual != 1) {
-                $ppr{$role} = [1, $actual, 'Universal role.'];
+            if ($role) {
+                if ($actual != 1) {
+                    $ppr{$role} = [1, $actual, 'Universal role.'];
+                } else {
+                    $good{$role} = 1;
+                }
             }
         }
     }
@@ -1027,8 +1031,12 @@ sub UpdateGTO {
         while (! eof $ih) {
             my $line = <$ih>;
             my ($role, $pred, $actual) = ($line =~ /^(\S+)\t(\d+)\S*\t(\d+)/);
-            if ($role && $pred != $actual) {
-                $ppr{$role} = [$pred, $actual, ''];
+            if ($role) {
+                if ($pred != $actual) {
+                    $ppr{$role} = [$pred, $actual, ''];
+                } elsif ($actual > 0) {
+                    $good{$role} = 1;
+                }
             }
         }
     }
@@ -1036,18 +1044,38 @@ sub UpdateGTO {
     # We step through all the features, and if the checksum matches a role ID in the PPR, we put it in
     # that ID's list.
     my %fids;
+    # This hash counts the number of good roles for the contig and lists the features containing bad roles.
+    my %contigCount;
+    # Loop through the features.
     for my $feature (@{$gto->{features}}) {
         my $fid = $feature->{id};
         my $function = $feature->{function};
         my @roles = SeedUtils::roles_of_function($function);
+        my ($good, $bad) = (0, 0);
         for my $role (@roles) {
             my $roleID = $roleMap->{RoleParse::Checksum($role)};
-            if ($roleID && $ppr{$roleID}) {
-                push @{$fids{$roleID}}, $fid;
-                my $comment = analyze_feature($gto, $feature, $ppr{$roleID});
-                if ($comment) {
-                    add_comment($ppr{$roleID}, $fid, $comment);
+            if ($roleID) {
+                if ($ppr{$roleID}) {
+                    push @{$fids{$roleID}}, $fid;
+                    my $comment = analyze_feature($gto, $feature, $ppr{$roleID});
+                    if ($comment) {
+                        add_comment($ppr{$roleID}, $fid, $comment);
+                    }
+                    $bad = 1;
+                } elsif ($good{$roleID}) {
+                    $good = 1;
                 }
+            }
+        }
+        if ($good || $bad) {
+            # Here we need to count this feature for the contig.
+            my $contig = $feature->{location}[0][0];
+            $contigCount{$contig} //= [0];
+            if ($good) {
+                $contigCount{$contig}[0]++;
+            }
+            if ($bad) {
+                push @{$contigCount{$contig}}, $fid;
             }
         }
     }
@@ -1079,6 +1107,7 @@ sub UpdateGTO {
     $q{checkg_data} = \%checkGdata;
     $q{consis_data} = \%skData;
     $q{problematic_roles_report} = { role_fids => \%fids, role_ppr => \%ppr };
+    $q{contig_data} = \%contigCount;
 }
 
 
