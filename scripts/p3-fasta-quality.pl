@@ -130,7 +130,7 @@ print "Producing HTML.\n";
 # Load the detail template.
 my $tDir = $opt->tdir;
 open(my $th, "<$tDir/details.tt") || die "Could not open detail template file: $!";
-my $detailsT = join("", <$ih>);
+my $detailsT = join("", <$th>);
 close $th; undef $th;
 # Build the HTML prefix and suffix.
 my $prefix = "<html><head>\n<style type=\"text/css\">\n";
