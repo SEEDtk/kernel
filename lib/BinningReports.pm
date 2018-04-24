@@ -641,7 +641,7 @@ sub Detail {
     my $retVal;
     my $vars = { g => \%gThing, p => \@pprList, c => \@contigs };
     # print STDERR Dumper($vars->{g});
-    $templateEngine->process($detail_tt, $vars, \$retVal);
+    $templateEngine->process($detail_tt, $vars, \$retVal) || die "Error in HTML template: " . $templateEngine->error();
     # Return the report.
     return $retVal;
 }
