@@ -113,7 +113,7 @@ SeedUtils::run($cmd);
 my (%cMap, %nameMap);
 open(my $rh, '<', $roleFile) || die "Could not open role file: $!";
 while (! eof $rh) {
-    my ($id, $cksum, $name) = ScriptUtils::get_line($rh);
+    my ($id, $cksum, $name) = P3Utils::get_fields($rh);
     $cMap{$cksum} = $id;
     $nameMap{$id} = $name;
 }
