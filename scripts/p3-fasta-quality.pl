@@ -110,10 +110,12 @@ $cmd = "gto_consistency $outDir/bin.gto $outDir/EvalCon $predictors $roleFile $r
 print "Running $cmd.\n";
 SeedUtils::run($cmd);
 # Create the role maps.
+print "Reading role file.\n";
 my (%cMap, %nameMap);
 open(my $rh, '<', $roleFile) || die "Could not open role file: $!";
 while (! eof $rh) {
-    my ($id, $cksum, $name) = P3Utils::get_fields($rh);
+    my $line = <$rh>;
+    my ($id, $cksum, $name) = P3Utils::get_fields($line);
     $cMap{$cksum} = $id;
     $nameMap{$id} = $name;
 }
