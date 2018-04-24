@@ -50,6 +50,7 @@ use RASTlib;
 use BinningReports;
 use gjoseqlib;
 use File::Copy::Recursive;
+use GenomeTypeObject;
 
 $| = 1;
 # Get the command-line options.
