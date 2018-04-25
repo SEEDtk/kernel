@@ -473,7 +473,7 @@ sub Summary {
 
 =head3 Detail
 
-    my $detail = BinningReports::Detail($params, $bins_json, $detail_tt, $gto, $roleMap);
+    my $detail = BinningReports::Detail($params, $bins_json, $detail_tt, $gto, $roleMap, $editFlag);
 
 Produce the detail report for a single bin.
 
@@ -558,6 +558,14 @@ The number of good features in the contig.
 
 =back
 
+=item editform
+
+If TRUE, a form for editing contigs will be put into the page.
+
+=item gtoFile
+
+The name of the GTO file to be modified by the edit form.
+
 =back
 
 =item gto
@@ -568,6 +576,22 @@ The L</bin_gto> for the bin.
 
 Reference to a hash mapping each role ID to a role name.
 
+=item editHash
+
+If specified, a reference to a hash describing the editing environment for removing contigs from the GTO. The keys are
+
+=over 8
+
+=item gto
+
+The name of the GTO file.
+
+=item editScript
+
+The URL of the edit script.
+
+=back
+
 =item RETURN
 
 Returns the HTML string for the detail report.
@@ -577,7 +601,7 @@ Returns the HTML string for the detail report.
 =cut
 
 sub Detail {
-    my ($params, $bins_json, $detail_tt, $gto, $roleMap) = @_;
+    my ($params, $bins_json, $detail_tt, $gto, $roleMap, $editHash) = @_;
     # First we are going to read through the bins and create a map of bin names to reference genome descriptors and coverages.
     # Each reference genome descriptor is a hash-ref with members "genome" and "url".
     my $refGmap = parse_bins_json($bins_json);
@@ -636,10 +660,17 @@ sub Detail {
             }
         }
     }
+    # Set up the editor variables.
+    my ($editFlag, $gtoFile, $editScript);
+    if ($editHash) {
+        $editFlag = 1;
+        $gtoFile = $editHash->{gto};
+        $editScript = $editHash->{script};
+    }
     # Create the template engine.
     my $templateEngine = Template->new(ABSOLUTE => 1);
     my $retVal;
-    my $vars = { g => \%gThing, p => \@pprList, c => \@contigs };
+    my $vars = { g => \%gThing, p => \@pprList, c => \@contigs, editform => $editFlag, gtoFile => $gtoFile, script => $editScript };
     # print STDERR Dumper($vars->{g});
     $templateEngine->process($detail_tt, $vars, \$retVal) || die "Error in HTML template: " . $templateEngine->error();
     # Return the report.

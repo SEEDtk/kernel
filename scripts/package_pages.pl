@@ -81,15 +81,31 @@ my (@pDirs) = @ARGV;
 if (! @pDirs) {
     die "No package directory specified.";
 }
+# This will hold the URL for the editor script.
+my $scriptURL;
 # Check for a web directory.
 my $wDir = $opt->wdir;
 if ($wDir) {
+    if (! File::Spec->file_name_is_absolute($wDir)) {
+        die "Web directory must be absolute.";
+    }
     if (! -d $wDir) {
         print "Creating web directory $wDir.\n";
         File::Copy::Recursive::pathmk($wDir) || die "Could not create $wDir: $!";
     } else {
         print "Clearing web directory $wDir.\n";
         File::Copy::Recursive::pathempty($wDir) || die "Could not empty $wDir: $!";
+    }
+    my $scriptFile = $FIG_Config::web_dir;
+    my $webDirCopy = $wDir;
+    $webDirCopy =~ tr/\\/\//;
+    my @levels;
+    while ($webDirCopy =~ /(?:[A-Z]:)?(.+)\// && ! $scriptURL) {
+        push @levels, '..';
+        $webDirCopy = $1;
+        if ($webDirCopy eq $scriptFile) {
+            $scriptURL = join("/", @levels) . "/editContigs.cgi";
+        }
     }
 }
 # Get the missing option.
@@ -154,7 +170,12 @@ for my $pDir (@pDirs) {
                 print "Analyzing $genome in $gDir ($count of $total).\n";
                 BinningReports::UpdateGTO($gto, "$gDir/EvalBySciKit", "$gDir/EvalByCheckG", \%cMap);
                 print "Producing HTML.\n";
-                my $html = BinningReports::Detail({}, undef, \$detailsT, $gto, \%nameMap);
+                my $editHash;
+                if ($wDir) {
+                    $editHash = { gto => File::Spec->rel2abs("$gDir/bin.gto"), script => $scriptURL };
+                }
+                my $html = BinningReports::Detail({}, undef, \$detailsT, $gto, \%nameMap,
+                    $editHash);
                 open(my $oh, ">$gDir/report.html");
                 print $oh "$prefix\n$html\n$suffix\n";
                 $stats->Add(reportOut => 1);
