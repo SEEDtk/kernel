@@ -210,8 +210,8 @@ the IDs of all the features containing bad roles.
 
 # Good/Bad criteria
 use constant MIN_CHECKM => 80;
-use constant MIN_SCIKIT => 85;
-use constant MAX_CONTAM => 15;
+use constant MIN_SCIKIT => 87;
+use constant MAX_CONTAM => 10;
 
 # URL helpers
 use constant URL_BASE => 'https://www.patricbrc.org/view/Genome';
