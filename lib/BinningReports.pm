@@ -1080,7 +1080,7 @@ sub UpdateGTO {
     # Loop through the features.
     for my $feature (@{$gto->{features}}) {
         my $fid = $feature->{id};
-        my $function = $feature->{function};
+        my $function = $feature->{function} // '';
         my @roles = SeedUtils::roles_of_function($function);
         my ($good, $bad) = (0, 0);
         for my $role (@roles) {

@@ -1,6 +1,8 @@
 <h1>Genome Package Directory Report</h1>
 
-<h2>Good Bins ([% good_count %])</h2>
+<p>[% good_count %] <a href="#good_bins">good genomes</a>, [% bad_count %] <a href="#bad_bins">bad genomes</a>.</p>
+
+<h2><a name="good_bins">Good Genomes ([% good_count %])</a></h2>
 <table class='p3basic'>
 [% PROCESS qual_headers %]
 [% FOR g IN good %]
@@ -8,7 +10,7 @@
 [% END %]
 </table>
 
-<h2>Bad Bins ([% bad_count %])</h2>
+<h2><a name="bad_bins">Bad Genomes ([% bad_count %])</a></h2>
 <table class="p3basic">
 [% PROCESS qual_headers %]
 [% FOR g IN bad %]

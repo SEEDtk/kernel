@@ -121,6 +121,8 @@ while (! eof $rh) {
 }
 # This will hold the parameters for the master report.
 my %master;
+# These will hold the bin descriptors for the master report.
+my (@good, @bad);
 # Load the detail template.
 my $tDir = $opt->tdir;
 open(my $ih, "<$tDir/details.tt") || die "Could not open detail template file: $!";
@@ -198,10 +200,10 @@ for my $pDir (@pDirs) {
                         checkg_contamination => $contam, good_seed => $goodSeed};
                 if ($good) {
                     $master{good_count}++;
-                    push @{$master{good}}, $genomeData;
+                    push @good, $genomeData;
                 } else {
                     $master{bad_count}++;
-                    push @{$master{bad}}, $genomeData;
+                    push @bad, $genomeData;
                 }
                 # If there is a web directory, copy the report.
                 if ($wDir) {
@@ -212,6 +214,9 @@ for my $pDir (@pDirs) {
     }
 }
 if ($wDir) {
+    # Sort the good and bad bins.
+    $master{good} = [sort { qCmp($b,$a) } @good];
+    $master{bad} = [sort { qCmp($b,$a) } @bad];
     # Now output the master report.
     my $templateEngine = Template->new(ABSOLUTE => 1);
     my $vars = \%master;
@@ -223,3 +228,22 @@ if ($wDir) {
     close $oh;
 }
 print "All done.\n" . $stats->Show();
+
+sub qCmp {
+    my ($a,$b) = @_;
+    my $retVal = 0;
+    if (! $a->{good_seed} && $b->{good_seed}) {
+        $retVal = -1;
+    } elsif ($a->{good_seed} && ! $b->{good_seed}) {
+        $retVal = 1;
+    } else {
+        my $diff = ($a->{scikit_fine} - $b->{scikit_fine}) * 1.1 + ($a->{checkg_completeness} - $b->{checkg_completeness}) +
+            5.0 * ($b->{checkg_contamination} - $a->{checkg_contamination});
+        if ($diff < 0) {
+            $retVal = -1;
+        } elsif ($diff > 0) {
+            $retVal = 1;
+        }
+    }
+    return $retVal;
+}
