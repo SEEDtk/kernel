@@ -37,6 +37,7 @@ use SeedUtils;
 use GtoChecker;
 use RoleParse;
 use Stats;
+use GPUtils;
 
 $| = 1;
 my $stats = Stats->new();
