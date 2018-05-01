@@ -165,7 +165,9 @@ for my $pDir (@pDirs) {
                 $stats->Add(skippedAlreadyDone => 1);
                 $skip = 1;
             }
-            if (! $skip) {
+            if ($skip) {
+                print "Skipping $genome in $gDir ($count of $total).\n";
+            } else {
                 # Here we want to create the report.
                 my $gto = GPUtils::gto_of($genomeHash, $genome);
                 $stats->Add(gtoRead => 1);
