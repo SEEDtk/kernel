@@ -94,7 +94,7 @@ my $totJobs = scalar @binJobs;
 my $countJobs = 0;
 print STDERR "$totJobs bin jobs found in $binDir.\n";
 # Loop through the bin jobs.
-for my $jobDir (@binJobs) {
+for my $jobDir (sort @binJobs) {
     my $workDir = "$binDir/$jobDir";
     $stats->Add(jobsProcessed => 1);
     $countJobs++;
@@ -123,7 +123,7 @@ for my $jobDir (@binJobs) {
         $stats->Add(refsProcessed => 1);
     }
     close $ih; undef $ih;
-    print STDERR "Searching for new reference genomes.\n";
+    print STDERR scalar(keys %oldGenomes) . " old reference genomes found.\n";
     # Create a hash mapping each contig ID to the DNA sequence representing the hit. We do this by reading
     # the sample FASTA file and applying the matches hash.
     my $seqHash = $loader->GetDNA(\%matches, $reducedFastaFile);
