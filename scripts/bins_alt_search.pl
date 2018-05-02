@@ -42,8 +42,6 @@ The command-line options are as follows.
 
 =over 4
 
-=back
-
 =item maxE
 
 The maximum acceptable E-value. The default is C<1e-10>.
@@ -58,6 +56,7 @@ direction that are closer than this number of base pairs are merged into a singl
 The minimum fraction length for a BLAST hit. A BLAST hit that matches less than this fraction of a protein's
 length will be discarded. This is done after the gap-merging (see C<gap>). The default is C<0.50>.
 
+=back
 
 =cut
 
