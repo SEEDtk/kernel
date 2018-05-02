@@ -507,7 +507,10 @@ for my $contig (keys %$contigHash) {
     my $genomeData = $contigHash->{$contig}[0];
     my ($genome, $score, $name) = @$genomeData;
     # Compute the title for this genome, depending on whether we are sorting on genus or genus/species.
-    my ($genus, $species) = split ' ', $name;
+    my ($genus, $species, $strain) = split ' ', $name;
+    if ($species eq 'sp.') {
+        $species .= " $strain";
+    }
     my $title = ($opt->species ? join(' ', $genus, $species) : $genus);
     my $bin = $contigs{$contig};
     $bin->add_ref($genome);
