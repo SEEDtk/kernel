@@ -23,6 +23,7 @@ use FIG_Config;
 use ScriptUtils;
 use BasicLocation;
 use Loader;
+use Bin::Blast;
 
 =head1 Search for Alternate Reference Genomes in Bin Jobs
 
@@ -97,7 +98,7 @@ for my $jobDir (@binJobs) {
     my $workDir = "$binDir/$jobDir";
     $stats->Add(jobsProcessed => 1);
     $countJobs++;
-    print STDERR "Processing $workDir ($countJobs of $totJobs).\n";
+    print STDERR "Processing $jobDir ($countJobs of $totJobs).\n";
     my $reducedFastaFile = "$workDir/reduced.fasta";
     my $binsFoundFile = "$workDir/bins.found.tbl";
     # Create the BLAST utility object.
