@@ -1,4 +1,4 @@
-=head1 Preliminary Check for Good Genomes
+=head1 Check for Good PATRIC Genomes
 
     p3-good-check.pl [options] inDir outDir
 
@@ -81,7 +81,7 @@ if ($opt->genomes) {
     }
 } else {
     print "Reading genomes from PATRIC.\n";
-    $genomeList = P3Utils::get_data($p3, genome => [['eq', 'public', 1]], ['genome_id', 'genome_name']);
+    $genomeList = P3Utils::get_data($p3, genome => [['eq', 'public', 1]], ['genome_id', 'genome_name', 'kingdom']);
 }
 my $total = scalar(@$genomeList);
 print "$total genomes to check.\n";
@@ -101,15 +101,22 @@ my $bh = IO::File->new(">$outDir/bad.patric.tbl") || die "Could not open output 
 my @queue;
 # Run through the PATRIC genomes.
 for my $genomeEntry (@$genomeList) {
-    my ($id, $name) = @$genomeEntry;
-    # Check the hashes first.
-    if ($goodH->{$id}) {
-        record($genomeEntry, $gh);
-    } elsif ($badH->{$id}) {
-        record($genomeEntry, $bh);
-    } else {
-        # Here we need to queue up the genome for further processing.
-        push @queue, $genomeEntry;
+    my ($id, $name, $type) = @$genomeEntry;
+    # Only keep proks.
+    $stats->Add($type => 1);
+    if ($type eq 'Archaea' || $type eq 'Bacteria') {
+        # Check the hashes first.
+        if ($goodH->{$id}) {
+            record($genomeEntry, $gh);
+            $stats->Add(oldGood => 1);
+        } elsif ($badH->{$id}) {
+            record($genomeEntry, $bh);
+            $stats->Add(oldBad => 1);
+        } else {
+            # Here we need to queue up the genome for further processing.
+            push @queue, $genomeEntry;
+            $stats->Add(newGenome => 1);
+        }
     }
 }
 # Process the residual.
@@ -120,6 +127,8 @@ for (my $i = 0; $i <= $n; $i += 100) {
     my $subset = [@queue[$i .. $j]];
     process_batch($subset);
     $stats->Add(batchesCompleted => 1);
+    my $remaining = $n - $j;
+    print "$remaining genomes left to check.\n";
 }
 print "All done.\n" . $stats->Show();
 
@@ -159,9 +168,11 @@ sub process_batch {
             print "$genome $name has a bad seed protein count.\n";
             $stats->Add(badSeedCount => 1);
         } else {
+            my $start = time;
+            my $bad = 0;
             my $aaLen = $lengthList->[0];
             if ($aaLen < 209 || $aaLen > 652) {
-                record($genomeData, $bh);
+                $bad = 1;
                 print "$genome $name has a bad seed protein length.\n";
                 $stats->Add(badSeedLength => 1);
             } else {
@@ -169,56 +180,63 @@ sub process_batch {
                 # check (the above was just an easy filter, since we don't know domain yet), a
                 # completeness check, and if it passes all that, write its JSON to disk for a
                 # consistency check.
-                my $start = time;
-                my $bad = 0;
                 print "Retrieving GTO for $genome $name.\n";
                 my $gto = $p3->gto_of($genome);
                 print "Checking completeness.\n";
                 my $evalH = $checkG->Check($gto);
-                if ($evalH->{complete} < 80) {
+                my ($complete, $contam) = ($evalH->{complete}, $evalH->{contam});
+                if (! defined $complete) {
+                    print "$genome $name is not prokaryotic.\n";
+                    $stats->Add(notProk => 1);
                     $bad = 1;
-                    $stats->Add(incomplete => 1);
-                    print "$genome $name is incomplete.\n";
-                } elsif ($evalH->{contam} > 10) {
-                    $bad = 1;
-                    $stats->Add(contaminated => 1);
-                    print "$genome $name is contaminated.\n";
-                } elsif (! GPUtils::good_seed($gto)) {
-                    $bad = 1;
-                    $stats->Add(badSeedLength => 1);
-                    print "$genome $name has a bad seed protein length.\n";
                 } else {
-                    $gto->destroy_to_file("$pDir/bin.gto");
-                    undef $gto;
-                    # Clean up past working files from the checkers.
-                    print "Cleaning work directories.\n";
-                    File::Copy::Recursive::pathempty("$pDir/SciKit") || die "Could not clean SciKit working directory: $!";
-                    my $cmd = "gto_consistency $pDir/bin.gto $pDir/SciKit $FIG_Config::global/FunctionPredictors $FIG_Config::global/roles.in.subsystems $FIG_Config::global/roles.to.use";
-                    SeedUtils::run($cmd);
-                    my $score = 0;
-                    if (! open(my $ih, '<', "$pDir/SciKit/evaluate.log")) {
-                        print "WARNING: Cannot open output from Scikit: $!\n";
+                    print "$genome $name has completeness $complete and $contam contamination.\n";
+                    if ($complete < 80) {
+                        $bad = 1;
+                        $stats->Add(incomplete => 1);
+                        print "$genome $name is incomplete.\n";
+                    } elsif ($contam > 10) {
+                        $bad = 1;
+                        $stats->Add(contaminated => 1);
+                        print "$genome $name is contaminated.\n";
+                    } elsif (! GPUtils::good_seed($gto)) {
+                        $bad = 1;
+                        $stats->Add(badSeedLength => 1);
+                        print "$genome $name has a bad seed protein length.\n";
                     } else {
-                        while (! eof $ih) {
-                            my $line = <$ih>;
-                            if ($line =~ /^Fine_Consistency=\s+(.+)%/) {
-                                $score = $1;
+                        $gto->destroy_to_file("$pDir/bin.gto");
+                        undef $gto;
+                        # Clean up past working files from the checkers.
+                        print "Cleaning work directories.\n";
+                        File::Copy::Recursive::pathempty("$pDir/SciKit") || die "Could not clean SciKit working directory: $!";
+                        my $cmd = "gto_consistency $pDir/bin.gto $pDir/SciKit $FIG_Config::global/FunctionPredictors $FIG_Config::global/roles.in.subsystems $FIG_Config::global/roles.to.use";
+                        SeedUtils::run($cmd);
+                        my $score = 0;
+                        if (! open(my $ih, '<', "$pDir/SciKit/evaluate.log")) {
+                            print "WARNING: Cannot open output from Scikit: $!\n";
+                        } else {
+                            while (! eof $ih) {
+                                my $line = <$ih>;
+                                if ($line =~ /^Fine_Consistency=\s+(.+)%/) {
+                                    $score = $1;
+                                }
                             }
                         }
+                        print "SciKit fine score is $score.\n";
+                        if ($score < 87) {
+                            print "$genome $name rejected by SciKit.\n";
+                            $stats->Add(inconsistent => 1);
+                            $bad = 1;
+                        }
                     }
-                    print "SciKit fine score is $score. " . (time - $start) . " seconds to check.\n";
-                    if ($score < 87) {
-                        print "$genome $name rejected by SciKit.\n";
-                        $stats->Add(inconsistent => 1);
-                        $bad = 1;
-                    }
-                }
-                if ($bad) {
-                    record($genomeData, $bh);
-                } else {
-                    record($genomeData, $gh);
                 }
             }
+            if ($bad) {
+                record($genomeData, $bh);
+            } else {
+                record($genomeData, $gh);
+            }
+            print "$genome checked in " . (time - $start) . " seconds.\n";
         }
     }
 }
