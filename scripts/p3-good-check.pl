@@ -22,7 +22,8 @@ The command-line options are as follows:
 
 =item genomes
 
-If specified, the name of a tab-delimited file containing (0) the ID and (1) the name of each genome to check. The default is to check all public genomes.
+If specified, the name of a tab-delimited file containing the ID of each genome to check in the first column.
+The default is to check all public genomes.
 
 =back
 
@@ -65,20 +66,21 @@ if ($inDir ne 'null') {
     $goodH = read_ids("$inDir/good.patric.tbl");
     $badH = read_ids("$inDir/bad.patric.tbl");
 }
-print "Initializing GTO checker.\n";
-my $checkG = GtoChecker->new("$FIG_Config::global/CheckG", logH => \*STDOUT, stats => $stats);
 # Now get all of the genome IDs and names.
 my $genomeList = [];
 if ($opt->genomes) {
     # Here we have a file of IDs and names.
     print "Reading genomes from file.\n";
     open(my $ih, '<', $opt->genomes) || die "Could not open genome file: $!";
+    my @gids;
     while (! eof $ih) {
         my $line = <$ih>;
-        if ($line =~ /^(\S+)\t(.+)/) {
-            push @$genomeList, [$1, $2];
+        if ($line =~ /^(\d+\.\d+)/) {
+            push @gids, $1;
         }
     }
+    print "Getting " . scalar(@gids) . " genomes from PATRIC.\n";
+    $genomeList = P3Utils::get_data_keyed($p3, genome => [], ['genome_id', 'genome_name', 'kingdom'], \@gids, 'genome_id');
 } else {
     print "Reading genomes from PATRIC.\n";
     $genomeList = P3Utils::get_data($p3, genome => [['eq', 'public', 1]], ['genome_id', 'genome_name', 'kingdom']);
@@ -87,6 +89,9 @@ my $total = scalar(@$genomeList);
 print "$total genomes to check.\n";
 # Sort the output.
 $genomeList = [ sort { $a->[0] cmp $b->[0] } @$genomeList ];
+# Get the completeness checker.
+print "Initializing GTO checker.\n";
+my $checkG = GtoChecker->new("$FIG_Config::global/CheckG", logH => \*STDOUT, stats => $stats);
 # Create the temp directory for the SciKit tool.
 my $pDir = "$outDir/Temp";
 if (! -d $pDir) {
