@@ -21,39 +21,39 @@ use RoleParse;
 use Data::Dump qw(pp);
 use File::Copy::Recursive;
 
-my $opt = ScriptUtils::Opts('gto_file probDir roles.in.subsystems roles.to.use', 
-	['clear', 'overwrite previous results']);
-        
+my $opt = ScriptUtils::Opts('gto_file probDir roles.in.subsystems roles.to.use',
+        ['clear', 'overwrite previous results']);
+
 my ($gto_list, $probDir, $roles_in_subsystems, $roles_to_use) = @ARGV;
 my (%roleIDs);
 
-if (!-d $probDir) 
+if (!-d $probDir)
 {
     mkdir($probDir) or die "Could not create probDir '$probDir'";
 }
 
-elsif ($opt->clear) 
+elsif ($opt->clear)
 {
     print "Clearing $probDir.\n";
-    
-    if (-d "$probDir/Predictors") 
+
+    if (-d "$probDir/Predictors")
     {
-        File::Copy::Recursive::pathrmdir("$probDir/Predictors") 
-        	|| die "Could not clear Predictors directory: $!\ ";
+        File::Copy::Recursive::pathrmdir("$probDir/Predictors")
+                || die "Could not clear Predictors directory: $!\ ";
     }
-    
+
     my @files = qw(col.h roles.mapped roles.not_mapped row.h X);
-    
-    for my $file (@files) 
+
+    for my $file (@files)
     {
-        if (-f "$probDir/$file") 
+        if (-f "$probDir/$file")
         {
             unlink "$probDir/$file";
         }
     }
 }
 
-else 
+else
 {
     die "ERROR: probDir '$probDir' already exists";
 }
@@ -63,23 +63,23 @@ die "Input file '$roles_to_use' does not exist" unless (-s $roles_to_use);
 open my $gto_fh, "<", "$gto_list"
     or die "Could not read-open '$gto_list'";
 
-open my $X_fh,     '>', "$probDir/X"   
-	or die "Could not write-open '$probDir/X'";
-	
+open my $X_fh,     '>', "$probDir/X"
+        or die "Could not write-open '$probDir/X'";
+
 open my $row_fh,   '>', "$probDir/row.h"
-	or die "Could not write-open '$probDir/row.h'";
-	
+        or die "Could not write-open '$probDir/row.h'";
+
 open my $col_fh,   '>', "$probDir/col.h"
-	or die "Could not write-open '$probDir/col.h'";
+        or die "Could not write-open '$probDir/col.h'";
 
 open my $unmapped_fh,   '>', "$probDir/roles.not_mapped"
-	or die "Could not write-open '$probDir/roles.not_mapped'";
+        or die "Could not write-open '$probDir/roles.not_mapped'";
 
 open my $roles_fh,   '<', "$roles_to_use"
-	or die "Could not read-open '$roles_to_use'";
+        or die "Could not read-open '$roles_to_use'";
 
 my %roleMap = map { my ($roleID, $checksum) = split /\t/;
-	($checksum => $roleID)} &SeedUtils::file_read($roles_in_subsystems);
+        ($checksum => $roleID)} &SeedUtils::file_read($roles_in_subsystems);
 
 my %mapRoles = reverse %roleMap;
 
@@ -87,75 +87,77 @@ my $role_count = 0;
 
 while(<$roles_fh>)
 {
-	chomp(my $ID = $_);
-	my $checksum = $mapRoles{$ID};
-	$roleIDs{$checksum} = $ID;
-	print $col_fh "$role_count\t$ID\n";
-	$role_count = $role_count + 1;
+        chomp(my $ID = $_);
+        if ($ID =~ /^(\S+)/) {
+            my $checksum = $mapRoles{$ID};
+            $roleIDs{$checksum} = $ID;
+            print $col_fh "$role_count\t$ID\n";
+            $role_count = $role_count + 1;
+        }
 }
 
 my $genome_count = 0;
 
 while(<$gto_fh>)
 {
-	chomp(my $gto = $_);
-	die "Input file '$gto' does not exist" unless (-s $gto);
-	my @dirs = split(/\//,$gto);
-	my $genome = $dirs[-1];
-	
-	foreach (@dirs)
-	{
-		if (m/([0-9]+\.[0-9]+)/)
-		{
-			$genome = $1;
-		}
-	}
-	
-	print $row_fh "$genome_count\t$genome\n";
-	$genome_count = $genome_count + 1;
+        chomp(my $gto = $_);
+        die "Input file '$gto' does not exist" unless (-s $gto);
+        my @dirs = split(/\//,$gto);
+        my $genome = $dirs[-1];
 
-	my $proc = GenomeTypeObject->new({file => $gto});
+        foreach (@dirs)
+        {
+                if (m/([0-9]+\.[0-9]+)/)
+                {
+                        $genome = $1;
+                }
+        }
 
-	my @CDSs = map { [ $_->{id}, $_->{function} ] } grep {
-		($_->{type} eq q(CDS)) || ($_->{id} =~ m{\.peg\.}) } $proc->features();
-	
-	my %counts;
-	
-	foreach my $checksum (keys %roleIDs)
-	{
-		$counts{$roleIDs{$checksum}} = 0;
-	}
-	
-	foreach my $cds (@CDSs) 
-	{
-	    my ($fid, $func) = @$cds;
-	    my @roles = &SeedUtils::roles_of_function($func);
-	    
-	    foreach my $role (@roles) 
-	    {
-	        # Compute the role's checksum.
-	        my $checksum = RoleParse::Checksum($role);
-	        # Compute the ID for this checksum.
-	        my $id = $roleIDs{$checksum};
-	        
-	        if ($id) 
-	        {
-	            $counts{$id}++;
-	        }
-	        
-	        else 
-	        {
-	            print $unmapped_fh "$gto role not mapped:\t$fid\t$role\n";
-	        }
-	    }
-	}
-	
-	my @role_counts;
-	
-	for my $ID (sort keys %counts) 
-	{
-	    push(@role_counts, $counts{$ID});
-	}
-	
-	print $X_fh join("\t", @role_counts) . "\n";
+        print $row_fh "$genome_count\t$genome\n";
+        $genome_count = $genome_count + 1;
+
+        my $proc = GenomeTypeObject->new({file => $gto});
+
+        my @CDSs = map { [ $_->{id}, $_->{function} ] } grep {
+                ($_->{type} eq q(CDS)) || ($_->{id} =~ m{\.peg\.}) } $proc->features();
+
+        my %counts;
+
+        foreach my $checksum (keys %roleIDs)
+        {
+                $counts{$roleIDs{$checksum}} = 0;
+        }
+
+        foreach my $cds (@CDSs)
+        {
+            my ($fid, $func) = @$cds;
+            my @roles = &SeedUtils::roles_of_function($func);
+
+            foreach my $role (@roles)
+            {
+                # Compute the role's checksum.
+                my $checksum = RoleParse::Checksum($role);
+                # Compute the ID for this checksum.
+                my $id = $roleIDs{$checksum};
+
+                if ($id)
+                {
+                    $counts{$id}++;
+                }
+
+                else
+                {
+                    print $unmapped_fh "$gto role not mapped:\t$fid\t$role\n";
+                }
+            }
+        }
+
+        my @role_counts;
+
+        for my $ID (sort keys %counts)
+        {
+            push(@role_counts, $counts{$ID});
+        }
+
+        print $X_fh join("\t", @role_counts) . "\n";
 }
