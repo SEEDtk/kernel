@@ -95,7 +95,7 @@ pred_present = predictions > 0
 
 coarse_const = 100.0*np.mean(real_present == pred_present, axis=1)
 fine_const = 100.0*np.mean(X_all == predictions, axis=1)
-score_table = genomes.reshape(-1, 1)
+score_table = genomes[:,1].reshape(-1, 1)
 score_table = np.hstack((score_table, coarse_const.round(2).reshape(-1,1)))
 score_table = np.hstack((score_table, fine_const.round(2).reshape(-1,1)))
 
