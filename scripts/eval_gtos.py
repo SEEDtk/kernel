@@ -8,29 +8,29 @@ import numpy as np
 from sklearn.externals import joblib
 
 def run_predictor(n_col):
-	y = X_all[:, n_col]
-	X = np.delete(X_all, n_col, axis=1)
-	role_ID = col_names[n_col]
-	
-	clfDir = args.trainDir + "/Predictors/" + role_ID + "/Classifiers/" + args.clfType
-	clfFile = clfDir + "/"  + args.clfType
-	ldaFile = clfDir + "/LDA_vars"
+        y = X_all[:, n_col]
+        X = np.delete(X_all, n_col, axis=1)
+        role_ID = col_names[n_col]
 
-	if args.LDA: 
-		vars_to_use = np.genfromtxt(ldaFile, delimiter='\t', dtype=int)
-		X_feat = X[:,vars_to_use]
-		if vars_to_use.shape[0] == 1:
-			X_feat = X_feat.reshape(-1, 1)
-		
-	else:
-		X_feat = X
+        clfDir = args.trainDir + "/Predictors/" + role_ID + "/Classifiers/" + args.clfType
+        clfFile = clfDir + "/"  + args.clfType
+        ldaFile = clfDir + "/LDA_vars"
 
-	clf = joblib.load(clfFile)
-	results = clf.predict(X_feat)
-	results = results.tolist()
-	results.append(n_col)
-	print("Completed %d: %s predictor." % (n_col, role_ID))
-	return results
+        if args.LDA:
+                vars_to_use = np.genfromtxt(ldaFile, delimiter='\t', dtype=int)
+                X_feat = X[:,vars_to_use]
+                if vars_to_use.shape[0] == 1:
+                        X_feat = X_feat.reshape(-1, 1)
+
+        else:
+                X_feat = X
+
+        clf = joblib.load(clfFile)
+        results = clf.predict(X_feat)
+        results = results.tolist()
+        results.append(n_col)
+        print("Completed %d: %s predictor." % (n_col, role_ID))
+        return results
 
 stime = time.time()
 
@@ -57,16 +57,16 @@ if not os.path.isdir(args.testDir):
     sys.exit(-1)
 
 if args.clear:
-	print("Clearing " + args.testDir + "/summaries...")
-	if os.path.isdir(args.testDir + "/summaries"):
-		shutil.rmtree(args.testDir + "/summaries")
-	if os.path.isdir(args.testDir + "/predictions"):
-		shutil.rmtree(args.testDir + "/predictions")
-	retcode = subprocess.call(["./gtos_to_matrix.pl", args.gtoList, args.testDir, args.roles_in_subsystems, args.roles_to_use, "--clear"])
+        print("Clearing " + args.testDir + "/summaries...")
+        if os.path.isdir(args.testDir + "/summaries"):
+                shutil.rmtree(args.testDir + "/summaries")
+        if os.path.isdir(args.testDir + "/predictions"):
+                shutil.rmtree(args.testDir + "/predictions")
+        retcode = subprocess.call(["gtos_to_matrix", args.gtoList, args.testDir, args.roles_in_subsystems, args.roles_to_use, "--clear"])
 
-	if retcode:
-		sys.exit(-1)
-	print("Generation of matrix finished in %0.2f seconds." % (time.time() - stime))
+        if retcode:
+                sys.exit(-1)
+        print("Generation of matrix finished in %0.2f seconds." % (time.time() - stime))
 
 X_all = np.genfromtxt(args.testDir + '/X', delimiter='\t')
 col_names = np.genfromtxt(args.testDir + '/col.h', delimiter='\t', dtype=str)
@@ -76,9 +76,9 @@ genomes = np.genfromtxt(args.testDir + '/row.h', delimiter='\t', dtype=str)
 #...genfromtxt reformats a 1-row dataset as a vector, not an array,
 #   so the number of dimensions must be reformatted if not 2D array.
 if len(X_all.shape) != 2:
-	X_all = X_all.reshape(1,-1)
+        X_all = X_all.reshape(1,-1)
 if len(genomes.shape) != 1:
-	genomes = genomes.reshape(1)
+        genomes = genomes.reshape(1)
 
 #X_all[X_all > 5.] = 6.
 
@@ -100,23 +100,23 @@ score_table = np.hstack((score_table, coarse_const.round(2).reshape(-1,1)))
 score_table = np.hstack((score_table, fine_const.round(2).reshape(-1,1)))
 
 if not os.path.isdir(args.testDir + "/summaries"):
-	os.mkdir(args.testDir + "/summaries")
+        os.mkdir(args.testDir + "/summaries")
 #if not os.path.isdir(args.testDir + "/predictions"):
 #	os.mkdir(args.testDir + "/predictions")
 
 for n_row in range(X_all.shape[0]):
-	gtoID = genomes[n_row]
-	gto_sum_file = args.testDir + "/summaries/" + gtoID + ".out"
-	summary = ["Coarse Consistency: " + str(np.round(coarse_const[n_row], decimals = 1))]
-	summary.append("Fine Consistency: " + str(np.round(fine_const[n_row], decimals = 1)))
-	for n_col in range(X_all.shape[1]):
-		n_pred = predictions[n_row, n_col]
-		n_real = X_all[n_row, n_col]
-		
-		if n_pred != n_real:
-			summary.append(col_names[n_col] + "\t" + str(X_all[n_row, n_col]) + "\t" + str(predictions[n_row, n_col]))
+        gtoID = genomes[n_row]
+        gto_sum_file = args.testDir + "/summaries/" + gtoID + ".out"
+        summary = ["Coarse Consistency: " + str(np.round(coarse_const[n_row], decimals = 1))]
+        summary.append("Fine Consistency: " + str(np.round(fine_const[n_row], decimals = 1)))
+        for n_col in range(X_all.shape[1]):
+                n_pred = predictions[n_row, n_col]
+                n_real = X_all[n_row, n_col]
 
-	np.savetxt(gto_sum_file, summary, fmt="%s", delimiter='\t')
+                if n_pred != n_real:
+                        summary.append(col_names[n_col] + "\t" + str(X_all[n_row, n_col]) + "\t" + str(predictions[n_row, n_col]))
+
+        np.savetxt(gto_sum_file, summary, fmt="%s", delimiter='\t')
 
 pred_file = args.testDir + "/predictions"
 score_file = args.testDir + "/scores"
