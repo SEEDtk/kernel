@@ -10,7 +10,7 @@ from sklearn.externals import joblib
 def run_predictor(n_col):
         y = X_all[:, n_col]
         X = np.delete(X_all, n_col, axis=1)
-        role_ID = col_names[n_col]
+        role_ID = col_names[n_col, 1]
 
         clfDir = args.trainDir + "/Predictors/" + role_ID + "/Classifiers/" + args.clfType
         clfFile = clfDir + "/"  + args.clfType
@@ -105,7 +105,7 @@ if not os.path.isdir(args.testDir + "/summaries"):
 #	os.mkdir(args.testDir + "/predictions")
 
 for n_row in range(X_all.shape[0]):
-        gtoID = genomes[n_row]
+        gtoID = genomes[n_row, 1]
         gto_sum_file = args.testDir + "/summaries/" + gtoID + ".out"
         summary = ["Coarse Consistency: " + str(np.round(coarse_const[n_row], decimals = 1))]
         summary.append("Fine Consistency: " + str(np.round(fine_const[n_row], decimals = 1)))
