@@ -77,8 +77,8 @@ genomes = np.genfromtxt(args.testDir + '/row.h', delimiter='\t', dtype=str)
 #   so the number of dimensions must be reformatted if not 2D array.
 if len(X_all.shape) != 2:
         X_all = X_all.reshape(1,-1)
-if len(genomes.shape) != 1:
-        genomes = genomes.reshape(1)
+if len(genomes.shape) != 2:
+        genomes = genomes.reshape(1, -1)
 
 #X_all[X_all > 5.] = 6.
 
