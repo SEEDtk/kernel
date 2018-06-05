@@ -89,9 +89,10 @@ while(<$roles_fh>)
 {
         chomp(my $ID = $_);
         if ($ID =~ /^(\S+)/) {
-            my $checksum = $mapRoles{$ID};
-            $roleIDs{$checksum} = $ID;
-            print $col_fh "$role_count\t$ID\n";
+            my $roleID = $1;
+            my $checksum = $mapRoles{$roleID};
+            $roleIDs{$checksum} = $roleID;
+            print $col_fh "$role_count\t$roleID\n";
             $role_count = $role_count + 1;
         }
 }
