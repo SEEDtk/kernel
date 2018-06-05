@@ -114,7 +114,7 @@ for n_row in range(X_all.shape[0]):
                 n_real = X_all[n_row, n_col]
 
                 if n_pred != n_real:
-                        summary.append(col_names[n_col] + "\t" + str(X_all[n_row, n_col]) + "\t" + str(predictions[n_row, n_col]))
+                        summary.append(col_names[n_col, 1] + "\t" + str(X_all[n_row, n_col]) + "\t" + str(predictions[n_row, n_col]))
 
         np.savetxt(gto_sum_file, summary, fmt="%s", delimiter='\t')
 
