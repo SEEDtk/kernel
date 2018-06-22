@@ -60,4 +60,4 @@ while (! eof $ih) {
     push @bins, $bin;
 }
 # Output the report.
-$analyzer->Report(\*STDOUT, $uniRoles, \@bins);
+$analyzer->BinReport(\*STDOUT, $uniRoles, \@bins);
