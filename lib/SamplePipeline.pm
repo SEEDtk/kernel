@@ -166,6 +166,10 @@ The appropriate RAST password. The default is taken from the C<RASTPASS> environ
 
 The number of seconds to sleep between polling requests to the RAST server. The default is C<60>.
 
+=item engine
+
+Type of binning engine to use-- C<s> for standard or C<2> for alternate.
+
 =back
 
 =back
@@ -190,6 +194,7 @@ sub Process {
     my $sfx1q = $options{f1};
     my $sfx2q = $options{f2};
     my $sfxsq = $options{fs};
+    my $engine = $options{engine} // 's';
     my $eNameCol = $options{eNameCol} // 1;
     my $eDepthCol = $options{eDepthCol} // 3;
     my %rastOptions = (user => $options{user}, password => $options{password}, 'sleep' => $options{sleep});
@@ -287,7 +292,8 @@ sub Process {
     # At this point, we have the contigs and the coverage data.
     if ($force || ! -s "$workDir/bins.report.txt") {
         # We need to generate bins.
-        my $rc = system('bins_generate', '--species', $workDir);
+        my $command = join('_', "bin$engine", 'generate');
+        my $rc = system($command, $workDir);
         die "Error exit $rc from bins_generate." if $rc;
         $force = 1;
     }

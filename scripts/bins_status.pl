@@ -108,6 +108,10 @@ If c<all>, all unprocessed samples will be removed. If C<empty>, all empty sampl
 
 Back out incomplete assemblies. This means removing the C<Assembly> directory so that the assembly can be restarted.
 
+=item engine
+
+Type of binning engine to use-- C<s> for the standard binner, C<2> for the alternate binner.
+
 =back
 
 =cut
@@ -122,6 +126,7 @@ my $opt = ScriptUtils::Opts('directory',
                 ['fix=s', 'remove unprocessed sample directories', { default => 'none' }],
                 ['backout', 'back out incomplete assemblies'],
                 ['maxResume=i', 'maximum number of running jobs for resume', { default => 20 }],
+                ['engine=s', 'type of binning engine to use', { default => 's' }],
                 ['run=i', 'run binning pipeline on new directories', { default => 0 }]);
 my $stats = Stats->new();
 # Get the main directory name.
@@ -136,6 +141,7 @@ my $clean = $opt->clean;
 my $runCount = $opt->run // 0;
 my $proj = $opt->project;
 my $fix = $opt->fix;
+my $engine = $opt->engine;
 # Get a hash of the running subdirectories.
 my %running;
 my @jobs = `ps -AF`;
@@ -302,7 +308,7 @@ print "\nAll done:\n" . $stats->Show();
 
 sub StartJob {
     my ($dir, $subDir, $gz, $start, $label, $proj) = @_;
-    my $cmd = "bins_sample_pipeline --project=$proj $gz $dir $subDir >$subDir/run.log 2>$subDir/err.log";
+    my $cmd = "bins_sample_pipeline --project=$proj --engine=$engine $gz $dir $subDir >$subDir/run.log 2>$subDir/err.log";
     my $rc = system("nohup $cmd &");
     push @other, "$label: $start $cmd.\n";
     $stats->Add("dirs0$start" => 1);

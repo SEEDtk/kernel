@@ -131,8 +131,7 @@ The maximum acceptable E-value. The default is C<1e-20>.
 
 =item binMaxE
 
-The maximum acceptable E-value for binning (as opposed to computation of reference genomes). The default is to use
-the B<maxE> value.
+The maximum acceptable E-value for binning (as opposed to computation of reference genomes). The default is C<1e-100>.
 
 =item gap
 
@@ -200,7 +199,7 @@ my $opt = ScriptUtils::Opts('sampleDir workDir',
                 ['bindb=s',        'name of the directory containing the binning protein FASTA files',
                                     { default => "$FIG_Config::global/Bin5" }],
                 ['maxE|e=f',       'maximum acceptable e-value for blast hits', { default => 1e-20 }],
-                ['binMaxE=f',      'maximum acceptable e-value for binning blast hits'],
+                ['binMaxE=f',      'maximum acceptable e-value for binning blast hits', { default => 1e-100 }],
                 ['gap|g=i',        'maximum permissible gap between blast hits for merging', { default => 600 }],
                 ['minlen|l=f',     'minimum fraction of the protein that must match in a blast hit', { default => 0.5 }],
                 ['statistics-file=s', 'save statistics data to this file'],
