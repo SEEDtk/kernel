@@ -112,6 +112,10 @@ Back out incomplete assemblies. This means removing the C<Assembly> directory so
 
 Type of binning engine to use-- C<s> for the standard binner, C<2> for the alternate binner.
 
+=item packages
+
+Name of the directory to contain the genome packages. The default is B<GenomePackages> in the SEEDtk data directory.
+
 =back
 
 =cut
@@ -127,6 +131,7 @@ my $opt = ScriptUtils::Opts('directory',
                 ['backout', 'back out incomplete assemblies'],
                 ['maxResume=i', 'maximum number of running jobs for resume', { default => 20 }],
                 ['engine=s', 'type of binning engine to use', { default => 's' }],
+                ['packages|p=s', 'genome packages directory', { default => "$FIG_Config::data/GenomePackages" }],
                 ['run=i', 'run binning pipeline on new directories', { default => 0 }]);
 my $stats = Stats->new();
 # Get the main directory name.
@@ -285,7 +290,7 @@ for my $dir (@dirs) {
         $stats->Add(dirs7Done => 1);
         if ($clean && ! $cleaned) {
             print "Cleaning $subDir.\n";
-            Bin::Package::CreateFromSample($subDir, $dir, $stats, 0, "$FIG_Config::data/GenomePackages");
+            Bin::Package::CreateFromSample($subDir, $dir, $stats, 0, $opt->packages);
             $cleaned = "  Cleaning Assembly.";
             File::Copy::Recursive::pathempty("$subDir/Assembly");
             rmdir "$subDir/Assembly";
