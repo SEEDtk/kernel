@@ -36,7 +36,7 @@ The positional parameter is the name of the genome package directory whose packa
 
 The command-line options are those found in L<ScriptUtils/ih_options> (to select the input file).
 
-The input file should be tab-delimited, the first column being old sample names and the second being new sample names.
+The input file should be tab-delimited, the first column being genome IDs or old sample names and the second being new sample names.
 
 =cut
 
@@ -69,7 +69,7 @@ for my $genome (sort keys %$gHash) {
     print "Processing $genome.\n";
     my $dataHash = GPUtils::get_data($gHash, $genome);
     my $oldName = $dataHash->{'Sample Name'};
-    my $newName = $sampleMap{$oldName};
+    my $newName = $sampleMap{$genome} // $sampleMap{$oldName};
     if ($newName) {
         $dataHash->{'Sample Name'} = $newName;
         print "Changing $oldName to $newName.\n";
