@@ -32,6 +32,7 @@ def run_predictor(n_col):
         print("Completed %d: %s predictor." % (n_col, role_ID))
         return results
 
+
 stime = time.time()
 
 parser = argparse.ArgumentParser(description='Evaluate a list of gtos for consistency.')
@@ -51,26 +52,28 @@ parser.add_argument("--clear", action="store_true",
 parser.add_argument("--LDA", action="store_true",
                   help="Use Linear Discriminant Analysis")
 args = parser.parse_args()
+if __name__ == '__main__':
+    print("Using predictors from " + args.trainDir + ".")
+    print("Output will be in " + args.testDir + ".")
+    if not os.path.isdir(args.testDir):
+        sys.stderr.write("not a valid testDir: %s\n" % (args.testDir))
+        sys.exit(-1)
 
-if not os.path.isdir(args.testDir):
-    sys.stderr.write("not a valid testDir: %s\n" % (args.testDir))
-    sys.exit(-1)
+    if args.clear:
+            print("Clearing " + args.testDir + "/summaries...")
+            if os.path.isdir(args.testDir + "/summaries"):
+                    shutil.rmtree(args.testDir + "/summaries")
+            if os.path.isdir(args.testDir + "/predictions"):
+                    shutil.rmtree(args.testDir + "/predictions")
+            retcode = subprocess.call(["gtos_to_matrix", args.gtoList, args.testDir, args.roles_in_subsystems, args.roles_to_use, "--clear"])
 
-if args.clear:
-        print("Clearing " + args.testDir + "/summaries...")
-        if os.path.isdir(args.testDir + "/summaries"):
-                shutil.rmtree(args.testDir + "/summaries")
-        if os.path.isdir(args.testDir + "/predictions"):
-                shutil.rmtree(args.testDir + "/predictions")
-        retcode = subprocess.call(["gtos_to_matrix", args.gtoList, args.testDir, args.roles_in_subsystems, args.roles_to_use, "--clear"])
+            if retcode:
+                    sys.exit(-1)
+            print("Generation of matrix finished in %0.2f seconds." % (time.time() - stime))
 
-        if retcode:
-                sys.exit(-1)
-        print("Generation of matrix finished in %0.2f seconds." % (time.time() - stime))
-
-X_all = np.genfromtxt(args.testDir + '/X', delimiter='\t')
-col_names = np.genfromtxt(args.testDir + '/col.h', delimiter='\t', dtype=str)
-genomes = np.genfromtxt(args.testDir + '/row.h', delimiter='\t', dtype=str)
+X_all = np.genfromtxt(args.trainDir + '/X', delimiter='\t')
+col_names = np.genfromtxt(args.trainDir + '/col.h', delimiter='\t', dtype=str)
+genomes = np.genfromtxt(args.trainDir + '/row.h', delimiter='\t', dtype=str)
 
 
 #...genfromtxt reformats a 1-row dataset as a vector, not an array,
@@ -82,44 +85,46 @@ if len(genomes.shape) != 2:
 
 #X_all[X_all > 5.] = 6.
 
-predictions = joblib.Parallel(n_jobs=32)(joblib.delayed(run_predictor)(n_col) for n_col in range(X_all.shape[1]))
+if __name__ == '__main__':
 
-predictions = np.asarray(predictions)
-predictions = np.transpose(predictions)
-col_ind = np.asarray(predictions[-1], dtype=int)
-predictions = np.delete(predictions, -1, axis=0)
-predictions = predictions[:,col_ind]
+    predictions = joblib.Parallel(n_jobs=32)(joblib.delayed(run_predictor)(n_col) for n_col in range(X_all.shape[1]))
 
-real_present = X_all > 0
-pred_present = predictions > 0
+    predictions = np.asarray(predictions)
+    predictions = np.transpose(predictions)
+    col_ind = np.asarray(predictions[-1], dtype=int)
+    predictions = np.delete(predictions, -1, axis=0)
+    predictions = predictions[:,col_ind]
 
-coarse_const = 100.0*np.mean(real_present == pred_present, axis=1)
-fine_const = 100.0*np.mean(X_all == predictions, axis=1)
-score_table = genomes[:,1].reshape(-1, 1)
-score_table = np.hstack((score_table, coarse_const.round(2).reshape(-1,1)))
-score_table = np.hstack((score_table, fine_const.round(2).reshape(-1,1)))
+    real_present = X_all > 0
+    pred_present = predictions > 0
 
-if not os.path.isdir(args.testDir + "/summaries"):
-        os.mkdir(args.testDir + "/summaries")
-#if not os.path.isdir(args.testDir + "/predictions"):
-#	os.mkdir(args.testDir + "/predictions")
+    coarse_const = 100.0*np.mean(real_present == pred_present, axis=1)
+    fine_const = 100.0*np.mean(X_all == predictions, axis=1)
+    score_table = genomes[:,1].reshape(-1, 1)
+    score_table = np.hstack((score_table, coarse_const.round(2).reshape(-1,1)))
+    score_table = np.hstack((score_table, fine_const.round(2).reshape(-1,1)))
 
-for n_row in range(X_all.shape[0]):
-        gtoID = genomes[n_row, 1]
-        gto_sum_file = args.testDir + "/summaries/" + gtoID + ".out"
-        summary = ["Coarse Consistency: " + str(np.round(coarse_const[n_row], decimals = 1))]
-        summary.append("Fine Consistency: " + str(np.round(fine_const[n_row], decimals = 1)))
-        for n_col in range(X_all.shape[1]):
-                n_pred = predictions[n_row, n_col]
-                n_real = X_all[n_row, n_col]
+    if not os.path.isdir(args.testDir + "/summaries"):
+            os.mkdir(args.testDir + "/summaries")
+    #if not os.path.isdir(args.testDir + "/predictions"):
+    #	os.mkdir(args.testDir + "/predictions")
 
-                if n_pred != n_real:
-                        summary.append(col_names[n_col, 1] + "\t" + str(X_all[n_row, n_col]) + "\t" + str(predictions[n_row, n_col]))
+    for n_row in range(X_all.shape[0]):
+            gtoID = genomes[n_row, 1]
+            gto_sum_file = args.testDir + "/summaries/" + gtoID + ".out"
+            summary = ["Coarse Consistency: " + str(np.round(coarse_const[n_row], decimals = 1))]
+            summary.append("Fine Consistency: " + str(np.round(fine_const[n_row], decimals = 1)))
+            for n_col in range(X_all.shape[1]):
+                    n_pred = predictions[n_row, n_col]
+                    n_real = X_all[n_row, n_col]
 
-        np.savetxt(gto_sum_file, summary, fmt="%s", delimiter='\t')
+                    if n_pred != n_real:
+                            summary.append(col_names[n_col, 1] + "\t" + str(X_all[n_row, n_col]) + "\t" + str(predictions[n_row, n_col]))
 
-pred_file = args.testDir + "/predictions"
-score_file = args.testDir + "/scores"
-np.savetxt(score_file, score_table, fmt="%s", delimiter='\t')
-np.savetxt(pred_file, predictions, fmt="%d", delimiter='\t')
-print("Finished %d evaluations with %d roles in %0.2f seconds." % (predictions.shape[0], predictions.shape[1], time.time()-stime))
+            np.savetxt(gto_sum_file, summary, fmt="%s", delimiter='\t')
+
+    pred_file = args.testDir + "/predictions"
+    score_file = args.testDir + "/scores"
+    np.savetxt(score_file, score_table, fmt="%s", delimiter='\t')
+    np.savetxt(pred_file, predictions, fmt="%d", delimiter='\t')
+    print("Finished %d evaluations with %d roles in %0.2f seconds." % (predictions.shape[0], predictions.shape[1], time.time()-stime))
