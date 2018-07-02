@@ -144,9 +144,6 @@ while(<$gto_fh>)
                 if ($id)
                 {
                     $counts{$id}++;
-                    if ($id eq '16sRrnaNMeth2') {
-                        print "$id found in $fid: $func.\n";
-                    }
                 }
 
                 else
