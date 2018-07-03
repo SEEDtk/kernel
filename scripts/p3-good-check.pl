@@ -35,7 +35,7 @@ use P3Utils;
 use IO::Handle;
 use File::Copy::Recursive;
 use SeedUtils;
-use GtoChecker;
+use GenomeChecker;
 use RoleParse;
 use Stats;
 use GPUtils;
@@ -91,7 +91,7 @@ print "$total genomes to check.\n";
 $genomeList = [ sort { $a->[0] cmp $b->[0] } @$genomeList ];
 # Get the completeness checker.
 print "Initializing GTO checker.\n";
-my $checkG = GtoChecker->new("$FIG_Config::global/CheckG", logH => \*STDOUT, stats => $stats);
+my $checkG = GenomeChecker->new("$FIG_Config::global/CheckG", logH => \*STDOUT, stats => $stats);
 # Create the temp directory for the SciKit tool.
 my $pDir = "$outDir/Temp";
 if (! -d $pDir) {
