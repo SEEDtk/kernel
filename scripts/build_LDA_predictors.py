@@ -22,7 +22,7 @@ def make_predictor(n_col):
 
         y  = X_all[:, n_col]
         X  = np.delete(X_all, n_col, axis=1)
-        kf = KFold(n_splits=n_fold, shuffle=True)
+        kf = KFold(n_splits=n_fold, shuffle=True, random_state=30258509)
         accuracies = np.zeros(n_fold)
         n_cross = 0
 
@@ -111,7 +111,7 @@ elif clfType == "DecisionTree":
         clf = DecisionTreeClassifier()
 elif clfType == "RandomForest":
         from sklearn.ensemble import RandomForestClassifier
-        clf = RandomForestClassifier(n_estimators=100, max_features=0.2, criterion='entropy')
+        clf = RandomForestClassifier(n_estimators=100, max_features=0.2, criterion='entropy', random_state=4721359)
 elif clfType == "ExtraTrees":
         from sklearn.ensemble import ExtraTreesClassifier
         clf = ExtraTreesClassifier()
