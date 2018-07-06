@@ -25,15 +25,14 @@ use File::Copy::Recursive;
 
 =head1 Determine Roles to Use: Function Predictors Step 4
 
-    build_roles_to_use.pl [ options ] probDir outDir
+    build_roles_to_use.pl [ options ] probDir
 
 This script builds the C<roles.to.use> file in the specified probdir (which has been populated by L<build_predictor_set.pl>). This file is
 then fed into L<build_matrix.pl> and the process is iterated again to produce a more stable prediction mechanism.
 
 =head2 Parameters
 
-The first positional parameter is the name of the probDir directory populated by the building of the predictor set. The second is the output
-directory (which will be created if it does not yet exist). The C<roles.to.use> file will be built in the specified output directory.
+The positional parameter is the name of the probDir directory populated by the building of the predictor set.
 
 The command-line options are as follows:
 
@@ -57,12 +56,12 @@ Type of classifier used to build the predictors. The default is C<RandomForestCl
 
 $| = 1;
 # Get the command-line parameters.
-my $opt = ScriptUtils::Opts('probDir outDir',
+my $opt = ScriptUtils::Opts('probDir',
         ['min=f', 'minimum acceptable trimean', { default => 93.0 }],
         ['iqr=f', 'maximum acceptable IQR', { default => 5.0 }],
         ['classifier=s', 'classifier type', { default => 'RandomForestClassifier' }],
         );
-my ($probDir, $outDir) = @ARGV;
+my ($probDir) = @ARGV;
 if (! $probDir) {
     die "No probdir specified.";
 } elsif (! -d $probDir) {
@@ -70,18 +69,15 @@ if (! $probDir) {
 } elsif (! -d "$probDir/Predictors") {
     die "$probDir does not have a Predictors directory.";
 }
-if (! $outDir) {
-    die "No output directory specified.";
-} elsif (! -d $outDir) {
-    File::Copy::Recursive::pathmk($outDir) || die "Could not create $outDir: $!";
-}
 # Get the options.
 my $tm_min = $opt->min;
 my $iqr_max = $opt->iqr;
 my $classifier = $opt->classifier;
+# Create a safety copy of the current roles.to.use.
+File::Copy::Recursive::fcopy("$probDir/roles.to.use", "$probDir/roles.to.use.bak") || die "Could not backup roles.to.use: $!";
 # Get the output file.
 print "Analyzing predictors.\n";
-open(my $oh, ">$outDir/roles.to.use") || die "Could not open output file: $!";
+open(my $oh, ">$probDir/roles.to.use") || die "Could not open output file: $!";
 # Loop through the predictors.
 my $predDir = "$probDir/Predictors";
 opendir(my $dh, $predDir) || die "Could not open Predictors: $!";
