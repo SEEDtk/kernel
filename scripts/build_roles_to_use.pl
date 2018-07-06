@@ -47,6 +47,10 @@ Minimum acceptable trimean accuracy for a predictor, in percent. The default is 
 
 Maximum acceptable interquartile range, in percent. The default is C<5.0>.
 
+=item classifier
+
+Type of classifier used to build the predictors. The default is C<RandomForestClassifier>.
+
 =back
 
 =cut
@@ -55,7 +59,8 @@ $| = 1;
 # Get the command-line parameters.
 my $opt = ScriptUtils::Opts('probDir outDir',
         ['min=f', 'minimum acceptable trimean', { default => 93.0 }],
-        ['iqr=f', 'maximum acceptable IQR', { default => 5.0 }]
+        ['iqr=f', 'maximum acceptable IQR', { default => 5.0 }],
+        ['classifier=s', 'classifier type', { default => 'RandomForestClassifier' }],
         );
 my ($probDir, $outDir) = @ARGV;
 if (! $probDir) {
@@ -73,13 +78,14 @@ if (! $outDir) {
 # Get the options.
 my $tm_min = $opt->min;
 my $iqr_max = $opt->iqr;
+my $classifier = $opt->classifier;
 # Get the output file.
 print "Analyzing predictors.\n";
 open(my $oh, ">$outDir/roles.to.use") || die "Could not open output file: $!";
 # Loop through the predictors.
 my $predDir = "$probDir/Predictors";
 opendir(my $dh, $predDir) || die "Could not open Predictors: $!";
-my @roles = sort grep { -f "$predDir/$_/Classifiers/RandomForestClassifier/accuracy" } readdir $dh;
+my @roles = sort grep { -f "$predDir/$_/Classifiers/$classifier/accuracy" } readdir $dh;
 closedir $dh;
 my $total = scalar @roles;
 print "$total predictors found.\n";
@@ -87,7 +93,7 @@ print "$total predictors found.\n";
 my ($count, $kept, $rejected) = (0,0,0);
 # Loop through the predictors.
 for my $role (@roles) {
-    open(my $ih, "<$predDir/$role/Classifiers/RandomForestClassifier/accuracy") || die "Could not open accuracy file for $role: $!";
+    open(my $ih, "<$predDir/$role/Classifiers/$classifier/accuracy") || die "Could not open accuracy file for $role: $!";
     my $line = <$ih>;
     if (! $line) {
         print "WARNING: No accuracy found for $role.\n";
