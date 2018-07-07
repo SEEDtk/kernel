@@ -49,7 +49,7 @@ def make_predictor(n_col):
         print("Completed %d: %s predictor." % (n_col, role_ID))
 
 
-
+sys.stdout = os.fdopen(sys.stdout.fileno(), 'w', 0)
 stime = time.time()
 
 parser = argparse.ArgumentParser(description='Build role predictors')
