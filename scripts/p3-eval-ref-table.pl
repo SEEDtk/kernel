@@ -83,7 +83,6 @@ while (! eof $ih) {
                 my $used;
                 for my $taxon (@$taxList) {
                     $stats->Add(taxonChecked => 1);
-                    print STDERR "Checking taxon $taxon.\n";
                     if (exists $species{$taxon} && ! $species{$taxon}) {
                         $species{$taxon} = $genome;
                         $stats->Add(speciesReference => 1);
