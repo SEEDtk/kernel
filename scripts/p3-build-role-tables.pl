@@ -87,7 +87,7 @@ if (! $annotations) {
     die "Output directory $outDir not found.";
 }
 # Get the list of subsystem directories.
-print "Processing subsystems in 4subsystems.\n";
+print "Processing subsystems in $subsystems.\n";
 opendir(my $sdh, $subsystems) || die "Could not open $subsystems: $!";
 my @subsystems = grep { -s "$subsystems/$_/spreadsheet " } readdir $sdh;
 closedir $sdh;
