@@ -43,13 +43,19 @@ tab-delimited. Each row contains (0) a feature ID and (1) a functional assignmen
 
 The Shrub database is used to convert checksums to role IDs.
 
-Note that the C<roles.to.use> file will be restricted to roles that occur between 1 to 5 times in over 100
+Note that the C<roles.to.use> file will be restricted to non-hypothetical roles that occur between 1 to 5 times in over 100
 genomes.
+
+
 
 =head2 Parameters
 
 The positional parameters are the name of the assignment directory, the name of the subsystem directory, and
 the name of the output directory.
+
+Annotations are in C</vol/core-seed/kmers/core.>I<XXXX-XXXX>C</Annotations/0>. Subsystems are in
+C</vol/patric3/fams/>I<XXXX-XXXX>C</subsystem-import/subsystems.tgz>. In both cases I<XXXX-XXXX> is
+the release date. The subsystems need to be decompressed before processing.
 
 The command-line options are those found in L<Shrub/script_options>.
 
@@ -81,10 +87,11 @@ if (! $annotations) {
     die "Output directory $outDir not found.";
 }
 # Get the list of subsystem directories.
-print "Processing subsystems.\n";
+print "Processing subsystems in 4subsystems.\n";
 opendir(my $sdh, $subsystems) || die "Could not open $subsystems: $!";
 my @subsystems = grep { -s "$subsystems/$_/spreadsheet " } readdir $sdh;
 closedir $sdh;
+print scalar(@subsystems) . " subsystems found.\n";
 # This hash will contain the roles found in subsystems. For each checksum, it will contain the role ID and name.
 my %roleHash;
 # Loop through the subsystems.
@@ -136,7 +143,12 @@ for my $subsystem (@subsystems) {
         }
     }
 }
-
+my $roleCount = scalar keys %roleHash;
+if ($roleCount == 0) {
+    die "No roles found.\n";
+} else {
+    print "$roleCount roles found.\n";
+}
 # All the subsystem roles are done. Build roles.in.subsystems.
 open(my $oh, ">$outDir/roles.in.subsystems") || die "Could not open roles.in.subsystems: $!";
 for my $checksum (sort keys %roleHash) {
