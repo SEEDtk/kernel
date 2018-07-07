@@ -139,7 +139,9 @@ if __name__ == '__main__':
         err_file = open(args.probDir + '/train.err', 'w')
         sys.stderr = err_file
         if args.n_jobs == 1:
+            print("Looping in-process.")
             for n_col in pred_to_run:
+                print("Processing column %d" % n_col)
                 make_predictor(n_col)
         else:
             results = joblib.Parallel(n_jobs=args.n_jobs)(joblib.delayed(make_predictor)(n_col) for n_col in pred_to_run)
