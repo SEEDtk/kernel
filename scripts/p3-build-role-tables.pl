@@ -43,6 +43,9 @@ tab-delimited. Each row contains (0) a feature ID and (1) a functional assignmen
 
 The Shrub database is used to convert checksums to role IDs.
 
+Note that the C<roles.to.use> file will be restricted to roles that occur between 1 to 5 times in over 100
+genomes.
+
 =head2 Parameters
 
 The positional parameters are the name of the assignment directory, the name of the subsystem directory, and
@@ -116,7 +119,7 @@ for my $subsystem (@subsystems) {
                         # Here we have already stored this role.
                         $stats->Add(roleDuplicate => 1);
                     } else {
-                        my ($roleID) = $shrub->GetFlat('Role', 'Role(checksum) = ?', [$checksum], 'id');
+                        my ($roleID) = $shrub->GetFlat('Role', 'Role(checksum) = ? AND Role(hypo) = ?', [$checksum, 0], 'id');
                         if(! $roleID) {
                             # Here we have a role that is no longer supported, which is very bad.
                             print "WARNING: No role ID found for $roleName.\n";
@@ -153,6 +156,8 @@ my %roleCount;
 for my $genome (@genomes) {
     print "Processing $genome.\n";
     open(my $ih, "$annotations/$genome") || die "Could not open $genome annotations: $!";
+    # This will track the genome counts for each role.
+    my %gRoleCount;
     while (! eof $ih) {
         my $line = <$ih>;
         $stats->Add(genomeLineIn => 1);
@@ -165,11 +170,18 @@ for my $genome (@genomes) {
                     $stats->Add(annotationRoleSkipped => 1);
                 } else {
                     my $roleID = $roleHash{$checksum}[0];
-                    $roleCount{$roleID}++;
+                    $gRoleCount{$roleID}++;
                     print $oh join("\t", $roleName, $roleID, $peg) . "\n";
                     $stats->Add(annotationRoleOut => 1);
                 }
             }
+        }
+    }
+    # Loop through the roles in this genome, counting the ones that occur less than 5 times.
+    for my $roleID (keys %gRoleCount) {
+        my $rCount = $gRoleCount{$roleID};
+        if ($rCount >= 1 && $rCount <= 5) {
+            $roleCount{$roleID}++;
         }
     }
 }
@@ -180,6 +192,7 @@ open($oh, ">$outDir/roles.to.use") || die "Could not open roles.to.use: $!";
 for my $roleID (sort keys %roleCount) {
     if ($roleCount{$roleID} >= 100) {
         print $oh "$roleID\n";
+        $stats->Add(roleAcceptedForUse => 1);
     }
 }
 print "All done.\n" . $stats->Show();
