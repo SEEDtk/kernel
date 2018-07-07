@@ -98,7 +98,7 @@ else:
         pred_to_run = range(col_names.shape[0])
 
 if __name__ == '__main__':
-        print("%d out of %d functions already processed." % (pred_completed, X_all.shape[1]))
+        print("%d out of %d functions already processed. %d queued." % (pred_completed, X_all.shape[1], len(pred_to_run)))
 
 n_fold = int(1./args.fraction)
 
@@ -144,6 +144,7 @@ if __name__ == '__main__':
                 print("Processing column %d" % n_col)
                 make_predictor(n_col)
         else:
+            print("%d processes will be used." % args.n_jobs)
             results = joblib.Parallel(n_jobs=args.n_jobs)(joblib.delayed(make_predictor)(n_col) for n_col in pred_to_run)
         err_file.close()
         print("Finished in %0.3f seconds." % (time.time() - stime))
