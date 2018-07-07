@@ -89,7 +89,7 @@ if (! $annotations) {
 # Get the list of subsystem directories.
 print "Processing subsystems in $subsystems.\n";
 opendir(my $sdh, $subsystems) || die "Could not open $subsystems: $!";
-my @subsystems = grep { -s "$subsystems/$_/spreadsheet " } readdir $sdh;
+my @subsystems = grep { -s "$subsystems/$_/spreadsheet" } readdir $sdh;
 closedir $sdh;
 print scalar(@subsystems) . " subsystems found.\n";
 # This hash will contain the roles found in subsystems. For each checksum, it will contain the role ID and name.
