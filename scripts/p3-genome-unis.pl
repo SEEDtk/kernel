@@ -40,6 +40,7 @@ use EvalCon;
 use Stats;
 use File::Copy::Recursive;
 
+$| = 1;
 # Get the command-line options.
 my $opt = P3Utils::script_opts('outDir', P3Utils::col_options(), P3Utils::ih_options(),
         ['roleFile|rolefile|R=s', 'role definition file', { default => "$FIG_Config::global/roles.in.subsystems"} ],
