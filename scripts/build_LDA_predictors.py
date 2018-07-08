@@ -48,7 +48,8 @@ def make_predictor(n_col):
         joblib.dump(clf, clfFilename)
         acc_file = pkl_dir + "/accuracy"
         np.savetxt(acc_file, summary, fmt="%s", delimiter='\t')
-        print("Completed %d: %s predictor." % (n_col, role_ID), flush=True)
+        print("Completed %d: %s predictor." % (n_col, role_ID))
+        sys.stdout.flush()
 
 
 
