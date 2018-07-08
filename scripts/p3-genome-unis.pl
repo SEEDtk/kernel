@@ -21,7 +21,7 @@ Additional command-line options are the following.
 
 =item minRoles
 
-Minimum number of acceptable singly-occurring roles. The default is C<1000>.
+Minimum number of acceptable singly-occurring roles. The default is C<800>.
 
 =item roleFile
 
@@ -44,7 +44,7 @@ $| = 1;
 # Get the command-line options.
 my $opt = P3Utils::script_opts('outDir', P3Utils::col_options(), P3Utils::ih_options(),
         ['roleFile|rolefile|R=s', 'role definition file', { default => "$FIG_Config::global/roles.in.subsystems"} ],
-        ['minRoles|minroles|m=i', 'minimum number of acceptable roles per genome', { default => 1000 }]
+        ['minRoles|minroles|m=i', 'minimum number of acceptable roles per genome', { default => 800 }]
         );
 my $stats = Stats->new();
 # Get the output directory.
