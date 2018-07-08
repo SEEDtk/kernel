@@ -71,8 +71,9 @@ while (! eof $ih) {
         print scalar(@goodGenomes) . " good genomes found in batch.\n";
         # Get the lineage for each group.
         my $taxList = P3Utils::get_data_keyed($p3, genome => [], ['genome_id', 'taxon_lineage_ids'], \@goodGenomes);
-        # Form it into a hash.
-        my %gTaxes = map { $_->[0] => $_->[1] } @$taxList;
+        # Form it into a hash. Note that sometimes the lineage comes back as an empty string instead of a list, so
+        # we do the or-thing.
+        my %gTaxes = map { $_->[0] => ($_->[1] || []) } @$taxList;
         # Now loop through the lineage for each genome. If the genus and species do not already have reference genomes, save them.
         for my $genome (@goodGenomes) {
             $stats->Add(goodGenomeChecked => 1);
