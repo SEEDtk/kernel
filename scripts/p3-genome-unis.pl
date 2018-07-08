@@ -39,6 +39,8 @@ use GEO;
 use EvalCon;
 use Stats;
 use File::Copy::Recursive;
+use Time::HiRes;
+use Math::Round;
 
 $| = 1;
 # Get the command-line options.
@@ -69,6 +71,8 @@ my ($outHeaders, $keyCol) = P3Utils::process_headers($ih, $opt);
 # Open the output file.
 open(my $oh, ">$outDir/genomes.tbl") || die "Could not open genomes.tbl: $!";
 P3Utils::print_cols(['genome_id', 'lineage', 'roles'], oh => $oh);
+my $start0 = time;
+my ($count, $ocount) = (0,0);
 # Loop through the input.
 while (! eof $ih) {
     my $couplets = P3Utils::get_couplets($ih, $keyCol, $opt);
@@ -78,6 +82,7 @@ while (! eof $ih) {
     # Loop through the individual genomes.
     for my $genome (keys %$gHash) {
         my $geo = $gHash->{$genome};
+        $count++;
         # Get the lineage.
         my @lineage = @{$geo->lineage};
         # Compute the universal roles.
@@ -95,6 +100,7 @@ while (! eof $ih) {
             $kept++;
         }
     }
-    print "$kept genomes output.\n";
+    $ocount += $kept;
+    print "$kept genomes output in this batch. $ocount output of $count processed at " . Math::Round::round((time - $start0) / $count) . " seconds/genome.\n";
 }
 print "All done.\n" . $stats->Show();
