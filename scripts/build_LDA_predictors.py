@@ -1,3 +1,5 @@
+from __future__ import print_function  # <-- this lets python2 use python3's print function
+
 import numpy as np
 import sys, os, time
 import shutil
@@ -46,10 +48,10 @@ def make_predictor(n_col):
         joblib.dump(clf, clfFilename)
         acc_file = pkl_dir + "/accuracy"
         np.savetxt(acc_file, summary, fmt="%s", delimiter='\t')
-        print("Completed %d: %s predictor." % (n_col, role_ID))
+        print("Completed %d: %s predictor." % (n_col, role_ID), flush=True)
 
 
-sys.stdout = os.fdopen(sys.stdout.fileno(), 'w', 0)
+
 stime = time.time()
 
 parser = argparse.ArgumentParser(description='Build role predictors')
