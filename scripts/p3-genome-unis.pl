@@ -101,6 +101,6 @@ while (! eof $ih) {
         }
     }
     $ocount += $kept;
-    print "$kept genomes output in this batch. $ocount output of $count processed at " . Math::Round::round((time - $start0) / $count) . " seconds/genome.\n";
+    print "$kept genomes output in this batch. $ocount output of $count processed at " . Math::Round::nearest(0.01, (time - $start0) / $count) . " seconds/genome.\n";
 }
 print "All done.\n" . $stats->Show();
