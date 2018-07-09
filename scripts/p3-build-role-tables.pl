@@ -81,8 +81,10 @@ if (! $annotations) {
 } elsif (! -d $outDir) {
     die "Output directory $outDir not found.";
 }
-if (! $subsystems && ! -s "$outDir/roles.in.subsystems") {
-    die "No subsystem directory specified and no roles.in.subsystems present.";
+if (! $subsystems) {
+    if (! -s "$outDir/roles.in.subsystems") {
+        die "No subsystem directory specified and no roles.in.subsystems present.";
+    }
 } elsif (! -d $subsystems) {
     die "Subsystem directory $subsystems not found.";
 }
