@@ -71,7 +71,7 @@ my $shrub = Shrub->new_for_script($opt);
 # Get a list of acceptable genomes.
 my %genomes = map { $_ => 1 } $shrub->GetFlat('Genome', 'Genome(well-behaved) = ?', [1], 'id');
 # Get the directories.
-my ($annotations, $subsystems, $outDir) = @ARGV;
+my ($outDir, $annotations, $subsystems) = @ARGV;
 if (! $annotations) {
     die "No annotation directory specified.";
 } elsif (! -d $annotations) {
