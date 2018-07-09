@@ -2,7 +2,7 @@
 
 =head1 Create Probdir: Function Predictors Step 2
 
-    build_matrix raw.table
+    build_matrix raw.table probDir
 
 This script takes the output from L<build_role_tables.pl> or L<p3-build-role-tables.pl> and creates a function matrix. Each row of the
 matrix represents a genome. Each column of the matrix represents a role. The values in the matrix indicate
@@ -14,7 +14,7 @@ The final step is L<build_roles_to_use.pl>, after which this script is used agai
 
 =head2 Parameters
 
-The positional parameter is the name of the C<raw.table> file and the name of the output directory.
+The positional parameters are the name of the C<raw.table> file and the name of the output directory.
 
 The output directory cannot exist unless the C<--clear> option is specified. If it does exist, the C<roles.to.use>
 and C<roles.in.subsystems> files will be taken from it if they exist. Otherwise they will default to the global files.
