@@ -62,7 +62,6 @@ The maximum number of kmers in common for two genomes to be considered close. Th
 =cut
 
 use strict;
-use P3DataAPI;
 use P3Utils;
 use RepGenomeDb;
 use File::Copy::Recursive;
@@ -102,7 +101,8 @@ if (! $outDir) {
     print "Output directory is $outDir.\n";
 }
 # Create a new, blank representative-genome object.
-my $repDb = RepGenomeDb->new(K => $opt->kmer, score => $opt->similarity);
+my $similarity = $opt->similarity;
+my $repDb = RepGenomeDb->new(K => $opt->kmer, score => $similarity);
 print "Selected kmer size is " . $repDb->K . " for similarity " . $repDb->score . ".\n";
 # Read all the input genomes.
 print "Reading $inDir/complete.genomes.\n";
@@ -138,14 +138,14 @@ while ($fh->next) {
     # Get the sequence.
     my $prot = $fh->left;
     # Find its representative (if any).
-    my ($repID, $score) = $repDb->check_rep($prot);
-    if ($repID) {
+    my ($repID, $score) = $repDb->find_rep($prot);
+    if ($score >= $similarity) {
         # We are represented already.
         $repDb->Connect($repID, $genome, $score);
         $stats->Add(genomeConnected => 1);
     } else {
         # This is a new representative.
-        $repDb->Add($genome, $name, $prot);
+        $repDb->AddRep($genome, $name, $prot);
         $rCount++;
         print "New representative genome $genome: $name\n";
         $stats->Add(genomeChosen => 1);

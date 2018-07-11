@@ -30,8 +30,8 @@ similarity number for a genome to be considered represented (e.g. C<100>).
 
 The positional parameters are the input directory and the minimum similarity score. The input directory must contain the above three files.
 
-The standard input can be overridden using the options in L<P3Utils/ih_options>. It should contain the FASTA file for a seed protein (Phenylalanyl
-tRNA-synthetase protein alpha chain).
+The standard input can be overridden using the options in L<P3Utils/ih_options>. It should contain the FASTA file with seed proteins (Phenylalanyl
+tRNA-synthetase protein alpha chain) for multiple genomes.
 
 
 =head2 Output Files
@@ -70,21 +70,32 @@ my $repDB = RepGenomeDb->new_from_dir($inDir);
 my $K = $repDB->K();
 # Open the input file.
 my $ih = P3Utils::ih($opt);
-# Read the protein.
+# Print the output headers.
+P3Utils::print_cols([qw(id rep_id genome_name similarity)]);
+# The low-scoring genome output lines are kept in here.
+my @outliers;
+# Read the proteins.
 my $reader = FastA->new($ih);
-my $found = $reader->next();
-if (! $found) {
-    die "FASTA file invalid or empty.";
-} else {
+while ($reader->next) {
     my $prot = $reader->left;
-    # Print the output headers.
-    P3Utils::print_cols([qw(genome_id genome_name similarity)]);
-    my $scoreH = $repDB->list_reps($prot, $score);
-    # Sort the output.
-    my @genomes = sort { $scoreH->{$b} <=> $scoreH->{$a} } keys %$scoreH;
-    # Print the results.
-    for my $genome (@genomes) {
-        my $name = $repDB->rep_object($genome)->name;
-        P3Utils::print_cols([$genome, $name, $scoreH->{$genome}]);
+    my ($repID, $score1) = $repDB->find_rep($prot);
+    my $repName = '';
+    if ($repID) {
+        $repName = $repDB->rep_object($repID)->name;
+    } else {
+        $repID = '<none>';
+    }
+    my $output = [$reader->id, $repID, $repName, $score];
+    if ($score1 >= $score) {
+        P3Utils::print_cols($output);
+    } else {
+        push @outliers, $output;
+    }
+}
+# Write the outliers, if any.
+if (@outliers) {
+    print "\n";
+    for my $outlier (@outliers) {
+        P3Utils::print_cols($outlier);
     }
 }

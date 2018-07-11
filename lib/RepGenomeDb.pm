@@ -94,7 +94,7 @@ sub new {
 
 =head3 new_from_dir
 
-    my $repDB = RepGenome->new_from_dir($dirName);
+    my $repDB = RepGenome->new_from_dir($dirName, %options);
 
 Read a representative-genome database from a directory.
 

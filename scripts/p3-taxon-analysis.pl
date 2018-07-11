@@ -3,7 +3,8 @@
     p3-taxon-analysis.pl [options] workDir
 
 This script determines the universal roles for taxonomic groupings. A I<universal role> is one that occurs singly 97% of the time in genomes
-of a given taxonomic grouping. The script takes as input a file of PATRIC genomes believed to complete.
+of a given taxonomic grouping. The script takes as input a file of PATRIC genomes believed to complete along with their singly-occurring roles
+and taxonomic lineages.
 
 Progress messages are sent to the standard output. The work directory must contain the file C<genomes.tbl> produced by L<p3-genome-unis.pl>. The
 file C<roles.tbl> will be created to contain a list of the useful taxonomic groupings, one per line, with the taxonomic ID, the name, the
@@ -14,7 +15,8 @@ to finish building the EvalG directory structure.
 
 =head2 Parameters
 
-The positional parameter is the name of the work directory.
+The positional parameter is the name of the work directory. The work directory must contain the C<genomes.tbl> file produced by
+L<p3-genome-unis.pl>.
 
 The options in L<Shrub/script_options> can be used to specify the Shrub database. This database contains the full taxonomy tree.
 
