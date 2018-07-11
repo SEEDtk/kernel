@@ -70,6 +70,7 @@ use Stats;
 use Time::HiRes;
 use Math::Round;
 
+$| = 1;
 # Get the command-line options.
 my $opt = P3Utils::script_opts('inDir outDir',
         ["kmer|K|k=i", 'protein kmer size', { default => 8 }],
@@ -147,7 +148,6 @@ while ($fh->next) {
         # This is a new representative.
         $repDb->AddRep($genome, $name, $prot);
         $rCount++;
-        print "New representative genome $genome: $name\n";
         $stats->Add(genomeChosen => 1);
     }
     if ($gCount % 5000 == 0) {
