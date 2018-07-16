@@ -86,6 +86,7 @@ my %parent;
 # This hash tracks the groups that have sub-groups.
 my %parental;
 # Here we get the size and count of each taxonomic group. We also memorize the parent-child relationships.
+my $count = 0;
 while (! eof $ih) {
     my $line = <$ih>;
     chomp $line;
@@ -109,7 +110,10 @@ while (! eof $ih) {
         # Record this parent-child relationship.
         $parent{$child} = $parent;
         $parental{$parent} = 1;
+        $child = $parent;
     }
+    $count++;
+    print STDERR "$count genomes processed.\n" if ($count % 1000 == 0);
 }
 # We are ready to look for groups to output. Open the output file.
 open(my $oh, ">$workDir/roles.tbl") || die "Could not open roles.tbl: $!";
@@ -121,16 +125,22 @@ my $strict = $opt->strict;
 print "Processing leaf groups in " . ($strict ? 'strict' : 'statistical') . " mode.\n";
 my $minF = $opt->min;
 my $rMin = $opt->rmin;
+$count = 0;
 for my $taxon (grep { ! $parental{$_} } sort keys %taxRoles) {
     $stats->Add(leafGroup => 1);
     ProcessTaxon($taxon, $minF, $strict);
+    $count++;
+    print STDERR "$count leaf groups processed.\n" if $count % 1000 == 0;
 }
 # Now we process the other groups. Note that if we are in strict mode, roles that were too infrequent in lower groups will have a
 # count of 0 and will automatically fail.
 print "Processing parent groups.\n";
+$count = 0;
 for my $taxon (sort keys %parental) {
     $stats->Add(parentGroup => 1);
     ProcessTaxon($taxon, $minF, 0);
+    $count++;
+    print STDERR "$count parent groups processed.\n" if $count % 1000 == 0;
 }
 # All done.
 print "All done.\n" . $stats->Show();
@@ -156,7 +166,6 @@ sub ProcessTaxon {
     my ($taxName) = $shrub->GetFlat('TaxonomicGrouping', 'TaxonomicGrouping(id) = ?', [$taxon], 'scientific-name');
     if (! $taxName) {
         # A missing name is serious. It means the group is messed up.
-        print "WARNING: Could not find name for group $taxon.\n";
         $stats->Add(nameNotFound => 1);
         $taxName = 'unknown';
     }
@@ -167,7 +176,6 @@ sub ProcessTaxon {
         # Too few roles means we ignore the group. For other cases, we still propagate the group's statistics.
         if ($groupSize < $opt->size) {
             $stats->Add(groupTooSmall => 1);
-            print "Group $taxon ($taxName) has only $groupSize genomes.\n";
         } elsif ($taxName) {
             # This group is worthwhile. It's big enough, has enough roles, and we found the name.
             P3Utils::print_cols([$taxon, $taxName, $groupSize, @found], oh => $oh);
