@@ -28,6 +28,7 @@ use Template;
 use Stats;
 use RoleParse;
 use URI::Escape;
+use File::Spec;
 
 # Get the command-line options.
 my $opt = P3Utils::script_opts('repDir outFile',
@@ -48,10 +49,14 @@ open(my $oh, ">$outFile") || die "Could not open output file: $!";
 # Get access to PATRIC.
 print "Connecting to PATRIC.\n";
 my $p3 = P3DataAPI->new();
+# Compute the rep-genomes directory relative to the data directory.
+my $repDirSpec = File::Spec->rel2abs($repDir);
+$repDirSpec = File::Spec->abs2rel($repDirSpec, $FIG_Config::data);
+print "Representative directory specifier is $repDirSpec.\n";
 # Load the rep-genomes database.
 my $repDB = RepGenomeDb->new_from_dir($repDir, verbose => 1);
 # The template variables will be built in here.
-my %vars = ( kSize => $repDB->K, score => $repDB->score );
+my %vars = ( kSize => $repDB->K, score => $repDB->score, rep_dir => $repDirSpec );
 # Get the full list of representative genomes and store the count.
 my $genomesL = $repDB->rep_list;
 $vars{reps} = scalar @$genomesL;
