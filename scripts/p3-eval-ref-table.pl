@@ -7,7 +7,7 @@ The reference-genome table is a tab-delimited file, each record containing (0) a
 genome found in that grouping. The groupings are all species or genus level. The table is produced under the name C<ref.genomes.tbl>
 in the specified output directory.
 
-The input file must have been produced by L<p3-eval-sort.pl>.
+The input file must have been produced by L<p3-eval-sort.pl>. This script will be faster if there is a C<taxon_lineage_ids>.
 
 =head2 Parameters
 
@@ -24,6 +24,10 @@ The following additional command-line options are supported.
 
 Maximum number of lines to read in a batch. The default is C<1000>.
 
+=item merge
+
+If specified, the name of a file containing the merge data from the latest NCBI taxonomy dump.
+
 =back
 
 =cut
@@ -39,6 +43,7 @@ $| = 1;
 # Get the command-line options.
 my $opt = P3Utils::script_opts('outDir', Shrub::script_options(), P3Utils::ih_options(),
                 ['batchSize|b=i', 'input batch size', { default => 1000 }],
+                ['merge=s', 'NCBI merged.dmp file name']
         );
 my $stats = Stats->new();
 # Check the output directory.
@@ -58,11 +63,29 @@ my %genus = map { $_ => undef } $shrub->GetFlat('TaxonomicGrouping', 'TaxonomicG
 print scalar(keys %genus) . " genus groupings found in Shrub.\n";
 my %species = map { $_ => undef } $shrub->GetFlat('TaxonomicGrouping', 'TaxonomicGrouping(type) = ?', ['species'], 'id');
 print scalar(keys %species) . " species groupings found in Shrub.\n";
+# Get the merge file. We need to map each old taxon to its new version.
+if ($opt->merge) {
+    open(my $mh, '<', $opt->merge) || die "Could not open merged.dmp: $!";
+    while (! eof $mh) {
+        my $line = <$mh>;
+        if ($line =~ /(\d+)\t\|\t(\d+)/) {
+            my ($old, $new) = ($1, $2);
+            if ($species{$new}) {
+                $species{$old} = undef;
+            } elsif ($genus{$new}) {
+                $genus{$new} = undef;
+            }
+            $stats->Add(taxonMergeRead => 1);
+        }
+    }
+}
 # Open the input file.
 my $ih = P3Utils::ih($opt);
 # Read the incoming headers.
 my ($outHeaders, $cols) = P3Utils::find_headers($ih, qualityFile => 'genome_id', 'Good Genome');
 my ($keyCol, $goodFlagCol) = @$cols;
+# Check for a taxon lineage column.
+my $taxCol = P3Utils::find_column('taxon_lineage_ids', $outHeaders, 'optional');
 # Loop through the input.
 while (! eof $ih) {
     my $couplets = P3Utils::get_couplets($ih, $keyCol, $opt);
@@ -70,7 +93,15 @@ while (! eof $ih) {
     if (scalar(@goodGenomes)) {
         print scalar(@goodGenomes) . " good genomes found in batch.\n";
         # Get the lineage for each group.
-        my $taxList = P3Utils::get_data_keyed($p3, genome => [], ['genome_id', 'taxon_lineage_ids'], \@goodGenomes);
+        my $taxList;
+        if (defined $taxCol) {
+            $taxList = [];
+            for my $couplet (@$couplets) {
+                push @$taxList, [$couplet->[0], $couplet->[1][$taxCol]];
+            }
+        } else {
+            $taxList = P3Utils::get_data_keyed($p3, genome => [], ['genome_id', 'taxon_lineage_ids'], \@goodGenomes);
+        }
         # Form it into a hash. Note that sometimes the lineage comes back as an empty string instead of a list, so
         # we do the or-thing.
         my %gTaxes = map { $_->[0] => ($_->[1] || []) } @$taxList;
