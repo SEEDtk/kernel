@@ -136,7 +136,7 @@ my $templateEngine = Template->new(ABSOLUTE => 1);
 my $html;
 # Create the web page.
 my $template = $opt->template;
-print "Tempate file is $template\n.";
+print "Template file is $template.\n";
 $templateEngine->process($opt->template, \%vars, \$html) || die $templateEngine->error();
 # Output the web page.
 print $oh $html;
