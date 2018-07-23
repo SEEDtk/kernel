@@ -97,7 +97,7 @@ while (! eof $ih) {
         if (defined $taxCol) {
             $taxList = [];
             for my $couplet (@$couplets) {
-                push @$taxList, [$couplet->[0], $couplet->[1][$taxCol]];
+                push @$taxList, [$couplet->[0], [split /::/, $couplet->[1][$taxCol]]];
             }
         } else {
             $taxList = P3Utils::get_data_keyed($p3, genome => [], ['genome_id', 'taxon_lineage_ids'], \@goodGenomes);
