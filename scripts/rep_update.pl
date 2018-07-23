@@ -28,6 +28,7 @@ use P3Utils;
 use RepGenomeDb;
 use Stats;
 
+$| = 1;
 # Get the command-line options.
 my $opt = P3Utils::script_opts('sourceDir targetDir',
         ['clear', 'erase old represented-genomes information before processing']
