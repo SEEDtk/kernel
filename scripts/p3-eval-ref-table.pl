@@ -7,7 +7,7 @@ The reference-genome table is a tab-delimited file, each record containing (0) a
 genome found in that grouping. The groupings are all species or genus level. The table is produced under the name C<ref.genomes.tbl>
 in the specified output directory.
 
-The input file must have been produced by L<p3-eval-sort.pl>. This script will be faster if there is a C<taxon_lineage_ids>.
+The input file must have been produced by L<p3x-eval-sort.pl>. This script will be faster if there is a C<taxon_lineage_ids>.
 
 =head2 Parameters
 
