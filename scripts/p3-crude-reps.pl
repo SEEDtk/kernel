@@ -11,7 +11,7 @@ The script operates on a representative server directory. The directory contains
 
 =item 6.1.1.20.fasta
 
-A FASTA file containing the identifying protein (Phenylalanyl tRNA synthetase alpha chain) for each representative genome. The
+A FASTA file containing the identifying protein (usually I<Phenylalanyl tRNA synthetase alpha chain>) for each representative genome. The
 genome ID should be the sequence ID; however, if a comment is present, it will be assumed the sequence ID is a feature ID and
 the comment contains the genome ID.
 
