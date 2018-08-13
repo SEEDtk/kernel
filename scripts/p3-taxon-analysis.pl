@@ -116,7 +116,7 @@ while (! eof $ih) {
     $count++;
     if ($count % 1000 == 0) {
         my $duration = time - $start;
-        print STDERR "$count genomes processed in $duration seconds.\n";
+        print "$count genomes processed in $duration seconds.\n";
     }
 }
 # We are ready to look for groups to output. Open the output file.
@@ -134,7 +134,7 @@ for my $taxon (grep { ! $parental{$_} } sort keys %taxRoles) {
     $stats->Add(leafGroup => 1);
     ProcessTaxon($taxon, $minF, $strict);
     $count++;
-    print STDERR "$count leaf groups processed.\n" if $count % 1000 == 0;
+    print "$count leaf groups processed.\n" if $count % 1000 == 0;
 }
 # Now we process the other groups. Note that if we are in strict mode, roles that were too infrequent in lower groups will have a
 # count of 0 and will automatically fail.
@@ -144,7 +144,7 @@ for my $taxon (sort keys %parental) {
     $stats->Add(parentGroup => 1);
     ProcessTaxon($taxon, $minF, 0);
     $count++;
-    print STDERR "$count parent groups processed.\n" if $count % 1000 == 0;
+    print "$count parent groups processed.\n" if $count % 1000 == 0;
 }
 # All done.
 print "All done.\n" . $stats->Show();
