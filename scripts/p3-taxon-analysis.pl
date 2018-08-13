@@ -87,6 +87,7 @@ my %parent;
 my %parental;
 # Here we get the size and count of each taxonomic group. We also memorize the parent-child relationships.
 my $count = 0;
+my $start = time;
 while (! eof $ih) {
     my $line = <$ih>;
     chomp $line;
@@ -113,7 +114,10 @@ while (! eof $ih) {
         $child = $parent;
     }
     $count++;
-    print STDERR "$count genomes processed.\n" if ($count % 1000 == 0);
+    if ($count % 1000 == 0) {
+        my $duration = time - $start;
+        print STDERR "$count genomes processed in $duration seconds.\n";
+    }
 }
 # We are ready to look for groups to output. Open the output file.
 open(my $oh, ">$workDir/roles.tbl") || die "Could not open roles.tbl: $!";
