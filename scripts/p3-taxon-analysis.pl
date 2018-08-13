@@ -59,7 +59,7 @@ $| = 1;
 my $opt = P3Utils::script_opts('workDir', Shrub::script_options(),
         ['min|m=f', 'minimum threshold percentage', { default => 97 }],
         ['size|s=i', 'minimum number of genomes per group', { default => 100 }],
-        ['rMin|r=i', 'minimum number of roles for a useful group', { default => 60 }],
+        ['rMin|r=i', 'minimum number of roles for a useful group', { default => 100 }],
         ['strict', 'use strict merging']
         );
 my $stats = Stats->new();
@@ -74,6 +74,8 @@ if (! $workDir) {
 print "Accessing data.\n";
 # Get access to Shrub.
 my $shrub = Shrub->new_for_script($opt);
+# Get the list of domain groups. These are always valid regardless of the role count.
+my %domains = map { $_ => 1 } $shrub->GetFlat('TaxonomicGrouping', 'TaxonomicGrouping(domain) = ?', [1], 'id');
 # Open the input file and skip the header.
 open(my $ih, "<$workDir/genomes.tbl") || die "Could not open genomes.tbl: $!";
 my $line = <$ih>;
@@ -173,9 +175,10 @@ sub ProcessTaxon {
         $stats->Add(nameNotFound => 1);
         $taxName = 'unknown';
     }
-    if ($groupRoles < $rMin) {
+    # If there are two few roles and this is not a domain, skip the group.
+    if ($groupRoles < $rMin && ! $domains{$taxon}) {
         $stats->Add(groupTooFewRoles => 1);
-        print "Group $taxon ($taxName) has only $groupRoles eligible roles.\n";
+        print "Group $taxon ($taxName) has only $groupRoles eligible roles ($groupSize genomes).\n";
     } else {
         # Too few roles means we ignore the group. For other cases, we still propagate the group's statistics.
         if ($groupSize < $opt->size) {
