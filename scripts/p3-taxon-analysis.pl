@@ -8,7 +8,7 @@ and taxonomic lineages.
 
 Progress messages are sent to the standard output. The work directory must contain the file C<genomes.tbl> produced by L<p3-genome-unis.pl>. The
 file C<roles.tbl> will be created to contain a list of the useful taxonomic groupings, one per line, with the taxonomic ID, the name, the
-number of genomes in the group, and a list of the required role IDs. This can be fed into L<group_marker_roles.pl> and L<compute_taxon_map.pl>
+number of genomes in the group, and a list of the required role IDs. This can be fed into L<group_marker_roles.pl>
 to finish building the EvalG directory structure.
 
 =back
