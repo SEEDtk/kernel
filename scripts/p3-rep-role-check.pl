@@ -92,7 +92,7 @@ my %seedSim;
 # This hash contains the GEO for each genome.
 my %geos;
 # Write the output headers.
-P3Utils::print_cols(['genome1', 'name1', 'genome2', 'name2', 'kmerDiff', 'roleDiff']);
+P3Utils::print_cols(['genome1', 'name1', 'genome2', 'name2', 'kmerSim', 'roleSim']);
 # Loop through the input directory.
 for my $gto (@gtos) {
     # Create the GTO.
