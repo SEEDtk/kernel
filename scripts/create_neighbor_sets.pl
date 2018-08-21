@@ -45,6 +45,10 @@ directory.
 
 The minimum size for a neighborhood to be considered significant.
 
+=item prefix
+
+If specified, a C<p3|> prefix will be added to the genome IDs.
+
 =back
 
 =cut
@@ -66,7 +70,8 @@ my $opt = P3Utils::script_opts('repDir outDir', P3Utils::col_options(), P3Utils:
         ['size|s=i', 'optimal neighborhood size', { default => 100 }],
         ['clear', 'clear output directory before beginning'],
         ['seed=s', 'name of the seed protein to use', { default => 'Phenylalanyl-tRNA synthetase alpha chain' }],
-        ['minSize=i', 'minimum neighborhood size', { default => 50 }]
+        ['minSize=i', 'minimum neighborhood size', { default => 50 }],
+        ['prefix', 'prefix genome IDs with PATRIC indicator']
         );
 # Get the input parameters.
 my ($repDir, $outDir) = @ARGV;
@@ -83,6 +88,8 @@ if (! $repDir) {
     print "Erasing $outDir.\n";
     File::Copy::Recursive::pathempty($outDir) || die "Could not erase $outDir: $!";
 }
+# Get the options.
+my $prefix = ($opt->prefix ? 'p3|' : '');
 # Load the RepGenome database.
 print "Loading from $repDir.\n";
 my $repDB = RepGenomeDb->new_from_dir($repDir, verbose => 1);
@@ -157,7 +164,7 @@ while (! eof $ih) {
                 } else {
                     File::Copy::Recursive::pathmk($outputDir) || die "Could not create $outputDir: $!";
                     open(my $oh, ">$outputDir/rep.genomes") || die "Could not open output file in $outputDir: $!";
-                    print $oh map { "$_\n" } @$genomeList;
+                    print $oh map { "$prefix$_\n" } @$genomeList;
                     $stats->Add(neighborsFound => scalar @$genomeList);
                     $stats->Add(neighborhoodsOut => 1);
                 }

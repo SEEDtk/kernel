@@ -1,31 +1,28 @@
-=head1 Distance Validation Script
+=head1 Simance Validation Script
 
-    p3-rep-role-check.pl [options]
+    p3-rep-role-check.pl [options] gtoDir
 
-This script checks the distance between genomes based on two measures-- kmer similarity in the seed protein, and role profile similarity.
+This script checks the Simance between genomes based on two measures-- kmer similarity in the seed protein, and role profile similarity.
 The genome list is taken from the standard input. Every pair of genomes will be compared using the two measures. The seed protein name is
 configurable, so that different seed proteins can be used; however, if a genome has more than one seed protein instance, this script does
-not do any intelligent choosing, so a reliably universal role should be chosen.
+not do any intelligent choosing; therefore, a reliably universal role should be chosen.
 
 The seed protein similarity is the number of protein kmers in common between the two seed protein instances.
 
-The role profile similarity is the number of roles in common between the two genomes.
+The role profile similarity is the number of roles in common between the two genomes divided by the number of roles found in either genome.
 
 =head2 Parameters
 
-There are no positional parameters.
+The positional parameter is the name of a directory containing L<GenomeTypeObject> files (all with the filename suffix C<.gto>). These will
+be the genomes being compared.
 
-The standard input can be overridden using the options in L<P3Utils/ih_options>.
-
-The L<P3Utils/col_options> can be used to choose the columns containing the genome ID.
-
-The following additional options are supported.
+The command-line options in L<EvalCon::role_options> are used to select the role definition files. The following additional options are supported.
 
 =over 4
 
 =item seedProt
 
-The descriptive name of the seed protein to use for the protein kmer comparison. The default is C<Phenylalanyl tRNA-synthetase alpha chain>.
+The ID of the seed protein to use for the protein kmer comparison. The default is C<PhenTrnaSyntAlph>.
 
 =item K
 
@@ -45,7 +42,6 @@ The location of the C<roles.in.subsystems> file containing the roles of interest
 
 use strict;
 use FIG_Config;
-use P3DataAPI;
 use P3Utils;
 use RepGenomeDb;
 use RoleParse;
@@ -54,92 +50,89 @@ use GEO;
 use EvalCon;
 
 # Get the command-line options.
-my $opt = P3Utils::script_opts('', P3Utils::data_options(), P3Utils::col_options(), P3Utils::ih_options(),
-        ['seedProt|seedprot|seed=s', 'seed protein description', { default => 'Phenylalanyl-tRNA synthetase alpha chain' }],
+my $opt = P3Utils::script_opts('inDir', P3Utils::data_options(), P3Utils::col_options(), P3Utils::ih_options(),
+        ['seedProt|seedprot|seed=s', 'seed protein description', { default => 'PhenTrnaSyntAlph' }],
         ['kmer|K=i', 'protein kmer size', { default => 8 }],
         ['verbose|debug|v', 'show status messages on STDERR'],
-        ['roleFile|rolefile|roles|r=s', 'roles.in.subsystems file', { default => "$FIG_Config::global/roles.in.subsystems" }]
+        EvalCon::role_options(),
         );
 my $stats = Stats->new();
 # Get the debug flag.
 my $debug = $opt->verbose;
-# Get access to PATRIC.
-print STDERR "Connecting to database.\n" if $debug;
-my $p3 = P3DataAPI->new();
+my $logH = ($debug ? \*STDERR : undef);
+# Check the parameters.
+my ($inDir) = @ARGV;
+if (! $inDir) {
+    die "No input directory specified.";
+} elsif (! -d $inDir) {
+    die "Missing or invalid input directory $inDir.";
+}
+# Read the input directory.
+print STDERR "Reading $inDir.\n" if $debug;
+opendir(my $dh, $inDir) || die "Could not open $inDir: $!";
+my @gtos = grep { $_ =~ /\S\.gto$/ } readdir $dh;
+closedir $dh;
+print STDERR scalar(@gtos) . " input files found in $inDir.\n" if $debug;
 # Get the checksum for the seed protein.
 my $seedName = $opt->seedprot;
-my $seedCheck = RoleParse::Checksum($seedName);
 # Get the Kmer size.
 my $K = $opt->kmer;
 # Create an empty representative-genome set.
 my $repDB = RepGenomeDb->new(K => $K);
 # Read the role definitions.
-print STDERR "Loading role definitions.\n" if $debug;
-my ($nMap, $cMap) = EvalCon::LoadRoleHashes($opt->rolefile, $stats);
+my $evalCon = EvalCon->new_for_script($opt, $logH);
+my ($nMap, $cMap) = $evalCon->roleHashes;
+my %rolesToUseH = map { $_ => 1 } @{$evalCon->rolesToUse};
 # Compute the options for GEO creation.
-my $logH = ($debug ? \*STDERR : undef);
-my %geoOptions = (roleHashes => [$nMap, $cMap], p3 => $p3, stats => $stats, detail => 0, logH => $logH);
+my %geoOptions = (roleHashes => [$nMap, $cMap], stats => $stats, detail => 2, logH => $logH, rolesToUse => \%rolesToUseH);
 # This hash will map each genome pair {ID1\tID2} to its role profile similarity.
-my %roleDist;
+my %roleSim;
 # This hash will map each genome pair {ID1\tID2} to its seed protein similarity.
-my %seedDist;
+my %seedSim;
 # This hash contains the GEO for each genome.
 my %geos;
-# Open the input file.
-my $ih = P3Utils::ih($opt);
-# Read the incoming headers.
-my ($inHeaders, $keyCol) = P3Utils::process_headers($ih, $opt);
 # Write the output headers.
-if (! $opt->nohead) {
-    P3Utils::print_cols(['genome1', 'name1', 'genome2', 'name2', 'kmerDiff', 'roleDiff']);
-}
-# Loop through the input.
-while (! eof $ih) {
-    my $couplets = P3Utils::get_couplets($ih, $keyCol, $opt);
-    # Get the seed protein for all the incoming genomes.
-    print STDERR "Searching for seed proteins for " . scalar(@$couplets) . " genomes.\n" if $debug;
-    my $protResults = P3Utils::get_data_keyed($p3, feature => [['eq', 'product', $seedName]], ['genome_id', 'product', 'aa_sequence'], [map { $_->[0] } @$couplets], 'genome_id');
-    # Get the genome protein sequences.
-    my %gProts;
-    for my $protResult (@$protResults) {
-        my ($genomeID, $roleName, $prot) = @$protResult;
-        if (RoleParse::Checksum($roleName) eq $seedCheck) {
-            $gProts{$genomeID} = $prot;
-        }
+P3Utils::print_cols(['genome1', 'name1', 'genome2', 'name2', 'kmerDiff', 'roleDiff']);
+# Loop through the input directory.
+for my $gto (@gtos) {
+    # Create the GTO.
+    my $gHash = GEO->CreateFromGtoFiles(["$inDir/$gto"], %geoOptions);
+    my ($genome) = keys %$gHash;
+    die "Error loading from $gto." if ! $genome;
+    my $geo = $gHash->{$genome};
+    # Get the seed protein.
+    my $fidList = $geo->roleFids($seedName);
+    if (! @$fidList) {
+        die "No seed protein found in $genome.";
     }
-    # Now get GEOs for these genomes.
-    my @genomes = keys %gProts;
-    print STDERR "Reading role profiles for " . scalar(@genomes) . " genomes.\n" if $debug;
-    my $gHash = GEO->CreateFromPatric(\@genomes, %geoOptions);
-    # Compare each genome to all the ones before it.
-    for my $genome (@genomes) {
-        my $geo = $gHash->{$genome};
-        my $name = $geo->name;
-        print STDERR "Processing $genome: $name.\n" if $debug;
-        $stats->Add(genomeProcessed => 1);
-        # Get the similarity scores for this genome. Specifying 0 for the score gets us all of them.
-        my $gProt = $gProts{$genome};
-        my $repList = $repDB->list_reps($gProt, 0);
-        for my $genome2 (keys %geos) {
-            # Compute the pair key.
-            my $gKey = "$genome\t$genome2";
-            # Store the protein similarity.
-            $seedDist{$gKey} = $repList->{$genome2} // 0;
-            # Compute the role similarity.
-            my $geo2 = $geos{$genome2};
-            $roleDist{$gKey} = $geo->role_similarity($geo2);
-            $stats->Add(pairProcessed => 1);
-        }
-        # Add this genome to the databases.
-        $repDB->AddRep($genome, $name, $gProt);
-        $geos{$genome} = $geo;
+    my $gProt = $geo->protein($fidList->[0]);
+    if (! $gProt) {
+        die "Invalid seed protein in $genome.";
     }
+    my $name = $geo->name;
+    print STDERR "Processing $genome: $name.\n" if $debug;
+    $stats->Add(genomeProcessed => 1);
+    # Get the similarity scores for this genome. Specifying 0 for the score gets us all of them.
+    my $repList = $repDB->list_reps($gProt, 0);
+    for my $genome2 (keys %geos) {
+        # Compute the pair key.
+        my $gKey = "$genome\t$genome2";
+        # Store the protein similarity.
+        $seedSim{$gKey} = $repList->{$genome2} // 0;
+        # Compute the role similarity.
+        my $geo2 = $geos{$genome2};
+        $roleSim{$gKey} = $geo->role_similarity($geo2);
+        $stats->Add(pairProcessed => 1);
+    }
+    # Add this genome to the databases.
+    $repDB->AddRep($genome, $name, $gProt);
+    $geos{$genome} = $geo;
 }
 print STDERR "Sorting results.\n" if $debug;
-my @pairs = sort { $seedDist{$b} <=> $seedDist{$a} } keys %seedDist;
+my @pairs = sort { $seedSim{$b} <=> $seedSim{$a} } keys %seedSim;
 for my $pair (@pairs) {
     my ($g1, $g2) = split /\t/, $pair;
-    P3Utils::print_cols([$g1, $geos{$g1}->name, $g2, $geos{$g2}->name, $seedDist{$pair}, $roleDist{$pair}]);
+    P3Utils::print_cols([$g1, $geos{$g1}->name, $g2, $geos{$g2}->name, $seedSim{$pair}, $roleSim{$pair}]);
     $stats->Add(pairOut => 1);
 }
 print STDERR "All done.\n" . $stats->Show() if $debug;
