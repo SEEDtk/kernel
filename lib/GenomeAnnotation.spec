@@ -225,10 +225,11 @@ module GenomeAnnotation
     structure {
         mapping<string, string> role_map;
         mapping<string, list<string>> role_fids;
-        mapping<string, tuple<int predicted, int actual>> roles;
+        mapping<string, tuple<int predicted, int actual>> completeness_roles;
+        mapping<string, tuple<int predicted, int actual>> consistency_roles;
         int over_present;
         int under_present;
-        int pred_roles;
+        int predicted_roles;
     } problematic_roles_report;
     float coarse_consistency;
     float fine_consistency;
