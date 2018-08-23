@@ -22,6 +22,7 @@ use warnings;
 use FIG_Config;
 use ScriptUtils;
 use File::Copy::Recursive;
+use Stats;
 
 =head1 Set Up to Rerun Binning
 
@@ -66,6 +67,7 @@ if (! $oldDir) {
     print "Erasing $newDir.\n";
     File::Copy::Recursive::pathempty($newDir) || die "Could not clear $newDir: $!";
 }
+my $stats = Stats->new();
 # Read the input directory.
 print "Scanning $oldDir.\n";
 opendir(my $dh, $oldDir) || die "Could not open $oldDir: $!";
@@ -81,21 +83,29 @@ for my $job (@jobs) {
     $count++;
     if (-d $target) {
         print "$job already in $newDir-- skipped.\n";
+        $stats->Add(dirSkipped => 1);
     } else {
         print "Processing $job ($count of $total).\n";
         File::Copy::Recursive::pathmk($target) || die "Could not create $target: $!";
         # Start a list of the files to copy.
-        my @files = qw(contigs.fasta output.contigs2reads.txt site.tbl);
+        my @files = qw(contigs.fasta output.contigs2reads.txt);
         my $abundance = $job . '_abundance_table.tsv';
-        if (-s $abundance) {
+        if (-s "$source/$abundance") {
             push @files, $abundance;
+            $stats->Add(abundanceFound => 1);
+        }
+        if (-s "$source/site.tbl") {
+            push @files, 'site.tbl';
+            $stats->Add(siteFound => 1);
         }
         # Copy the files.
         for my $file (@files) {
             File::Copy::Recursive::fcopy("$source/$file", "$target/$file") || die "Could not copy $file: $!";
+            $stats->Add(fileCopied => 1);
         }
         # Create the assembly directory.
         File::Copy::Recursive::pathmk("$target/Assembly");
+        $stats->Add(dirCopied => 1);
     }
 }
-print "All done.\n";
+print "All done.\n" . $stats->Show();
