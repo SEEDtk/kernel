@@ -19,6 +19,10 @@ The command-line options are as follows.
 
 The number of amino acids to use in the kmers generated for comparison purposes. The default is C<8>.
 
+=item count
+
+The number of matches to return. The default is C<1>, returning a single match.
+
 =back
 
 =cut
@@ -32,6 +36,7 @@ use FastA;
 # Get the command-line options.
 my $opt = P3Utils::script_opts('fastaFile protein',
         ['kmerSize|kmersize|K=i', 'protein kmer size'],
+        ['count|N=i', 'number of matches to return', { default => 1 }],
         );
 # Get access to PATRIC.
 my $p3 = P3DataAPI->new();
@@ -45,7 +50,7 @@ if (! $fastaFile) {
     die "No input protein specified.";
 } elsif (-s $protein) {
     # Here the protein is probably a FASTA file.
-    my $fh = FastA->new($fastaFile);
+    my $fh = FastA->new($protein);
     if (! $fh->next) {
         die "$fastaFile appears to be empty.";
     } else {
@@ -61,17 +66,27 @@ if (! $fastaFile) {
 }
 # Create the kmer hash for the input protein.
 my $rep = RepGenome->new('input', prot => $protein, K => $opt->kmersize);
-# Loop through the protein FASTA, remembering the closest match.
-my $best = '<none>';
-my $score = 0;
+# The following list will contain [id, score] tuples, sorted from best score to worst.
+my @best;
+# This is the number of proteins we want.
+my $count = $opt->count;
+# Loop through the protein FASTA, remembering the closest matches.
 my $fh = FastA->new($fastaFile);
 while ($fh->next) {
-    my $newProt = $fh->left;
-    my $newScore = $rep->check_genome($newProt);
-    if ($newScore > $score) {
-        $best = $fh->id;
-        $score = $newScore;
+    my $prot = $fh->left;
+    my $score = $rep->check_genome($prot);
+    if ($score) {
+        # Find where this score goes in the list.
+        my $i;
+        for ($i = $#best; $i >= 0 && $score > $best[$i][1]; $i--) {}
+        $i++;
+        if ($i < $count) {
+            splice @best, $i, 0, [$fh->id, $score];
+            if (scalar(@best) > $count) { pop @best; }
+        }
     }
 }
 # Write what we found.
-print "$best\t$score\n";
+print "id\tscore\n";
+print map { "$_->[0]\t$_->[1]\n" } @best;
+

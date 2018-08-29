@@ -5,18 +5,21 @@ use Data::Dumper;
 ### constants
 my $K     = 8;
 my $min   = 100;
-# 
+my $Nbest = 1;
+#
 # $K will probably always be 8, but who knows.  An
 # analysis would be a good idea.
 #
-# $min is the minimum number of kmers in common for us 
+# $min is the minimum number of kmers in common for us
 #      consider a sequence as close enough
-# 
+#
+# $Nbest is the number of close genome Ids you want to get back
+#      Now the output is Nbest lines, each containing a score and an id (sorted)
 ###
-# my $usage = "usage: close_by_rep PheSs SinglePheS";
-# 
-# 
-# PheSs is a fasta file of PheS sequences.  We seek the closest
+# my $usage = "usage: close_by_rep PheSs SinglePheS [Nbest]";
+#
+#
+# PheSs is a fasta file of PheS sequences.  We seek the closest Nbest
 # of these to the single sequence in the file given by
 # the second argument
 
@@ -28,7 +31,9 @@ my $usage;
  ($org_seq_file = shift @ARGV)
 )
     || die $usage;
- 
+
+$Nbest = shift @ARGV; if (! $Nbest ) { $Nbest = 1 }
+
 # The rep_seqs (from the file given as the first argument,
 # will usually contain a set of representative genes,
 # but not always.  They are just a set of PheS sequences,
@@ -46,7 +51,7 @@ my $seq1    = $tmp[0]->[2];
     || die "bad file containing singleton";
 ####################
 #
-# We begin by computing a hash of the Kmers that occur 
+# We begin by computing a hash of the Kmers that occur
 # in the query sequence
 
 my %seq1H;
@@ -68,17 +73,16 @@ for ($i1=0; ($i1 < (length($seq1) - $K)); $i1++)
 # a maximum overlap.
 # When we get through the pass thru the rep_seqs.
 # we just print the one with the maximum overlap
-# against Kmers of the query sequence. 
+# against Kmers of the query sequence.
 
-# During the pass through the reps we maintain 
+# During the pass through the reps we maintain
 #
 #     best        the best genome candidate
 #
-#     best_so_far The overlap against the best candidate
+#     best_sofar The overlap against the best candidate
 
-my $best_sofar = undef;
-my $best = 0;
-       
+my @best_sofar = ();
+
 foreach my $tuple (@rep_seqs)
 {
     my($id,$comment,$seq2) = @$tuple;
@@ -88,18 +92,29 @@ foreach my $tuple (@rep_seqs)
 
     for ($i2=0; ($i2 < $max); $i2++)
     {
-	my $kmer2 = uc substr($seq2,$i2,$K);
-	if ($seq1H{$kmer2})
-	{
-	    $hits{$kmer2} = 1;
-	}
+        my $kmer2 = uc substr($seq2,$i2,$K);
+        if ($seq1H{$kmer2})
+        {
+            $hits{$kmer2} = 1;
+        }
     }
+
     my $hitsN = scalar keys(%hits);
-    if ( ($hitsN && ($hitsN >= $min) && ($hitsN > $best_sofar)))
+    if (($hitsN && ($hitsN >= $min)) &&
+        ((@best_sofar == 0) ||
+         ($hitsN > $best_sofar[-1]->[0])))
     {
-	$best = $id;
-	$best_sofar = $hitsN;
+        my $i3;
+        for ($i3=0; ($hitsN < $best_sofar[$i3]->[0]); $i3++) {}
+        my $remove = (@best_sofar == $Nbest) ? 1 : 0;
+        splice(@best_sofar,$i3,0,[$hitsN,$id]);
+        pop @best_sofar if $remove;
     }
 }
-print $best,"\t",$best_sofar,"\n";
+
+foreach my $tuple (@best_sofar)
+{
+    print join("\t",@$tuple),"\n";
+}
+
 
