@@ -212,6 +212,7 @@ for my $dir (@dirs) {
             while (-s "$subDir/bin$i.gto") { $i++; }
             my $bins = $i - 1;
             push @other, "$label: RAST in Progress. $bins completed.\n";
+            $stats->Add(binsAccumulating => $bins);
         }
         $stats->Add(dirs5RastPartial => 1);
     } elsif (-s "$subDir/bins.json") {

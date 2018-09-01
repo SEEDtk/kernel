@@ -2,7 +2,7 @@
 
     p3-rep-role-check.pl [options] gtoDir
 
-This script checks the Simance between genomes based on two measures-- kmer similarity in the seed protein, and role profile similarity.
+This script checks the similarity between genomes based on two measures-- kmer similarity in the seed protein, and role profile similarity.
 The genome list is taken from the standard input. Every pair of genomes will be compared using the two measures. The seed protein name is
 configurable, so that different seed proteins can be used; however, if a genome has more than one seed protein instance, this script does
 not do any intelligent choosing; therefore, a reliably universal role should be chosen.
@@ -31,10 +31,6 @@ The kmer size to use for protein comparisons. The default is C<8>.
 =item verbose
 
 Write status messages to STDERR.
-
-=item roleFile
-
-The location of the C<roles.in.subsystems> file containing the roles of interest. The default is the one in the SEEDtk global data directory.
 
 =back
 
@@ -95,7 +91,7 @@ my %geos;
 P3Utils::print_cols(['genome1', 'name1', 'genome2', 'name2', 'kmerSim', 'roleSim']);
 # Loop through the input directory.
 for my $gto (@gtos) {
-    # Create the GTO.
+    # Create the GEO.
     my $gHash = GEO->CreateFromGtoFiles(["$inDir/$gto"], %geoOptions);
     my ($genome) = keys %$gHash;
     die "Error loading from $gto." if ! $genome;
