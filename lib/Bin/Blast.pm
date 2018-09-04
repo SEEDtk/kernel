@@ -79,6 +79,10 @@ direction that are closer than this number of base pairs are merged into a singl
 The minimum fraction length for a BLAST hit. A BLAST hit that matches less than this fraction of a protein's
 length will be discarded. This is done after the gap-merging (see C<gap>).
 
+=item silent
+
+If TRUE, no status messages will be written.
+
 =back
 
 =head2 Special Methods
@@ -127,6 +131,10 @@ direction that are closer than this number of base pairs are merged into a singl
 The minimum fraction length for a BLAST hit. A BLAST hit that matches less than this fraction of a protein's
 length will be discarded. This is done after the gap-merging (see C<gap>). The default is C<0.50>.
 
+=item silent
+
+If TRUE, no status messages will be written.
+
 =back
 
 =back
@@ -140,6 +148,7 @@ sub new {
     my $maxE = $options{maxE} // 1e-5;
     my $gap = $options{gap} // 100;
     my $minlen = $options{minlen} // 0.50;
+    my $silent = $options{silent} // 0;
     # Create a hash of the universal roles (if we have a database).
     my $uniRoleH = {};
     if ($shrub) {
@@ -156,7 +165,7 @@ sub new {
     $pathWorkDir =~ s/[\/\\]$//;
     if ($pathFasta ne $pathWorkDir) {
         my $newName = "$workDir/$nameFasta";
-        print "Copying $contigFasta to $newName.\n";
+        print "Copying $contigFasta to $newName.\n" if ! $silent;
         File::Copy::Recursive::fcopy($contigFasta, $newName);
         $blastFasta = $newName;
     }
@@ -172,7 +181,8 @@ sub new {
         workDir => $workDir,
         defaultRole => 'PhenTrnaSyntAlph',
         gap => $gap,
-        minlen => $minlen
+        minlen => $minlen,
+        silent => $silent
     };
     # Bless and return it.
     bless $retVal, $class;
@@ -463,6 +473,7 @@ sub FindProtein {
     # Get the options.
     my $minlen = $self->{minlen};
     my $workDir = $self->{workDir};
+    my $debug = ! $self->{silent};
     # Compute the average protein length.
     open(my $fh, '<', $protFile) || die "Could not open protein FASTA $protFile: $!";
     # Compute the minimum match length by taking the mean of all the proteins found.
@@ -477,12 +488,12 @@ sub FindProtein {
         }
     }
     my $minDnaLen = int($minlen * $protLen / $protCount) * 3;
-    print "Minimum match length is $minDnaLen.\n";
+    print "Minimum match length is $minDnaLen.\n" if $debug;
     # Look for matches.
     my @matches = sort { ($a->sid cmp $b->sid) or ($a->s1 <=> $b->s1) }
             BlastInterface::blast($protFile, $self->{blastDb}, 'tblastn',
             { outForm => 'hsp', maxE => $self->{maxE} });
-    print scalar(@matches) . " blast results found.\n";
+    print scalar(@matches) . " blast results found.\n" if $debug;
     # The matches are in the form of Hsp objects. They are sorted by start position within contig.
     # We condense the matches into location objects in the following hash. This is where the gap
     # resolution is processed.
@@ -495,7 +506,7 @@ sub FindProtein {
     for my $contig (keys %contigs) {
         my ($match) = sort { $b->Length <=> $a->Length} @{$contigs{$contig}};
         my $matchLen = $match->Length;
-        print "Match for $contig has length $matchLen.\n";
+        print "Match for $contig has length $matchLen.\n" if $debug;
         if ($matchLen >= $minDnaLen) {
             $retVal{$contig} = $match;
         }
@@ -558,6 +569,7 @@ Returns a reference to a hash mapping each incoming contig ID to a list of 3-tup
 
 sub MatchProteins {
     my ($self, $seqHash, $funID, $count, $maxE, %options) = @_;
+    my $debug = ! $self->{silent};
     # Get the defaults.
     $funID //= $self->{defaultRole};
     $count //= 1;
@@ -586,7 +598,7 @@ sub MatchProteins {
         my ($contig, $fid, $score, $comment) = ($match->qid, $match->sid, $match->scr, $match->sdef);
         my ($genome, $name) = split /\s+/, $comment, 2;
         if ($exclusionsH->{$genome}) {
-            print "$genome $name rejected by exclusion list.\n";
+            print "$genome $name rejected by exclusion list.\n" if $debug;
         } elsif (! $retVal{$contig}) {
             $retVal{$contig} = [[$genome, $score, $name]];
         } else {
@@ -645,6 +657,7 @@ Returns a statistics object describing the results of the BLASTing.
 
 sub Process {
     my ($self, $contigBins, $refGenomes, %options) = @_;
+    my $debug = ! $self->{silent};
     # This will contain the return statistics.
     my $stats = Stats->new();
     # Get the working directory.
@@ -661,13 +674,13 @@ sub Process {
     # Loop through the reference genomes.
     for my $refGenome (@$refGenomes) {
         my $blasted = $stats->Add(refGenomesBlasted => 1);
-        print "Processing $refGenome for BLAST$type ($blasted of $totalGenomes).\n";
+        print "Processing $refGenome for BLAST$type ($blasted of $totalGenomes).\n" if $debug;
         $self->ProcessBlast($type, $stats, $contigBins, $refGenome, \%contigGenomes, $maxE);
     }
     # Now all the reference genomes have been blasted. For each contig, we need to assign the reference
     # genome and any universal roles. Note that if a contig already has reference genome information we
     # ignore our results here.
-    print "Assigning genomes to sample contigs.\n";
+    print "Assigning genomes to sample contigs.\n" if $debug;
     for my $contigID (keys %contigGenomes) {
         $stats->Add(contigsWithRefGenomes => 1);
         my ($genome, $score) = @{$contigGenomes{$contigID}};
@@ -731,6 +744,7 @@ sub ProcessBlast {
     my ($self, $type, $stats, $contigBins, $refGenome, $contigGenomes, $maxE) = @_;
     # Get the options.
     my $priv = $self->{priv};
+    my $debug = ! $self->{silent};
     # We get the reference genome's FASTA file and a hash that tracks the minimum match
     # length of each universal role. We also need the blast program name.
     my ($queryFileName, $uniLens, $blaster);
@@ -741,14 +755,14 @@ sub ProcessBlast {
         ($queryFileName, $uniLens) = $self->GetRefGenomeDna($refGenome);
         $blaster = 'blastn';
     }
-    print scalar(keys %$uniLens) . " universal roles found in $refGenome.\n";
+    print scalar(keys %$uniLens) . " universal roles found in $refGenome.\n" if $debug;
     # Blast this genome against the sample contigs.
     my $matches = BlastInterface::blast($queryFileName, $self->{blastDb}, $blaster,
         { outForm => 'hsp', maxE => $maxE });
     my $matchCount = scalar @$matches;
     $stats->Add(blastMatches => $matchCount);
     if ($matchCount) {
-        print "$matchCount hits found.\n";
+        print "$matchCount hits found.\n" if $debug;
         # This hash will track universal role hits. It is a double hash keyed on universal role ID followed by
         # contig ID and maps to location objects.
         my %uniHits = map { $_ => {} } keys %$uniLens;
@@ -797,7 +811,7 @@ sub ProcessBlast {
                 }
             }
         }
-        print "$roleMatches universal role hits found by $refGenome BLAST.\n";
+        print "$roleMatches universal role hits found by $refGenome BLAST.\n" if $debug;
     }
 }
 
