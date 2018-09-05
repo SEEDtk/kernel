@@ -51,6 +51,11 @@ length will be discarded. This is done after the gap-merging (see C<gap>). The d
 
 Write status messages to STDERR.
 
+=item rank
+
+The desired accuracy level. This should be a taxonomic rank. The default is C<species>. Other values are
+(for example) C<genus> and C<strain>.
+
 =back
 
 =cut
@@ -72,6 +77,7 @@ my $opt = P3Utils::script_opts('fastaFile',
                 ['gap|g=i',        'maximum permissible gap between blast hits for merging', { default => 600 }],
                 ['minlen|l=f',     'minimum fraction of the protein that must match in a blast hit', { default => 0.5 }],
                 ['verbose|debug|v', 'write status messages to STDERR'],
+                ['rank=s',         'rank level of desired output', { default => 'species' }],
         );
 # Get access to PATRIC.
 my $p3 = P3DataAPI->new();
@@ -82,6 +88,8 @@ if (! $fastaFile) {
 } elsif (! -s $fastaFile) {
     die "Input file $fastaFile missing or empty.";
 }
+# Compute the rank.
+my $rank = $opt->rank;
 # Get the debug flag.
 my $debug = $opt->verbose;
 # Compute the blast parameters.
@@ -125,11 +133,11 @@ if (! $contig) {
             if (! $taxonList) {
                 print STDERR "Lineage not available for $genome.\n" if $debug;
             } else {
-                print STDERR "Looking for species in taxonomy list.\n" if $debug;
-                my $taxonRecords = P3Utils::get_data_keyed($p3, taxonomy => [['eq', 'taxon_rank', 'species']],
+                print STDERR "Looking for $rank in taxonomy list.\n" if $debug;
+                my $taxonRecords = P3Utils::get_data_keyed($p3, taxonomy => [['eq', 'taxon_rank', $rank]],
                         ['taxon_id', 'taxon_name', 'lineage_names'], $taxonList);
                 if (! @$taxonRecords) {
-                    print STDERR "No species found in lineage for $genome.\n" if $debug;
+                    print STDERR "No $rank found in lineage for $genome.\n" if $debug;
                 } else {
                     my $taxonRecord = $taxonRecords->[0];
                     my ($id, $name, $lineage) = @$taxonRecord;

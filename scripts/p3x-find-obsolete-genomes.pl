@@ -17,6 +17,7 @@ Status messages will be written to the standard error output.
 use strict;
 use P3DataAPI;
 use P3Utils;
+use GenomeTypeObject;
 
 # Get the command-line options.
 my $opt = P3Utils::script_opts('binDir',
@@ -31,23 +32,37 @@ if (! $binDir) {
 # Find all the binning jobs.
 print STDERR "Scanning $binDir.\n";
 opendir(my $dh, $binDir) || die "Could not open $binDir: $!";
-my @bins = grep { -s "$binDir/$_/Eval/index.tbl" } readdir $dh;
+my @bins = grep { -s "$binDir/$_/bin1.gto" } readdir $dh;
 closedir $dh;
 print STDERR scalar(@bins) . " completed bin jobs found.\n";
 # These will be the genomes to keep.
 my %keep;
 # Loop through the bins.
 for my $bin (@bins) {
-    open(my $ih, "<$binDir/$bin/Eval/index.tbl") || die "Could not open $bin: $!";
     my $count = 0;
-    # Discard the header.
-    my $line = <$ih>;
-    # Read the genomes.
-    while (! eof $ih) {
-        $line = <$ih>;
-        my ($sample, $id, $name) = split /\t/, $line;
-        $keep{$id} = $name;
-        $count++;
+    # Check for an index file.
+    if (open(my $ih, "<$binDir/$bin/Eval/index.tbl")) {
+        # Discard the header.
+        my $line = <$ih>;
+        # Read the genomes.
+        while (! eof $ih) {
+            $line = <$ih>;
+            my ($sample, $id, $name) = split /\t/, $line;
+            $keep{$id} = $name;
+            $count++;
+        }
+        close $ih;
+    } else {
+        # Check for bin GTOs. This is tons slower.
+        opendir(my $dh, "$binDir/$bin") || die "Could not open $bin directory: $!";
+        my @gtos = grep { $_ =~ /^bin\d+\.gto$/ } readdir $dh;
+        closedir $dh;
+        for my $gto (@gtos) {
+            my $json = GenomeTypeObject->create_from_file("$binDir/$bin/$gto");
+            my ($id, $name) = ($json->{id}, $json->{scientific_name});
+            $keep{$id} = $name;
+            $count++;
+        }
     }
     print STDERR "$count genomes found in $bin.\n";
 }
