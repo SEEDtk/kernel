@@ -29,6 +29,10 @@ if (! $binDir) {
 } elsif (! -d $binDir) {
     die "Input directory $binDir not found or invalid.";
 }
+# Get the private genomes from PATRIC. We do this first so bins being created don't get caught.
+print STDERR "Retrieving private genomes from PATRIC.\n";
+my $p3 = P3DataAPI->new();
+my $privates = P3Utils::get_data($p3, genome => [['eq', 'public', 0]], ['genome_id', 'genome_name']);
 # Find all the binning jobs.
 print STDERR "Scanning $binDir.\n";
 opendir(my $dh, $binDir) || die "Could not open $binDir: $!";
@@ -66,10 +70,6 @@ for my $bin (@bins) {
     }
     print STDERR "$count genomes found in $bin.\n";
 }
-# Get the private genomes from PATRIC.
-print STDERR "Retrieving private genomes from PATRIC.\n";
-my $p3 = P3DataAPI->new();
-my $privates = P3Utils::get_data($p3, genome => [['eq', 'public', 0]], ['genome_id', 'genome_name']);
 # Write the output headers.
 P3Utils::print_cols(['genome_id', 'genome_name']);
 # Output the private genomes that are not keepers.
