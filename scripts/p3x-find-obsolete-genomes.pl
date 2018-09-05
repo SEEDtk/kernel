@@ -18,6 +18,7 @@ use strict;
 use P3DataAPI;
 use P3Utils;
 use GenomeTypeObject;
+use Stats;
 
 # Get the command-line options.
 my $opt = P3Utils::script_opts('binDir',
@@ -29,6 +30,7 @@ if (! $binDir) {
 } elsif (! -d $binDir) {
     die "Input directory $binDir not found or invalid.";
 }
+my $stats = Stats->new();
 # Get the private genomes from PATRIC. We do this first so bins being created don't get caught.
 print STDERR "Retrieving private genomes from PATRIC.\n";
 my $p3 = P3DataAPI->new();
@@ -54,6 +56,7 @@ for my $bin (@bins) {
             my ($sample, $id, $name) = split /\t/, $line;
             $keep{$id} = $name;
             $count++;
+            $stats->Add(evaluatedGenome => 1);
         }
         close $ih;
     } else {
@@ -66,16 +69,21 @@ for my $bin (@bins) {
             my ($id, $name) = ($json->{id}, $json->{scientific_name});
             $keep{$id} = $name;
             $count++;
+            $stats->Add(binnedGenome => 1);
         }
     }
     print STDERR "$count genomes found in $bin.\n";
 }
 # Write the output headers.
+print STDERR "Writing final output.\n";
 P3Utils::print_cols(['genome_id', 'genome_name']);
 # Output the private genomes that are not keepers.
 for my $private (@$privates) {
     my ($id, $name) = @$private;
+    $stats->Add(privateGenome => 1);
     if (! $keep{$id}) {
         P3Utils::print_cols($private);
+        $stats->Add(obsoleteGenome => 1);
     }
 }
+print STDERR "All done.\n" . $stats->Show();
