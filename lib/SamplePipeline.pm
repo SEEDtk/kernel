@@ -290,7 +290,7 @@ sub Process {
         $force = 1;
     }
     # At this point, we have the contigs and the coverage data.
-    if ($force || ! -s "$workDir/bins.report.txt") {
+    if ($force || ! -s "$workDir/bins.json") {
         # We need to generate bins.
         my $command = join('_', "bin$engine", 'generate');
         my $rc = system($command, $workDir);

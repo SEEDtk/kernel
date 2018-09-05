@@ -666,7 +666,7 @@ if ($opt->unassembled) {
         close $ch;
         print "Writing kmer-based bins.\n";
         my @sorted = sort { Bin::cmp($a, $b) } @binList;
-        open(my $oh, ">$kmerBinFile") || die "Could not open bins.json checkpoint file: $!";
+        open(my $oh, ">$kmerBinFile") || die "Could not open bins.kmer.json checkpoint file: $!";
         for my $bin (@sorted) {
             $bin->Write($oh);
         }
