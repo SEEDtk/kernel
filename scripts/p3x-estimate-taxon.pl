@@ -1,6 +1,6 @@
-=head1 Estimate Species of Contigs in a FASTA File
+=head1 Estimate Taxonomic Grouping of Contigs in a FASTA File
 
-    p3-estimate-species.pl [options] fastaFile
+    p3-estimate-taxon.pl [options] fastaFile
 
 This script searches a FASTA file for a key protein and uses it to compute the species of a genome described by a FASTA
 file.  The default is to use the universal protein Phenylalanyl tRNA-synthetase alpha chain. There is almost always exactly
@@ -77,7 +77,7 @@ my $opt = P3Utils::script_opts('fastaFile',
                 ['gap|g=i',        'maximum permissible gap between blast hits for merging', { default => 600 }],
                 ['minlen|l=f',     'minimum fraction of the protein that must match in a blast hit', { default => 0.5 }],
                 ['verbose|debug|v', 'write status messages to STDERR'],
-                ['rank=s',         'rank level of desired output', { default => 'species' }],
+                ['rank=s',         'rank level of desired output', { default => 'genus' }],
         );
 # Get access to PATRIC.
 my $p3 = P3DataAPI->new();
