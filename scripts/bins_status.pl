@@ -35,6 +35,10 @@ are
 
 =over 4
 
+=item Downloaded
+
+The reads have been downloaded. If the project type is C<NCBI>, this means C<site.tbl> exists.
+
 =item Assembling
 
 The reads are being assembled into contigs-- C<Assembly> exists.
@@ -76,7 +80,7 @@ Remove assembly information for completed jobs.
 
 =item project
 
-Project type for binning jobs. (C<MH>, C<AG>, C<HMP>, C<SYNTH>, or C<CT>)
+Project type for binning jobs. (C<MH>, C<AG>, C<HMP>, C<SYNTH>, C<NCBI>, or C<CT>)
 
 =item run
 
@@ -171,13 +175,14 @@ for my $dir (@dirs) {
     my $cleaned = (-d "$subDir/Assembly" ? "" : "  Assembly cleaned.");
     my $done;
     # Determine the site.
-    my $site;
+    my ($site, $sited);
     if (! -s "$subDir/site.tbl") {
         $site = "Unspecified";
     } elsif (open(my $sh, '<', "$subDir/site.tbl")) {
         my $line = <$sh>;
         if ($line =~ /(\S+)\t([^\t]+)\t(.+)/) {
             $site = "$1 $3";
+            $sited = 1;
             $stats->Add("site-$2" => 1);
         } else {
             $site = "Invalid";
@@ -252,6 +257,9 @@ for my $dir (@dirs) {
             push @other, "$label: Assembling.\n";
             $stats->Add(dirs1Assembling => 1);
         }
+    } elsif ($proj eq 'NCBI' && ! $sited) {
+        push @other, "$label: Downloading.\n";
+        $stats->Add('dirs.Downloading' => 1);
     } else {
         # Here the directory is downloaded. We may need to fix it or run the pipeline.
         opendir(my $dh, $subDir) || die "Could not open directory $subDir: $!";
@@ -291,7 +299,7 @@ for my $dir (@dirs) {
         $stats->Add(dirs7Done => 1);
         if ($clean && ! $cleaned) {
             print "Cleaning $subDir.\n";
-            Bin::Package::CreateFromSample($subDir, $dir, $stats, 0, $opt->packages);
+#           Bin::Package::CreateFromSample($subDir, $dir, $stats, 0, $opt->packages);
             $cleaned = "  Cleaning Assembly.";
             File::Copy::Recursive::pathempty("$subDir/Assembly");
             rmdir "$subDir/Assembly";
@@ -314,7 +322,8 @@ print "\nAll done:\n" . $stats->Show();
 
 sub StartJob {
     my ($dir, $subDir, $gz, $start, $label, $proj) = @_;
-    my $cmd = "bins_sample_pipeline --project=$proj --engine=$engine $gz $dir $subDir >$subDir/run.log 2>$subDir/err.log";
+    my $realProj = ($proj eq 'NCBI' ? 'MH' : $proj);
+    my $cmd = "bins_sample_pipeline --project=$realProj --engine=$engine $gz $dir $subDir >$subDir/run.log 2>$subDir/err.log";
     my $rc = system("nohup $cmd &");
     push @other, "$label: $start $cmd.\n";
     $stats->Add("dirs0$start" => 1);
