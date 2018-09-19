@@ -91,6 +91,7 @@ my $K = $opt->kmer;
 my $maxFound = $opt->maxfound;
 my $indicMode = $opt->indicative;
 my $reduced = $opt->reduced;
+print "Kmer size is $K.\n";
 # Compute the output file name.
 my $outFile = $opt->outfile;
 if (! $outFile) {
