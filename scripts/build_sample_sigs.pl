@@ -70,6 +70,7 @@ and C<kmer> in B<indicative> mode, I<KK> is the kmer size, and I<scope> is C<Pro
 
 =cut
 
+$| = 1;
 # Get the command-line parameters.
 my $opt = P3Utils::script_opts('repDir',
         ['kmer|K=i', 'kmer size to use', { default => 20 }],
