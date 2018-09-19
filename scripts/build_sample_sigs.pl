@@ -24,21 +24,21 @@ use ScriptUtils;
 use KmerDb;
 use FastA;
 use Stats;
-use Shrub;
+use P3Utils;
+use P3DataAPI;
 
 =head1 Create Signature DNA Kmers for Representative Genomes
 
     build_sample_sigs.pl [ options ] repDir
 
 This script creates a signature kmer database for representative genomes. The genomes must all be stored in the Shrub
-database.  The signature kmer database will be written to the file C<sigs.>I<NN>C<.json>,
-where I<NN> is the kmer size.
+database.
 
 =head2 Parameters
 
 The positional parameter is the name of the representative-genome directory.
 
-The command-line options are those in L<Shrub/script_options> to select the database, plus the following.
+The command-line options are the following.
 
 =over 4
 
@@ -56,61 +56,91 @@ default is C<10>.
 If specified, the kmers will be indicative, rather than signature.  Normally, only kmers unique to a genome will be put in
 the database. In indicative mode, all uncommon kmers are kept.
 
+=item reduced
+
+If specified, the kmers will be based solely on the seed proteins. If this is the case, there must be a C<6.1.1.20.dna.fasta>
+file in the representative-genomes directory.
+
+=item outFile
+
+The name to give to the output file. The default is I<type>I<scope>C<.>I<KK>C<.json>, where I<type> is C<sig> for signatures
+and C<kmer> in B<indicative> mode, I<KK> is the kmer size, and I<scope> is C<Prot> in reduced mode and empty otherwise.
+
 =back
 
 =cut
 
 # Get the command-line parameters.
-my $opt = ScriptUtils::Opts('repDir', Shrub::script_options(),
+my $opt = P3Utils::script_opts('repDir',
         ['kmer|K=i', 'kmer size to use', { default => 20 }],
         ['indicative|I', 'indicative instead of signature kmers'],
         ['maxFound|m=i', 'maximum number of occurrences before a kmer is considered common', { default => 10 }],
+        ['reduced', 'process the seed proteins only'],
+        ['outfile=s', 'name to give to the output file']
         );
 my $stats = Stats->new();
 # Get the representative genome directory.
 my ($repDir) = @ARGV;
 if (! $repDir) {
     die "No representative genome directory specified.";
-} elsif (! -s "$repDir/6.1.1.20.dna.fasta") {
-    die "$repDir does not have a DNA FASTA file.";
+} elsif (! -s "$repDir/complete.genomes") {
+    die "$repDir does not have a complete.genomes file.";
 }
 # Get the options.
 my $K = $opt->kmer;
 my $maxFound = $opt->maxfound;
 my $indicMode = $opt->indicative;
+my $reduced = $opt->reduced;
+# Compute the output file name.
+my $outFile = $opt->outfile;
+if (! $outFile) {
+    $outFile = "$repDir/" . join('.', ($indicMode ? 'kmer' : 'sig') . ($reduced ? 'Prot' : ''), $K, 'json');
+}
+if ($reduced && ! -s "$repDir/6.1.1.20.dna.fasta") {
+    die "$repDir does not have a DNA FASTA file.";
+}
 # Connect to the database.
-my $shrub = Shrub->new_for_script($opt);
+my $p3 = P3DataAPI->new();
 # Create the kmer database.
 my $kmerDb = KmerDb->new(kmerSize => $K, maxFound => $maxFound);
-# Read in the genome IDs. Compute the names and DNA files.
-my %dnaFiles;
+# Read in the genome IDs and compute the names.
+my %genomes;
 open(my $gh, "<$repDir/complete.genomes") || die "Could not open complete.genomes: $!";
 while (! eof $gh) {
     my $line = <$gh>;
-    if ($line =~ /^(\d+\.\d+)/) {
-        my $genome = $1;
-        my ($gData) = $shrub->GetAll('Genome', 'Genome(id) = ?', [$genome], 'contig-file name');
-        if (! $gData) {
-            die "$genome not found in database.";
-        } else {
-            $kmerDb->AddGroup($genome, $gData->[1]);
-            $dnaFiles{$genome} = $gData->[0];
-        }
+    if ($line =~ /^(\d+\.\d+)\t(.+)/) {
+        my ($genome, $name) = ($1, $2);
+        $kmerDb->AddGroup($genome, $name);
+        $genomes{$genome} = $name;
         $stats->Add(genomeIn => 1);
     }
 }
-print "Genome names and DNA files stored.\n";
+print "Genome names stored.\n";
 close $gh;
-# Loop through the DNA files.
-for my $genome (sort keys %dnaFiles) {
-    my $name = $kmerDb->name($genome);
-    my $dnaFile = "$FIG_Config::shrub_dna/$dnaFiles{$genome}";
-    print "Processing $genome ($name) from $dnaFile.\n";
-    $stats->Add(genomeScanned => 1);
-    my $fh = FastA->new($dnaFile);
+# Loop through the DNA sequences.
+if ($reduced) {
+    # Reduced mode. Read the DNA fasta file.
+    my $fh = FastA->new("$repDir/6.1.1.20.dna.fasta");
     while ($fh->next) {
-        $kmerDb->AddSequence($fh->left);
-        $stats->Add(sequenceIn => 1);
+        my $id = $fh->id;
+        if ($id =~ /(\d+\.\d+)/) {
+            my $genome = $1;
+            $kmerDb->AddSequence($genome, $fh->left);
+            $stats->Add(sequenceIn => 1);
+        }
+    }
+} else {
+    # Full mode: read the DNA sequences.
+    for my $genome (sort keys %genomes) {
+        my $name = $kmerDb->name($genome);
+        print "Processing $genome $name.\n";
+        $stats->Add(genomeScanned => 1);
+        my $seqs = P3Utils::get_data($p3, contig => [['eq', 'genome_id', $genome]], ['sequence']);
+        for my $seq (@$seqs) {
+            my $sequence = $seq->[0];
+            $kmerDb->AddSequence($genome, $sequence);
+            $stats->Add(sequenceIn => 1);
+        }
     }
 }
 # Now we finalize depending on the mode.
@@ -122,7 +152,6 @@ if ($indicMode) {
     $kmerDb->ComputeDiscriminators();
 }
 # Write the output file.
-my $outFile = "$repDir/sigs.$K.json";
 print "Saving database as $outFile.\n";
 $kmerDb->Save($outFile);
 print "All done.\n" . $stats->Show();
