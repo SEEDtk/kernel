@@ -31,8 +31,7 @@ use P3DataAPI;
 
     build_sample_sigs.pl [ options ] repDir
 
-This script creates a signature kmer database for representative genomes. The genomes must all be stored in the Shrub
-database.
+This script creates a signature kmer database for representative genomes.
 
 =head2 Parameters
 
@@ -66,6 +65,10 @@ file in the representative-genomes directory.
 The name to give to the output file. The default is I<type>I<scope>C<.>I<KK>C<.json>, where I<type> is C<sig> for signatures
 and C<kmer> in B<indicative> mode, I<KK> is the kmer size, and I<scope> is C<Prot> in reduced mode and empty otherwise.
 
+=item subset
+
+If specified, the name of a file containing genome IDs in the first column. Only the genomes in the subset will be used.
+
 =back
 
 =cut
@@ -77,7 +80,8 @@ my $opt = P3Utils::script_opts('repDir',
         ['indicative|I', 'indicative instead of signature kmers'],
         ['maxFound|m=i', 'maximum number of occurrences before a kmer is considered common', { default => 10 }],
         ['reduced', 'process the seed proteins only'],
-        ['outfile=s', 'name to give to the output file']
+        ['outfile=s', 'name to give to the output file'],
+        ['subset=s', 'if specified, the name of a file containing a restricted set of genome IDs']
         );
 my $stats = Stats->new();
 # Get the representative genome directory.
@@ -105,6 +109,18 @@ if ($reduced && ! -s "$repDir/6.1.1.20.dna.fasta") {
 my $p3 = P3DataAPI->new();
 # Create the kmer database.
 my $kmerDb = KmerDb->new(kmerSize => $K, maxFound => $maxFound);
+# Check for the subset file.
+my %subset;
+my $subFile = $opt->subset;
+if ($subFile) {
+    open(my $ih, '<', $subFile) || die "Could not open subset file: $!";
+    while (! eof $ih) {
+        my $line = <$ih>;
+        if ($line =~ /(\d+\.\d+)/) {
+            $subset{$1} = 1;
+        }
+    }
+}
 # Read in the genome IDs and compute the names.
 my %genomes;
 open(my $gh, "<$repDir/complete.genomes") || die "Could not open complete.genomes: $!";
@@ -112,9 +128,13 @@ while (! eof $gh) {
     my $line = <$gh>;
     if ($line =~ /^(\d+\.\d+)\t(.+)/) {
         my ($genome, $name) = ($1, $2);
-        $kmerDb->AddGroup($genome, $name);
-        $genomes{$genome} = $name;
-        $stats->Add(genomeIn => 1);
+        if ($subFile && ! $subset{$genome}) {
+            $stats->Add(genomeSkipped => 1);
+        } else {
+            $kmerDb->AddGroup($genome, $name);
+            $genomes{$genome} = $name;
+            $stats->Add(genomeIn => 1);
+        }
     }
 }
 print "Genome names stored.\n";
@@ -127,8 +147,10 @@ if ($reduced) {
         my $id = $fh->id;
         if ($id =~ /(\d+\.\d+)/) {
             my $genome = $1;
-            $kmerDb->AddSequence($genome, $fh->left);
-            $stats->Add(sequenceIn => 1);
+            if ($genomes{$genome}) {
+                $kmerDb->AddSequence($genome, $fh->left);
+                $stats->Add(sequenceIn => 1);
+            }
         }
     }
 } else {
