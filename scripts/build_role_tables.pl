@@ -28,8 +28,10 @@ use Stats;
 
     build_role_tables.pl [ options ] outDir
 
-This script builds two tab delimited files in a specified output directory. It is the first step in creating
+This script builds three tab delimited files in a specified output directory. It is the first step in creating
 function predictors. The second step is L<build_matrix.pl>.
+
+IMPORTANT NOTE: /vol/patric3/fams/I<date>/kmers/function.index contains the functions currently in PATRIC.
 
 =over 4
 
@@ -43,6 +45,10 @@ every feature in well-behaved genomes that is currently in a subsystem.
 This file contains (0) a role ID, (1) a role checksum, and (2) a role description in each record. There is one record for every
 role appearing in the above file.
 
+=item roles.to.use
+
+This file contains (0) a role ID. There is one record for every role that appears in at least 100 genomes.
+
 =back
 
 =head2 Parameters
@@ -50,6 +56,27 @@ role appearing in the above file.
 The positional parameter is the name of the directory to contain the output files.
 
 The command-line options are those found in L<Shrub/script_options>.
+
+=head2 Basic Procedure for Creating the Predictors.
+
+First, you must identify a directory for the predictors and a directory for the role files. In the example below,
+we will use C<FunctionPredictors.X> for the predictors and C<Staging> for the role files.
+
+The first command creates the initial role files.
+
+    build_role_tables Staging
+
+The following four commands are run repeatedly in a loop. When the output of L<build_roles_to_use.pl> indicates that
+all of the roles are good, the loop stops.
+
+    build_matrix --clear Staging/raw.table FunctionPredictors.X Staging/roles.to.use
+    build_predictor_set FunctionPredictors.X
+    cp Staging/roles.to.use FunctionPredictors.X/
+    build_roles_to_use FunctionPredictors.X Staging
+
+Once the role set has converged, to install the new predictors you must (1) copy C<roles.in.subsystems> from C<Staging>
+to the SEEDtk Global directory. (2) Copy C<FunctionPredictors.X/roles.to.use> to the SEEDtk Global directory. (3)
+Symbolically link C<FunctionPredictors> in the global directory to C<FunctionPredictors.X>.
 
 =cut
 
@@ -101,9 +128,23 @@ while (my $roleData = $q->Fetch()) {
 }
 # Now output the list of roles used.
 close $oh; undef $oh;
+print "Writing roles.in.subsystems and roles.to.use.\n";
 open($oh, ">$outDir/roles.in.subsystems") || die "Could not open roles.in.subsystems: $!";
+open(my $rh, ">$outDir/roles.to.use") || die "Could not open roles.to.use: $!";
 for my $roleID (sort keys %rolePegs) {
     print $oh "$roleID\t$roles{$roleID}[0]\t$roles{$roleID}[1]\n";
     $stats->Add(roleOutput => 1);
+    my @pegs = keys %{$rolePegs{$roleID}};
+    my %genomes;
+    for my $peg (@pegs) {
+        my $genome = SeedUtils::genome_of($peg);
+        $genomes{$genome} = 1;
+    }
+    my $count = scalar keys %genomes;
+    if ($count >= 100) {
+        print "$count genomes found for $roleID.\n";
+        print $rh "$roleID\n";
+        $stats->Add(roleUsed => 1);
+    }
 }
 print "All done.\n" . $stats->Show();

@@ -94,7 +94,7 @@ sub new {
 
 =head3 new_from_dir
 
-    my $repDB = RepGenome->new_from_dir($dirName);
+    my $repDB = RepGenome->new_from_dir($dirName, %options);
 
 Read a representative-genome database from a directory.
 
@@ -138,6 +138,10 @@ A hash containing zero or more of the following keys.
 
 If TRUE, status messages will be sent to the standard output.
 
+=item unconnected
+
+If TRUE, the list of represented genomes will not be loaded into memory. Use this if only the representatives themselves are needed.
+
 =back
 
 =back
@@ -148,6 +152,7 @@ sub new_from_dir {
     my ($class, $dirName, %options) = @_;
     # Check the options.
     my $verbose = $options{verbose};
+    my $unconnected = $options{unconnected};
     # Load the parameter file.
     my ($k, $score);
     if (! -s "$dirName/K") {
@@ -177,7 +182,7 @@ sub new_from_dir {
     $retVal->_ReadProteins("$dirName/6.1.1.20.fasta", $gNames, $verbose);
     # Finally, we read the rep_db.tbl file to get the represented genomes. If the file doesn't exist we skip this step.
     my $repDbFile = "$dirName/rep_db.tbl";
-    if (-s $repDbFile) {
+    if (! $unconnected && -s $repDbFile) {
         print "Reading represented-genomes list.\n" if $verbose;
         open($kh, '<', $repDbFile) || die "Could not open represented-genomes file for $dirName: $!";
         while (! eof $kh) {
@@ -196,7 +201,7 @@ sub new_from_dir {
 
 =head3 K
 
-    my $K = $self->K();
+    my $K = $repDB->K();
 
 Return the kmer size for this database.
 
@@ -209,7 +214,7 @@ sub K {
 
 =head3 score
 
-    my $score = $self->score();
+    my $score = $repDB->score();
 
 Return the minimum similarity score for this database. To be represented, a genome must have this score or better with a representative.
 
@@ -381,9 +386,9 @@ sub list_reps {
 
 =head3 rep_list
 
-    my $repHash = $repDB->rep_list();
+    my $repList = $repDB->rep_list();
 
-Return a list of the IDs of the representative genomes in this database.
+Return a list of the IDs of the representative genomes in this database, sorted by genome ID.
 
 =cut
 
@@ -574,6 +579,80 @@ sub AddRepObject {
         my ($genomeID) = $tuple->[0];
         $repMap->{$genomeID} = $repGenome;
     }
+}
+
+=head3 FindRegion
+
+    my $genomeList = $repDB->FindRegion($prot, %options);
+
+Find a neighborhood surrounding a particular genome. We build a crude neighborhood by working our way through the list of representative genomes closest
+to the specified genome's seed protein, pulling a certain number from each one until the desired size is reached.
+
+=over 4
+
+=item prot
+
+The seed protein sequence for the genome of interest.
+
+=item options
+
+A hash containing zero or more of the following options.
+
+=over 8
+
+=item size
+
+The desired neighborhood size. The default is C<100>.
+
+=item sliceSize
+
+The maximum number of genomes to take from each represented set. The default is C<35>.
+
+=item minScore
+
+The minimum acceptable score for a represented set to be considered close. The default is C<25>.
+
+=back
+
+=item RETURN
+
+Returns a reference to a list of IDs for genomes theoretically in the proper neighborhood.
+
+=back
+
+=cut
+
+sub FindRegion {
+    my ($self, $prot, %options) = @_;
+    # Get the options.
+    my $minScore = $options{minScore} // 25;
+    my $sliceSize = $options{sliceSize} // 35;
+    my $size = $options{size} // 100;
+    # Get a list of the representative genomes close to this one.
+    my $nH = $self->list_reps($prot, $minScore);
+    # Sort the results.
+    my @neighborhoods = sort { $nH->{$b} <=> $nH->{$a} } keys %$nH;
+    # The output will be put in here.
+    my @retVal;
+    # Loop through the neighborhoods.
+    while (scalar(@retVal) < $size && scalar(@neighborhoods)) {
+        my $neighbor = shift @neighborhoods;
+        # Get the list of genomes in this neighborhood. Note we add the representative genome itself.
+        my $repObject = $self->rep_object($neighbor);
+        my @neighbors = ($neighbor, map { $_->[0] } @{$repObject->rep_list()});
+        # If the list is large, scramble it to select the ones we want. Otherwise, use them all.
+        if (scalar(@neighbors) > $sliceSize) {
+            for (my $i = 0; $i < $sliceSize; $i++) {
+                my $j = int(rand($sliceSize));
+                ($neighbors[$i], $neighbors[$j]) = ($neighbors[$j], $neighbors[$i]);
+            }
+            push @retVal, @neighbors[0 .. $sliceSize - 1];
+        } else {
+            push @retVal, @neighbors;
+        }
+    }
+    # Return the list of neighbors.
+    return \@retVal;
 }
 
 =head2 Internal Utilities

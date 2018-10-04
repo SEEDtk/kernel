@@ -121,11 +121,14 @@ while (! eof $ih) {
         # Now assemble the output.
         print STDERR "Assembling output.\n";
         for my $fid (sort keys %locs) {
+            my $found = 0;
             # Insure we have roles.
             my $roles = $roles{$fid};
             if (! $roles) {
                 $stats->Add(fidNoRoles => 1);
                 $roles = [''];
+            } else {
+                $found++;
             }
             $stats->Add(fidOut => 1);
             # Format the feature and location data.
@@ -137,14 +140,20 @@ while (! eof $ih) {
             if (! $fams) {
                 $fams = [''];
                 $stats->Add(fidNoFamilies => 1);
+            } else {
+                $found++;
             }
             if (scalar @$fams > 1) {
                 $stats->Add(fidMultiFamily => 1);
             }
-            for my $role (@$roles) {
-                for my $fam (@$fams) {
-                    print join("\t", @row, $role, $fam) . "\n";
-                    $stats->Add(lineOut => 1);
+            if (! $found) {
+                $stats->Add(fidUseless => 1);
+            } else {
+                for my $role (@$roles) {
+                    for my $fam (@$fams) {
+                        print join("\t", @row, $role, $fam) . "\n";
+                        $stats->Add(lineOut => 1);
+                    }
                 }
             }
         }

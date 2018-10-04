@@ -192,9 +192,9 @@ The number of kmer matches required to place a contig into a bin. The default is
 
 Kmer length for placing unbinned contigs. The default is C<50>.
 
-=item species
+=item genus
 
-If specified, reference genomes will be grouped by genus and species instead of genus.
+If specified, reference genomes will be grouped by genus instead of genus and species.
 
 =item statistics-file
 
@@ -275,7 +275,7 @@ my $opt = ScriptUtils::Opts('sampleDir workDir',
                 ['kmer|k=i',       'kmer length for protein matches during binning', { default => 12 }],
                 ['binstrength=i',  'number of kmer matches required to bin a contig', { default => 10 }],
                 ['danglen=i',      'kmer length for unbinned-contig DNA matches', { default => 50 }],
-                ['species',        'group by species instead of genus'],
+                ['genus',          'group by genus instead of species'],
                 ['statistics-file=s', 'save statistics data to this file'],
         );
 # Enable access to PATRIC from Argonne.
@@ -507,8 +507,11 @@ for my $contig (keys %$contigHash) {
     my $genomeData = $contigHash->{$contig}[0];
     my ($genome, $score, $name) = @$genomeData;
     # Compute the title for this genome, depending on whether we are sorting on genus or genus/species.
-    my ($genus, $species) = split ' ', $name;
-    my $title = ($opt->species ? join(' ', $genus, $species) : $genus);
+    my ($genus, $species, $strain) = split ' ', $name;
+    if ($species eq 'sp.') {
+        $species .= " $strain";
+    }
+    my $title = ($opt->genus ? $genus : join(' ', $genus, $species));
     my $bin = $contigs{$contig};
     $bin->add_ref($genome);
     $rg{$genome} = 1;
@@ -663,7 +666,7 @@ if ($opt->unassembled) {
         close $ch;
         print "Writing kmer-based bins.\n";
         my @sorted = sort { Bin::cmp($a, $b) } @binList;
-        open(my $oh, ">$kmerBinFile") || die "Could not open bins.json checkpoint file: $!";
+        open(my $oh, ">$kmerBinFile") || die "Could not open bins.kmer.json checkpoint file: $!";
         for my $bin (@sorted) {
             $bin->Write($oh);
         }

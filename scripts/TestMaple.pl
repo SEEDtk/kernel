@@ -2,21 +2,26 @@ use strict;
 use FIG_Config;
 use ScriptUtils;
 use Stats;
-use GPUtils;
 
-print STDERR "Processing GenomePackages.\n";
-my $gHash = GPUtils::get_all('GenomePackages');
-print STDERR "Preparing files.\n";
-open(my $ih, "<funny.tbl") || die "Could not open funny.tbl: $!";
-open(my $oh, ">incorrect.tbl") || die "Could not open incorrect.tbl: $!";
-my $line = <$ih>; chomp $line;
-print $oh "$line\tref_genome\tlength\n";
-# Read the genomes of interest.
-print STDERR "Reading funny table.\n";
-while (! eof $ih) {
-    my ($id, @cols) = ScriptUtils::get_line($ih);
-    my $gData = GPUtils::get_data($gHash, $id);
-    my $refID = $gData->{'Ref Genome'};
-    my $len = $gData->{'Base pairs'};
-    print $oh join("\t", $id, @cols, $refID, $len) . "\n";
+$| = 1;
+my %binCounts;
+my $stats = Stats->new();
+my $binDir = "$FIG_Config::data/Bins_HMP";
+opendir(my $dh, $binDir) || die "Could not open binning directory: $!";
+my @samples = grep { -s "$binDir/$_/contigs.fasta" } readdir $dh;
+my $nSamples = scalar @samples;
+print "$nSamples directories found.\n";
+closedir $dh;
+for my $sample (@samples) {
+    $stats->Add(sampleIn => 1);
+    my $sampleDir = "$binDir/$sample";
+    if (-s "$sampleDir/site.tbl") {
+        $stats->Add(siteFound => 1);
+    } else {
+        print "Setting site for $sample.\n";
+        open(my $oh, ">$sampleDir/site.tbl") || die "Could not open site.tbl: $!";
+        print $oh join("\t", 'RAE', 'unspecified', 'Unspecified') . "\n";
+        $stats->Add(siteAdded => 1);
+    }
 }
+print "All done.\n" . $stats->Show();

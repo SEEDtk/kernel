@@ -28,7 +28,7 @@ use Stats;
 
     taxon_analysis.pl [ options ] outDir
 
-This script determines the universal roles for taxonomic groupings. A I<universal role> is one that occurs singly 95% of the time in genomes
+This script determines the universal roles for taxonomic groupings. A I<universal role> is one that occurs singly 97% of the time in genomes
 of a given taxonomic grouping. The script takes as input a matrix of the singly-occurring roles in each known good genome (the output of
 L<p3-role-matrix.pl>). This matrix can be used to compute the universal roles for each taxonomic grouping in the Shrub.
 
@@ -54,7 +54,7 @@ A list of the useful taxonomic groupings, one per line, containing the taxonomic
 
 =head2 Parameters
 
-There are no positional parameters.
+There positional parameter is the name of the output directory.
 
 The command-line options are those found in L<Shrub/script_options> (to specify the database) and L<ScriptUtils/ih_options> (to specify the
 input file) plus the following.
@@ -63,7 +63,7 @@ input file) plus the following.
 
 =item min
 
-Minimum percentage of genomes in a taxonomic grouping that must contain a role for it to be considered universal. The default is C<95>.
+Minimum percentage of genomes in a taxonomic grouping that must contain a role for it to be considered universal. The default is C<97>.
 
 =item size
 
@@ -77,6 +77,11 @@ Minimum number of roles for a taxonomic grouping for it to be considered useful 
 
 The name of the NCBI taxonomy database file containing mappings from old taxon IDs to new ones.
 
+=item unique
+
+If specified, only one genome from each low-level taxonomic grouping will be used, to provide a more robust
+genome distribution.
+
 =back
 
 The input file contains a header row with the role IDs in it. The first column of each data line should contain the genome ID, the second the
@@ -89,10 +94,11 @@ $| = 1;
 my $opt = ScriptUtils::Opts('outDir',
         Shrub::script_options(),
         ScriptUtils::ih_options(),
-        ['min|m=f', 'minimum threshold percentage', { default => 95 }],
+        ['min|m=f', 'minimum threshold percentage', { default => 97 }],
         ['size|s=i', 'minimum number of genomes per group', { default => 100 }],
-        ['rMin|r=i', 'minimum number of roles for a useful group', { default => 100 }],
-        ['merge=s', 'NCBI taxonomy merge file', { default => "$FIG_Config::data/Inputs/Other/merged.dmp" }]
+        ['rMin|r=i', 'minimum number of roles for a useful group', { default => 90 }],
+        ['merge=s', 'NCBI taxonomy merge file', { default => "$FIG_Config::data/Inputs/Other/merged.dmp" }],
+        ['unique|u', 'only use one genome per taxonomic ID'],
         );
 my $stats = Stats->new();
 # Verify the output directory.
@@ -128,49 +134,64 @@ my %taxNames;
 my %taxRoles;
 # This hash maps each taxonomic grouping to its parent.
 my %taxParent;
+# Save the uniqueness option.
+my $unique = $opt->unique;
+my %uniques;
 # Use this to time trace messages.
 my $count = 0;
 print "Processing genomes from input.\n";
 # Loop through the input.
 while (! eof $ih) {
     my ($genome, $taxon, @array) = ScriptUtils::get_line($ih);
-    while ($taxon) {
-        # Make sure we have the latest version of this tax ID.
-        if ($merge{$taxon}) {
-            $taxon = $merge{$taxon};
-            $stats->Add(taxonMapped => 1);
-        }
-        # Get the taxon name.
-        my $taxName = $taxNames{$taxon};
-        if (! $taxName) {
-            # This is a new group. Get its parent and name.
-            my ($taxInfo) = $shrub->GetAll('TaxonomicGrouping IsInTaxonomicGroup', 'TaxonomicGrouping(id) = ?', [$taxon], 'scientific-name domain IsInTaxonomicGroup(to-link)');
-            if (! $taxInfo) {
-                print STDERR "Taxonomic grouping $taxon not found for $genome.\n";
-            } else {
-                my ($name, $domain, $parent) = @$taxInfo;
-                $taxNames{$taxon} = $name;
-                $taxParent{$taxon} = ($domain ? '' : $parent);
-                $taxName = $name;
-                $stats->Add(taxGroupFound => 1);
+    # Make sure we have the latest version of this tax ID.
+    if ($merge{$taxon}) {
+        $taxon = $merge{$taxon};
+        $stats->Add(taxonMapped => 1);
+    }
+    # Process the uniqueness requirement.
+    if ($unique && $uniques{$taxon}) {
+        $stats->Add(taxonNotUnique => 1);
+    } else {
+        $uniques{$taxon} = 1;
+        while ($taxon) {
+            # Make sure we have the latest version of this tax ID.
+            if ($merge{$taxon}) {
+                $taxon = $merge{$taxon};
+                $stats->Add(taxonMapped => 1);
             }
-        }
-        # Only proceed if this is a valid grouping.
-        if (! $taxName) {
-            $stats->Add(taxonInvalid => 1);
-            $taxon = '';
-        } else {
-            # Add us into this group.
-            if ($taxRoles{$taxon}) {
-                for (my $i = 0; $i < scalar @roles; $i++) { $taxRoles{$taxon}[$i] += $array[$i] }
-                $stats->Add(taxGroupReused => 1);
-            } else {
-                $taxRoles{$taxon} = [ @array ];
-                $stats->Add(taxGroup => 1);
+            # Get the taxon name.
+            my $taxName = $taxNames{$taxon};
+            my $isNewGroup;
+            if (! $taxName) {
+                # This is a new group. Get its parent and name.
+                my ($taxInfo) = $shrub->GetAll('TaxonomicGrouping IsInTaxonomicGroup', 'TaxonomicGrouping(id) = ?', [$taxon], 'scientific-name domain IsInTaxonomicGroup(to-link)');
+                if (! $taxInfo) {
+                    print STDERR "Taxonomic grouping $taxon not found for $genome.\n";
+                } else {
+                    my ($name, $domain, $parent) = @$taxInfo;
+                    $taxNames{$taxon} = $name;
+                    $taxParent{$taxon} = ($domain ? '' : $parent);
+                    $taxName = $name;
+                    $stats->Add(taxGroupFound => 1);
+                }
             }
-            $taxCounts{$taxon}++;
-            # Get the next group.
-            $taxon = $taxParent{$taxon};
+            # Only proceed if this is a valid grouping.
+            if (! $taxName) {
+                $stats->Add(taxonInvalid => 1);
+                $taxon = '';
+            } else {
+                # Add us into this group.
+                if ($taxRoles{$taxon}) {
+                    for (my $i = 0; $i < scalar @roles; $i++) { $taxRoles{$taxon}[$i] += $array[$i] }
+                    $stats->Add(taxGroupReused => 1);
+                } else {
+                    $taxRoles{$taxon} = [ @array ];
+                    $stats->Add(taxGroup => 1);
+                }
+                $taxCounts{$taxon}++;
+                # Get the next group.
+                $taxon = $taxParent{$taxon};
+            }
         }
     }
     $stats->Add(genomeProcessed => 1);
@@ -213,7 +234,6 @@ for my $taxon (sort keys %taxRoles) {
     print $sh join("\t", @header, $taxCounts{$taxon}, $roleCount) . "\n";
     if ($taxCounts{$taxon} < $opt->size) {
         $stats->Add(groupTooSmall => 1);
-        print "$taxon: $taxNames{$taxon} is too small ($taxCounts{$taxon} genomes).\n";
     } elsif ($roleCount < $opt->rmin) {
         $stats->Add(groupBad => 1);
         print "$taxon: $taxNames{$taxon} has too few marker roles ($roleCount).\n";

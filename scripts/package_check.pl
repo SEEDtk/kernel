@@ -29,8 +29,8 @@ use SeedUtils;
 
     package_check.pl [ options ] dir pkg1 pkg2 ... pkgN
 
-This script runs through the packages filling in missing quality reports. Currently, this includes SciKit and
-and CheckM.
+This script runs through the packages filling in missing quality reports. Currently, this includes SciKit (EvalCon) and
+and CheckG (EvalG). CheckM is optionally available.
 
 =head2 Parameters
 
@@ -44,7 +44,7 @@ The command-line options are as follows.
 =item force
 
 All of the evaluations will be performed, even if they already exist. A value of C<SciKit> can be specified to only
-rerun the SciKit evaluations, and a value of C<CheckM> can be specified to only rerun the CheckM evaluations.
+rerun the SciKit evaluations, and a value of C<CheckG> can be specified to only rerun the CheckG evaluations.
 
 =item status
 
@@ -54,9 +54,14 @@ If specified, no evaluations will be performed, only the status will be displaye
 
 If specified, empty directories will be deleted.
 
-=item nocheckm
+=item checkm
 
-If specified, no CheckM evaluations will be performed.
+If specified, CheckM evaluations will be performed.
+
+=item predictors
+
+Name of the function predictors directory. The default is FunctionPredictors in the SEEDtk global data directory.
+If this option is specified, the role files in the predictors directory will be used instead of the global role files.
 
 =back
 
@@ -66,11 +71,24 @@ $| = 1;
 # Get the command-line parameters.
 my $opt = ScriptUtils::Opts('dir pkg1 pkg2 ... pkgN',
         ["force:s", 'force regeneration of quality data'],
-        ["nocheckm", 'skip CheckM evaluations'],
+        ["checkm", 'do CheckM evaluations'],
         ["status", 'only show totals'],
-        ["clean", 'delete empty packages']
+        ["clean", 'delete empty packages'],
+        ["predictors=s", 'function predictors directory'],
         );
 my $stats = Stats->new;
+print "Processing options.\n";
+my ($rolesToUse, $roleFile, $predictors);
+if ($opt->predictors) {
+    $predictors = $opt->predictors;
+    $rolesToUse = "$predictors/roles.to.use";
+    $roleFile = "$predictors/roles.in.subsystems";
+} else {
+    $predictors = "$FIG_Config::global/FunctionPredictors";
+    $rolesToUse = "$FIG_Config::global/roles.to.use";
+    $roleFile = "$FIG_Config::global/roles.in.subsystems";
+}
+print "Scikit files are $predictors, $rolesToUse, and $roleFile.\n";
 # Get the directory and the package.
 my ($dir, @packages) = @ARGV;
 if (! $dir) {
@@ -84,15 +102,15 @@ if (! $dir) {
     if (defined $force) {
         if ($force eq '') {
             $force{SciKit} = 1;
-            $force{CheckM} = 1;
+            $force{CheckG} = 1;
         } else {
             $force{$force} = 1;
         }
     }
     # This is the cleaning flag.
     my $clean = $opt->clean;
-    # This is the checkM flag. If FALSE, we will not do checkMs.
-    my $checkmFlag = ($opt->nocheckm ? 0 : 1);
+    # This is the checkM flag. We only do CheckM if it is TRUE.
+    my $checkmFlag = ($opt->checkm ? 1 : 0);
     # Compute the list of packages to process.
     if (! @packages) {
         opendir(my $dh, $dir) || die "Could not open package directory: $!";
@@ -118,19 +136,24 @@ if (! $dir) {
             }
             $stats->Add(emptyPackages => 1);
         } else {
-            # Process CheckM.
-            my $outDir = "$pDir/EvalByCheckm";
-            my $cmd = "checkm lineage_wf --tmpdir $FIG_Config::temp -x fa --file $pDir/evaluate.log $pDir $outDir";
+            my ($outDir, $cmd);
+            # Process CheckG.
+            $outDir = "$pDir/EvalByCheckG";
+            $cmd = "check_gto --eval --quiet $outDir $pDir/bin.gto";
+            $ok = Process(CheckG => $outDir, $force{CheckG}, $package, $cmd, $opt->status);
+            # Process SciKit.
+            $outDir = "$pDir/EvalBySciKit";
+            $cmd = "gto_consistency $pDir/bin.gto $outDir $predictors $roleFile $rolesToUse";
+            $ok = Process(SciKit => $outDir, $force{SciKit}, $package, $cmd, $opt->status);
+            # Process CheckM if the user wants it.
+            $outDir = "$pDir/EvalByCheckm";
+            $cmd = "checkm lineage_wf --tmpdir $FIG_Config::temp -x fa --file $pDir/evaluate.log $pDir $outDir";
             if ($checkmFlag) {
-                $ok = Process(CheckM => $outDir, $force{CheckM}, $package, $cmd, $opt->status);
+                $ok = Process(CheckM => $outDir, 0, $package, $cmd, $opt->status);
                 if ($ok) {
                     File::Copy::Recursive::fmove("$pDir/evaluate.log", "$pDir/EvalByCheckm/evaluate.log");
                 }
             }
-            # Process SciKit.
-            $outDir = "$pDir/EvalBySciKit";
-            $cmd = "gto_consistency $pDir/bin.gto $outDir $FIG_Config::global/FunctionPredictors $FIG_Config::global/roles.in.subsystems $FIG_Config::global/roles.to.use";
-            $ok = Process("SciKit" => $outDir, $force{SciKit}, $package, $cmd, $opt->status);
         }
     }
 }

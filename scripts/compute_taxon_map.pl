@@ -30,7 +30,7 @@ use Stats;
 
 This script takes an input file of taxonomic IDs. It outputs a file that maps all taxonomic IDs to the smallest containing taxonomic ID found in the
 input file. The output file can then be used to map any represented taxonomic ID to the best match in the input file. Unrepresented taxonomies will not be included.
-The basic strategy is to work our way up from each input ID and return the first group we find from the input.
+The basic strategy is to work our way up from each ID in the taxonomy tree and return the first group we find from the input.
 
 =head2 Parameters
 

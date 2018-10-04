@@ -35,6 +35,10 @@ are
 
 =over 4
 
+=item Downloaded
+
+The reads have been downloaded. If the project type is C<NCBI>, this means C<site.tbl> exists.
+
 =item Assembling
 
 The reads are being assembled into contigs-- C<Assembly> exists.
@@ -76,7 +80,7 @@ Remove assembly information for completed jobs.
 
 =item project
 
-Project type for binning jobs. (C<MH>, C<AG>, C<HMP>, C<SYNTH>, or C<CT>)
+Project type for binning jobs. (C<MH>, C<AG>, C<HMP>, C<SYNTH>, C<NCBI>, or C<CT>)
 
 =item run
 
@@ -108,6 +112,14 @@ If c<all>, all unprocessed samples will be removed. If C<empty>, all empty sampl
 
 Back out incomplete assemblies. This means removing the C<Assembly> directory so that the assembly can be restarted.
 
+=item engine
+
+Type of binning engine to use-- C<s> for the standard binner, C<2> for the alternate binner.
+
+=item packages
+
+Name of the directory to contain the genome packages. The default is B<GenomePackages> in the SEEDtk data directory.
+
 =back
 
 =cut
@@ -122,6 +134,8 @@ my $opt = ScriptUtils::Opts('directory',
                 ['fix=s', 'remove unprocessed sample directories', { default => 'none' }],
                 ['backout', 'back out incomplete assemblies'],
                 ['maxResume=i', 'maximum number of running jobs for resume', { default => 20 }],
+                ['engine=s', 'type of binning engine to use', { default => 's' }],
+                ['packages|p=s', 'genome packages directory', { default => "$FIG_Config::data/GenomePackages" }],
                 ['run=i', 'run binning pipeline on new directories', { default => 0 }]);
 my $stats = Stats->new();
 # Get the main directory name.
@@ -136,6 +150,7 @@ my $clean = $opt->clean;
 my $runCount = $opt->run // 0;
 my $proj = $opt->project;
 my $fix = $opt->fix;
+my $engine = $opt->engine;
 # Get a hash of the running subdirectories.
 my %running;
 my @jobs = `ps -AF`;
@@ -160,13 +175,14 @@ for my $dir (@dirs) {
     my $cleaned = (-d "$subDir/Assembly" ? "" : "  Assembly cleaned.");
     my $done;
     # Determine the site.
-    my $site;
+    my ($site, $sited);
     if (! -s "$subDir/site.tbl") {
         $site = "Unspecified";
     } elsif (open(my $sh, '<', "$subDir/site.tbl")) {
         my $line = <$sh>;
         if ($line =~ /(\S+)\t([^\t]+)\t(.+)/) {
             $site = "$1 $3";
+            $sited = 1;
             $stats->Add("site-$2" => 1);
         } else {
             $site = "Invalid";
@@ -201,6 +217,7 @@ for my $dir (@dirs) {
             while (-s "$subDir/bin$i.gto") { $i++; }
             my $bins = $i - 1;
             push @other, "$label: RAST in Progress. $bins completed.\n";
+            $stats->Add(binsAccumulating => $bins);
         }
         $stats->Add(dirs5RastPartial => 1);
     } elsif (-s "$subDir/bins.json") {
@@ -240,6 +257,9 @@ for my $dir (@dirs) {
             push @other, "$label: Assembling.\n";
             $stats->Add(dirs1Assembling => 1);
         }
+    } elsif ($proj eq 'NCBI' && ! $sited) {
+        push @other, "$label: Downloading.\n";
+        $stats->Add('dirs.Downloading' => 1);
     } else {
         # Here the directory is downloaded. We may need to fix it or run the pipeline.
         opendir(my $dh, $subDir) || die "Could not open directory $subDir: $!";
@@ -279,7 +299,7 @@ for my $dir (@dirs) {
         $stats->Add(dirs7Done => 1);
         if ($clean && ! $cleaned) {
             print "Cleaning $subDir.\n";
-            Bin::Package::CreateFromSample($subDir, $dir, $stats, 0, "$FIG_Config::data/GenomePackages");
+#           Bin::Package::CreateFromSample($subDir, $dir, $stats, 0, $opt->packages);
             $cleaned = "  Cleaning Assembly.";
             File::Copy::Recursive::pathempty("$subDir/Assembly");
             rmdir "$subDir/Assembly";
@@ -302,7 +322,8 @@ print "\nAll done:\n" . $stats->Show();
 
 sub StartJob {
     my ($dir, $subDir, $gz, $start, $label, $proj) = @_;
-    my $cmd = "bins_sample_pipeline --project=$proj $gz $dir $subDir >$subDir/run.log 2>$subDir/err.log";
+    my $realProj = ($proj eq 'NCBI' ? 'MH' : $proj);
+    my $cmd = "bins_sample_pipeline --project=$realProj --engine=$engine $gz $dir $subDir >$subDir/run.log 2>$subDir/err.log";
     my $rc = system("nohup $cmd &");
     push @other, "$label: $start $cmd.\n";
     $stats->Add("dirs0$start" => 1);

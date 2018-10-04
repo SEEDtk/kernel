@@ -102,6 +102,10 @@ Configure the assembly for a large number of reads. This makes the assembly slow
 
 If specified, then the reads are stored in C<gz> files and must be unzipped first.
 
+=item engine
+
+Type of binning engine to use-- C<s> for standard or C<2> for alternate.
+
 =back
 
 =cut
@@ -115,7 +119,8 @@ my $opt = ScriptUtils::Opts('sampleID workDir',
         ["large", "assembly is large"],
         ["project=s", "source project type", { default => 'MH' }],
         ["reset:s", "delete all files except the assembly results to force re-binning"],
-        ["gz", "unzip read files before processing"]
+        ["gz", "unzip read files before processing"],
+        ['engine=s', 'type of binning engine to use', { default => 's' }],
         );
 # Close STDIN so we don't hang a parent process.
 close(STDIN);
@@ -153,6 +158,8 @@ if ($project eq 'HMP') {
 } else {
     die "Invalid project type $project.";
 }
+# Store the engine.
+$options{engine} = $opt->engine;
 # Compute the file names for the sample.
 my $expectF = "$workDir/$sampleID" . "_abundance_table.tsv";
 # Check the file name suffixes. Save the ones that exist as options.

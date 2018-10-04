@@ -22,6 +22,7 @@ use warnings;
 use FIG_Config;
 use ScriptUtils;
 use Shrub;
+use SamplePipeline;
 
 =head1 Submit Bins Through RAST
 

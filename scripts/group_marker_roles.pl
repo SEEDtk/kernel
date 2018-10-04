@@ -31,7 +31,7 @@ use Data::Dump;
 
     group_marker_roles.pl [ options ] workDir
 
-This script reads the C<roles.tbl> file produced by L<taxon_analysis.pl> and organize the roles into cluster groups. Each
+This script reads the C<roles.tbl> file produced by L<p3-taxon-analysis.pl> and organize the roles into cluster groups. Each
 pair of incoming roles is examined against the L<Shrub> database to see which are commonly clustered. For
 each taxonomic group in C<roles.tbl>, the roles are organized into groups based on the pairs, and a new C<weighted.tbl> file is
 written with weights assigned to the roles. The output file will be tab-delimited with two line types. Each header line

@@ -15,10 +15,12 @@ my $usage = "partition_on_column inDir outDir column";
 my ($inDir, $outDir, $selected_column) = @ARGV;
 
 my ($out_X_fh, $out_y_fh);
-if (-d $outDir) {
-    File::Copy::Recursive::pathempty($outDir);
-}
-else {
+if (!-d $outDir) {
+    #...This is very dirty, and needs some careful bulletproofing.
+    # (At a minimum, some timestamp-checking to forestall clobbering stuff.)
+    # Problem is that can't blindly clear this directory, as it can contain results
+    # from multiple independent requests for "pickled" classifiers on same data. :-(
+    
     make_path($outDir) || die "Could not create '$outDir'";
 }
 open($out_X_fh, ">", "$outDir/X") or die "Could not write-open '$outDir/X'";
