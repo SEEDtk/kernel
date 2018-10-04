@@ -57,11 +57,11 @@ if (! $fastaFile) {
         $protein = $fh->left;
     }
 } elsif ($protein =~ /^fig\|/) {
-    my ($protRecord) = $p3->query('genome_feature', ['select', 'aa_sequence'], ['eq', 'patric_id', $protein]);
+    my ($protRecord) = P3Utils::get_data($p3, feature => [['eq', 'patric_id', $protein]], ['patric_id', 'aa_sequence']);
     if (! $protRecord) {
         die "$protein not found in PATRIC.";
     } else {
-        $protein = $protRecord->{aa_sequence};
+        $protein = $protRecord->[1];
     }
 }
 # Create the kmer hash for the input protein.

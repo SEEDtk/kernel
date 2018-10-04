@@ -701,11 +701,11 @@ sub get_protein {
             'Function2Feature(from-link) = ? AND Function2Feature(security) = ? AND Feature(id) LIKE ?',
             ['PhenTrnaSyntAlph', 0, "fig|$genome.peg.%"], 'Protein(sequence)');
     if (! $retVal) {
-        my ($protData) = $p3->query('genome_feature', ['select', 'aa_sequence'], ['eq', 'genome_id', $genome],
+        my ($protData) = P3Utils::get_data($p3, 'feature', [['eq', 'genome_id', $genome],
                 ['eq', 'annotation', 'PATRIC'],
-                ['eq', 'product', qq("Phenylalanyl-tRNA synthetase alpha chain")]);
+                ['eq', 'product', "Phenylalanyl-tRNA synthetase alpha chain"]], ['patric_id', 'aa_sequence']);
         if ($protData) {
-            $retVal = $protData->{aa_sequence};
+            $retVal = $protData->[1];
         }
     }
     return $retVal;
