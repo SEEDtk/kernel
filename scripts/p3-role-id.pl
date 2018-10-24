@@ -58,41 +58,35 @@ if (! $opt->nohead) {
     push @$outHeaders, 'role';
     P3Utils::print_cols($outHeaders);
 }
+# We will cache role IDs in here.
+my %checksums;
 # Loop through the input.
 while (! eof $ih) {
     # Get the input batch.
     my $couplets = P3Utils::get_couplets($ih, $keyCol, $opt);
-    # Compute the role checksums for each product.
-    my @functions = grep { $_ !~ /^hypothetical/ } map { $_->[0] } @$couplets;
-    my %checksums;
-    for my $function (@functions) {
-        my @checksums = map { RoleParse::Checksum($_) } SeedUtils::roles_of_function($function);
-        for my $checksum (@checksums) {
-            push @{$checksums{$checksum}}, $function;
-        }
-    }
-    # We now have a map from each checksum to all the functions of which it is a part.
-    # Only proceed if we have at least one role.
-    my @parms = keys %checksums;
-    if (scalar @parms) {
-        # Compute the role IDs for each product from the checksums.
-        my %functions;
-        my $filter = 'Role(checksum) IN (' . join(",", ('?') x scalar(@parms)) . ')';
-        my @rolePairs = $shrub->GetAll('Role', $filter, \@parms, 'checksum id');
-        for my $rolePair (@rolePairs) {
-            my ($checksum, $role) = @$rolePair;
-            for my $function (@{$checksums{$checksum}}) {
-                push @{$functions{$function}}, $role;
-            }
-        }
-        # Output the roles for each function.
-        for my $couplet (@$couplets) {
-            my ($function, $line) = @$couplet;
-            my $roles = $functions{$function};
-            if ($roles) {
-                for my $role (@$roles) {
-                    P3Utils::print_cols([@$line, $role]);
+    # Loop through the couplets, producing the roles.
+    for my $couplet (@$couplets) {
+        my ($function, $line) = @$couplet;
+        if (! ($function =~ /^hypothetical/)) {
+            # Look for cached roles. Ask for the rest.
+            my @checksums = map { RoleParse::Checksum($_) } SeedUtils::roles_of_function($function);
+            my (@roles, @parms);
+            for my $checksum (@checksums) {
+                if ($checksums{$checksum}) {
+                    push @roles, $checksums{$checksum}
+                } else {
+                    push @parms, $checksum;
                 }
+            }
+            for my $parm (@parms) {
+                my ($role) = $shrub->GetFlat('Role', 'Role(checksum) = ?', [$parm], 'id');
+                if ($role) {
+                    $checksums{$parm} = $role;
+                    push @roles, $role;
+                }
+            }
+            for my $role (@roles) {
+                P3Utils::print_cols([@$line, $role]);
             }
         }
     }
