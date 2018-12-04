@@ -85,7 +85,7 @@ while ($reader->next) {
     } else {
         $repID = '<none>';
     }
-    my $output = [$reader->id, $repID, $repName, $score];
+    my $output = [$reader->id, $repID, $repName, $score1];
     if ($score1 >= $score) {
         P3Utils::print_cols($output);
     } else {
