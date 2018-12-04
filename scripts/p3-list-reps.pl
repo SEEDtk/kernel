@@ -33,6 +33,16 @@ The positional parameters are the input directory and the minimum similarity sco
 The standard input can be overridden using the options in L<P3Utils/ih_options>. It should contain the FASTA file with seed proteins (Phenylalanyl
 tRNA-synthetase protein alpha chain) for multiple genomes.
 
+The following additional command-line parameters are supported.
+
+=over 4
+
+=item verbose
+
+If specified, progress messages will be written to STDERR.
+
+=back
+
 
 =head2 Output Files
 
@@ -49,6 +59,7 @@ use FastA;
 $| = 1;
 # Get the command-line options.
 my $opt = P3Utils::script_opts('inDir score', P3Utils::ih_options(),
+        ['verbose', 'write progress messages to STDERR']
         );
 # Verify the parameters.
 my ($inDir, $score) = @ARGV;
@@ -64,10 +75,12 @@ if (! $score) {
 } elsif ($score =~ /\D/) {
     die "Invalid score $score.";
 }
+my $debug = $opt->verbose;
 # Create the database from the input directory.
 my $repDB = RepGenomeDb->new_from_dir($inDir);
 # Save the parameters.
 my $K = $repDB->K();
+print STDERR "Representative genome database loaded from $inDir.\n" if $debug;
 # Open the input file.
 my $ih = P3Utils::ih($opt);
 # Print the output headers.
@@ -75,6 +88,7 @@ P3Utils::print_cols([qw(id rep_id genome_name similarity)]);
 # The low-scoring genome output lines are kept in here.
 my @outliers;
 # Read the proteins.
+my ($count, $kept) = (0, 0);
 my $reader = FastA->new($ih);
 while ($reader->next) {
     my $prot = $reader->left;
@@ -88,11 +102,15 @@ while ($reader->next) {
     my $output = [$reader->id, $repID, $repName, $score1];
     if ($score1 >= $score) {
         P3Utils::print_cols($output);
+        $kept++;
     } else {
         push @outliers, $output;
     }
+    $count++;
+    print STDERR "$count proteins processed. $kept have similarity $score or greater.\n" if $debug && ($count % 500 == 0);
 }
 # Write the outliers, if any.
+print STDERR "Writing outliers.\n" if $debug;
 if (@outliers) {
     print "\n";
     for my $outlier (@outliers) {
