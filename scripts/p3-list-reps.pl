@@ -107,7 +107,7 @@ while ($reader->next) {
         push @outliers, $output;
     }
     $count++;
-    print STDERR "$count proteins processed. $kept have similarity $score or greater.\n" if $debug && ($count % 500 == 0);
+    print STDERR "$count proteins processed. $kept have similarity $score or greater.\n" if $debug && ($count % 100 == 0);
 }
 # Write the outliers, if any.
 print STDERR "Writing outliers.\n" if $debug;
