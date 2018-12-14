@@ -54,6 +54,11 @@ If specified, the outlier genomes will be filtered so that only good ones are ch
 If specified, a similarity score indicating a middle similarity distance. The file C<middle.tbl> will be written containing
 the genomes that are less similar than the main score but more similar than this score.
 
+=item fasta
+
+If specified, the standard input will be a FASTA file of protein sequences with genome or feature IDs.  If this option is
+specified, the PATRIC database is not accessed; instead, the protein sequences are read from the input.
+
 =back
 
 =head2 Output Files
@@ -71,19 +76,18 @@ use RepGenomeDb;
 use File::Copy::Recursive;
 use Stats;
 use RoleParse;
+use FastA;
 
 $| = 1;
 # Get the command-line options.
 my $opt = P3Utils::script_opts('inDir outDir', P3Utils::col_options(), P3Utils::ih_options(),
         ['checkOnly', 'check for representation only-- do not add new representative genomes'],
         ['filter', 'perform a good-genome analysis on the unrepresented genomes'],
-        ['middle=i', 'alternate similarity score for use in determining mid-distance genomes']
+        ['middle=i', 'alternate similarity score for use in determining mid-distance genomes'],
+        ['fasta', 'input is FASTA proteins, not genome IDs']
         );
 # Create the statistics object.
 my $stats = Stats->new();
-# Get access to PATRIC.
-print "Connecting to PATRIC.\n";
-my $p3 = P3DataAPI->new();
 # Verify the parameters.
 my ($inDir, $outDir) = @ARGV;
 if (! $inDir) {
@@ -103,11 +107,28 @@ if (! $outDir) {
 } else {
     print "Output directory is $outDir.\n";
 }
-# Create the PATRIC filter and column clauses for genome queries.
-my @filter = (['eq', 'product', 'Phenylalanyl-tRNA synthetase alpha chain']);
-my @cols = qw(genome_id genome_name product aa_sequence);
-# Save the checksum for the seed role.
-my $roleCheck = "WCzieTC/aZ6262l19bwqgw";
+# Determine the input style.
+my ($p3, @filter, @cols, $roleCheck, $ih, $keyCol);
+my $fastaMode = $opt->fasta;
+my $batchSize = $opt->batchsize;
+# Get access to PATRIC.
+if (! $opt->fasta) {
+    print "Connecting to PATRIC.\n";
+    $p3 = P3DataAPI->new();
+    # Create the PATRIC filter and column clauses for genome queries.
+    @filter = (['eq', 'product', 'Phenylalanyl-tRNA synthetase alpha chain']);
+    @cols = qw(genome_id genome_name product aa_sequence);
+    # Save the checksum for the seed role.
+    $roleCheck = "WCzieTC/aZ6262l19bwqgw";
+    # Open the input file.
+    $ih = P3Utils::ih($opt);
+    # Read the incoming headers to find the key column.
+    (undef, $keyCol) = P3Utils::process_headers($ih, $opt);
+} else {
+    print "Opening FASTA input.\n";
+    my $fh = P3Utils::ih($opt);
+    $ih = FastA->new($fh);
+}
 # Create the database from the input directory.
 print "Creating database from $inDir.\n";
 my $repDB = RepGenomeDb->new_from_dir($inDir, verbose => 1);
@@ -117,10 +138,6 @@ my $minScore = $repDB->score();
 print "Kmer size is $K and minimum similarity is $minScore.\n";
 # Compute the middle distance.
 my $midScore = $opt->middle || $minScore;
-# Open the input file.
-my $ih = P3Utils::ih($opt);
-# Read the incoming headers.
-my ($outHeaders, $keyCol) = P3Utils::process_headers($ih, $opt);
 # This will be a list of RepGenome objects for the un-represented genomes.
 my @outliers;
 # This will be a list of RepGenome objects for un-represented genomes at the middle distance.
@@ -128,83 +145,110 @@ my @middle;
 # This will be a hash of bad genome IDs.
 my %bad;
 # Loop through the input.
-while (! eof $ih) {
-    my $couplets = P3Utils::get_couplets($ih, $keyCol, $opt);
-    my @genomes = map { $_->[0] } @$couplets;
-    # We need to isolate the genomes for which we don't already have a representative.
-    my @lost;
-    for my $genome (@genomes) {
-        $stats->Add(genomeIn => 1);
-        my ($repID, $score) = $repDB->check_rep($genome);
-        if (! $repID) {
-            push @lost, $genome;
-            $stats->Add(genomeNotFound => 1);
-        } else {
-            $stats->Add(genomeFound => 1);
+my $done;
+while (! $done) {
+    # This will be a map of genomes to sequences we need to check, in the form [genome, name, comment, protein].
+    my %results;
+    if ($fastaMode) {
+        my $count = 0;
+        while ($count < $batchSize && $ih->next) {
+            my $genome = $ih->id;
+            # If we are a feature ID, extract the genome ID from it.
+            if ($genome =~ /^fig\|(\d+\.\d+)/) {
+                $genome = $1;
+            }
+            # Store the sequence.
+            $results{$genome} = [$genome, $genome, '', $ih->left];
+            $count++;
+        }
+        print "$count sequences read from FASTA.\n";
+    } else {
+        # Here we are getting PATRIC genome IDs.  This process is much more complex, since we have to sort out
+        # the proteins we want from the extra junk returned by a typical query.  We also optimize by removing
+        # genomes already in the database.
+        my $couplets = P3Utils::get_couplets($ih, $keyCol, $opt);
+        my @genomes = map { $_->[0] } @$couplets;
+        # We need to isolate the genomes for which we don't already have a representative.
+        my @lost;
+        for my $genome (@genomes) {
+            $stats->Add(genomeIn => 1);
+            my ($repID, $score) = $repDB->check_rep($genome);
+            if (! $repID) {
+                push @lost, $genome;
+                $stats->Add(genomeNotFound => 1);
+            } else {
+                $stats->Add(genomeFound => 1);
+            }
+        }
+        if (@lost) {
+            print scalar(@lost) . " genomes in this batch are not yet in the database.\n";
+            # Ask PATRIC for the names and identifying proteins of the un-represented genomes.
+            my $resultList = P3Utils::get_data_keyed($p3, 'feature', \@filter, \@cols, \@lost, 'genome_id');
+            # The resultList entries are in the form [$genome, $name, $function, $prot]. Get the longest
+            # protein for each genome. We also track obviously bad genomes.
+            my (%results);
+            for my $result (@$resultList) {
+                my ($genome, $name, $function, $prot) = @$result;
+                # Check the protein.
+                my $check = RoleParse::Checksum($function // '');
+                if (! $prot) {
+                    print "WARNING: $genome $name has no identifying protein.\n";
+                    $stats->Add(genomeNoProt => 1);
+                    $stats->Add(badGenome => 1);
+                    $bad{$genome} = 1;
+                } elsif ($check ne $roleCheck) {
+                    # Here the function matched but it is not really the same.
+                    $stats->Add(funnyProt => 1);
+                } else {
+                    # Add the protein length to the result array.
+                    my $protLen = length $prot;
+                    push @$result, $protLen;
+                    if (! exists $results{$genome}) {
+                        $results{$genome} = $result;
+                    } else {
+                        $stats->Add(redundantProt => 1);
+                        if (! $bad{$genome}) {
+                            print "WARNING: $genome $name has a redundant identifying protein.\n";
+                            $bad{$genome} = 1;
+                            $stats->Add(badGenome => 1);
+                        }
+                        if ($protLen > $results{$genome}[3]) {
+                            # It's a better protein, so keep it.
+                            $results{$genome} = $result;
+                        }
+                    }
+                }
+            }
         }
     }
-    if (@lost) {
-        print scalar(@lost) . " genomes in this batch are not yet in the database.\n";
-        # Ask PATRIC for the names and identifying proteins of the un-represented genomes.
-        my $resultList = P3Utils::get_data_keyed($p3, 'feature', \@filter, \@cols, \@lost, 'genome_id');
-        # The resultList entries are in the form [$genome, $name, $function, $prot]. Get the longest
-        # protein for each genome. We also track obviously bad genomes.
-        my (%results);
-        for my $result (@$resultList) {
-            my ($genome, $name, $function, $prot) = @$result;
-            # Check the protein.
-            my $check = RoleParse::Checksum($function // '');
-            if (! $prot) {
-                print "WARNING: $genome $name has no identifying protein.\n";
-                $stats->Add(genomeNoProt => 1);
-                $stats->Add(badGenome => 1);
-                $bad{$genome} = 1;
-            } elsif ($check ne $roleCheck) {
-                # Here the function matched but it is not really the same.
-                $stats->Add(funnyProt => 1);
+    # Now loop through the genomes, checking for representatives.
+    for my $genome (keys %results) {
+        print "Checking $genome.\n";
+        my (undef, $name, undef, $prot) = @{$results{$genome}};
+        my ($repID, $score) = $repDB->find_rep($prot);
+        if ($score >= $minScore) {
+            print "$genome $name assigned to $repID with similarity $score.\n";
+            $repDB->Connect($repID, $genome, $score);
+            $stats->Add(genomeConnected => 1);
+        } else {
+            my $repGenome = RepGenome->new($genome, name => $name, prot => $prot, K => $K);
+            if ($score >= $midScore) {
+                # Here we are at the middle distance.
+                print "$genome $name is at the middle distance from $repID with similarity $score.\n";
+                push @middle, $repGenome;
+                $stats->Add(genomeMiddle => 1);
             } else {
-                # Add the protein length to the result array.
-                my $protLen = length $prot;
-                push @$result, $protLen;
-                if (! exists $results{$genome}) {
-                    $results{$genome} = $result;
-                } else {
-                    $stats->Add(redundantProt => 1);
-                    if (! $bad{$genome}) {
-                        print "WARNING: $genome $name has a redundant identifying protein.\n";
-                        $bad{$genome} = 1;
-                        $stats->Add(badGenome => 1);
-                    }
-                    if ($protLen > $results{$genome}[3]) {
-                        # It's a better protein, so keep it.
-                        $results{$genome} = $result;
-                    }
-                }
+                print "$genome $name is an outlier. Best score was $score.\n";
+                $stats->Add(genomeOutlier => 1);
             }
+            push @outliers, $repGenome;
         }
-        # Now loop through the genomes, checking for representatives.
-        for my $genome (keys %results) {
-            print "Checking $genome.\n";
-            my (undef, $name, undef, $prot) = @{$results{$genome}};
-            my ($repID, $score) = $repDB->find_rep($prot);
-            if ($score >= $minScore) {
-                print "$genome $name assigned to $repID with similarity $score.\n";
-                $repDB->Connect($repID, $genome, $score);
-                $stats->Add(genomeConnected => 1);
-            } else {
-                my $repGenome = RepGenome->new($genome, name => $name, prot => $prot, K => $K);
-                if ($score >= $midScore) {
-                    # Here we are at the middle distance.
-                    print "$genome $name is at the middle distance from $repID with similarity $score.\n";
-                    push @middle, $repGenome;
-                    $stats->Add(genomeMiddle => 1);
-                } else {
-                    print "$genome $name is an outlier. Best score was $score.\n";
-                    $stats->Add(genomeOutlier => 1);
-                }
-                push @outliers, $repGenome;
-            }
-        }
+    }
+    # Check for end-of-file.
+    if ($fastaMode) {
+        $done = $ih->at_end();
+    } else {
+        $done = eof $ih;
     }
 }
 # Checkpoint our results.
