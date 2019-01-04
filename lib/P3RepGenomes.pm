@@ -156,7 +156,7 @@ sub FindClosest {
     # Find the neighboring representative sets.
     my $repList = $repDB->list_reps($prot, $minScore);
     # Create a representative-genome object for the incoming protein.
-    my $protRep = RepGenome->new('incoming', prot => $prot, K => $self->K);
+    my $protRep = RepGenome->new('incoming', prot => $prot, K => $repDB->K);
     # Now loop through the sets, saving the closest.  This will contain the N closest genomes in the form [id, score].
     my @outList;
     # This tracks the score of the furthest genome in the result list.
@@ -168,16 +168,16 @@ sub FindClosest {
         my $score = $repList->{$rep};
         _merge_genome(\@outList, \$minFound, $N, $rep, $score, $repObject->name);
         # Loop through the represented genomes.
-        my $genomes = map { $_->[0] } @{$repObject->rep_list()};
-        my $protHash = $self->GetProts($genomes);
+        my @genomes = map { $_->[0] } @{$repObject->rep_list()};
+        my $protHash = $self->GetProts(\@genomes);
         for my $genome (keys %$protHash) {
             my $pair = $protHash->{$genome};
             $score = $protRep->check_genome($pair->[1]);
-            _merge_genome(\@outList, \$minFound, $N, $rep, $score, $pair->[0]);
+            _merge_genome(\@outList, \$minFound, $N, $genome, $score, $pair->[0]);
         }
     }
     # Convert the results into a hash and return them.
-    my %retVal = map { $_->[0] => $_->[1] } @outList;
+    my %retVal = map { $_->[0] => [$_->[1], $_->[2]] } @outList;
     return \%retVal;
 }
 
@@ -209,7 +209,7 @@ sub GetProts {
     my $role = $self->{role};
     my $checkSum = $self->{checksum};
     # Ask for the proteins.
-    my $resultList = P3Utils::get_data_keyed($p3, feature => [['eq', 'product', $role]], ['patric_id', 'product', 'genome_name', 'aa_sequence'],
+    my $resultList = P3Utils::get_data_keyed($p3, feature => [['eq', 'product', $role]], ['genome_id', 'patric_id', 'product', 'genome_name', 'aa_sequence'],
             $genomes, 'genome_id');
     # Loop through the results, keeping good ones.  Note we only keep the longest for each genome.
     my %retVal;
@@ -271,6 +271,7 @@ sub _merge_genome {
         # Here we go at the end, but only if there is room.
         if ($n < $N) {
             push @$outList, [$genome, $score, $name];
+            $$pMinFound = $score;
         }
     } else {
         # Here we go in the middle.
@@ -280,6 +281,7 @@ sub _merge_genome {
         # If the array is now too big, chop off the last entry.
         if ($n == $N) {
             pop @$outList;
+            $$pMinFound = $outList->[$n - 1][1];
         }
     }
 }

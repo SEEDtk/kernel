@@ -44,7 +44,7 @@ use RepGenomeDb;
 
 # Get the command-line options.
 my $opt = P3Utils::script_opts('repDir genome',
-        ['verbose', 'write progress messages to the standard error output'],
+        ['verbose|debug|v', 'write progress messages to the standard error output'],
         ['role|R=s', 'seed protein role', { default => 'Phenylalanyl-tRNA synthetase alpha chain' }],
         ['num|N=i', 'number of genomes to return', { default => 10 }],
         ['minScore|minscore|min=i', 'minimum score for neighboring sets', { default => 25 }]
@@ -87,8 +87,8 @@ if (! $gData) {
     my $highScore = length($seedProt) - $repDB->K;
     # Add the base genome to the list and sort it.
     print STDERR "Sorting results.\n" if $debug;
-    $gHash->{$genome} = [$gName, $highScore];
-    my @neighbors = sort { $gHash->{$b}[1] <=> $gHash->{$a}[1] } keys %$gHash;
+    $gHash->{$genome} = [$highScore, $gName];
+    my @neighbors = sort { $gHash->{$b}[0] <=> $gHash->{$a}[0] } keys %$gHash;
     for my $nGenome (@neighbors) {
         $gData = $gHash->{$nGenome};
         P3Utils::print_cols([$nGenome, @$gData]);
