@@ -46,14 +46,22 @@ The command-line options are as follows.
 
 The location of the web page template file.  The default is C<pubmed.tt> in the shared source library directory.
 
+=item max
+
+The maximum number of papers to retrieve.  The default is C<500>.
+
+=back
+
 =cut
 
 # Get the command-line parameters.
 my $opt = ScriptUtils::Opts('outFile keyword1 keyword2 ... keywordN',
         ['template=s', 'web page template file', { default => "$FIG_Config::mod_base/RASTtk/lib/pubmed.tt" }],
+        ['max|m=i', 'maximum number of papers to return', { default => 500 }],
         );
 # Get the parameters.
 my ($outFile, @keywords) = @ARGV;
+my $max = $opt->max;
 # Verify the output file.
 my $oh;
 if (! $outFile) {
@@ -76,6 +84,7 @@ my %vars = (
 # Perform the search.
 print "Searching for papers with " . scalar(@keywords) . " keywords.\n";
 my $s = WWW::Search->new('PubMed');
+$s->maximum_to_retrieve($max);
 $s->native_query(join(' AND ', @keywords));
 # Count and accumulate the results.
 my $count = 0;
@@ -101,4 +110,4 @@ $html =~ s/[^[:ascii:]]+//g;
 print $oh $html;
 
 
-## TODO process the input to produce the output.
+## TODO why only 500 results?
