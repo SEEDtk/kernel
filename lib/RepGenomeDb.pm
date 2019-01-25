@@ -225,6 +225,35 @@ sub score {
     return $self->{score};
 }
 
+=head3 is_rep
+
+    my $found = $repDB->is_rep($genomeID);
+
+Return TRUE if the specified genome is one of the representatives in this database, else FALSE.
+
+=over 4
+
+=item genomeID
+
+The ID of the genome to check.
+
+=item RETURN
+
+Returns C<1> if the genome is found in the representative list, else C<0>.
+
+=back
+
+=cut
+
+sub is_rep {
+    my ($self, $genomeID) = @_;
+    my $retVal = 0;
+    if ($self->{gMap}{$genomeID}) {
+        $retVal = 1;
+    }
+    return $retVal;
+}
+
 =head3 check_rep
 
     my ($repID, $score) = $repDB->check_rep($genome);

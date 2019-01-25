@@ -17,8 +17,8 @@ The command-line options are as follows.
 
 =item matrix
 
-If specified, the name of a file to contain a report on similarities between the representatives themselves.  The file
-will contain three tab-delimited columns-- (0) the first genome ID, (1) the second genome ID, and (2) the similarity.
+If specified, the name of a file to contain a report on distances between the representatives themselves.  The file
+will contain three tab-delimited columns-- (0) the first genome ID, (1) the second genome ID, and (2) the distance.
 
 =cut
 
@@ -29,7 +29,7 @@ use RepGenomeDb;
 
 # Get the command-line options.
 my $opt = P3Utils::script_opts('repDir',
-        ['matrix|X=s', 'output file for similarity matrix']);
+        ['matrix|X=s', 'output file for distance matrix']);
 # Get the input directory.
 my ($repDir) = @ARGV;
 if (! $repDir) {
@@ -65,22 +65,32 @@ for my $genome (@genomeIDs) {
 my $outFile = $opt->matrix;
 if ($outFile) {
     open(my $oh, '>', $outFile) || die "Could not open matrix file $outFile: $!";
-    print $oh join("\t", qw(id1 id2 similarity)) . "\n";
+    print $oh join("\t", qw(id1 id2 distance)) . "\n";
+    # These will track our progress.
+    my ($num, $total) = (1, scalar @genomeIDs);
+    # These will be used for statistical metrics.
+    my ($min, $max, $sum, $count) = (1, 0, 0, 0);
     # Get the first genome.
     my $genome = shift @genomeIDs;
     while (@genomeIDs) {
-        # Get the first genome's protein.
+        # Get the first genome's object.
         my $repGenome = $repDB->rep_object($genome);
-        my $repProt = $repGenome->prot;
         # Compare it to the other genomes.
-        print STDERR "Processing matrix row for $genome.\n";
+        print STDERR "Processing matrix row for $genome ($num of $total).\n";
         for my $genome2 (@genomeIDs) {
-            $repGenome = $repDB->rep_object($genome2);
-            my $score = $repGenome->check_genome($repProt);
-            print $oh join("\t", $genome, $genome2, $score) . "\n";
+            my $repGenome2 = $repDB->rep_object($genome2);
+            my $distance = $repGenome->distance($repGenome2);
+            if ($distance < $min) { $min = $distance; }
+            if ($distance > $max) { $max = $distance; }
+            $sum += $distance;
+            $count++;
+            print $oh join("\t", $genome, $genome2, $distance) . "\n";
         }
         # Get the next genome.
         $genome = shift @genomeIDs;
+        $num++;
     }
     close $oh;
+    my $mean = $sum / $count;
+    print STDERR "Distances range from $min to $max with a mean of $mean.\n";
 }
