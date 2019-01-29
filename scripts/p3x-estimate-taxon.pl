@@ -1,18 +1,18 @@
 =head1 Estimate Taxonomic Grouping of Contigs in a FASTA File
 
-    p3-estimate-taxon.pl [options] fastaFile
+    p3-estimate-taxon.pl [options] fastaFile1 fastaFile2 ... fastaFileN
 
 This script searches a FASTA file for a key protein and uses it to compute the species of a genome described by a FASTA
 file.  The default is to use the universal protein Phenylalanyl tRNA-synthetase alpha chain. There is almost always exactly
 one of these per genome.  If we do not find a good candidate for the protein or find more than one good candidate, the
 script will fail.
 
-The standard output will a single tab-delimited line containing the taxonomic ID of the species, the name of the species,
+The standard output will a single tab-delimited line containing the input file name, the taxonomic ID, the name,
 and then the full taxonomy, names delimited by semi-colons, from the domain down to the species group.
 
 =head2 Parameters
 
-The single positional parameter is the name of a FASTA file containing the contigs of the proposed genome.
+The positional parameters are the names of FASTA files for the proposed genomes.
 
 The command-line options are as follows.
 
@@ -56,6 +56,10 @@ Write status messages to STDERR.
 The desired accuracy level. This should be a taxonomic rank. The default is C<species>. Other values are
 (for example) C<genus> and C<strain>.
 
+=item input
+
+If specified, then should be the name of a file containing the names of FASTA files in the first column.
+
 =back
 
 =cut
@@ -63,30 +67,28 @@ The desired accuracy level. This should be a taxonomic rank. The default is C<sp
 use strict;
 use P3DataAPI;
 use P3Utils;
-use Bin::Blast;
-use Loader;
+use TaxCheck;
 
 $| = 1;
 # Get the command-line options.
-my $opt = P3Utils::script_opts('fastaFile',
+my $opt = P3Utils::script_opts('fastaFile1 fastaFile2 ... fastaFileN',
                 ['seedProtFasta=s', 'name of a FASTA file containing examples of the seed protein to locate',
                                     { default => "$FIG_Config::global/seedprot.fa" }],
-                ['seedfasta|F=s',  'BLAST database (or FASTA file) of seed protein in all genomes', { default => "$FIG_Config::global/PhenTrnaSyntAlph.fa"}],
-                ['maxE|e=f',       'maximum acceptable e-value for blast hits', { default => 1e-20 }],
-                ['refMaxE=f',      'maximum acceptable e-value for reference genome blast hits', { default => 1e-10 }],
-                ['gap|g=i',        'maximum permissible gap between blast hits for merging', { default => 600 }],
-                ['minlen|l=f',     'minimum fraction of the protein that must match in a blast hit', { default => 0.5 }],
+                ['seedfasta|F=s', 'BLAST database (or FASTA file) of seed protein in all genomes', { default => "$FIG_Config::global/PhenTrnaSyntAlph.fa"}],
+                ['maxE|e=f', 'maximum acceptable e-value for blast hits', { default => 1e-20 }],
+                ['refMaxE=f', 'maximum acceptable e-value for reference genome blast hits', { default => 1e-10 }],
+                ['gap|g=i', 'maximum permissible gap between blast hits for merging', { default => 600 }],
+                ['minlen|l=f', 'minimum fraction of the protein that must match in a blast hit', { default => 0.5 }],
                 ['verbose|debug|v', 'write status messages to STDERR'],
-                ['rank=s',         'rank level of desired output', { default => 'genus' }],
+                ['rank=s', 'rank level of desired output', { default => 'genus' }],
+                ['input=s', 'optional input file']
         );
 # Get access to PATRIC.
 my $p3 = P3DataAPI->new();
 # Check the parameters.
-my ($fastaFile) = @ARGV;
-if (! $fastaFile) {
-    die "No input file specified.";
-} elsif (! -s $fastaFile) {
-    die "Input file $fastaFile missing or empty.";
+my (@fastaFiles) = @ARGV;
+if (! @fastaFiles && ! $opt->input) {
+    die "No input files specified.";
 }
 # Compute the rank.
 my $rank = $opt->rank;
@@ -94,65 +96,31 @@ my $rank = $opt->rank;
 my $debug = $opt->verbose;
 # Compute the blast parameters.
 my $maxE = $opt->maxe;
-my $rMaxE = $opt->refmaxe // $maxE;
-# Get the I/O utility object.
-my $loader = Loader->new();
-# Create the blaster.
-my $blaster = Bin::Blast->new(undef, $FIG_Config::temp, $fastaFile,
-        maxE => $opt->maxe, minlen => $opt->minlen, gap => $opt->gap, silent => 1);
-# Find the seed protein.
+my $rMaxE = $opt->refmaxe;
+my $gap = $opt->gap;
+my $minlen = $opt->minlen;
+# Get the protein files.
+my $seedFastaFile = $opt->seedfasta;
 my $protFile = $opt->seedprotfasta;
-print STDERR "Searching for seed protein in $fastaFile using $protFile.\n" if $debug;
-my $matches = $blaster->FindProtein($protFile);
-# Only proceed if we found a single match.
-my ($contig, @others) = keys %$matches;
-if (! $contig) {
-    print STDERR "No seed proteins found.\n" if $debug;
-} elsif (scalar @others) {
-    print STDERR "Too many seed proteins found.\n" if $debug;
-} else {
-    # Get the DNA for the protein.
-    my $seqHash = $loader->GetDNA($matches, $fastaFile);
-    # Get the best match for the DNA.
-    my $seedFastaFile = $opt->seedfasta;
-    print STDERR "Searching for best DNA match to seed protein in $contig using $seedFastaFile.\n" if $debug;
-    my $contigHash = $blaster->MatchProteins($seqHash, undef, 1, $opt->refmaxe, db => $seedFastaFile, type => 'dna');
-    # MatchProteins is a general-purpose thing that returns a list of genomes for each contig. The "1" in the parameter
-    # list insures that it returns at most one.
-    my $genomeData = $contigHash->{$contig}[0];
-    if (! $genomeData) {
-        print STDERR "No matching genome found for $contig.\n" if $debug;
+# Create the taxonomy checker.
+my $taxChecker = TaxCheck->new($p3, debug => $debug, protFile => $protFile, seedFastaFile => $seedFastaFile,
+        maxE => $maxE, refMaxE => $rMaxE, gap => $gap, minlen => $minlen);
+# Check for additional input.
+if ($opt->input) {
+    open(my $ih, '<', $opt->input) || die "Could not open input file: $!";
+    my $fileColumn = P3Utils::get_col($ih, 0);
+    push @fastaFiles, @$fileColumn;
+    print STDERR scalar(@$fileColumn) . " file names read from input.\n" if $debug;
+}
+# Loop through the FASTA files, computing the taxonomic groups.
+for my $fastaFile (@fastaFiles) {
+    if (! -s $fastaFile) {
+        print STDERR "$fastaFile not found.\n" if $debug;
     } else {
-        my ($genome, $score, $name) = @$genomeData;
-        print STDERR "Retrieving taxonomic lineage from $genome.\n" if $debug;
-        my $genomeRecords = P3Utils::get_data_keyed($p3, genome => [], ['taxon_lineage_ids'], [$genome]);
-        if (! @$genomeRecords) {
-            print STDERR "Genome $genome not found in PATRIC.\n" if $debug;
-        } else {
-            my $taxonList = $genomeRecords->[0][0];
-            if (! $taxonList) {
-                print STDERR "Lineage not available for $genome.\n" if $debug;
-            } else {
-                print STDERR "Looking for $rank in taxonomy list.\n" if $debug;
-                my $taxonRecords = P3Utils::get_data_keyed($p3, taxonomy => [['eq', 'taxon_rank', $rank]],
-                        ['taxon_id', 'taxon_name', 'lineage_names'], $taxonList);
-                if (! @$taxonRecords) {
-                    print STDERR "No $rank found in lineage for $genome.\n" if $debug;
-                } else {
-                    my $taxonRecord = $taxonRecords->[0];
-                    my ($id, $name, $lineage) = @$taxonRecord;
-                    if (! $lineage) {
-                        print STDERR "No lineage found for species $id.\n" if $debug;
-                    } else {
-                        # Strip off any super-domains.
-                        while ($lineage->[0] =~ /^(?:root|cellular)/i) {
-                            shift @$lineage;
-                        }
-                        # Write the result.
-                        print join("\t", $id, $name, join('; ', @$lineage)) . "\n";
-                    }
-                }
-            }
+        my ($id, $name, $lineage) = $taxChecker->Compute($fastaFile, $rank);
+        if ($id) {
+            my $lineageString = join('; ', @$lineage);
+            P3Utils::print_cols([$id, $name, $lineageString]);
         }
     }
 }
