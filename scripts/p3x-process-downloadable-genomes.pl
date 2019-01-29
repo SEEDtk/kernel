@@ -81,6 +81,7 @@ use TaxCheck;
 use RASTlib;
 use File::Copy::Recursive;
 use LWP::Simple;
+use GEO;
 
 # Get the command-line options.
 my $opt = P3Utils::script_opts('workDir folder', P3Utils::col_options(), P3Utils::ih_options(),
@@ -158,7 +159,7 @@ if (! $opt->nohead) {
     for my $retainCol (@$retainCols) {
         push @outHeaders, $inHeaders->[$retainCol];
     }
-    push @outHeaders, 'PATRIC ID', 'Scientific Name', 'EvalG Completeness', 'EvalG Contamination', 'Coarse Consistency', 'Fine Consistency';
+    push @outHeaders, 'PATRIC ID', 'Scientific Name', 'EvalG Completeness', 'EvalG Contamination', 'Coarse Consistency', 'Fine Consistency', 'Good?';
     P3Utils::print_cols(\@outHeaders);
 }
 # Compute the process number.
@@ -171,6 +172,9 @@ if ($process == 0) {
 # Loop through the input.
 my $lNum = 0;
 my $done;
+my $processed = 0;
+my $goodFound = 0;
+my $start = time;
 while (! $done) {
     # Get the first batch of records.
     my $couplets = P3Utils::get_couplets($ih, $keyCol, $opt);
@@ -287,8 +291,11 @@ while (! $done) {
                 my $coarse = $quality->{coarse_consistency};
                 my $complete = $quality->{completeness};
                 my $contam = $quality->{contamination};
-                push @{$gRetain{$job}}, $genomeID, $genomeName, $complete, $contam, $coarse, $fine;
+                my $good = ((GEO::completeX($complete) && GEO::contamX($contam) && GEO::consistX($fine)) ? 'Y' : '');
+                $goodFound++ if $good;
+                push @{$gRetain{$job}}, $genomeID, $genomeName, $complete, $contam, $coarse, $fine, $good;
                 $count--;
+                $processed++;
             }
         }
         @incomplete = @remain;
@@ -310,3 +317,5 @@ if ($failCount) {
         print STDERR "     $failure\n";
     }
 }
+my $duration = (time - $start) / 60;
+print "$processed jobs processed in $duration minutes.  $goodFound were good.\n";
