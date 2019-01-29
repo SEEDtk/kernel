@@ -81,7 +81,6 @@ use TaxCheck;
 use RASTlib;
 use File::Copy::Recursive;
 use LWP::Simple;
-use gjoseqlib;
 
 # Get the command-line options.
 my $opt = P3Utils::script_opts('workDir folder', P3Utils::col_options(), P3Utils::ih_options(),
@@ -244,7 +243,7 @@ while (! $done) {
                     $gRetain{$label} = \@retainers;
                     # Submit the job to RAST.
                     print STDERR "Submitting $fastaFile using $species and domain $domain.\n";
-                    my $contigs = gjoseqlib::read_fasta($fastaFile);
+                    my $contigs = RASTlib::read_fasta($fastaFile);
                     $gJobs{$label} = RASTlib::Submit($contigs, $speciesID, "$species $label", domain => $domain,
                             path => $folder, header => $header);
                     print STDERR "Job ID is $gJobs{$label}.\n";
