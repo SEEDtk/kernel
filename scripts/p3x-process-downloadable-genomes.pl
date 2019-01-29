@@ -13,6 +13,11 @@ Status messages will be written to the standard error output.  This should be re
 The positional parameters are the name of the working directory and the name of the output folder in the user's PATRIC workspace.
 The user must be logged into PATRIC using L<p3-login.pl>.
 
+The output folder (if specified) should be a fully-qualified name (e.g. C</user@patricbrc.org/homes/DownloadedGenomes>).  The
+genome will be put in a sub-folder with the same name as the genome's name, computed from the species name and the label.  If
+a genome with that name already exists in the output folder, an internal server error will occur and the entire script will fail.
+Thus, this capability is best used sparingly.
+
 The standard input contains the incoming data about the genomes and can be overridden using the options in L<P3Utils/ih_options>.
 
 Additional command-line options are L<P3Utils/col_options>.  The key column in this case is the one containing the FASTA file
@@ -59,6 +64,11 @@ they will be discarded.
 
 If specified, and the working directory exists, it will be erased before we start.
 
+=item force
+
+If specified, then when downloading, the file will always be downloaded.  The default behavior is to skip downloading if the
+output file already exists.
+
 =back
 
 =cut
@@ -82,7 +92,8 @@ my $opt = P3Utils::script_opts('workDir folder', P3Utils::col_options(), P3Utils
         ['skip=i', 'number of input genomes to skip', { default => 0 }],
         ['process=i', 'number of input genomes to process (0 for all)', { default => 0 }],
         ['gtos', 'save genome GTO files to disk'],
-        ['clear', 'erase the working directory before starting']
+        ['clear', 'erase the working directory before starting'],
+        ['force', 'always download FASTA files']
         );
 # Get the main parameters.
 my ($workDir, $folder) = @ARGV;
@@ -93,11 +104,10 @@ if (! $workDir) {
     File::Copy::Recursive::pathmk($workDir) || die "Could not create $workDir: $!";
 } elsif ($opt->clear) {
     print STDERR "Erasing work directory $workDir.\n";
-    File::Copy::Recorsive::pathempty($workDir) || die "Could not erase $workDir: $!";
+    File::Copy::Recursive::pathempty($workDir) || die "Could not erase $workDir: $!";
 }
 if (! $folder) {
-    $folder = "QuickJobs";
-    print STDERR "Default folder QuickJobs selected for workspace output.\n";
+    print STDERR "Default folder QuickData selected for workspace output.\n";
 } else {
     print STDERR "Workspace output will be put in $folder.\n";
 }
@@ -180,12 +190,21 @@ while (! $done) {
             $gRetain{$label} = [ P3Utils::get_cols($line, $retainCols) ];
             # The next step is to download the FASTA file.
             my $fastaFile = "$workDir/$label.fa";
-            print STDERR "Downloading $url into $fastaFile.\n";
-            my $rc = getstore($url, $fastaFile);
-            if (! is_success($rc)) {
-                print STDERR "DOWNLOAD ERROR for $label: status = $rc.\n";
-                push @failures, $label;
+            my $fileOK;
+            if (-s $fastaFile && ! $opt->force) {
+                print STDERR "$fastaFile already downloaded.\n";
+                $fileOK = 1;
             } else {
+                print STDERR "Downloading $url into $fastaFile.\n";
+                my $rc = getstore($url, $fastaFile);
+                if (is_success($rc)) {
+                    $fileOK = 1;
+                } else {
+                    print STDERR "DOWNLOAD ERROR for $label: status = $rc.\n";
+                    push @failures, $label;
+                }
+            }
+            if ($fileOK) {
                 # Compute the taxonomic information.
                 my ($domain, $species, $speciesID);
                 if (defined $speciesCol) {
