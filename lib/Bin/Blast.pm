@@ -493,7 +493,6 @@ sub FindProtein {
     my @matches = sort { ($a->sid cmp $b->sid) or ($a->s1 <=> $b->s1) }
             BlastInterface::blast($protFile, $self->{blastDb}, 'tblastn',
             { outForm => 'hsp', maxE => $self->{maxE} });
-    print scalar(@matches) . " blast results found.\n" if $debug;
     # The matches are in the form of Hsp objects. They are sorted by start position within contig.
     # We condense the matches into location objects in the following hash. This is where the gap
     # resolution is processed.

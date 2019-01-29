@@ -1,6 +1,6 @@
 =head1 Submit Downloadable Genomes to PATRIC
 
-    p3x-process-downloadable-genomes.pl [options] workDir folder
+    p3x-process-downloadable-genomes.pl [options] workDir inFile folder
 
 This script will read a file of genome data, including FASTA file URLs and taxonomic information.  The FASTA files will be
 downloaded into the specified directory and then submitted to PATRIC RAST.  After the jobs complete, the results will
@@ -10,15 +10,13 @@ Status messages will be written to the standard error output.  This should be re
 
 =head2 Parameters
 
-The positional parameters are the name of the working directory and the name of the output folder in the user's PATRIC workspace.
-The user must be logged into PATRIC using L<p3-login.pl>.
+The positional parameters are the name of the working directory, the name of the input file, and the name of the output folder
+in the user's PATRIC workspace.  The user must be logged into PATRIC using L<p3-login.pl>.
 
 The output folder (if specified) should be a fully-qualified name (e.g. C</user@patricbrc.org/homes/DownloadedGenomes>).  The
 genome will be put in a sub-folder with the same name as the genome's name, computed from the species name and the label.  If
 a genome with that name already exists in the output folder, an internal server error will occur and the entire script will fail.
 Thus, this capability is best used sparingly.
-
-The standard input contains the incoming data about the genomes and can be overridden using the options in L<P3Utils/ih_options>.
 
 Additional command-line options are L<P3Utils/col_options>.  The key column in this case is the one containing the FASTA file
 URLs.  The batch size is the number of genomes to submit at one time.  The script will wait for all of them to finish before
@@ -84,8 +82,7 @@ use LWP::Simple;
 use GEO;
 
 # Get the command-line options.
-my $opt = P3Utils::script_opts('workDir folder', P3Utils::col_options(), P3Utils::ih_options(),
-        Shrub::script_options(),
+my $opt = P3Utils::script_opts('workDir folder', P3Utils::col_options(), Shrub::script_options(),
         ['label=s', 'input column containing the genome label', { default => 1 }],
         ['retain=s', 'comma-delimited list of columns to retain'],
         ['species=s', 'input column containing the genome species name'],
@@ -96,7 +93,7 @@ my $opt = P3Utils::script_opts('workDir folder', P3Utils::col_options(), P3Utils
         ['force', 'always download FASTA files']
         );
 # Get the main parameters.
-my ($workDir, $folder) = @ARGV;
+my ($workDir, $inFile, $folder) = @ARGV;
 if (! $workDir) {
     die "No working directory specified.";
 } elsif (! -d $workDir) {
@@ -105,6 +102,14 @@ if (! $workDir) {
 } elsif ($opt->clear) {
     print STDERR "Erasing work directory $workDir.\n";
     File::Copy::Recursive::pathempty($workDir) || die "Could not erase $workDir: $!";
+}
+my $ih;
+if (! $inFile) {
+    die "No input file specified.";
+} elsif (! -s $inFile) {
+    die "Input file $inFile not found or empty.";
+} else {
+    open($ih, '<', $inFile) || die "Could not open $inFile: $!";
 }
 if (! $folder) {
     print STDERR "Default folder QuickData selected for workspace output.\n";
@@ -119,7 +124,6 @@ print STDERR "Connecting to Shrub.\n";
 my $shrub = Shrub->new_for_script($opt);
 # Open the input file.
 print STDERR "Parsing input headers.\n";
-my $ih = P3Utils::ih($opt);
 # Read the incoming headers.
 my ($inHeaders, $keyCol) = P3Utils::process_headers($ih, $opt);
 # Locate the columns to retain.
@@ -318,4 +322,4 @@ if ($failCount) {
     }
 }
 my $duration = (time - $start) / 60;
-print "$processed jobs processed in $duration minutes.  $goodFound were good.\n";
+print STDERR "$processed jobs processed in $duration minutes.  $goodFound were good.\n";
