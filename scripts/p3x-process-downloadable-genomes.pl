@@ -128,6 +128,7 @@ my $retainCols = ($opt->retain // [$label]);
 (undef, $retainCols) = P3Utils::find_headers($inHeaders, input => split(/,/, $retainCols));
 # Find the label column.
 my $labelCol = P3Utils::find_column($label, $inHeaders);
+print STDERR "Label is in column " . ($labelCol + 1) . "\n";
 # If there is a species column, locate that, too.
 my $speciesCol;
 if ($opt->species) {
@@ -169,10 +170,12 @@ if ($process == 0) {
     print STDERR "Stopping at $process records.\n";
 }
 # Loop through the input.
+my $lNum = 0;
 my $done;
 while (! $done) {
     # Get the first batch of records.
     my $couplets = P3Utils::get_couplets($ih, $keyCol, $opt);
+    print STDERR scalar(@$couplets) . " lines in input batch.\n";
     # We will process each of the genomes individually.  At the end, we run through them asking for status.
     # The following hashes are keyed by genome label.  This maps the label to the proposed output line of
     # retained input columns.  Later, the output data [genomeID, name, completeness, contamination, coarseConsistency, fineConsistency]
@@ -184,10 +187,12 @@ while (! $done) {
     for my $couplet (@$couplets) {
         if (! $done) {
             my ($url, $line) = @$couplet;
+            $lNum++;
             # Extract the label.
             my $label = $line->[$labelCol];
+            print STDERR "Processing line $lNum: $label.\n";
             # Get the retained columns.
-            $gRetain{$label} = [ P3Utils::get_cols($line, $retainCols) ];
+            my @retainers = P3Utils::get_cols($line, $retainCols);
             # The next step is to download the FASTA file.
             my $fastaFile = "$workDir/$label.fa";
             my $fileOK;
@@ -235,6 +240,8 @@ while (! $done) {
                 if (defined $speciesID) {
                     # Convert the domain to a domain code.
                     $domain = uc substr($domain, 0, 1);
+                    # We are about to submit.  Save the retained columns.
+                    $gRetain{$label} = \@retainers;
                     # Submit the job to RAST.
                     print STDERR "Submitting $fastaFile using $species and domain $domain.\n";
                     my $contigs = gjoseqlib::read_fasta($fastaFile);
@@ -289,7 +296,7 @@ while (! $done) {
     }
     # Write the output rows.
     print STDERR "Writing to output.\n";
-    for my $job (sort keys %gRetain) {
+    for my $job (sort keys %gJobs) {
         P3Utils::print_cols($gRetain{$job});
     }
     # Stop if there is no more input.
