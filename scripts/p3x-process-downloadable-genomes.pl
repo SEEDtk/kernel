@@ -67,6 +67,11 @@ If specified, and the working directory exists, it will be erased before we star
 If specified, then when downloading, the file will always be downloaded.  The default behavior is to skip downloading if the
 output file already exists.
 
+=item noindex
+
+Suppress indexing of the genome in the PATRIC database.  Use this to keep the genomes from showing up on the PATRIC web site or via the
+CLI.
+
 =back
 
 =cut
@@ -90,7 +95,8 @@ my $opt = P3Utils::script_opts('workDir folder', P3Utils::col_options(), Shrub::
         ['process=i', 'number of input genomes to process (0 for all)', { default => 0 }],
         ['gtos', 'save genome GTO files to disk'],
         ['clear', 'erase the working directory before starting'],
-        ['force', 'always download FASTA files']
+        ['force', 'always download FASTA files'],
+        ['noindex', 'do not put the genomes into the PATRIC index']
         );
 # Get the main parameters.
 my ($workDir, $inFile, $folder) = @ARGV;
@@ -253,7 +259,7 @@ while (! $done) {
                     print STDERR "Submitting $fastaFile using $species and domain $domain.\n";
                     my $contigs = RASTlib::read_fasta($fastaFile);
                     $gJobs{$label} = RASTlib::Submit($contigs, $speciesID, "$species $label", domain => $domain,
-                            path => $folder, header => $header);
+                            path => $folder, header => $header, noIndex => $opt->noindex);
                     print STDERR "Job ID is $gJobs{$label}.\n";
                 }
             }
