@@ -299,6 +299,7 @@ while (! $done) {
                 push @remain, $job;
             } elsif ($rv < 0) {
                 P3Utils::print_cols($gLines{$job}, oh => $rh);
+                $count--;
             } else {
                 print STDERR "$job has completed.\n";
                 my $gto = RASTlib::retrieve($jobID, $header);
