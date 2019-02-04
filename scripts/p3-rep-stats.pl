@@ -20,6 +20,8 @@ The command-line options are as follows.
 If specified, the name of a file to contain a report on distances between the representatives themselves.  The file
 will contain three tab-delimited columns-- (0) the first genome ID, (1) the second genome ID, and (2) the distance.
 
+=back
+
 =cut
 
 use strict;

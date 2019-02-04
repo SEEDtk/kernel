@@ -1,4 +1,4 @@
-=head1 Simance Validation Script
+=head1 Similarity Validation Script
 
     p3-rep-role-check.pl [options] gtoDir
 

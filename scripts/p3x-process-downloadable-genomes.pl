@@ -8,6 +8,9 @@ be interrogated for quality information.
 
 Status messages will be written to the standard error output.  This should be redirected separately from the standard output.
 
+The working directory will contain the output L<GenomeTypeObject> files (if requested), the downloaded FASTA files, and a file
+called C<rejected.tbl> containing the input lines for the genomes that could not be processed for one reason or another.
+
 =head2 Parameters
 
 The positional parameters are the name of the working directory, the name of the input file, and the name of the output folder
@@ -147,6 +150,9 @@ if ($opt->species) {
 } else {
     print STDERR "Species information will be estimated from FASTA files.\n";
 }
+# Open the rejection list.
+open(my $rh, ">$workDir/rejected.tbl") || die "Could not open rejection file: $!";
+P3Utils::print_cols($inHeaders, oh => $rh);
 # Create the taxonomy checker.  Note we default on everything.
 my $taxCheck = TaxCheck->new($p3, debug => 1);
 # Create the authorization header.  Note we are assuming the user is logged in, because we are not
@@ -196,6 +202,8 @@ while (! $done) {
     my %gRetain;
     # This maps the label to the RAST job ID.
     my %gJobs;
+    # This saves the input lines for each job in case of error.
+    my %gLines;
     # Loop through the genomes, submitting.
     for my $couplet (@$couplets) {
         if (! $done) {
@@ -219,7 +227,7 @@ while (! $done) {
                     $fileOK = 1;
                 } else {
                     print STDERR "DOWNLOAD ERROR for $label: status = $rc.\n";
-                    push @failures, $label;
+                    P3Utils::print_cols($line, oh => $rh);
                 }
             }
             if ($fileOK) {
@@ -243,7 +251,7 @@ while (! $done) {
                     my ($newID, $newName, $lineage) = $taxCheck->Compute($fastaFile, 'species');
                     if (! $newID) {
                         print STDERR "COULD NOT COMPUTE SPECIES for $fastaFile.\n";
-                        push @failures, $label;
+                        P3Utils::print_cols($line, oh => $rh);
                     } else {
                         $speciesID = $newID;
                         $species = $newName;
@@ -258,9 +266,15 @@ while (! $done) {
                     # Submit the job to RAST.
                     print STDERR "Submitting $fastaFile using $species and domain $domain.\n";
                     my $contigs = RASTlib::read_fasta($fastaFile);
-                    $gJobs{$label} = RASTlib::Submit($contigs, $speciesID, "$species $label", domain => $domain,
-                            path => $folder, header => $header, noIndex => $opt->noindex);
-                    print STDERR "Job ID is $gJobs{$label}.\n";
+                    my $jobID = RASTlib::Submit($contigs, $speciesID, "$species $label", domain => $domain,
+                            path => $folder, header => $header, noIndex => $opt->noindex, robust => 1);
+                    if ($jobID) {
+                        $gJobs{$label} = $jobID;
+                        $gLines{$label} = $line;
+                        print STDERR "Job ID is $jobID.\n";
+                    } else {
+                        P3Utils::print_cols($line, oh => $rh);
+                    }
                 }
             }
             if ($process == 1) {
@@ -280,8 +294,11 @@ while (! $done) {
         print STDERR "Checking status of $count jobs.\n";
         for my $job (@incomplete) {
             my $jobID = $gJobs{$job};
-            if (! RASTlib::check($jobID, $header)) {
+            my $rv = RASTlib::check($jobID, header => $header, robust => 1);
+            if (! $rv) {
                 push @remain, $job;
+            } elsif ($rv < 0) {
+                P3Utils::print_cols($gLines{$job}, oh => $rh);
             } else {
                 print STDERR "$job has completed.\n";
                 my $gto = RASTlib::retrieve($jobID, $header);
@@ -318,13 +335,6 @@ while (! $done) {
     # Stop if there is no more input.
     if (eof $ih) {
         $done = 1;
-    }
-}
-my $failCount = scalar @failures;
-if ($failCount) {
-    print STDERR "Failed to run $failCount jobs.\n";
-    for my $failure (@failures) {
-        print STDERR "     $failure\n";
     }
 }
 my $duration = (time - $start) / 60;
