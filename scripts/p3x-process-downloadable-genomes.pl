@@ -308,9 +308,7 @@ while (! $done) {
                 # Check the GTOS option.
                 if ($opt->gtos) {
                     # Save the GTOs to disk.
-                    open(my $oh, '>', "$workDir/$genomeID.gto") || die "Could not open GTO file for $genomeID: $!";
-                    print $oh $gto;
-                    close $oh;
+                    SeedUtils::write_encoded_object($gto, "$workDir/$genomeID.gto");
                     print STDERR "Genome saved to $genomeID.gto.\n";
                 }
                 my $quality = $gto->{quality};
