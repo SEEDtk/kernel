@@ -55,7 +55,7 @@ If specified, the output directory will be erased before any output is produced.
 
 =item similarity
 
-The maximum number of kmers in common for two genomes to be considered close. The default is C<100>.
+The minimum number of kmers in common for two genomes to be considered close. The default is C<100>.
 
 =back
 
@@ -75,7 +75,7 @@ $| = 1;
 my $opt = P3Utils::script_opts('inDir outDir',
         ["kmer|K|k=i", 'protein kmer size', { default => 8 }],
         ["clear", 'clear output directory'],
-        ["similarity|sim|s=i", 'maximum similarity score', { default => 100 }],
+        ["similarity|sim|s=i", 'minimum similarity score', { default => 100 }],
         );
 # Create the statistics object.
 my $stats = Stats->new();
