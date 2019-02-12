@@ -22,6 +22,12 @@ L<p3x-process-downloadable-genomes.pl>.
 If specified, then columns named C<completeness> and C<contamination> will be extracted, and used to compute the standard
 quality measure (C<M> for contamination <= 5 and completeness >= 50, C<H> for contamination <= 5 and completeness >= 90, else C<L>).
 
+=item recursive
+
+If specified, then the GTOs are not expected to be found in the specified directory but in one of its subdirectories.
+
+=back
+
 =cut
 
 use strict;
@@ -35,6 +41,7 @@ $| = 1;
 # Get the command-line options.
 my $opt = P3Utils::script_opts('gtoDir', P3Utils::ih_options(),
         ['qual', 'compute standard quality measure'],
+        ['recursive', 'search subdirectories for GTOs'],
         );
 my $stats = Stats->new();
 # Get the working directory.
@@ -46,8 +53,29 @@ if (! $gtoDir) {
 }
 # Get the options.
 my $qual = $opt->qual;
-print "Connecting to files.\n";
+my $recursive = $opt->recursive;
+# Locate the gtos.
+print "Finding GTOs.\n";
+my @subDirs;
+if ($recursive) {
+    opendir(my $dh, $gtoDir) || die "Could not open $gtoDir: $!";
+    @subDirs = map { "$gtoDir/$_" } grep { substr($_,0,1) ne '.' && -d "$gtoDir/$_" } readdir $dh;
+} else {
+    push @subDirs, $gtoDir;
+}
+my %gtos;
+for my $subDir (@subDirs) {
+    print "Searching $subDir.\n";
+    opendir(my $dh, $subDir) || die "Could not open $subDir: $!";
+    while (my $file = readdir $dh) {
+        if (-s "$subDir/$file" && $file =~ /^(\d+\.\d+)\.gto$/) {
+            $gtos{$1} = "$subDir/$file";
+        }
+    }
+}
+print scalar(keys %gtos) . " GTOs found in $gtoDir.\n";
 # Open the input file.
+print "Connecting to input file.\n";
 my $ih = P3Utils::ih($opt);
 # Read in the header line and find the critical columns.
 my @qual;
@@ -82,19 +110,25 @@ while (! eof $ih) {
     } else {
         $stats->Add(goodIn => 1);
         # Read the GTO and get its seed protein.
-        print "Reading GTO for $genomeID ($count).\n";
-        my $gto = GenomeTypeObject->create_from_file("$gtoDir/$genomeID.gto");
-        my $seedProt = GPUtils::get_seed($gto);
-        # Verify that the genome is genuinely good.
-        if (! $seedProt) {
-            $stats->Add(badSeed => 1);
-            $fields[$cols->[1]] = '';
-            $evalType = 'bad';
+        my $gtoFile = $gtos{$genomeID};
+        if (! $gtoFile) {
+            print "GTO not found for $genomeID.\n";
+            $stats->Add(missingGto => 1);
         } else {
-            $stats->Add(goodGenome => 1);
-            $evalType = 'good';
-            # It's genuinely good, so write to the FASTA file.
-            print $fh ">$genomeID\n$seedProt\n";
+            print "Reading GTO for $genomeID ($count).\n";
+            my $gto = GenomeTypeObject->create_from_file($gtoFile);
+            my $seedProt = GPUtils::get_seed($gto);
+            # Verify that the genome is genuinely good.
+            if (! $seedProt) {
+                $stats->Add(badSeed => 1);
+                $fields[$cols->[1]] = '';
+                $evalType = 'bad';
+            } else {
+                $stats->Add(goodGenome => 1);
+                $evalType = 'good';
+                # It's genuinely good, so write to the FASTA file.
+                print $fh ">$genomeID\n$seedProt\n";
+            }
         }
     }
     # Compute the alternate quality measure.
