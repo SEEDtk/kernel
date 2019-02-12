@@ -77,7 +77,8 @@ CLI.
 
 =item resume
 
-Resume after processing.  If specified, no header will be written to the output file, as it is presumed we are concatenating.
+Resume after processing.  If specified, no header will be written to the output file, as it is presumed we are concatenating.  The parameter
+is the number of genomes already processed.
 
 =back
 
@@ -104,7 +105,7 @@ my $opt = P3Utils::script_opts('workDir folder', P3Utils::col_options(), Shrub::
         ['clear', 'erase the working directory before starting'],
         ['force', 'always download FASTA files'],
         ['noindex', 'do not put the genomes into the PATRIC index'],
-        ['resume', 'resume after failure']
+        ['resume=i', 'resume after failure']
         );
 # Get the main parameters.
 my ($workDir, $inFile, $folder) = @ARGV;
@@ -165,9 +166,11 @@ my $taxCheck = TaxCheck->new($p3, debug => 1);
 my $header = RASTlib::auth_header();
 # Do any skipping we need to do.  Note the header has already been read.
 my $skip = $opt->skip;
+my $resume = $opt->resume // 0;
 if ($skip) {
     print STDERR "Skipping $skip lines in file.\n";
 }
+$skip += $resume;
 while ($skip > 0) {
     my $line = <$ih>;
     $skip--;
@@ -191,6 +194,7 @@ if ($process == 0) {
     print STDERR "Processing all records.\n";
 } else {
     print STDERR "Stopping at $process records.\n";
+    $process -= $resume;
 }
 # Loop through the input.
 my $lNum = 0;
