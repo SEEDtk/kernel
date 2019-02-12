@@ -75,6 +75,10 @@ output file already exists.
 Suppress indexing of the genome in the PATRIC database.  Use this to keep the genomes from showing up on the PATRIC web site or via the
 CLI.
 
+=item resume
+
+Resume after processing.  If specified, no header will be written to the output file, as it is presumed we are concatenating.
+
 =back
 
 =cut
@@ -99,7 +103,8 @@ my $opt = P3Utils::script_opts('workDir folder', P3Utils::col_options(), Shrub::
         ['gtos', 'save genome GTO files to disk'],
         ['clear', 'erase the working directory before starting'],
         ['force', 'always download FASTA files'],
-        ['noindex', 'do not put the genomes into the PATRIC index']
+        ['noindex', 'do not put the genomes into the PATRIC index'],
+        ['resume', 'resume after failure']
         );
 # Get the main parameters.
 my ($workDir, $inFile, $folder) = @ARGV;
@@ -176,7 +181,9 @@ if (! $opt->nohead) {
         push @outHeaders, $inHeaders->[$retainCol];
     }
     push @outHeaders, 'PATRIC ID', 'Scientific Name', 'EvalG Completeness', 'EvalG Contamination', 'Coarse Consistency', 'Fine Consistency', 'Good?';
-    P3Utils::print_cols(\@outHeaders);
+    if (! $opt->resume) {
+        P3Utils::print_cols(\@outHeaders);
+    }
 }
 # Compute the process number.
 my $process = $opt->process;
