@@ -19,6 +19,7 @@ use strict;
 use P3DataAPI;
 use P3Utils;
 use RepGenomeDb;
+use Math::Round;
 
 # Get the command-line options.
 my $opt = P3Utils::script_opts('repDir');
@@ -70,12 +71,19 @@ for my $genomeID (@$genomeList) {
     # Save the taxonomic-breakdown hash.
     $subHash{$genomeID} = \%gSubHash;
 }
-# Sort the hash by representative count.
+# Sort the hash by represented-genome count.
+print STDERR "Sorting groups.\n";
 my @genomeIDs = sort { $repHash{$b} <=> $repHash{$a} } @$genomeList;
+# We will accumulate useful statistics in here.
+my $outliers = 0;
+my %total = (genera => 0, species => 0, members => 0);
+my $count = 0;
+my $nCount = 0;
 # Write the report.
 print STDERR "Writing report.\n";
 print join("\t", qw(id genus species count protLen name)) ."\n";
 for my $genome (@genomeIDs) {
+    $count++;
     my $repGenome = $repDB->rep_object($genome);
     my $protLen = length $repGenome->prot();
     my $name = $repGenome->name();
@@ -86,18 +94,18 @@ for my $genome (@genomeIDs) {
         $specs += scalar(keys %{$specSubHash->{$genus}});
     }
     my $genCount = scalar keys %$genSubHash;
-    my $sCount = 0;
-    P3Utils::print_cols([$genome, $genCount, $specs, $repHash{$genome}, $protLen, $name]);
-    print STDERR "Sorting genera for $genome.\n";
-    my @genera = sort { $genSubHash->{$b} <=> $genSubHash->{$a} } keys %$genSubHash;
-    for my $genus (@genera) {
-        P3Utils::print_cols(['', $genus, '(total)', $genSubHash->{$genus}, '', '']);
-        my $sSubHash = $subHash{$genome}{$genus};
-        print STDERR "Sorting species for $genus in $genome.\n";
-        my @specs = sort { $sSubHash->{$b} <=> $sSubHash->{$a} } keys %$sSubHash;
-        for my $species (@specs) {
-            P3Utils::print_cols(['', '', $species, $sSubHash->{$species}, '', '']);
-        }
+    my $memCount = $repHash{$genome};
+    if ($memCount > 1) {
+        $total{genera} += $genCount;
+        $total{species} += $specs;
+        $total{members} += $memCount;
+        $nCount++;
+    } else {
+        $outliers++;
     }
+    P3Utils::print_cols([$genome, $genCount, $specs, $memCount, $protLen, $name]);
 }
+# Now output the averages.
+print STDERR "$count groups, $outliers singletons, $nCount real groups.\n";
+print STDERR "Mean sizes for real groups: " . join(", ", map { nearest(0.1, $total{$_} / $nCount) . " $_" } qw(genera species members)) . ".\n";
 print STDERR "All done.\n";
