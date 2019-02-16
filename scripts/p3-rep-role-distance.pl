@@ -31,6 +31,7 @@ use Statistics::Basic qw(:all);
 use EvalCon;
 use Stats;
 use GEO;
+use Math::Round;
 
 
 # Get the command-line options.
@@ -50,8 +51,6 @@ if (! $repDir) {
 } elsif (! -d $repDir) {
     die "Input directory $repDir not found or invalid.";
 }
-# Set up the formatter.
-my $formatter = Number::Format->new();
 # Read the role definitions.
 my $evalCon = EvalCon->new_for_script($opt, $logH);
 my ($nMap, $cMap) = $evalCon->roleHashes;
@@ -112,8 +111,7 @@ for my $genome0 (@$genomes) {
             my $sV = vector(@sims);
             my ($meanSim, $stdSim) = (mean($sV), stddev($sV));
             my $corr = correlation($dV, $sV);
-            P3Utils::print_cols([$genome0, $name, $listCount,
-                    map { $formatter->format_number($_, 2, 1) } $minDist, $mean, $maxDist, $std, $meanSim, $stdSim, $corr]);
+            P3Utils::print_cols([$genome0, $name, $listCount, $minDist, $mean, $maxDist, $std, Math::Round::round(0.01, $meanSim, $stdSim), $corr]);
         }
     }
 }
