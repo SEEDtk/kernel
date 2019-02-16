@@ -33,7 +33,7 @@ use Stats;
 use GEO;
 use Math::Round;
 
-
+$| = 1;
 # Get the command-line options.
 my $opt = P3Utils::script_opts('repDir', EvalCon::role_options(),
         ['verbose|debug|v', 'display progress messages on STDERR'],
@@ -97,8 +97,10 @@ for my $genome0 (@$genomes) {
                 if ($genome ne $genome0) {
                     my $geo = $gHash->{$genome};
                     my $distance = $geo0->uni_similarity($geo);
+                    my $sim = $sims{$genome};
                     push @distances, $distance;
-                    push @sims, $sims{$genome};
+                    print STDERR "$genome distance is $distance, similarity is $sim.\n" if $debug;
+                    push @sims, $sim;
                     $stats->Add(distanceComputed => 1);
                     $minDist = $distance if $distance < $minDist;
                     $maxDist = $distance if $distance > $maxDist;
@@ -110,8 +112,15 @@ for my $genome0 (@$genomes) {
             my ($mean, $std) = (mean($dV), stddev($dV));
             my $sV = vector(@sims);
             my ($meanSim, $stdSim) = (mean($sV), stddev($sV));
-            my $corr = correlation($dV, $sV);
-            P3Utils::print_cols([$genome0, $name, $listCount, $minDist, $mean, $maxDist, $std, Math::Round::round(0.01, $meanSim, $stdSim), $corr]);
+            $minDist = Math::Round::nearest(0.01, $minDist);
+            $maxDist = Math::Round::nearest(0.01, $maxDist);
+            my $corr;
+            if ($stdSim < 1 && $std <= 1) {
+                $corr = 1;
+            } else {
+                $corr = correlation($dV, $sV);
+            }
+            P3Utils::print_cols([$genome0, $name, $listCount, $minDist, $mean, $maxDist, $std, $meanSim, $stdSim, $corr]);
         }
     }
 }
