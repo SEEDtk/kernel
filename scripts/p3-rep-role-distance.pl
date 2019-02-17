@@ -72,7 +72,9 @@ my $totalGroups = scalar @$genomes;
 my $nGroups = 0;
 print STDERR "$totalGroups groups found in directory.\n" if $debug;
 # Write the output file header.
-P3Utils::print_cols([qw(group name size minDist meanDist maxDist sdvDist meanSim sdvSim corr)]);
+if (! $opt->resume) {
+    P3Utils::print_cols([qw(group name size minDist meanDist maxDist sdvDist meanSim sdvSim corr)]);
+}
 # Loop through them.
 for my $genome0 (@$genomes) {
     # Are we resuming?
