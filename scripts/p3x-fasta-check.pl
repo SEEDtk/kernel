@@ -19,6 +19,10 @@ The command-line options are as follows.
 
 Write status messages to STDERR.
 
+=item corrected
+
+If specified, a file name.  A corrected FASTA file will be written to this file name.
+
 =back
 
 =cut
@@ -27,12 +31,19 @@ use strict;
 use P3DataAPI;
 use P3Utils;
 use Stats;
+use FastA;
 
 # Get the command-line options.
 my $opt = P3Utils::script_opts('', P3Utils::ih_options(),
-            ['verbose|debug|v', 'write status messages to STDERR']
+            ['verbose|debug|v', 'write status messages to STDERR'],
+            ['corrected=s', 'if specified, the name of a file to which the corrected FASTA data should be written']
         );
 my $stats = Stats->new();
+# Check for a correction file.
+my $oh;
+if ($opt->corrected) {
+    open($oh, '>', $opt->corrected) || die "Could not open corrections file: $!";
+}
 # Get access to PATRIC.
 my $p3 = P3DataAPI->new();
 # Open the input file.
@@ -45,14 +56,11 @@ P3Utils::print_cols(['genome', 'comment', 'found', 'name']);
 my %genomes;
 my $count = 0;
 print STDERR "Looping through FASTA file.\n" if $debug;
-while (! eof $ih) {
-    my $line = <$ih>;
-    $stats->Add(lineIn => 1);
-    if ($line =~ /^>\S*?(\d+\.\d+)\S*\s+(.+)/) {
-        $genomes{$1} = $2;
-        $stats->Add(genomeIn => 1);
-        $count++;
-    }
+my $faH = FastA->new($ih);
+while ($faH->next()) {
+    $genomes{$faH->id} = [$faH->comment, $faH->left];
+    $stats->Add(genomeIn => 1);
+    $count++;
     if ($count >= 100) {
         ProcessBatch(\%genomes);
         %genomes = ();
@@ -80,14 +88,17 @@ sub ProcessBatch {
     }
     # Verify we found them all.
     for my $id (@ids) {
-        my ($found, $name) = ('', '');
+        my ($found, $name, $comment, $seq) = ('', '', @{$genomeH->{$id}});
         if ($found{$id}) {
             $found = 1;
             $name = $found{$id};
+            if ($oh) {
+                print $oh ">$id $comment\n$seq\n";
+            }
         } else {
             $stats->Add(genomeNotFound => 1);
         }
-        P3Utils::print_cols([$id, $genomeH->{$id}, $found, $name]);
+        P3Utils::print_cols([$id, $comment, $found, $name]);
     }
     $stats->Add(batchProcessed => 1);
 }
