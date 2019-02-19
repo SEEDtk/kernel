@@ -58,13 +58,15 @@ my $count = 0;
 print STDERR "Looping through FASTA file.\n" if $debug;
 my $faH = FastA->new($ih);
 while ($faH->next()) {
-    $genomes{$faH->id} = [$faH->comment, $faH->left];
-    $stats->Add(genomeIn => 1);
-    $count++;
-    if ($count >= 100) {
-        ProcessBatch(\%genomes);
-        %genomes = ();
-        $count = 0;
+    if ($faH->id =~ /(\d+\.\d+)/) {
+        $genomes{$1} = [$faH->comment, $faH->left];
+        $stats->Add(genomeIn => 1);
+        $count++;
+        if ($count >= 100) {
+            ProcessBatch(\%genomes);
+            %genomes = ();
+            $count = 0;
+        }
     }
 }
 if ($count > 0) {
