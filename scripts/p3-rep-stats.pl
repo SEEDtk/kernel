@@ -47,11 +47,19 @@ print STDERR "Counting set sizes.\n";
 my $genomeList = $repDB->rep_list();
 # Create a hash mapping each genome to its number of representatives.
 my %repHash;
+my $singletons = 0;
+my $total = 0;
+my $genomes = 0;
 for my $genomeID (@$genomeList) {
     my $repGenome = $repDB->rep_object($genomeID);
     my $repList = $repGenome->rep_list();
-    $repHash{$genomeID} = scalar @$repList;
+    my $count = scalar @$repList;
+    $singletons++ if $count == 1;
+    $genomes += $count + 1;
+    $total++;
+    $repHash{$genomeID} = $count;
 }
+print STDERR "$singletons singleton groups found out of $total covering $genomes genomes.\n";
 # Sort the hash by representative count.
 my @genomeIDs = sort { $repHash{$b} <=> $repHash{$a} } @$genomeList;
 # Write the report.
