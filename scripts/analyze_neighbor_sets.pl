@@ -28,7 +28,7 @@ not have one.
 
 =item checkDir
 
-The directory containing the EvalG universal role data (see L<GenomeChecker>). The default is C<CheckG> in the SEEDtk global
+The directory containing the EvalG universal role data (see L<EvalCom/Tax>). The default is C<CheckG> in the SEEDtk global
 data directory.
 
 =item alignOpts
@@ -53,7 +53,7 @@ of being built from PATRIC.
 use strict;
 use P3DataAPI;
 use P3Utils;
-use GenomeChecker;
+use EvalCom::Tax;
 use Stats;
 use File::Copy::Recursive;
 use GenomeTypeObject;
@@ -87,7 +87,7 @@ if (! -d "$setDir/GTOs") {
 }
 my $stats = Stats->new();
 # Create the genome checker.
-my $checker = GenomeChecker->new($opt->checkdir, rolesInSubsystems => $opt->rolefile, logH => \*STDOUT, stats => $stats);
+my $checker = EvalCom::Tax->new($opt->checkdir, rolesInSubsystems => $opt->rolefile, logH => \*STDOUT, stats => $stats);
 # Get the domain information.
 my $domain = $opt->domain;
 my ($taxName, $roleHash) = $checker->taxon_data($domain);
