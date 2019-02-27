@@ -26,23 +26,23 @@ use Stats;
 use POSIX qw(ceil);
 use Time::HiRes;
 use Data::Dump;
+use P3Utils;
 
 =head1 Group Marker Roles and Assign Weights
 
     group_marker_roles.pl [ options ] workDir
 
-This script reads the C<roles.tbl> file produced by L<p3-taxon-analysis.pl> and organize the roles into cluster groups. Each
-pair of incoming roles is examined against the L<Shrub> database to see which are commonly clustered. For
-each taxonomic group in C<roles.tbl>, the roles are organized into groups based on the pairs, and a new C<weighted.tbl> file is
+This script reads the C<roles.tbl> file produced by L<p3-taxon-analysis.pl> or L<p3-rep-common-roles.pl> and organizes the roles
+into cluster groups. Each pair of incoming roles is examined against the L<Shrub> database to see which are commonly clustered. For
+each grouping in C<roles.tbl>, the roles are organized into groups based on the pairs, and a new C<weighted.tbl> file is
 written with weights assigned to the roles. The output file will be tab-delimited with two line types. Each header line
-will contain a taxonomic group ID, the total weight of all its marker roles, and the group name. Each detail line will
-contain a role ID and the weight of the role.  A double-slash (C<//>) will be used as a delimiter,
-
+will contain all of the data columns from the group line. Each detail line will contain a role ID and the weight of the role.
+A double-slash (C<//>) will be used as a delimiter.
 
 =head2 Parameters
 
 The positional parameter is the name of the work directory containing the input C<roles.tbl>, and into which the C<weighted.tbl>
-will be written.
+will be written.  The role list must begin in the column named C<Roles>.  The first two columns must be the group ID and name.
 
 The command-line options are those found in L<Shrub/script_options> plus the following.
 
@@ -57,11 +57,11 @@ roles must appear together 95% of the time.
 
 =head2 Basic Algorithm
 
-For each taxonomic group, we sort the roles and then get the features for each role. For each feature, we count one for
+For each group, we sort the roles and then get the features for each role. For each feature, we count one for
 each clustered feature's roles. A role that appears enough times is considered clustered. Once we know two roles are clustered,
 we save the information so we don't have to check again.
 
-When we have the complete list of pairs for the group, we use the transitive law to group them and produce the output.
+When we have the complete list of pairs for the group, we use the transitive law to fully cluster them and produce the output.
 
 =cut
 
@@ -89,16 +89,22 @@ my %pairs;
 my %roleFeats;
 # Open the output file.
 open(my $oh, ">$workDir/weighted.tbl") || die "Could not open weighted.tbl: $!";
-# Open the input file and loop through the taxonomic groups.
+# Open the input file and loop through the groups.
 print "Work directory is $workDir.\n";
 open(my $ih, "<$workDir/roles.tbl") || die "Could not open roles.tbl: $!";
-my $line = <$ih>;
+my (undef, $cols) = P3Utils::find_headers($ih, roleFile => 'Roles');
+my ($roleCol) = @$cols;
 while (! eof $ih) {
     my $start = time;
-    # Get the taxonomic group's id, name, and roles.
-    my ($taxon, $name, undef, @roles) = ScriptUtils::get_line($ih);
+    # Get the group's id, name, middle fields, and roles.
+    my @fields = ScriptUtils::get_line($ih);
+    my ($groupID, $name, @roles) = @fields;
+    my @middle;
+    for (my $shifted = 2; $shifted < $roleCol; $shifted++) {
+        push @middle, shift @roles;
+    }
     my $markerCount = scalar(@roles);
-    print "Processing $taxon: $name. $markerCount marker roles.\n";
+    print "Processing $groupID: $name. $markerCount marker roles.\n";
     # Sort the roles and save a copy. This is a two-pass process.
     my @sorted = sort @roles;
     @roles = @sorted;
@@ -155,7 +161,7 @@ while (! eof $ih) {
     print "$groupCount role groups found for $markerCount roles.\n";
     $stats->Add(groupDelta => ($markerCount - $groupCount));
     # Finally, we print this taxonomic group.
-    print $oh "$taxon\t$groupCount\t$name\n";
+    print $oh join("\t", $groupID, $name, @middle) . "\n";
     $stats->Add(taxonOut => 1);
     for my $partition (@$partitionList) {
         $stats->Add(groupOut => 1);
