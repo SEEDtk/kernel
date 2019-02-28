@@ -132,26 +132,28 @@ while ($fh->next) {
     }
     my $name = $genomes{$genome};
     if (! $name) {
-        die "No name found for $genome.";
-    }
-    $stats->Add(proteinIn => 1);
-    $gCount++;
-    # Get the sequence.
-    my $prot = $fh->left;
-    # Find its representative (if any).
-    my ($repID, $score) = $repDb->find_rep($prot);
-    if ($score >= $similarity) {
-        # We are represented already.
-        $repDb->Connect($repID, $genome, $score);
-        $stats->Add(genomeConnected => 1);
+        print "No name found for $genome.\n";
+        $stats->Add(genomeSkipped => 1);
     } else {
-        # This is a new representative.
-        $repDb->AddRep($genome, $name, $prot);
-        $rCount++;
-        $stats->Add(genomeChosen => 1);
-    }
-    if ($gCount % 5000 == 0) {
-        print "$gCount genomes processed with $rCount representatives at " . Math::Round::nearest(0.01, (time - $start0) / $gCount) . " seconds/genome.\n";
+        $stats->Add(proteinIn => 1);
+        $gCount++;
+        # Get the sequence.
+        my $prot = $fh->left;
+        # Find its representative (if any).
+        my ($repID, $score) = $repDb->find_rep($prot);
+        if ($score >= $similarity) {
+            # We are represented already.
+            $repDb->Connect($repID, $genome, $score);
+            $stats->Add(genomeConnected => 1);
+        } else {
+            # This is a new representative.
+            $repDb->AddRep($genome, $name, $prot);
+            $rCount++;
+            $stats->Add(genomeChosen => 1);
+        }
+        if ($gCount % 5000 == 0) {
+            print "$gCount genomes processed with $rCount representatives at " . Math::Round::nearest(0.01, (time - $start0) / $gCount) . " seconds/genome.\n";
+        }
     }
 }
 # All done. Write the output directory.

@@ -719,6 +719,9 @@ sub _ReadProteins {
     print scalar(@triples) . " proteins found in FASTA.\n" if $verbose;
     for my $triple (@triples) {
         my ($id, $genome, $seq) = @$triple;
+        if ($id =~ /(\d+\.\d+)/) {
+            $id = $1;
+        }
         $genome ||= $id;
         # Now we have a genome ID and a sequence. Get the genome name as well.
         my $name = $gNames->{$genome};
