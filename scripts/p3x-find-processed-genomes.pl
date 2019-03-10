@@ -53,7 +53,7 @@ my $stats = Stats->new();
 # Get the other options.
 my $copy = $opt->copy;
 my $all = $opt->all;
-if ($copy && -d $copy) {
+if ($copy && ! -d $copy) {
     print STDERR "Creating copy directory $copy.\n" if $debug;
     File::Copy::Recursive::pathmk($copy) || die "Could not create $copy: $!";
 }
