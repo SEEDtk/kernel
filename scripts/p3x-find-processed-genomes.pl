@@ -143,10 +143,10 @@ while (! eof $ih) {
             }
             if ($all || $goodSeed) {
                 if ($copy) {
-                    File::Copy::Recursive($gtoFile, "$copy/$genomeID.gto") || die "Could not copy $gtoFile: $!";
+                    File::Copy::Recursive::fcopy($gtoFile, "$copy/$genomeID.gto") || die "Could not copy $gtoFile: $!";
                     $gtoFile = "$copy/$genomeID.gto";
                     if ($fastaFile) {
-                        File::Copy::Recursive($fastaFile, "$copy/$genomeID.fa") || die "Could not copy $fastaFile: $!";
+                        File::Copy::Recursive::fcopy($fastaFile, "$copy/$genomeID.fa") || die "Could not copy $fastaFile: $!";
                         $fastaFile = "$copy/$genomeID.fa";
                     }
                 }
