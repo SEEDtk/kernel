@@ -21,6 +21,15 @@ The additional command-line options are the following.
 
 Write progress messages to STDERR.
 
+=item copy
+
+If specified, the name of a directory to which the FASTA and GTO files found should be copied.  This directory's files will
+be the ones listed in the output.
+
+=item all
+
+If specified, all genomes will be output, not just the good ones.
+
 =back
 
 =cut
@@ -30,14 +39,24 @@ use P3DataAPI;
 use P3Utils;
 use Stats;
 use GEO;
+use File::Copy::Recursive;
 
 # Get the command-line options.
 my $opt = P3Utils::script_opts('mainDir', P3Utils::ih_options(),
-        ['verbose|debug|v', 'write progress messages to STDERR']
+        ['verbose|debug|v', 'write progress messages to STDERR'],
+        ['all', 'output all genomes, even bad ones'],
+        ['copy=s', 'copy GTOs and FASTAs to specified directory'],
         );
 # Get the debug option.
 my $debug = $opt->verbose;
 my $stats = Stats->new();
+# Get the other options.
+my $copy = $opt->copy;
+my $all = $opt->all;
+if ($copy && -d $copy) {
+    print STDERR "Creating copy directory $copy.\n" if $debug;
+    File::Copy::Recursive::pathmk($copy) || die "Could not create $copy: $!";
+}
 # Get the main directory.
 my ($mainDir) = @ARGV;
 if (! $mainDir) {
@@ -80,20 +99,22 @@ my $gHash = get_all_genomes($p3);
 # Open the input file.
 my $ih = P3Utils::ih($opt);
 # Read the incoming headers.
-my ($outHeaders, $cols) = P3Utils::find_headers($ih, input => 'genome_name', 'PATRIC ID', 'Scientific Name', 'Good?');
+my ($outHeaders, $cols) = P3Utils::find_headers($ih, input => 'genome_name', 'PATRIC ID', 'Scientific Name', 'completeness', 'contamination',
+    'EvalG Completeness', 'EvalG Contamination', 'Good?');
 # Write output headers.
-P3Utils::print_cols(['genome_id', 'genome_name', 'FASTA', 'GTO', 'PATRIC_status']);
+P3Utils::print_cols(['genome_id', 'genome_name', 'CheckM Completeness', 'CheckM Contamination', 'EvalG Completeness', 'EvalG Contamination', 'Good Seed', 'FASTA', 'GTO', 'PATRIC_status']);
 # Loop through the input.
 print STDERR "Processing input.\n" if $debug;
 my $count = 0;
 while (! eof $ih) {
     # Get the next genome.
-    my ($gName, $genomeID, $genomeName, $goodFlag) = P3Utils::get_cols($ih, $cols);
+    my ($gName, $genomeID, $genomeName, $cmComplete, $cmContam, $egComplete, $egContam, $goodFlag) = P3Utils::get_cols($ih, $cols);
     $stats->Add(genomeIn => 1);
     # Only proceed if it's good.
     if (! $goodFlag) {
         $stats->Add(genomeBadScore => 1);
-    } else {
+    }
+    if ($goodFlag || $all) {
         # Compute the PATRIC status.
         my $pStatus = $gHash->{$genomeID};
         if ($pStatus) {
@@ -107,17 +128,29 @@ while (! eof $ih) {
             $stats->Add(genomeNoGTO => 1);
         } else {
             my $geo = GEO->CreateFromGto($gtoFile, detail => 0);
+            my $goodSeed = '';
             if (! $geo->good_seed) {
                 $stats->Add(genomeBadSeed => 1);
             } else {
-                # Get the FASTA file.
-                my $fastaFile = $fastaFiles{$gName};
-                if ($fastaFile) {
-                    $stats->Add(genomeFasta => 1);
-                } else {
-                    $fastaFile = '';
+                $goodSeed = 'Y';
+            }
+            # Get the FASTA file.
+            my $fastaFile = $fastaFiles{$gName};
+            if ($fastaFile) {
+                $stats->Add(genomeFasta => 1);
+            } else {
+                $fastaFile = '';
+            }
+            if ($all || $goodSeed) {
+                if ($copy) {
+                    File::Copy::Recursive($gtoFile, "$copy/$genomeID.gto") || die "Could not copy $gtoFile: $!";
+                    $gtoFile = "$copy/$genomeID.gto";
+                    if ($fastaFile) {
+                        File::Copy::Recursive($fastaFile, "$copy/$genomeID.fa") || die "Could not copy $fastaFile: $!";
+                        $fastaFile = "$copy/$genomeID.fa";
+                    }
                 }
-                P3Utils::print_cols([$genomeID, $genomeName, $fastaFile, $gtoFile, $pStatus]);
+                P3Utils::print_cols([$genomeID, $genomeName, $cmComplete, $cmContam, $egComplete, $egContam, $goodSeed, $fastaFile, $gtoFile, $pStatus]);
             }
         }
     }
