@@ -52,7 +52,7 @@ if ($qual) {
 }
 my ($headers, $cols) = P3Utils::find_headers($ih, input => 'PATRIC ID', 'Good?', @qual);
 my @outHeaders = @$headers;
-push @outHeaders, qw(Pegs EvalG_group);
+push @outHeaders, qw(Fids EvalG_group);
 if ($qual) {
     push @outHeaders, 'Quality';
 }
@@ -91,12 +91,9 @@ while (! eof $ih) {
         } else {
             $stats->Add(goodSeed => 1);
         }
-        $pegs = $gto->{feature_summary}{cds};
+        my $flist = $gto->{features};
+        $pegs = scalar @$flist;
         $qGroup = $gto->{quality}{completeness_group};
-        if (! defined $pegs) {
-            $stats->Add(pegsMissing => 1);
-            $pegs = 0;
-        }
         if (! defined $qGroup) {
             $stats->Add(groupMissing => 1);
             $qGroup = '';
