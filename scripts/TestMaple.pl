@@ -91,8 +91,16 @@ while (! eof $ih) {
         } else {
             $stats->Add(goodSeed => 1);
         }
-        $pegs = $gto->{feature_summary}{cds} // '';
-        $qGroup = $gto->{quality}{completeness_group} // '';
+        $pegs = $gto->{feature_summary}{cds};
+        $qGroup = $gto->{quality}{completeness_group};
+        if (! defined $pegs) {
+            $stats->Add(pegsMissing => 1);
+            $pegs = 0;
+        }
+        if (! defined $qGroup) {
+            $stats->Add(groupMissing => 1);
+            $qGroup = '';
+        }
     }
     push @fields, $pegs, $qGroup;
     # Compute the alternate quality measure.
@@ -112,6 +120,7 @@ while (! eof $ih) {
     # Write the output record.
     P3Utils::print_cols(\@fields, oh => $oh);
     $stats->Add(lineOut => 1);
+    print "$count genomes processed.\n" if $count % 500 == 0;
 }
 close $oh;
 print "All done.\n" . $stats->Show();
