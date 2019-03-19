@@ -22,6 +22,18 @@ if (! $gtoDir) {
 # Get the options.
 my $qual = $opt->qual;
 my $recursive = $opt->recursive;
+# Read in the contig sizes.
+my %sizes;
+print "Reading contig sizes.\n";
+open(my $ih, '<', "$gtoDir/sequence_url_metadata_opendata.tsv") || die "Could not open sequence metadata file: $!";
+my ($headers, $cols) = P3Utils::find_headers($ih, metadata => 'genome_name', 'genome_size');
+while (! eof $ih) {
+    my ($gName, $size) = P3Utils::get_cols($ih, $cols);
+    $stats->Add(metaLineIn => 1);
+    $sizes{$gName} = $size;
+}
+print scalar(keys %sizes) . " metadata records read.\n";
+close $ih;
 # Locate the gtos.
 print "Finding GTOs.\n";
 my @subDirs;
@@ -44,15 +56,15 @@ for my $subDir (@subDirs) {
 print scalar(keys %gtos) . " GTOs found in $gtoDir.\n";
 # Open the input file.
 print "Connecting to input file.\n";
-my $ih = P3Utils::ih($opt);
+$ih = P3Utils::ih($opt);
 # Read in the header line and find the critical columns.
 my @qual;
 if ($qual) {
     @qual = ('completeness', 'contamination');
 }
-my ($headers, $cols) = P3Utils::find_headers($ih, input => 'PATRIC ID', 'Good?', @qual);
+($headers, $cols) = P3Utils::find_headers($ih, input => 'genome_name', 'PATRIC ID', 'Good?', @qual);
 my @outHeaders = @$headers;
-push @outHeaders, qw(Fids EvalG_group GTO GTO_species);
+push @outHeaders, qw(Fids EvalG_group GTO GTO_species GTO_size contig_size);
 if ($qual) {
     push @outHeaders, 'Quality';
 }
@@ -69,11 +81,16 @@ while (! eof $ih) {
     $stats->Add(lineIn => 1);
     $count++;
     # Get the genome ID and goodness flag.
-    my ($genomeID, $goodFlag, $complete, $contam) = P3Utils::get_cols(\@fields, $cols);
+    my ($gName, $genomeID, $goodFlag, $complete, $contam) = P3Utils::get_cols(\@fields, $cols);
+    # Get the input size.
+    my $inputSize = $sizes{$gName} // 0;
+    if (! $inputSize) {
+        $stats->Add(missingInputSize => 1);
+    }
     # We need to process the seed protein.
     my $evalType = ($goodFlag ? 'good' : 'bad');
     # These will be our extra fields.
-    my ($pegs, $qGroup, $species) = (0, '', '');
+    my ($pegs, $qGroup, $species, $contigSize) = (0, '', '', 0);
     # Read the GTO and get its seed protein.
     my $gtoFile = $gtos{$genomeID};
     if (! $gtoFile) {
@@ -103,6 +120,16 @@ while (! eof $ih) {
         if (! defined $species) {
             $stats->Add(speciesMissing => 1);
             $species = '';
+        }
+        # Compute the sizes.
+        $contigSize = 0;
+        my $contigs = $gto->{contigs};
+        for my $contig (@$contigs) {
+            $contigSize += length $contig->{dna};
+        }
+        push @fields, $contigSize, $inputSize;
+        if ($contigSize < $inputSize) {
+            $stats->Add(sizeError => 1);
         }
     }
     push @fields, $pegs, $qGroup, $gtoFile, $species;
