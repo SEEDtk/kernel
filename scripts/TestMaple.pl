@@ -64,7 +64,7 @@ if ($qual) {
 }
 ($headers, $cols) = P3Utils::find_headers($ih, input => 'genome_name', 'PATRIC ID', 'Good?', @qual);
 my @outHeaders = @$headers;
-push @outHeaders, qw(Fids EvalG_group GTO GTO_species GTO_size contig_size);
+push @outHeaders, qw(Fids EvalG_group GTO GTO_species GTO_size contig_size input_size);
 if ($qual) {
     push @outHeaders, 'Quality';
 }
@@ -127,12 +127,12 @@ while (! eof $ih) {
         for my $contig (@$contigs) {
             $contigSize += length $contig->{dna};
         }
-        push @fields, $contigSize, $inputSize;
         if ($contigSize < $inputSize) {
             $stats->Add(sizeError => 1);
         }
     }
-    push @fields, $pegs, $qGroup, $gtoFile, $species;
+    push @fields, $pegs, $qGroup, $gtoFile, $species, $contigSize, $inputSize;
+
     # Compute the alternate quality measure.
     if ($qual) {
         my $qualType = 'L';
