@@ -64,7 +64,7 @@ if ($qual) {
 }
 ($headers, $cols) = P3Utils::find_headers($ih, input => 'genome_name', 'PATRIC ID', 'Good?', @qual);
 my @outHeaders = @$headers;
-push @outHeaders, qw(Fids EvalG_group GTO GTO_species GTO_size contig_size input_size);
+push @outHeaders, qw(Fids EvalG_group GTO GTO_species GTO_size contig_size);
 if ($qual) {
     push @outHeaders, 'Quality';
 }
