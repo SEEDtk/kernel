@@ -104,7 +104,7 @@ while (! eof $ih) {
         # Verify that the genome is genuinely good.
         if (! $seedProt) {
             $stats->Add(badSeed => 1);
-            $fields[$cols->[1]] = '';
+            $fields[$cols->[2]] = '';
             $evalType = 'bad';
         } else {
             $stats->Add(goodSeed => 1);
