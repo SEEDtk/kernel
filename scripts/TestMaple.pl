@@ -52,7 +52,7 @@ if ($qual) {
 }
 my ($headers, $cols) = P3Utils::find_headers($ih, input => 'PATRIC ID', 'Good?', @qual);
 my @outHeaders = @$headers;
-push @outHeaders, qw(Fids EvalG_group);
+push @outHeaders, qw(Fids EvalG_group GTO GTO_species);
 if ($qual) {
     push @outHeaders, 'Quality';
 }
@@ -73,12 +73,13 @@ while (! eof $ih) {
     # We need to process the seed protein.
     my $evalType = ($goodFlag ? 'good' : 'bad');
     # These will be our extra fields.
-    my ($pegs, $qGroup) = (0, '');
+    my ($pegs, $qGroup, $species) = (0, '', '');
     # Read the GTO and get its seed protein.
     my $gtoFile = $gtos{$genomeID};
     if (! $gtoFile) {
         print "GTO not found for $genomeID.\n";
         $stats->Add(missingGto => 1);
+        $gtoFile = '';
     } else {
         print "Reading GTO for $genomeID ($count).\n";
         my $gto = GenomeTypeObject->create_from_file($gtoFile);
@@ -98,8 +99,13 @@ while (! eof $ih) {
             $stats->Add(groupMissing => 1);
             $qGroup = '';
         }
+        $species = $gto->{ncbi_species};
+        if (! defined $species) {
+            $stats->Add(speciesMissing => 1);
+            $species = '';
+        }
     }
-    push @fields, $pegs, $qGroup;
+    push @fields, $pegs, $qGroup, $gtoFile, $species;
     # Compute the alternate quality measure.
     if ($qual) {
         my $qualType = 'L';
