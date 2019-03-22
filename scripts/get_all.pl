@@ -132,7 +132,7 @@ for (my $i = 0; $i < $n; $i++) {
     if ($valueList->[$i] =~ /^\$(\d+|n)/) {
         # We have an input column marker. Save the column number.
         my $col = (($1 eq 'n') ? -1 : ($1 - 1));
-        push @inputList, ($1 - 1);
+        push @inputList, $col;
         # If this is our first marker, open the input file.
         if (! defined $ih) {
             $ih = ScriptUtils::IH($opt->input);
@@ -165,7 +165,7 @@ if (! scalar(@fields)) {
 # Join the fields together with spaces in case the user was confused and quoted them.
 my $fields = join(" ", @fields);
 # Get the first line of input. If we have no input, this is an empty string.
-my $line = (defined $ih ? <$ih> : "\n");
+my $line = (defined $ih ? <$ih> : "");
 # Loop until we run out of input.
 while (defined $line) {
     # Parse the input line.
