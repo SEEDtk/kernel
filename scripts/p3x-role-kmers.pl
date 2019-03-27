@@ -42,6 +42,7 @@ use Shrub;
 use RoleParse;
 use Stats;
 
+$| = 1;
 # Get the command-line options.
 my $opt = P3Utils::script_opts('outFile', Shrub::script_options(), P3Utils::ih_options(),
         ['dna', 'input sequences are DNA, not proteins'],
