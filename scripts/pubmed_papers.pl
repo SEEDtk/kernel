@@ -21,8 +21,8 @@ use strict;
 use warnings;
 use FIG_Config;
 use ScriptUtils;
-use WWW::Search;
-use WWW::Search::PubMed;
+require WWW::Search;
+require WWW::Search::PubMed;
 use Template;
 
 =head1 Retrieve Papers from PUBMED Based on Keywords
