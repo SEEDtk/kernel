@@ -29,6 +29,10 @@ The kmer size.  This is C<8> for proteins and C<14> for DNA.
 
 If specified, a FASTA file containing sequences that should not be in any group.
 
+=item keep
+
+If specified, the kmers from the null file will be kept in the database in a group named C<null>.
+
 =back
 
 =cut
@@ -47,7 +51,8 @@ $| = 1;
 my $opt = P3Utils::script_opts('outFile', Shrub::script_options(), P3Utils::ih_options(),
         ['dna', 'input sequences are DNA, not proteins'],
         ['kmerSize|kmersize|kmer|K=i', 'size of each kmer'],
-        ['nullFile=s', 'FASTA file containing contra-indicative sequences']
+        ['nullFile=s', 'FASTA file containing contra-indicative sequences'],
+        ['keep', 'keep null sequence kmers']
         );
 my $stats = Stats->new();
 # Check the parameters.
@@ -117,9 +122,11 @@ if ($nullFile) {
     print "$count null sequences processed.\n";
 }
 # Delete the null group.
-print "Clearing null sequences.\n";
-my $deleted = $kmerDB->DeleteGroup($nullID);
-print "$deleted kmers removed.\n";
+if (! $opt->keep) {
+    print "Clearing null sequences.\n";
+    my $deleted = $kmerDB->DeleteGroup($nullID);
+    print "$deleted kmers removed.\n";
+}
 # Compute the discriminators.
 print "Computing discriminators.\n";
 $kmerDB->ComputeDiscriminators();
