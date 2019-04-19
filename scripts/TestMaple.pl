@@ -9,7 +9,7 @@ my $rootDir = "$FIG_Config::data/Bins_HMP";
 opendir(my $dh, $rootDir) || die "Could not open binning directory: $!";
 my @dirs = grep { -s "$rootDir/$_/bins.rast.json" } readdir $dh;
 closedir $dh;
-print join("\t", qw(id name complete contam group multi)) . "\n";
+print join("\t", qw(sample id name complete contam group multi)) . "\n";
 for my $dir (@dirs) {
     # This will hold the taxon IDs of the bins with multiple reference genomes.
     my %multiTaxes;
@@ -41,7 +41,7 @@ for my $dir (@dirs) {
             if ($complt >= 90 && $contam > 10) {
                 my ($tax) = split /\./, $id;
                 my $multiFlag = ($multiTaxes{$tax} ? 'multi' : '');
-                print join("\t", $id, $name, $complt, $contam, $group, $multiFlag) . "\n";
+                print join("\t", $dir, $id, $name, $complt, $contam, $group, $multiFlag) . "\n";
             }
         }
     }
