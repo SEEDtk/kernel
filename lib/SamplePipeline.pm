@@ -170,6 +170,10 @@ The number of seconds to sleep between polling requests to the RAST server. The 
 
 Type of binning engine to use-- C<s> for standard or C<2> for alternate.
 
+=item noIndex
+
+If TRUE, the annotated genomes produced will not be indexed in PATRIC.
+
 =back
 
 =back
@@ -197,7 +201,7 @@ sub Process {
     my $engine = $options{engine} // 's';
     my $eNameCol = $options{eNameCol} // 1;
     my $eDepthCol = $options{eDepthCol} // 3;
-    my %rastOptions = (user => $options{user}, password => $options{password}, 'sleep' => $options{sleep});
+    my %rastOptions = (user => $options{user}, password => $options{password}, 'sleep' => $options{sleep}, noIndex => $options{noIndex});
     my $force = $options{force} // 0;
     # FASTQ files will go in these queues.
     my (@f1q, @f2q, @fsq);

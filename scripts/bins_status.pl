@@ -116,6 +116,10 @@ Back out incomplete assemblies. This means removing the C<Assembly> directory so
 
 Type of binning engine to use-- C<s> for the standard binner, C<2> for the alternate binner.
 
+=item noIndex
+
+If specified, the annotated genomes will not be indexed in PATRIC.
+
 =back
 
 =cut
@@ -131,6 +135,7 @@ my $opt = ScriptUtils::Opts('directory',
                 ['backout', 'back out incomplete assemblies'],
                 ['maxResume=i', 'maximum number of running jobs for resume', { default => 20 }],
                 ['engine=s', 'type of binning engine to use', { default => 's' }],
+                ['noIndex', 'do not index bins in PATRIC'],
                 ['run=i', 'run binning pipeline on new directories', { default => 0 }]);
 my $stats = Stats->new();
 # Get the main directory name.
@@ -146,6 +151,7 @@ my $runCount = $opt->run // 0;
 my $proj = $opt->project;
 my $fix = $opt->fix;
 my $engine = $opt->engine;
+my $noIndex = ($opt->noIndex ? '--noIndex ' : '');
 # Get a hash of the running subdirectories.
 my %running;
 my @jobs = `ps -AF`;
@@ -317,7 +323,7 @@ print "\nAll done:\n" . $stats->Show();
 sub StartJob {
     my ($dir, $subDir, $gz, $start, $label, $proj) = @_;
     my $realProj = ($proj eq 'NCBI' ? 'MH' : $proj);
-    my $cmd = "bins_sample_pipeline --project=$realProj --engine=$engine $gz $dir $subDir >$subDir/run.log 2>$subDir/err.log";
+    my $cmd = "bins_sample_pipeline --project=$realProj --engine=$engine $noIndex $gz $dir $subDir >$subDir/run.log 2>$subDir/err.log";
     my $rc = system("nohup $cmd &");
     push @other, "$label: $start $cmd.\n";
     $stats->Add("dirs0$start" => 1);

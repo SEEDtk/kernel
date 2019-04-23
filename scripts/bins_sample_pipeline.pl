@@ -106,6 +106,10 @@ If specified, then the reads are stored in C<gz> files and must be unzipped firs
 
 Type of binning engine to use-- C<s> for standard or C<2> for alternate.
 
+=item noIndex
+
+If specified, the annotated genomes will not be indexed in PATRIC.
+
 =back
 
 =cut
@@ -121,6 +125,7 @@ my $opt = ScriptUtils::Opts('sampleID workDir',
         ["reset:s", "delete all files except the assembly results to force re-binning"],
         ["gz", "unzip read files before processing"],
         ['engine=s', 'type of binning engine to use', { default => 's' }],
+        ['noIndex', 'do not index annotated genomes in PATRIC'],
         );
 # Close STDIN so we don't hang a parent process.
 close(STDIN);
@@ -160,6 +165,8 @@ if ($project eq 'HMP') {
 }
 # Store the engine.
 $options{engine} = $opt->engine;
+# Store the indexing option.
+$options{noIndex} = $opt->noIndex // 0;
 # Compute the file names for the sample.
 my $expectF = "$workDir/$sampleID" . "_abundance_table.tsv";
 # Check the file name suffixes. Save the ones that exist as options.
