@@ -166,7 +166,7 @@ if ($project eq 'HMP') {
 # Store the engine.
 $options{engine} = $opt->engine;
 # Store the indexing option.
-$options{noIndex} = $opt->noIndex // 0;
+$options{noIndex} = $opt->noindex // 0;
 # Compute the file names for the sample.
 my $expectF = "$workDir/$sampleID" . "_abundance_table.tsv";
 # Check the file name suffixes. Save the ones that exist as options.

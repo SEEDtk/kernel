@@ -151,7 +151,7 @@ my $runCount = $opt->run // 0;
 my $proj = $opt->project;
 my $fix = $opt->fix;
 my $engine = $opt->engine;
-my $noIndex = ($opt->noIndex ? '--noIndex ' : '');
+my $noIndex = ($opt->noindex ? '--noIndex ' : '');
 # Get a hash of the running subdirectories.
 my %running;
 my @jobs = `ps -AF`;
