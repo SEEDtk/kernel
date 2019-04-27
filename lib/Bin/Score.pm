@@ -38,11 +38,6 @@ The weight to assign to the coverage score. The coverage score is the fraction o
 20% of each other. (So, the coverage vectors are compared, and the number of coordinates in the first bin that are within
 20% of the corresponding value for the second bin is computed and divided by the vector length.)
 
-=item tetraWeight
-
-The weight to assign to the tetranucleotide score. The tetranucleotide score is the dot product of the two tetranucleotide
-vectors.
-
 =item refWeight
 
 The weight to assign to the reference genome score. The reference genome score is 1.0 if the two reference genome sets are
@@ -93,10 +88,6 @@ A L<Getopt::Long::Descriptive::Opts> object containing command-line options. All
 
 The weight to assign to the coverage score.
 
-=item tetraweight
-
-The weight to assign to the tetranucleotide score.
-
 =item refweight
 
 The weight to assign to the reference genome score.
@@ -131,7 +122,6 @@ sub new_for_script {
     # Create the object.
     my $retVal = {
         covgWeight => $opt->covgweight,
-        tetraWeight => $opt->tetraweight,
         refWeight => $opt->refweight,
         uniPenalty => $opt->unipenalty,
         uniWeight => $opt->uniweight,
@@ -147,7 +137,7 @@ sub new_for_script {
 
 =head3 new
 
-    my $score = Bin::Score->new($covgweight, $tetraweight, $refweight, $unipenalty, $uniweight, $minscore, $unifile);
+    my $score = Bin::Score->new($covgweight, $refweight, $unipenalty, $uniweight, $minscore, $unifile);
 
 Create a scoring object from specified scoring values.
 
@@ -156,10 +146,6 @@ Create a scoring object from specified scoring values.
 =item covgweight
 
 The weight to assign to the coverage score.
-
-=item tetraweight
-
-The weight to assign to the tetranucleotide score.
 
 =item refweight
 
@@ -187,13 +173,12 @@ the global data directory.
 =cut
 
 sub new {
-    my ($class, $covgweight, $tetraweight, $refweight, $unipenalty, $uniweight, $minscore, $unifile) = @_;
+    my ($class, $covgweight, $refweight, $unipenalty, $uniweight, $minscore, $unifile) = @_;
     # Compute the universal role hash.
     my $uniHash = ReadUniHash($unifile);
     # Create the object.
     my $retVal = {
         covgWeight => $covgweight,
-        tetraWeight => $tetraweight,
         refWeight => $refweight,
         uniPenalty => $unipenalty,
         uniWeight => $uniweight,
@@ -218,10 +203,6 @@ These are the command-line options for configuring a L<Bin::Score> object.
 =item covgweight
 
 The weight to assign to the coverage score.
-
-=item tetraweight
-
-The weight to assign to the tetranucleotide score.
 
 =item refweight
 
@@ -254,7 +235,6 @@ that can be used in the L<ScriptUtils/Opts> method.
 sub script_options {
     return (
            [ "covgweight=f",  "the weight to assign to the coverage score", { default => 0.717 } ],
-           [ "tetraweight=f", "the weight to assign to the tetranucleotide score", { default => 0.593 }  ],
            [ "refweight=f",   "the weight to assign to the closest-reference-genome score", { default => 0.255 } ],
            [ "unipenalty=f",  "the penalty to assign to duplicate universal roles", { default => 0.970 } ],
            [ "uniweight=f",   "the weight to assign to the universal role score", { default => 0.856 } ],
@@ -265,7 +245,7 @@ sub script_options {
 
 =head3 scale_min
 
-    my $minScore = Bin::Score::scale_min($covgWeight, $tetraWeight, $refWeight, $uniWeight, $inMinScore);
+    my $minScore = Bin::Score::scale_min($covgWeight, $refWeight, $uniWeight, $inMinScore);
 
 Scale a minimum score in the range from 0 to 1 to be proportional to the sum of the weights. This is used to convert
 a parameter chromosome from L<ga.pl> to actual scoring parameters.
@@ -275,10 +255,6 @@ a parameter chromosome from L<ga.pl> to actual scoring parameters.
 =item covgWeight
 
 The weight to assign to the coverage score.
-
-=item tetraWeight
-
-The weight to assign to the tetranucleotide score.
 
 =item refWeight
 
@@ -301,8 +277,8 @@ Returns the scaled minimum acceptable score.
 =cut
 
 sub scale_min {
-    my ($covgWeight, $tetraWeight, $refWeight, $uniWeight, $inMinScore) = @_;
-    my $retVal = (1 + $inMinScore) * 0.4 * ($covgWeight + $tetraWeight + $refWeight + $uniWeight);
+    my ($covgWeight, $refWeight, $uniWeight, $inMinScore) = @_;
+    my $retVal = (1 + $inMinScore) * 0.4 * ($covgWeight + $refWeight + $uniWeight);
     return $retVal;
 }
 
@@ -310,8 +286,7 @@ sub scale_min {
 
     my $vector = Bin::Score::Vector($bin1, $bin2);
 
-Return the scoring vector for a pair of bins. The scoring vector consists of the coverage score, the tetranucleotide
-score, the closest-reference-genome score, the number of universal roles not in common, and the number of
+Return the scoring vector for a pair of bins. The scoring vector consists of the coverage score,  the closest-reference-genome score, the number of universal roles not in common, and the number of
 universal roles in common. These components are combined using the weights in the scoring object to compute the
 real score.
 
@@ -327,8 +302,8 @@ A L<Bin> object representing the second set of contigs.
 
 =item RETURN
 
-Returns a 5-tuple consisting of (0) the coverage score, (1) the tetranucleotide score, (2) the closest-reference-genome
-score, (3) the number of universal roles not in common, and (4) the number of universal roles in common.
+Returns a 5-tuple consisting of (0) the coverage score, (1) the closest-reference-genome
+score, (2) the number of universal roles not in common, and (3) the number of universal roles in common.
 
 =back
 
@@ -362,17 +337,6 @@ sub Vector {
     }
     $cScore /= $n;
     push @retVal, $cScore;
-    # Compare the tetranucleotide vectors.
-    my $dot = 0;
-    my $tetra1 = $bin1->tetra;
-    my $tetra2 = $bin2->tetra;
-    my $vlen = $bin1->tetraLen * $bin2->tetraLen;
-    $n = scalar @$tetra1;
-    for ($i = 0; $i < $n; $i++) {
-        $dot += $tetra1->[$i] * $tetra2->[$i];
-    }
-    my $tscore = $dot / $vlen;
-    push @retVal, $tscore;
     # Compare the reference genome lists.
     my @ref1 = $bin1->refGenomes;
     my @ref2 = $bin2->refGenomes;
@@ -428,7 +392,7 @@ sub Vector {
 
     my $cmp = Bin::Score::Cmp($a, $b);
 
-Compare two scoring vectors for sort purposes. The sort is by highest coverage score, then highest tetranucleotide score,
+Compare two scoring vectors for sort purposes. The sort is by highest coverage score,
 then highest reference-genome score, highest unique-universal score, lowest common-universal score.
 
 =over 4
@@ -454,8 +418,7 @@ sub Cmp {
     my $retVal = ($b->[0] <=> $a->[0]) ||
                  ($b->[1] <=> $a->[1]) ||
                  ($b->[2] <=> $a->[2]) ||
-                 ($b->[3] <=> $a->[3]) ||
-                 ($a->[4] <=> $b->[4]);
+                 ($b->[3] <=> $a->[3]);
     return $retVal;
 }
 
@@ -508,7 +471,7 @@ sub ReadUniHash {
 
 =head3 Reset
 
-    $score->Reset($covgweight, $tetraweight, $refweight, $unipenalty, $uniweight, $minscore);
+    $score->Reset($covgweight, $refweight, $unipenalty, $uniweight, $minscore);
 
 Set the scoring weights to new values.
 
@@ -517,10 +480,6 @@ Set the scoring weights to new values.
 =item covgweight
 
 The weight to assign to the coverage score.
-
-=item tetraweight
-
-The weight to assign to the tetranucleotide score.
 
 =item refweight
 
@@ -543,9 +502,8 @@ The minimum acceptable score. (Lower scores are set to 0.)
 =cut
 
 sub Reset {
-    my ($self, $covgweight, $tetraweight, $refweight, $unipenalty, $uniweight, $minscore) = @_;
+    my ($self, $covgweight, $refweight, $unipenalty, $uniweight, $minscore) = @_;
     $self->{covgWeight} = $covgweight;
-    $self->{tetraWeight} = $tetraweight;
     $self->{refWeight} = $refweight;
     $self->{uniPenalty} = $unipenalty;
     $self->{uniWeight} = $uniweight;
@@ -563,8 +521,8 @@ Compute the score from a scoring vector.
 =item vector
 
 Vector of scores from which the final score should be computed. A 5-tuple consisting of (0) the coverage
-score, (1) the tetranucleotide score, (2) the closest-reference-genome score, (3) the number of universal
-roles not in common, and (4) the number of universal roles in common.
+score, (1) the closest-reference-genome score, (2) the number of universal roles not in common, and (3) the
+number of universal roles in common.
 
 =item RETURN
 
@@ -576,8 +534,8 @@ Returns the score computed by applying the weights to the individual scores in t
 
 sub ScoreV {
     my ($self, $vector) = @_;
-    my $retVal = $self->{covgWeight} * $vector->[0] + $self->{tetraWeight} * $vector->[1] + $self->{refWeight} * $vector->[2];
-    my $uscore = $vector->[3] - $self->{uniPenalty} * $vector->[4];
+    my $retVal = $self->{covgWeight} * $vector->[0] + $self->{refWeight} * $vector->[1];
+    my $uscore = $vector->[2] - $self->{uniPenalty} * $vector->[3];
     if ($uscore < 0) {
         $uscore = 0;
     } else {

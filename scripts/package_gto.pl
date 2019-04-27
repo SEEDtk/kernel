@@ -22,7 +22,6 @@ use warnings;
 use FIG_Config;
 use ScriptUtils;
 use SeedUtils;
-use Bin;
 use GenomeTypeObject;
 use File::Copy::Recursive;
 

@@ -22,7 +22,6 @@ use warnings;
 use FIG_Config;
 use ScriptUtils;
 use Bin::Blast;
-use TetraMap;
 use Bin::Analyze;
 use Bin::Kmer;
 use Bin;
@@ -116,26 +115,6 @@ computing the identity of the bins. The default is C<4>.
 =item binLenFilter
 
 If specified, the minimum length of a contig that can be placed into a bin. The default is C<400>.
-
-=item tetra
-
-Tetranucleotide computation scheme. The default is C<dual>.
-
-=over 8
-
-=item raw
-
-Each tetranucleotide and its reverse compliment is counted.
-
-=item fancy
-
-Each tetranucleotide and its reverse compliment is counted unless the reverse compliment is the same.
-
-=item dual
-
-Each tetranucleotide is counted once, and is considered identical to its reverse compliment.
-
-=back
 
 =item force
 
@@ -258,7 +237,7 @@ where I<XXXXXXX> is the genome ID.
 
 The C<bins.kmer.json> file contains the first set of output bins (based on protein kmers) in json format.
 
-The C<bins.unplaced.bin> file contains the unplaced contig bins from the protein kmer processing, in json format.
+The C<bins.unplaced.bins> file contains the unplaced contig bins from the protein kmer processing, in json format.
 
 The C<unplaced.fa> file contains the contigs (in FASTA format) that were not placed by the protein kmer processing.
 
@@ -271,7 +250,6 @@ my $opt = ScriptUtils::Opts('sampleDir workDir',
                 ['lenFilter=i',    'minimum contig length for seed protein search', { default => 400 }],
                 ['covgFilter=f',   'minimum contig mean coverage for seed protein search', { default => 4}],
                 ['binLenFilter=i', 'minimum contig length for binning', { default => 400 }],
-                ['tetra=s',        'tetranucleotide counting algorithm', { 'default' => 'dual' }],
                 ['force=s',        'force re-creation of all intermediate files'],
                 ['seedProtFasta=s', 'name of a FASTA file containing examples of the seed protein to use for seeding the bins',
                                     { default => "$FIG_Config::global/seedprot.fa" }],
@@ -338,8 +316,6 @@ if ($force || ! -s $reducedFastaFile || ! -s $binFile) {
     # We must process the raw contigs to create the contig bin objects and the sample FASTA file.
     # Create the bad-codon scanner.
     my $badLetters = BadLetters->new(prots => { N => $opt->asparlen, X => $opt->scaffoldlen });
-    # Create the tetranucleotide object.
-    my $tetra = TetraMap->new($opt->tetra);
     # Now loop through the contig input file. We also save a copy of the contig sequences.
     print "Processing tetranucleotide data.\n";
     my $fh = $loader->OpenFasta(contig => $contigFile);
@@ -357,16 +333,12 @@ if ($force || ! -s $reducedFastaFile || ! -s $binFile) {
                 $stats->Add(contigBadCodons => 1);
             } else {
                 # Create a new bin for this contig.
-                my $bin = Bin->new($contig);
-                $bin->set_len($len);
+                my $bin = Bin->new($contig, $len, 50);
                 $stats->Add(contigLetters => $len);
                 # Save it in the contig hash.
                 $contigs{$contig} = $bin;
                 # Save a copy of the sequence.
                 print $ofh ">$contig\n$seq\n";
-                # Compute the tetranucleotide vector.
-                my $contigTetra = $tetra->ProcessString($seq);
-                $bin->set_tetra($contigTetra);
             }
         } else {
             $stats->Add(contigTooSmallForBin => 1);
@@ -410,12 +382,12 @@ if ($force || ! -s $reducedFastaFile || ! -s $binFile) {
             $bin->WriteContig($bfh);
             # Do we keep this contig for BLASTing against the seed protein?
             if ($bin->len < $lenFilter) {
-                if ($bin->meanCoverage < $covgFilter) {
+                if ($bin->coverage < $covgFilter) {
                     $stats->Add(contigRejectedBoth => 1);
                 } else {
                     $stats->Add(contigRejectedLen => 1);
                 }
-            } elsif ($bin->meanCoverage < $covgFilter) {
+            } elsif ($bin->coverage < $covgFilter) {
                 $stats->Add(contigRejectedCovg => 1);
             } else {
                 # Yes. Save it.\
@@ -628,7 +600,7 @@ if ($opt->unassembled) {
     my %binHash;
     # Do we have a kmer-based version of the bins?
     my $kmerBinFile = "$workDir/bins.kmer.json";
-    my $contigFile = "$workDir/bins.unplaced.bin";
+    my $contigFile = "$workDir/bins.unplaced.bins";
     if (! $force && -s $kmerBinFile && -f $contigFile) {
         # Yes. Read it in.
         print "Reading bin status from $kmerBinFile\n";

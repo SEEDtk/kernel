@@ -86,7 +86,7 @@ for (my $iBin = 0; $iBin < @binFiles; $iBin++) {
     }
 }
 # Write the report.
-my @sorted = sort { $b->meanCoverage <=> $a->meanCoverage } @$contigList;
+my @sorted = sort { $b->coverage <=> $a->coverage } @$contigList;
 for my $contigBin (@sorted) {
     my $contigID = $contigBin->contig1;
     my $locList = $contigData{$contigID};
@@ -96,6 +96,6 @@ for my $contigBin (@sorted) {
     }
     my ($bestCount) = sort { $b <=> $a } values %binCounts;
     $bestCount //= 0;
-    print join("\t", $contigID, $contigBin->meanCoverage, @$locList, $bestCount) . "\n";
+    print join("\t", $contigID, $contigBin->coverage, @$locList, $bestCount) . "\n";
 }
 print STDERR "All done.\n" . $stats->Show();

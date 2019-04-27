@@ -25,7 +25,7 @@ package Bin::Analyze;
 
 =head1 Community Bin Analysis Object.
 
-This object computes a quality score for a set of bins computed by the L<Bin::Compute> algorithm. A bin will be considered
+This object computes a quality score for a set of bins computed by one of the binning algorithms. A bin will be considered
 of good quality if it has a specified minimum number of the universal roles and a specified maximum number of duplicate roles.
 The quality score for a bin is 1 if it is a good bin and zero if it is not, plus the number of non-duplicate universal roles
 divided by the total number of universal roles plus 0.5 if it is a big bin..
@@ -443,8 +443,7 @@ sub BinReport {
 
 Write a report on the contig composition of the specified bin to the
 specified output stream. For each contig in the bin, the report will list
-its universal roles, closest genome, tetranucleotide distance, and
-coverage distance.
+its universal roles, closest genome, and coverage distance.
 
 =over 4
 
@@ -484,11 +483,11 @@ sub ContigReport {
         }
         # Sort the contigs by score.
         my @sorted = sort { Bin::Score::Cmp($scoreV{$a}, $scoreV{$b}) } @contigs;
-        print "Contig\tcoverage\tcscore\ttetra\troles\n";
+        print "Contig\tcoverage\tcscore\troles\n";
         for my $contig (@sorted) {
             my $score = $scoreV{$contig};
             my $contigBin = $contigBins->{$contig};
-            print $oh join("\t", $contig, $contigBin->meanCoverage, $score->[0], $score->[1], sort keys %{$contigBin->uniProts}) . "\n";
+            print $oh join("\t", $contig, $contigBin->meanCoverage, $score->[0], sort keys %{$contigBin->uniProts}) . "\n";
         }
     }
     print "\n\n";
