@@ -32,6 +32,7 @@ use SeedUtils;
 use P3DataAPI;
 use GenomeTypeObject;
 use KmerDb;
+use BadLetters;
 
 =head1 Create Bins From Community Contigs (Algorithm 4)
 
@@ -200,6 +201,14 @@ If specified, reference genomes will be grouped by genus instead of genus and sp
 
 If specified, the name of a file into which the statistics should be saved.
 
+=item apsarLen
+
+The number of N-codons in a row to cause a contig to be rejected.  The default is C<12>.
+
+=item scaffoldLen
+
+The number of X-codons in a row to cause a contig to be rejected.  The default is C<20>.
+
 =back
 
 =head2 Input Files
@@ -230,7 +239,8 @@ use as reference genomes.
 This script produces intermediate working files that are re-used if they already exist. Many files are output in the
 working directory by L<Bin::Blast>.
 
-The C<sample.fasta> file contains all of the sample sequences in FASTA form.
+The C<sample.fasta> file contains all of the sample sequences in FASTA form with bad runs (too many Ns) and short contigs
+removed.
 
 The C<bins.found.tbl> file contains the locations hit by the universal protein used to seed the process.
 
@@ -277,6 +287,8 @@ my $opt = ScriptUtils::Opts('sampleDir workDir',
                 ['danglen=i',      'kmer length for unbinned-contig DNA matches', { default => 50 }],
                 ['genus',          'group by genus instead of species'],
                 ['statistics-file=s', 'save statistics data to this file'],
+                ['scaffoldLen|XBad=i', 'number of X codons in a row to cause a contig to be rejected', { default => 20 }],
+                ['asparLen|Nbad=i', 'number of N codons in a row to cause a contig to be rejected', { default => 12 }]
         );
 # Enable access to PATRIC from Argonne.
 $ENV{PERL_LWP_SSL_VERIFY_HOSTNAME} = 0;
@@ -324,6 +336,8 @@ my %contigs;
 # Do we already have the initial contig bins?
 if ($force || ! -s $reducedFastaFile || ! -s $binFile) {
     # We must process the raw contigs to create the contig bin objects and the sample FASTA file.
+    # Create the bad-codon scanner.
+    my $badLetters = BadLetters->new(prots => { N => $opt->asparlen, X => $opt->scaffoldlen });
     # Create the tetranucleotide object.
     my $tetra = TetraMap->new($opt->tetra);
     # Now loop through the contig input file. We also save a copy of the contig sequences.
@@ -337,17 +351,23 @@ if ($force || ! -s $reducedFastaFile || ! -s $binFile) {
         my $len = length $seq;
         # Is it acceptable?
         if ($len >= $opt->binlenfilter) {
-            # Create a new bin for this contig.
-            my $bin = Bin->new($contig);
-            $bin->set_len($len);
-            $stats->Add(contigLetters => $len);
-            # Save it in the contig hash.
-            $contigs{$contig} = $bin;
-            # Save a copy of the sequence.
-            print $ofh ">$contig\n$seq\n";
-            # Compute the tetranucleotide vector.
-            my $contigTetra = $tetra->ProcessString($seq);
-            $bin->set_tetra($contigTetra);
+            # Scan for bad codons.
+            my ($count) = $badLetters->Scan($seq);
+            if ($count) {
+                $stats->Add(contigBadCodons => 1);
+            } else {
+                # Create a new bin for this contig.
+                my $bin = Bin->new($contig);
+                $bin->set_len($len);
+                $stats->Add(contigLetters => $len);
+                # Save it in the contig hash.
+                $contigs{$contig} = $bin;
+                # Save a copy of the sequence.
+                print $ofh ">$contig\n$seq\n";
+                # Compute the tetranucleotide vector.
+                my $contigTetra = $tetra->ProcessString($seq);
+                $bin->set_tetra($contigTetra);
+            }
         } else {
             $stats->Add(contigTooSmallForBin => 1);
         }
