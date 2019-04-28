@@ -303,7 +303,7 @@ sub Process {
         $force = 1;
     }
     # At this point, we have the bins JSON file.
-    if ($force || ! -s "$workDir/bins.report.txt") {
+    if ($force || ! -f "$workDir/bins.report.txt") {
         # We need to run RAST on the bins. This is done internally, and we need some parameters.
         # First, we set the "partial" option to the inverse of "force".
         $rastOptions{partial} = ($force ? 0 : 1);

@@ -124,6 +124,10 @@ If specified, the annotated genomes will not be indexed in PATRIC.
 
 =cut
 
+# Files to keep during a reset.
+use constant KEEPERS => { 'site.tbl' => 1, 'run.log' => 1, 'err.log' => 1, 'exclude.tbl' => 1, 'contigs.fasta' => 1,
+        'output.contigs2reads.txt' => 1 };
+
 # Get the command-line parameters.
 my $opt = ScriptUtils::Opts('directory',
                 ['clean', 'clean up assembly information for complete samples'],
@@ -136,6 +140,7 @@ my $opt = ScriptUtils::Opts('directory',
                 ['maxResume=i', 'maximum number of running jobs for resume', { default => 20 }],
                 ['engine=s', 'type of binning engine to use', { default => 's' }],
                 ['noIndex', 'do not index bins in PATRIC'],
+                ['reset', 'delete all binning results to force re-binning of all directories'],
                 ['run=i', 'run binning pipeline on new directories', { default => 0 }]);
 my $stats = Stats->new();
 # Get the main directory name.
@@ -152,12 +157,15 @@ my $proj = $opt->project;
 my $fix = $opt->fix;
 my $engine = $opt->engine;
 my $noIndex = ($opt->noindex ? '--noIndex ' : '');
-# Get a hash of the running subdirectories.
+my $resetOpt = $opt->reset;
+# Get a hash of the running subdirectories (Unix only).
 my %running;
-my @jobs = `ps -AF`;
-for my $job (@jobs) {
-    if ($job =~ /bins_sample_pipeline\s+(?:--\S+\s+)*(\w+)/) {
-        $running{$1} = 1;
+if (! $FIG_Config::win_mode) {
+    my @jobs = `ps -AF`;
+    for my $job (@jobs) {
+        if ($job =~ /bins_sample_pipeline\s+(?:--\S+\s+)*(\w+)/) {
+            $running{$1} = 1;
+        }
     }
 }
 # Loop through the subdirectories.
@@ -172,7 +180,6 @@ my (@done, @downloaded, @other);
 for my $dir (@dirs) {
     $stats->Add(dirsTotal => 1);
     my $subDir = "$directory/$dir";
-    my $rastFound = (-s "$subDir/bins.rast.json");
     my $cleaned = (-d "$subDir/Assembly" ? "" : "  Assembly cleaned.");
     my $done;
     # Determine the site.
@@ -196,6 +203,28 @@ for my $dir (@dirs) {
         $run = ', running';
     }
     my $label = "$subDir ($site$run)";
+    # Are we resetting?
+    if ($resetOpt && ! $run) {
+        # Yes. Get the list of files and delete the binning stuff.
+        my ($count, $total) = (0, 0);
+        opendir(my $dh, $subDir) || die "Could not open work directory: $!";
+        my @files = grep { -f "$subDir/$_" } readdir $dh;
+        for my $file (@files) {
+            my $fullName = "$subDir/$file";
+            $total++;
+            unless ($fullName =~ /_abundance_table.tsv$/ || $fullName =~ /\.fastq$/ || $fullName =~ /\.fq/ ||
+                    KEEPERS->{$file}) {
+                unlink $fullName;
+                $count++;
+            }
+        }
+        if (-d "$subDir/Eval") {
+            File::Copy::Recursive::pathrmdir("$subDir/Eval") || die "Could not remove Eval from $subDir: $!";
+        }
+        $cleaned .= "  $count of $total files deleted by reset.";
+    }
+    # Check for the RAST completion file.
+    my $rastFound = (-f "$subDir/bins.report.txt");
     # Determine the status.
     if (-s "$subDir/expect.report.txt") {
         $done = "Expectations Computed.";
@@ -229,7 +258,7 @@ for my $dir (@dirs) {
             push @other, "$label: Bins Computed.\n";
         }
         $stats->Add(dirs4Binned => 1);
-    } elsif (-s "$subDir/bins.report.txt") {
+    } elsif (-f "$subDir/bins.report.txt") {
         $stats->Add(noBinsFound => 1);
         $done = "No bins found.";
     } elsif (-s "$subDir/sample.fasta") {
