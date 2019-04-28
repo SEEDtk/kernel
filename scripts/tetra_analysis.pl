@@ -27,12 +27,12 @@ use TetraProfile;
 
 =head1 Analyze Tetramer Vectors for Well-Behaved Genomes
 
-    tetra_analysis.pl [ options ] 
+    tetra_analysis.pl [ options ]
 
 This script runs through all the well-behaved genomes in the Shrub database and computes their tetramer profiles. For each genome, it will
 compute the global tetramer profile and then the distance of each chunk from that profile. It will then output the mean, standard deviation,
 minimum, maximum, and expected maximum (tolerance) for the distances. The distances are estimated from the dot-product of the normalized
-profile vectors. 
+profile vectors.
 
 =head2 Parameters
 
@@ -109,6 +109,3 @@ for my $genome (sort keys %genomes) {
     print join("\t", $genome, $name, $profile->stats($type)) . "\n";
 }
 print STDERR "All done.\n";
-
-
-## TODO process the input to produce the output.

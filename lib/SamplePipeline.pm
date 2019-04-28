@@ -23,6 +23,7 @@ package SamplePipeline;
     use RASTlib;
     use Bin;
     use Bin::Analyze;
+    use Bin::Improve;
     use Loader;
     use SeedUtils;
     use SeedAware;
@@ -302,7 +303,7 @@ sub Process {
         $force = 1;
     }
     # At this point, we have the bins JSON file.
-    if ($force || ! -s "$workDir/bins.rast.json") {
+    if ($force || ! -s "$workDir/bins.report.txt") {
         # We need to run RAST on the bins. This is done internally, and we need some parameters.
         # First, we set the "partial" option to the inverse of "force".
         $rastOptions{partial} = ($force ? 0 : 1);
@@ -361,7 +362,7 @@ A hash containing zero or more of the following options.
 
 =item user
 
-The apprioriate RAST user name. The default is taken from the C<RASTUSER> environment variable.
+The appropriate RAST user name. The default is taken from the C<RASTUSER> environment variable.
 
 =item password
 
@@ -392,11 +393,17 @@ sub RastBins {
     # Create a hash of the universal roles.
     my $uniRoleH = $shrub->GetUniRoles();
     my $totUnis = scalar keys %$uniRoleH;
-    # Create an analyzer object.
-    my $analyzer = Bin::Analyze->new(totUnis => $totUnis, minUnis => (0.8 * $totUnis));
     # Get the loader object.
     my $loader = Loader->new();
     my $stats = $loader->stats;
+    # Create the bin improvement object.
+    my $improver = Bin::Improve->new($workDir, stats => $stats);
+    # Initialize the role hashes.
+    print "Reading role files.\n";
+    my ($nMap, $cMap) = EvalCon::LoadRoleHashes("$FIG_Config::global/roles.in.subsystems", $stats);
+    # Create the GEO options.
+    my $p3 = P3DataAPI->new();
+    my %gOptions = (roleHashes => [$nMap, $cMap], detail => 2, p3 => $p3, stats => $stats);
     # Read in the bins.
     print "Reading bins from $binJsonFile.\n";
     my $binList = Bin::ReadBins($binJsonFile);
@@ -421,26 +428,37 @@ sub RastBins {
         } else {
             my %contigs = map { $_ => 1 } $bin->contigs;
             # Now we read the sample file and keep the contig triples.
-            my @triples;
+            my $triples = [];
             my $ih = $loader->OpenFasta(sampleContigs => $contigFastaFile);
-            open(my $oh, ">$workDir/bin$binNum.fa") || die "Could not open FASTA output file for bin $binNum.";
+            my $binFastaFile = "$workDir/bin$binNum.fa";
+            open(my $oh, '>', $binFastaFile) || die "Could not open FASTA output file for bin $binNum.";
             my $triple = $loader->GetLine(sampleContigs => $ih);
             while (defined $triple) {
                 my $contigID = $triple->[0];
                 if ($contigs{$contigID}) {
                     $stats->Add(contigsKept => 1);
-                    push @triples, $triple;
+                    push @$triples, $triple;
                     print $oh ">$triple->[0] $triple->[1]\n$triple->[2]\n";
                 }
                 $triple = $loader->GetLine(sampleContigs => $ih);
             }
-            my $contigCount = scalar @triples;
+            my $contigCount = scalar @$triples;
             print "Submitting $binNum to RAST: $contigCount contigs.\n";
-            $gto = RASTlib::Annotate(\@triples, $taxonID, $name, %rastOpts);
+            $gto = RASTlib::Annotate($triples, $taxonID, $name, %rastOpts);
+            # Check to see if we can improve this bin.
+            if ($improver->eligible($gto)) {
+                # Yes.  Try to improve it.
+                print "Attempting to improve $binNum.\n";
+                $triples = $improver->Process($bin, $gto, $binFastaFile, $triples);
+                if ($triples) {
+                    print "Submitting improved bin to RAST.\n";
+                    $gto = RASTlib::Annotate($triples, $taxonID, "$name cleaned", %rastOpts);
+                }
+            }
             print "Spooling genome to $workDir.\n";
             SeedUtils::write_encoded_object($gto, "$workDir/bin$binNum.gto");
         }
-        print "Searching for universal proteins.\n";
+        print "Fixing bin object.\n";
         # Clear the bin's current universal protein list.
         $bin->replace_prots();
         # Search the genome for universal roles.
@@ -454,9 +472,10 @@ sub RastBins {
                 }
             }
         }
-        my $protH = $bin->uniProts;
-        my $protCount = scalar keys %$protH;
-        print "$protCount universal proteins found.\n";
+        # Adjust the contig list.
+        my @cList = map { $_->{id} } @{$gto->{contigs}};
+        $bin->AdjustContigList(\@cList);
+        print "Final bin size is " . scalar(@cList) . " contigs with length " . $bin->len . ".\n";
     }
     # Output the new bins. Note we don't sort any more because we need to preserve the
     # bin number.
@@ -467,6 +486,8 @@ sub RastBins {
         $bin->Write($oh);
     }
     close $oh;
+    # Create an analyzer object.
+    my $analyzer = Bin::Analyze->new(totUnis => $totUnis, minUnis => (0.8 * $totUnis));
     # Read the reference genome file. We need this for the report.
     my $refScoreFile = "$workDir/ref.genomes.scores.tbl";
     if (-s $refScoreFile) {

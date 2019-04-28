@@ -265,7 +265,7 @@ my $opt = ScriptUtils::Opts('sampleDir workDir',
                 ['danglen=i',      'kmer length for unbinned-contig DNA matches', { default => 50 }],
                 ['genus',          'group by genus instead of species'],
                 ['statistics-file=s', 'save statistics data to this file'],
-                ['scaffoldLen|XBad=i', 'number of X codons in a row to cause a contig to be rejected', { default => 20 }],
+                ['scaffoldLen|XBad=i', 'number of X codons in a row to cause a contig to be rejected', { default => 50 }],
                 ['asparLen|Nbad=i', 'number of N codons in a row to cause a contig to be rejected', { default => 12 }]
         );
 # Enable access to PATRIC from Argonne.
@@ -317,7 +317,7 @@ if ($force || ! -s $reducedFastaFile || ! -s $binFile) {
     # Create the bad-codon scanner.
     my $badLetters = BadLetters->new(prots => { N => $opt->asparlen, X => $opt->scaffoldlen });
     # Now loop through the contig input file. We also save a copy of the contig sequences.
-    print "Processing tetranucleotide data.\n";
+    print "Processing contig filters.\n";
     my $fh = $loader->OpenFasta(contig => $contigFile);
     open(my $ofh, '>', $sampleFastaFile) || die "Could not open FASTA output file: $!";
     my $fields = $loader->GetLine(contig => $fh);
@@ -400,7 +400,8 @@ if ($force || ! -s $reducedFastaFile || ! -s $binFile) {
     # Force creation of all future files.
     $force = 1;
 } else {
-    # We can read the bin objects from the contigs.bin file and the FASTA file is already in place.
+    # We can read the bin objects from the contigs.bins file and the FASTA file is already in place.
+    print "Reading contigs from $binFile.\n";
     my $binList = Bin::ReadContigs($binFile);
     for my $bin (@$binList) {
         $contigs{$bin->contig1} = $bin;

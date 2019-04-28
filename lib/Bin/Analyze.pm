@@ -567,14 +567,9 @@ sub BinHeader {
             print $oh "    $genome: " . $self->gName($genome) . "\n";
         }
         # Compute the average coverage.
-        my $coverageV = $bin->coverage;
-        my $avg = 0;
-        for my $covg (@$coverageV) {
-            $avg += $covg;
-        }
-        $avg /= scalar @$coverageV;
+        my $avg = $bin->coverage;
         print $oh "*** Mean coverage is $avg.\n";
-        # Determine if the bin is bin.
+        # Determine if the bin is big.
         if ($bin->len >= $self->{minLen}) {
             $retVal = 1;
         }
