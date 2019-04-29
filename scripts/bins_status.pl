@@ -341,6 +341,21 @@ for my $dir (@dirs) {
             $show = 1;
         }
         if ($show) {
+            # Check for evaluation results.
+            if (open(my $ih, "$subDir/Eval/index.tbl")) {
+                my $line = <$ih>;
+                my ($good, $tot) = (0, 0);
+                while (! eof $ih) {
+                    $line = <$ih>;
+                    if ($line =~ /\t1$/) {
+                        $good++;
+                        $stats->Add(goodBin => 1);
+                    }
+                    $tot++;
+                    $stats->Add(totBin => 1);
+                }
+                $cleaned .= "  $good of $tot bins.\n";
+            }
             push @done, "$label: $done$cleaned\n";
         }
     }
