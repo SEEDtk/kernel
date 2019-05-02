@@ -7,7 +7,7 @@ use Stats;
 $| = 1;
 my $rootDir = "$FIG_Config::data/Italians";
 opendir(my $dh, $rootDir) || die "Could not open italian directory: $!";
-my @dirs = grep { -d "$rootDir/$_" } readdir $dh;
+my @dirs = grep { substr($_,0.1) ne '.' && -d "$rootDir/$_" } readdir $dh;
 closedir $dh;
 my $stats = Stats->new();
 P3Utils::print_cols(['PATRIC ID', 'Good Seed', 'Good']);
