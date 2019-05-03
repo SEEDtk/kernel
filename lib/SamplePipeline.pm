@@ -315,6 +315,11 @@ sub Process {
         RastBins($shrub, $binJsonFile, $contigFastaFile, $workDir, %rastOptions);
         $force = 1;
     }
+    # Now we need to insure we have an evaluation.
+    if ($force || ! -s "$workDir/Eval/index.tbl") {
+        my $rc = system('p3x-eval-bins', '--deep', $workDir);
+        die "Error exit $rc from p3x-eval-bins." if $rc;
+    }
     # Finally, we do the expectation check. This is only performed if there is an expectation file.
     if (! $options{expect}) {
         print "No expectation file specified. Expectation check skipped.\n";
@@ -376,6 +381,10 @@ The number of seconds to sleep between polling requests to the RAST server. The 
 
 If TRUE, only bins that have not yet been submitted to RAST will be processed. Otherwise, all bins will
 be processed.
+
+=item RETURN
+
+Returns a reference to a list of L<Bin> objects representing the bins found.
 
 =back
 
@@ -505,6 +514,7 @@ sub RastBins {
     $analyzer->BinReport($rh, $uniRoleH, \@$binList);
     close $rh;
 }
+
 
 
 1;

@@ -225,11 +225,21 @@ for my $dir (@dirs) {
     }
     # Check for the RAST completion file.
     my $rastFound = (-f "$subDir/bins.report.txt");
+    # Check for the evaluation.
+    my $evalDone = (-s "$subDir/Eval/index.tbl");
     # Determine the status.
     if (-s "$subDir/expect.report.txt") {
         $done = "Expectations Computed.";
-    } elsif ($rastFound && ! -s "$subDir/$dir" . '_abundance_table.tsv') {
+    } elsif ($evalDone && ! -s "$subDir/$dir" . '_abundance_table.tsv') {
         $done = "Done (No Expectations).";
+    } elsif ($evalDone) {
+        if (! $run && $opt->resume && $resumeLeft) {
+            StartJob($dir, $subDir, '', 'Restarted', $label, $proj);
+            $resumeLeft--;
+        } else {
+            push @other, "$label: Eval Complete.\n";
+            $stats->Add(dirs7RastComplete => 1);
+        }
     } elsif ($rastFound) {
         if (! $run && $opt->resume && $resumeLeft) {
             StartJob($dir, $subDir, '', 'Restarted', $label, $proj);
@@ -326,7 +336,7 @@ for my $dir (@dirs) {
     # If we are done, we process here and check for cleaning.
     if ($done) {
         my $show = ($opt->terse ? 0 : 1);
-        $stats->Add(dirs7Done => 1);
+        $stats->Add(dirs8Done => 1);
         if ($clean && ! $cleaned) {
             print "Cleaning $subDir.\n";
             $cleaned = "  Cleaning Assembly.";
