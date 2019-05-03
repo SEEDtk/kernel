@@ -18,7 +18,7 @@ close $ih;
 open(my $oh, '>>', 'temp2.tbl') || die "Could not open temp2.tbl: $!";
 my $rootDir = "$FIG_Config::data/Italians";
 opendir(my $dh, $rootDir) || die "Could not open italian directory: $!";
-my @dirs = grep { substr($_,0.1) ne '.' && -d "$rootDir/$_" } readdir $dh;
+my @dirs = grep { substr($_,0,1) ne '.' && -d "$rootDir/$_" } readdir $dh;
 closedir $dh; undef $dh;
 my $stats = Stats->new();
 for my $dir (@dirs) {
