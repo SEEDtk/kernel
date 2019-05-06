@@ -58,9 +58,13 @@ $| = 1;
 my $opt = P3Utils::script_opts('gtoDir1 gtoDir2',
         ['min|m=i', 'minimum acceptable score for pairing', { default => 100 }],
         ['verbose|debug|v', 'write progress messages to the standard error output'],
+        ['protCheck|prot', 'score genomes by protein BBHs']
 );
-my $debug = $opt->verbose;
 my $stats = Stats->new();
+# Get the options.
+my $debug = $opt->verbose;
+my $min = $opt->min;
+my $details = $opt->protcheck;
 # Get the input directories.
 my ($gtoDir1, $gtoDir2) = @ARGV;
 if (! $gtoDir1) {
@@ -75,31 +79,49 @@ if (! $gtoDir1) {
 # Compute the log file option.
 my $logH = ($debug ? \*STDERR : undef);
 print STDERR "Creating group 1 from $gtoDir1.\n" if $debug;
-my $group1 = GeoGroup->new({ stats => $stats, logH => $logH, detail => 0 }, $gtoDir1);
+my $dLevel = ($details ? 2 : 0);
+my $group1 = GeoGroup->new({ stats => $stats, logH => $logH, detail => $dLevel }, $gtoDir1);
 print STDERR "Creating group 2 from $gtoDir2.\n" if $debug;
 my $group2 = GeoGroup->new($group1->options, $gtoDir2);
 print STDERR "Searching for bidirectional best hits.\n" if $debug;
 # Compute the mapping between groups.
-my ($pairs, $orphans1, $orphans2) = $group1->MapGroups($group2);
-# Write the results.
-print STDERR "Writing output.\n" if $debug;
-P3Utils::print_cols(['genome1', 'name1', 'genome2', 'name2', 'score']);
-# Start with the pairs.
+my ($pairs, $orphans1, $orphans2) = $group1->MapGroups($group2, $min);
+my @headers = qw(genome1 name1 genome2 name2 seedScore);
+push @headers, 'protScore' if $details;
+P3Utils::print_cols(\@headers);
+# Loop through the pairs, comparing the genomes.
 for my $pair (@$pairs) {
-    my $geo1 = $group1->geo($pair->[0]);
-    my $geo2 = $group2->geo($pair->[1]);
-    P3Utils::print_cols([$geo1->id, $geo1->name, $geo2->id, $geo2->name, $pair->[2]]);
-    $stats->Add(pairFound => 1);
+    my ($g1, $g2) = @$pair;
+    my $geo1 = $group1->geo($g1);
+    my $geo2 = $group2->geo($g2);
+    my @data = ($geo1->id, $geo1->name, $geo2->id, $geo2->name, $pair->[2]);
+    if ($details) {
+        print STDERR "Comparing $g1 to $g2.\n" if $debug;
+        my $pHash1 = $geo1->protMap;
+        my $pHash2 = $geo2->protMap;
+        my @results = GEO::FindBBHs($pHash1, $pHash2, $min);
+        my ($pCount, $o1Count, $o2Count) = map { scalar @$_ } @results;
+        my $score = 0;
+        if ($pCount) {
+            $score = $pCount * 100 / ($pCount + ($o1Count + $o2Count) / 2);
+        }
+        push @data, $score;
+    }
+    P3Utils::print_cols(\@data);
 }
+# Write the orphan results.
+my @trailer;
+push @trailer, '' if $details;
+print STDERR "Writing orphan output.\n" if $debug;
 # Now do the orphans.
 for my $genome (@$orphans1) {
     my $geo = $group1->geo($genome);
-    P3Utils::print_cols([$geo->id, $geo->name, '', '', '']);
+    P3Utils::print_cols([$geo->id, $geo->name, '', '', '', @trailer]);
     $stats->Add(orphan1 => 1);
 }
 for my $genome (@$orphans2) {
     my $geo = $group2->geo($genome);
-    P3Utils::print_cols(['', '', $geo->id, $geo->name, '']);
+    P3Utils::print_cols(['', '', $geo->id, $geo->name, '', @trailer]);
     $stats->Add(orphan2 => 1);
 }
 print STDERR "All done.\n" . $stats->Show() if $debug;
