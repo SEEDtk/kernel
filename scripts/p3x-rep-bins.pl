@@ -77,7 +77,7 @@ if ($opt->recursive) {
     # Here we are reading subdirectories.
     print "Scanning $binDir for completed binning directories.\n";
     opendir(my $dh, $binDir) || die "Could not open $binDir: $!";
-    @binDirs = map { "$binDir/$_" } grep { substr($_, 0, 1) ne '.' && -s "$binDir/$_/Eval/index.tbl " } readdir $dh;
+    @binDirs = map { "$binDir/$_" } grep { substr($_, 0, 1) ne '.' && -s "$binDir/$_/Eval/index.tbl" } readdir $dh;
     closedir $dh;
     print scalar(@binDirs) . " completed binning directories found.\n";
 }
