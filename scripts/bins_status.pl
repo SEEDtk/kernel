@@ -230,7 +230,7 @@ for my $dir (@dirs) {
     # Determine the status.
     if (-s "$subDir/expect.report.txt") {
         $done = "Expectations Computed.";
-    } elsif ($evalDone && ! -s "$subDir/$dir" . '_abundance_table.tsv') {
+    } elsif ($evalDone && (! -s "$subDir/$dir" . '_abundance_table.tsv' || ! -s "bins.found.tbl")) {
         $done = "Done (No Expectations).";
     } elsif ($evalDone) {
         if (! $run && $opt->resume && $resumeLeft) {
