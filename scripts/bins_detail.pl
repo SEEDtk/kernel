@@ -31,7 +31,7 @@ use Loader;
 
     bins_detail.pl [ options ] binDir
 
-This program displays a report on the contigs in each bin, listing the closest genome, tetranucleotide distance, and coverage
+This program displays a report on the contigs in each bin, listing the closest genome and coverage
 distance for each genome in the bin.
 
 =head2 Parameters

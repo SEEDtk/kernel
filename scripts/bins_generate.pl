@@ -22,7 +22,6 @@ use warnings;
 use FIG_Config;
 use ScriptUtils;
 use Bin::Blast;
-use TetraMap;
 use Bin::Analyze;
 use Bin::Kmer;
 use Bin;
@@ -32,6 +31,7 @@ use SeedUtils;
 use P3DataAPI;
 use GenomeTypeObject;
 use KmerDb;
+use BadLetters;
 
 =head1 Create Bins From Community Contigs (Algorithm 4)
 
@@ -116,26 +116,6 @@ computing the identity of the bins. The default is C<4>.
 
 If specified, the minimum length of a contig that can be placed into a bin. The default is C<400>.
 
-=item tetra
-
-Tetranucleotide computation scheme. The default is C<dual>.
-
-=over 8
-
-=item raw
-
-Each tetranucleotide and its reverse compliment is counted.
-
-=item fancy
-
-Each tetranucleotide and its reverse compliment is counted unless the reverse compliment is the same.
-
-=item dual
-
-Each tetranucleotide is counted once, and is considered identical to its reverse compliment.
-
-=back
-
 =item force
 
 If C<all>, all of the data and intermediate files will be recomputed. If C<parms>, the initial bin files will be
@@ -200,6 +180,14 @@ If specified, reference genomes will be grouped by genus instead of genus and sp
 
 If specified, the name of a file into which the statistics should be saved.
 
+=item apsarLen
+
+The number of N-codons in a row to cause a contig to be rejected.  The default is C<12>.
+
+=item scaffoldLen
+
+The number of X-codons in a row to cause a contig to be rejected.  The default is C<20>.
+
 =back
 
 =head2 Input Files
@@ -230,7 +218,8 @@ use as reference genomes.
 This script produces intermediate working files that are re-used if they already exist. Many files are output in the
 working directory by L<Bin::Blast>.
 
-The C<sample.fasta> file contains all of the sample sequences in FASTA form.
+The C<sample.fasta> file contains all of the sample sequences in FASTA form with bad runs (too many Ns) and short contigs
+removed.
 
 The C<bins.found.tbl> file contains the locations hit by the universal protein used to seed the process.
 
@@ -248,7 +237,7 @@ where I<XXXXXXX> is the genome ID.
 
 The C<bins.kmer.json> file contains the first set of output bins (based on protein kmers) in json format.
 
-The C<bins.unplaced.bin> file contains the unplaced contig bins from the protein kmer processing, in json format.
+The C<bins.unplaced.bins> file contains the unplaced contig bins from the protein kmer processing, in json format.
 
 The C<unplaced.fa> file contains the contigs (in FASTA format) that were not placed by the protein kmer processing.
 
@@ -261,7 +250,6 @@ my $opt = ScriptUtils::Opts('sampleDir workDir',
                 ['lenFilter=i',    'minimum contig length for seed protein search', { default => 400 }],
                 ['covgFilter=f',   'minimum contig mean coverage for seed protein search', { default => 4}],
                 ['binLenFilter=i', 'minimum contig length for binning', { default => 400 }],
-                ['tetra=s',        'tetranucleotide counting algorithm', { 'default' => 'dual' }],
                 ['force=s',        'force re-creation of all intermediate files'],
                 ['seedProtFasta=s', 'name of a FASTA file containing examples of the seed protein to use for seeding the bins',
                                     { default => "$FIG_Config::global/seedprot.fa" }],
@@ -277,6 +265,8 @@ my $opt = ScriptUtils::Opts('sampleDir workDir',
                 ['danglen=i',      'kmer length for unbinned-contig DNA matches', { default => 50 }],
                 ['genus',          'group by genus instead of species'],
                 ['statistics-file=s', 'save statistics data to this file'],
+                ['scaffoldLen|XBad=i', 'number of X codons in a row to cause a contig to be rejected', { default => 50 }],
+                ['asparLen|Nbad=i', 'number of N codons in a row to cause a contig to be rejected', { default => 12 }]
         );
 # Enable access to PATRIC from Argonne.
 $ENV{PERL_LWP_SSL_VERIFY_HOSTNAME} = 0;
@@ -324,10 +314,10 @@ my %contigs;
 # Do we already have the initial contig bins?
 if ($force || ! -s $reducedFastaFile || ! -s $binFile) {
     # We must process the raw contigs to create the contig bin objects and the sample FASTA file.
-    # Create the tetranucleotide object.
-    my $tetra = TetraMap->new($opt->tetra);
+    # Create the bad-codon scanner.
+    my $badLetters = BadLetters->new(prots => { N => $opt->asparlen, X => $opt->scaffoldlen });
     # Now loop through the contig input file. We also save a copy of the contig sequences.
-    print "Processing tetranucleotide data.\n";
+    print "Processing contig filters.\n";
     my $fh = $loader->OpenFasta(contig => $contigFile);
     open(my $ofh, '>', $sampleFastaFile) || die "Could not open FASTA output file: $!";
     my $fields = $loader->GetLine(contig => $fh);
@@ -337,17 +327,19 @@ if ($force || ! -s $reducedFastaFile || ! -s $binFile) {
         my $len = length $seq;
         # Is it acceptable?
         if ($len >= $opt->binlenfilter) {
-            # Create a new bin for this contig.
-            my $bin = Bin->new($contig);
-            $bin->set_len($len);
-            $stats->Add(contigLetters => $len);
-            # Save it in the contig hash.
-            $contigs{$contig} = $bin;
-            # Save a copy of the sequence.
-            print $ofh ">$contig\n$seq\n";
-            # Compute the tetranucleotide vector.
-            my $contigTetra = $tetra->ProcessString($seq);
-            $bin->set_tetra($contigTetra);
+            # Scan for bad codons.
+            my ($count) = $badLetters->Scan($seq);
+            if ($count) {
+                $stats->Add(contigBadCodons => 1);
+            } else {
+                # Create a new bin for this contig.
+                my $bin = Bin->new($contig, $len, 50);
+                $stats->Add(contigLetters => $len);
+                # Save it in the contig hash.
+                $contigs{$contig} = $bin;
+                # Save a copy of the sequence.
+                print $ofh ">$contig\n$seq\n";
+            }
         } else {
             $stats->Add(contigTooSmallForBin => 1);
         }
@@ -390,12 +382,12 @@ if ($force || ! -s $reducedFastaFile || ! -s $binFile) {
             $bin->WriteContig($bfh);
             # Do we keep this contig for BLASTing against the seed protein?
             if ($bin->len < $lenFilter) {
-                if ($bin->meanCoverage < $covgFilter) {
+                if ($bin->coverage < $covgFilter) {
                     $stats->Add(contigRejectedBoth => 1);
                 } else {
                     $stats->Add(contigRejectedLen => 1);
                 }
-            } elsif ($bin->meanCoverage < $covgFilter) {
+            } elsif ($bin->coverage < $covgFilter) {
                 $stats->Add(contigRejectedCovg => 1);
             } else {
                 # Yes. Save it.\
@@ -408,7 +400,8 @@ if ($force || ! -s $reducedFastaFile || ! -s $binFile) {
     # Force creation of all future files.
     $force = 1;
 } else {
-    # We can read the bin objects from the contigs.bin file and the FASTA file is already in place.
+    # We can read the bin objects from the contigs.bins file and the FASTA file is already in place.
+    print "Reading contigs from $binFile.\n";
     my $binList = Bin::ReadContigs($binFile);
     for my $bin (@$binList) {
         $contigs{$bin->contig1} = $bin;
@@ -608,7 +601,7 @@ if ($opt->unassembled) {
     my %binHash;
     # Do we have a kmer-based version of the bins?
     my $kmerBinFile = "$workDir/bins.kmer.json";
-    my $contigFile = "$workDir/bins.unplaced.bin";
+    my $contigFile = "$workDir/bins.unplaced.bins";
     if (! $force && -s $kmerBinFile && -f $contigFile) {
         # Yes. Read it in.
         print "Reading bin status from $kmerBinFile\n";

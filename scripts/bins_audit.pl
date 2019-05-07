@@ -67,9 +67,6 @@ if (! $contigFile) {
 }
 # Get the universal roles.
 my $uniHash = Bin::Score::ReadUniHash($opt->unifile);
-# Read the contigs.
-my %contigs = map { $_->contig1 => $_ } @{Bin::ReadContigs($contigFile)};
-$stats->Add(contigsRead => scalar keys %contigs);
 # Read the bins.
 my $binList = Bin::ReadBins($binFile);
 $stats->Add(binsRead => scalar @$binList);
@@ -81,13 +78,17 @@ for my $bin (@$binList) {
     } else {
         $stats->Add(goodBin => 1);
         my $contig1 = $bin->contig1;
+        my $coverage1 = 0;
         # Get the seed contig coverage.
-        my $coverage1 = $contigs{$contig1}->meanCoverage;
         # Loop through the contigs in the bin, computing the mean and standard deviation of the coverage.
         my ($total, $squareT, $n, $cmin, $cmax) = (0, 0, 0, undef, 0);
-        for my $contig ($bin->contigs) {
+        my $contigList = $bin->all_contigs;
+        for my $contig (@$contigList) {
             $stats->Add(contigInBin => 1);
-            my $c = $contigs{$contig}->meanCoverage;
+            my $c = $contig->coverage;
+            if ($contig->id eq $contig1) {
+                $coverage1 = $contig->covg;
+            }
             $cmax = $c if $c > $cmax;
             $cmin = $c if ! defined $cmin || $c < $cmin;
             $total += $c;

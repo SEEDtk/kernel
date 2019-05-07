@@ -22,7 +22,6 @@ use warnings;
 use FIG_Config;
 use ScriptUtils;
 use Bin::ContigBlast;
-use TetraMap;
 use Bin::Analyze;
 use Bin;
 use Stats;
@@ -94,24 +93,6 @@ computing the identity of the bins. The default is C<4>.
 =item binLenFilter
 
 If specified, the minimum length of a contig that can be placed into a bin. The default is C<400>.
-
-=item tetra
-
-Tetranucleotide computation scheme. The default is C<dual>.
-
-=over 8
-
-=item raw
-
-Each tetranucleotide and its reverse compliment is counted.
-
-=item fancy
-
-Each tetranucleotide and its reverse compliment is counted unless the reverse compliment is the same.
-
-=item dual
-
-Each tetranucleotide is counted once, and is considered identical to its reverse compliment.
 
 =back
 
@@ -194,7 +175,6 @@ The C<bins.json> file contains the output bins, in json format.
 my $opt = ScriptUtils::Opts('sampleDir workDir',
                 ['lenFilter=i',    'minimum contig length for seed protein search', { default => 400 }],
                 ['covgFilter=f',   'minimum contig mean coverage for seed protein search', { default => 4}],
-                ['tetra=s',        'tetranucleotide counting algorithm', { 'default' => 'dual' }],
                 ['force=s',        'force re-creation of all intermediate files'],
                 ['bindb=s',        'name of the directory containing the binning protein FASTA files',
                                     { default => "$FIG_Config::global/Bin5" }],
@@ -249,10 +229,8 @@ my %contigs;
 # Do we already have the initial contig bins?
 if ($force || ! -s $reducedFastaFile || ! -s $binFile) {
     # We must process the raw contigs to create the contig bin objects and the sample FASTA file.
-    # Create the tetranucleotide object.
-    my $tetra = TetraMap->new($opt->tetra);
-    # Now loop through the contig input file. We also save a copy of the contig sequences.
-    print "Processing tetranucleotide data.\n";
+    # Loop through the contig input file. We save a copy of the contig sequences.
+    print "Processing contig data.\n";
     my $fh = $loader->OpenFasta(contig => $contigFile);
     open(my $ofh, '>', $sampleFastaFile) || die "Could not open FASTA output file: $!";
     my $fields = $loader->GetLine(contig => $fh);
@@ -261,16 +239,13 @@ if ($force || ! -s $reducedFastaFile || ! -s $binFile) {
         # Get the sequence length.
         my $len = length $seq;
         # Create a new bin for this contig.
-        my $bin = Bin->new($contig);
+        my $bin = Bin->new($contig, length $seq, 50);
         $bin->set_len($len);
         $stats->Add(contigLetters => $len);
         # Save it in the contig hash.
         $contigs{$contig} = $bin;
         # Save a copy of the sequence.
         print $ofh ">$contig\n$seq\n";
-        # Compute the tetranucleotide vector.
-        my $contigTetra = $tetra->ProcessString($seq);
-        $bin->set_tetra($contigTetra);
         # Get the next line.
         $fields = $loader->GetLine(contig => $fh);
     }
@@ -310,12 +285,12 @@ if ($force || ! -s $reducedFastaFile || ! -s $binFile) {
             $bin->WriteContig($bfh);
             # Do we keep this contig for BLASTing against the seed protein?
             if ($bin->len < $lenFilter) {
-                if ($bin->meanCoverage < $covgFilter) {
+                if ($bin->coverage < $covgFilter) {
                     $stats->Add(contigRejectedBoth => 1);
                 } else {
                     $stats->Add(contigRejectedLen => 1);
                 }
-            } elsif ($bin->meanCoverage < $covgFilter) {
+            } elsif ($bin->coverage < $covgFilter) {
                 $stats->Add(contigRejectedCovg => 1);
             } else {
                 # Yes. Save it.\

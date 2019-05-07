@@ -116,9 +116,17 @@ Back out incomplete assemblies. This means removing the C<Assembly> directory so
 
 Type of binning engine to use-- C<s> for the standard binner, C<2> for the alternate binner.
 
+=item noIndex
+
+If specified, the annotated genomes will not be indexed in PATRIC.
+
 =back
 
 =cut
+
+# Files to keep during a reset.
+use constant KEEPERS => { 'site.tbl' => 1, 'run.log' => 1, 'err.log' => 1, 'exclude.tbl' => 1, 'contigs.fasta' => 1,
+        'output.contigs2reads.txt' => 1 };
 
 # Get the command-line parameters.
 my $opt = ScriptUtils::Opts('directory',
@@ -131,6 +139,8 @@ my $opt = ScriptUtils::Opts('directory',
                 ['backout', 'back out incomplete assemblies'],
                 ['maxResume=i', 'maximum number of running jobs for resume', { default => 20 }],
                 ['engine=s', 'type of binning engine to use', { default => 's' }],
+                ['noIndex', 'do not index bins in PATRIC'],
+                ['reset', 'delete all binning results to force re-binning of all directories'],
                 ['run=i', 'run binning pipeline on new directories', { default => 0 }]);
 my $stats = Stats->new();
 # Get the main directory name.
@@ -146,12 +156,16 @@ my $runCount = $opt->run // 0;
 my $proj = $opt->project;
 my $fix = $opt->fix;
 my $engine = $opt->engine;
-# Get a hash of the running subdirectories.
+my $noIndex = ($opt->noindex ? '--noIndex ' : '');
+my $resetOpt = $opt->reset;
+# Get a hash of the running subdirectories (Unix only).
 my %running;
-my @jobs = `ps -AF`;
-for my $job (@jobs) {
-    if ($job =~ /bins_sample_pipeline\s+(?:--\S+\s+)*(\w+)/) {
-        $running{$1} = 1;
+if (! $FIG_Config::win_mode) {
+    my @jobs = `ps -AF`;
+    for my $job (@jobs) {
+        if ($job =~ /bins_sample_pipeline\s+(?:--\S+\s+)*(\w+)/) {
+            $running{$1} = 1;
+        }
     }
 }
 # Loop through the subdirectories.
@@ -166,7 +180,6 @@ my (@done, @downloaded, @other);
 for my $dir (@dirs) {
     $stats->Add(dirsTotal => 1);
     my $subDir = "$directory/$dir";
-    my $rastFound = (-s "$subDir/bins.rast.json");
     my $cleaned = (-d "$subDir/Assembly" ? "" : "  Assembly cleaned.");
     my $done;
     # Determine the site.
@@ -190,11 +203,43 @@ for my $dir (@dirs) {
         $run = ', running';
     }
     my $label = "$subDir ($site$run)";
+    # Are we resetting?
+    if ($resetOpt && ! $run) {
+        # Yes. Get the list of files and delete the binning stuff.
+        my ($count, $total) = (0, 0);
+        opendir(my $dh, $subDir) || die "Could not open work directory: $!";
+        my @files = grep { -f "$subDir/$_" } readdir $dh;
+        for my $file (@files) {
+            my $fullName = "$subDir/$file";
+            $total++;
+            unless ($fullName =~ /_abundance_table.tsv$/ || $fullName =~ /\.fastq$/ || $fullName =~ /\.fq/ ||
+                    KEEPERS->{$file}) {
+                unlink $fullName;
+                $count++;
+            }
+        }
+        if (-d "$subDir/Eval") {
+            File::Copy::Recursive::pathrmdir("$subDir/Eval") || die "Could not remove Eval from $subDir: $!";
+        }
+        $cleaned .= "  $count of $total files deleted by reset.";
+    }
+    # Check for the RAST completion file.
+    my $rastFound = (-f "$subDir/bins.report.txt");
+    # Check for the evaluation.
+    my $evalDone = (-s "$subDir/Eval/index.tbl");
     # Determine the status.
     if (-s "$subDir/expect.report.txt") {
         $done = "Expectations Computed.";
-    } elsif ($rastFound && ! -s "$subDir/$dir" . '_abundance_table.tsv') {
+    } elsif ($evalDone && ! -s "$subDir/$dir" . '_abundance_table.tsv') {
         $done = "Done (No Expectations).";
+    } elsif ($evalDone) {
+        if (! $run && $opt->resume && $resumeLeft) {
+            StartJob($dir, $subDir, '', 'Restarted', $label, $proj);
+            $resumeLeft--;
+        } else {
+            push @other, "$label: Eval Complete.\n";
+            $stats->Add(dirs7RastComplete => 1);
+        }
     } elsif ($rastFound) {
         if (! $run && $opt->resume && $resumeLeft) {
             StartJob($dir, $subDir, '', 'Restarted', $label, $proj);
@@ -223,7 +268,7 @@ for my $dir (@dirs) {
             push @other, "$label: Bins Computed.\n";
         }
         $stats->Add(dirs4Binned => 1);
-    } elsif (-s "$subDir/bins.report.txt") {
+    } elsif (-f "$subDir/bins.report.txt") {
         $stats->Add(noBinsFound => 1);
         $done = "No bins found.";
     } elsif (-s "$subDir/sample.fasta") {
@@ -291,7 +336,7 @@ for my $dir (@dirs) {
     # If we are done, we process here and check for cleaning.
     if ($done) {
         my $show = ($opt->terse ? 0 : 1);
-        $stats->Add(dirs7Done => 1);
+        $stats->Add(dirs8Done => 1);
         if ($clean && ! $cleaned) {
             print "Cleaning $subDir.\n";
             $cleaned = "  Cleaning Assembly.";
@@ -305,6 +350,21 @@ for my $dir (@dirs) {
             $stats->Add(dirsCleaned => 1);
             $show = 1;
         }
+        # Check for evaluation results.
+        if (open(my $ih, "$subDir/Eval/index.tbl")) {
+            my $line = <$ih>;
+            my ($good, $tot) = (0, 0);
+            while (! eof $ih) {
+                $line = <$ih>;
+                if ($line =~ /\t1$/) {
+                    $good++;
+                    $stats->Add(goodBin => 1);
+                }
+                $tot++;
+                $stats->Add(totBin => 1);
+            }
+            $cleaned .= "  $good of $tot bins.";
+        }
         if ($show) {
             push @done, "$label: $done$cleaned\n";
         }
@@ -317,7 +377,7 @@ print "\nAll done:\n" . $stats->Show();
 sub StartJob {
     my ($dir, $subDir, $gz, $start, $label, $proj) = @_;
     my $realProj = ($proj eq 'NCBI' ? 'MH' : $proj);
-    my $cmd = "bins_sample_pipeline --project=$realProj --engine=$engine $gz $dir $subDir >$subDir/run.log 2>$subDir/err.log";
+    my $cmd = "bins_sample_pipeline --project=$realProj --engine=$engine $noIndex $gz $dir $subDir >$subDir/run.log 2>$subDir/err.log";
     my $rc = system("nohup $cmd &");
     push @other, "$label: $start $cmd.\n";
     $stats->Add("dirs0$start" => 1);
