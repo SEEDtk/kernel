@@ -317,8 +317,15 @@ sub Process {
     }
     # Now we need to insure we have an evaluation.
     if ($force || ! -s "$workDir/Eval/index.tbl") {
-        my $rc = system('p3x-eval-bins', '--deep', $workDir);
-        die "Error exit $rc from p3x-eval-bins." if $rc;
+        if (! -s "$workDir/bins.rast.json") {
+            # No bins to evaluate.
+            mkdir "$workDir/Eval" || die "Could not create Eval for $workDir: $!";
+            open(my $oh, '>', "$workDir/Eval/index.tbl") || die "Could not open eval output file: $!";
+            print $oh "No bins found.\n";
+        } else {
+            my $rc = system('p3x-eval-bins', '--deep', $workDir);
+            die "Error exit $rc from p3x-eval-bins." if $rc;
+        }
     }
     # Finally, we do the expectation check. This is only performed if there is an expectation file.
     if (! $options{expect}) {
