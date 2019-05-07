@@ -102,7 +102,7 @@ If specified, completed samples will not be shown, only samples in progress.
 
 =item rerun
 
-Used when rerunning assemblies.  Does not display assembled bins that are not running.
+Used when rerunning assemblies.  Does not display assembled or downloaded bins that are not running.
 
 =item fix
 
@@ -329,8 +329,10 @@ for my $dir (@dirs) {
             $stats->Add(dirsDeleted => 1);
         } else {
             # It's valid, but we are leaving it alone.
-            push @downloaded, "$label: Downloaded.\n";
             $stats->Add(dirs0Downloaded => 1);
+            if (! $opt->rerun) {
+                push @downloaded, "$label: Downloaded.\n";
+            }
         }
     }
     # If we are done, we process here and check for cleaning.
