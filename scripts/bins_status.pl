@@ -232,7 +232,7 @@ for my $dir (@dirs) {
         $done = "Done.";
     } elsif ($rastFound) {
         if (! $run && $opt->resume && $resumeLeft) {
-            StartJob($dir, $subDir, '', 'Restarted', $label, $proj);
+            StartJob($dir, $subDir, '', 'Restarted', $label);
             $resumeLeft--;
         } else {
             push @other, "$label: RAST Complete.\n";
@@ -240,7 +240,7 @@ for my $dir (@dirs) {
         }
     } elsif (-s "$subDir/bin1.gto") {
         if (! $run && $opt->resume && $resumeLeft) {
-            StartJob($dir, $subDir, '', 'Restarted', $label, $proj);
+            StartJob($dir, $subDir, '', 'Restarted', $label);
             $resumeLeft--;
         } else {
             my $i = 2;
@@ -252,7 +252,7 @@ for my $dir (@dirs) {
         $stats->Add(dirs5RastPartial => 1);
     } elsif (-s "$subDir/bins.json") {
         if (! $run && $opt->resume && $resumeLeft) {
-            StartJob($dir, $subDir, '', 'Restarted', $label, $proj);
+            StartJob($dir, $subDir, '', 'Restarted', $label);
             $resumeLeft--;
         } else {
             push @other, "$label: Bins Computed.\n";
@@ -263,7 +263,7 @@ for my $dir (@dirs) {
         $done = "No bins found.";
     } elsif (-s "$subDir/sample.fasta") {
         if (! $run && $opt->resume && $resumeLeft) {
-            StartJob($dir, $subDir, '', 'Restarted', $label, $proj);
+            StartJob($dir, $subDir, '', 'Restarted', $label);
             $resumeLeft--;
         } else {
             push @other, "$label: Binning in Progress.\n";
@@ -271,7 +271,7 @@ for my $dir (@dirs) {
         $stats->Add(dirs3Binning => 1);
     } elsif (-s "$subDir/contigs.fasta") {
         if (! $run && $opt->resume && $resumeLeft) {
-            StartJob($dir, $subDir, '', 'Restarted', $label, $proj);
+            StartJob($dir, $subDir, '', 'Restarted', $label);
             $resumeLeft--;
         } elsif (! $run && ! $opt->rerun) {
             push @other, "$label: Assembled.\n";
@@ -287,9 +287,6 @@ for my $dir (@dirs) {
             push @other, "$label: Assembling.\n";
             $stats->Add(dirs1Assembling => 1);
         }
-    } elsif ($proj eq 'NCBI' && ! $sited) {
-        push @other, "$label: Downloading.\n";
-        $stats->Add('dirs.Downloading' => 1);
     } else {
         # Here the directory is downloaded. We may need to fix it or run the pipeline.
         opendir(my $dh, $subDir) || die "Could not open directory $subDir: $!";
@@ -311,7 +308,7 @@ for my $dir (@dirs) {
             # It's valid, and we want to run it. Check for gz files.
             $found = grep { $_ =~ /q\.gz$/ } @files;
             my $gz = ($found ? '--gz' : '');
-            StartJob($dir, $subDir, $gz, 'Started', $label, $proj);
+            StartJob($dir, $subDir, $gz, 'Started', $label);
             $runCount--;
         } elsif (! $run && $fix eq 'all') {
             # It's valid, and we are deleting it.
@@ -369,8 +366,7 @@ print "\nAll done:\n" . $stats->Show();
 
 
 sub StartJob {
-    my ($dir, $subDir, $gz, $start, $label, $proj) = @_;
-    my $realProj = ($proj eq 'NCBI' ? 'MH' : $proj);
+    my ($dir, $subDir, $gz, $start, $label) = @_;
     my $cmd = "bins_sample_pipeline --engine=$engine $noIndex $gz $dir $subDir >$subDir/run.log 2>$subDir/err.log";
     my $rc = system("nohup $cmd &");
     push @other, "$label: $start $cmd.\n";
