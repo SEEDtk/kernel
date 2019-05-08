@@ -178,6 +178,7 @@ for my $dir (@dirs) {
     $stats->Add(dirsTotal => 1);
     my $subDir = "$directory/$dir";
     my $cleaned = (-d "$subDir/Assembly" ? "" : "  Assembly cleaned.");
+    my $binStatus = '';
     my $done;
     # Determine the site.
     my ($site, $sited);
@@ -225,11 +226,28 @@ for my $dir (@dirs) {
     # Check for the evaluation.
     my $evalDone = (-s "$subDir/Eval/index.tbl");
     # Determine the status.
-    if ($evalDone && ! -s "bins.found.tbl") {
+    if ($evalDone && ! -s "$subDir/bins.found.tbl") {
         $done = "Done (No bins found).";
         $stats->Add(noBinsFound => 1);
     } elsif ($evalDone) {
         $done = "Done.";
+        # Check for evaluation results.
+        if (open(my $ih, "$subDir/Eval/index.tbl")) {
+            my $line = <$ih>;
+            my ($good, $tot) = (0, 0);
+            while (! eof $ih) {
+                $line = <$ih>;
+                if ($line =~ /\t1$/) {
+                    $good++;
+                    $stats->Add(goodBin => 1);
+                }
+                $tot++;
+                $stats->Add(totBin => 1);
+            }
+            if ($tot) {
+                $binStatus = "  $good of $tot bins.";
+            }
+        }
     } elsif ($rastFound) {
         if (! $run && $opt->resume && $resumeLeft) {
             StartJob($dir, $subDir, '', 'Restarted', $label);
@@ -339,25 +357,8 @@ for my $dir (@dirs) {
             $stats->Add(dirsCleaned => 1);
             $show = 1;
         }
-        # Check for evaluation results.
-        if (open(my $ih, "$subDir/Eval/index.tbl")) {
-            my $line = <$ih>;
-            my ($good, $tot) = (0, 0);
-            while (! eof $ih) {
-                $line = <$ih>;
-                if ($line =~ /\t1$/) {
-                    $good++;
-                    $stats->Add(goodBin => 1);
-                }
-                $tot++;
-                $stats->Add(totBin => 1);
-            }
-            if ($tot) {
-                $cleaned .= "  $good of $tot bins.";
-            }
-        }
         if ($show) {
-            push @done, "$label: $done$cleaned\n";
+            push @done, "$label: $done$cleaned$binStatus\n";
         }
     }
 }
