@@ -151,7 +151,6 @@ if (! $directory) {
 # Save the options.
 my $clean = $opt->clean;
 my $runCount = $opt->run // 0;
-my $proj = $opt->project;
 my $fix = $opt->fix;
 my $engine = $opt->engine;
 my $noIndex = ($opt->noindex ? '--noIndex ' : '');
