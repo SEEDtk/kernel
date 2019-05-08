@@ -229,6 +229,9 @@ for my $dir (@dirs) {
     if ($evalDone && ! -s "$subDir/bins.found.tbl") {
         $done = "Done (No bins found).";
         $stats->Add(noBinsFound => 1);
+    } elsif ($evalDone && ! -s "$subDir/ref.genomes.scores.tbl") {
+        $done = "Done (No binnable seeds).";
+        $stats->Add(noBinsFound => 1);
     } elsif ($evalDone) {
         $done = "Done.";
         # Check for evaluation results.
