@@ -174,13 +174,13 @@ $options{engine} = $opt->engine;
 $options{noIndex} = $opt->noindex // 0;
 # Check the file names. Save the ones that exist as options.
 if ($f1q) {
-    $options{f1} = $f1q;
+    $options{f1} = "$workDir/$f1q";
 }
 if ($f2q) {
-    $options{f2} = $f2q;
+    $options{f2} = "$workDir/$f2q";
 }
 if ($fsq) {
-    $options{fs} = $fsq;
+    $options{fs} = "$workDir/$fsq";
 }
 if ($opt->large) {
     $options{large} = 1;
