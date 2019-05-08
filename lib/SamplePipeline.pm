@@ -38,6 +38,7 @@ the following commands.
     bins_coverage Assembly/contigs.fasta .
     bins_generate .
     bins_rast .
+    p3x-eval-bins .
     bins_expect_check --genus --input=expect.tbl .
 
 This process assembles the reads into contigs, separates them into bins containing the major populations, sorted by genus,
@@ -124,15 +125,15 @@ A hash containing the following options.
 
 =item f1
 
-The suffix of the fastq files for a first set of paired reads.
+The name of the fastq file for a first set of paired reads.
 
 =item f2
 
-The suffix of the fastq files for a second set of paired reads.
+The name of the fastq file for a second set of paired reads.
 
 =item fs
 
-The suffix of the fastq file for the singleton reads.
+The name of the fastq file for the singleton reads.
 
 =item expect
 
@@ -179,13 +180,7 @@ If TRUE, the annotated genomes produced will not be indexed in PATRIC.
 
 =back
 
-When specifying FASTQ files, the program will find all FASTQ files in the directory for each of the
-specified suffixes. These will then be presented in sorted order, so that paired files will match up.
-This will work so long as the first and second set for each mated pair has the same name in front of
-the suffix for all files. If L<SampleDownload.pl> is being used to download the reads, this will always
-be the case.
-
-If none of the three FASTQ suffixes are specified, then no assembly step will be performed.
+If none of the three FASTQ names are specified, then no assembly step will be performed.
 
 The assembled contigs must exist in C<contigs.fasta> in the working directory and the coverage information
 in the same directory's C<output.contigs2reads.txt> file. If no expectation file is given, no expectation
@@ -196,48 +191,25 @@ report will be produced.
 sub Process {
     my ($workDir, %options) = @_;
     # Extract the options.
-    my $sfx1q = $options{f1};
-    my $sfx2q = $options{f2};
-    my $sfxsq = $options{fs};
+    my $f1q = $options{f1};
+    my $f2q = $options{f2};
+    my $fsq = $options{fs};
     my $engine = $options{engine} // 's';
     my $eNameCol = $options{eNameCol} // 1;
     my $eDepthCol = $options{eDepthCol} // 3;
     my %rastOptions = (user => $options{user}, password => $options{password}, 'sleep' => $options{sleep}, noIndex => $options{noIndex});
     my $force = $options{force} // 0;
-    # FASTQ files will go in these queues.
-    my (@f1q, @f2q, @fsq);
     # Do we need to assemble the contigs?
     my $assemble = 0;
     my $haveContigs = (-s "$workDir/contigs.fasta" && -s "$workDir/output.contigs2reads.txt");
     print "Contigs " . ($haveContigs ? '' : 'not ') . "found in directory.\n";
-    if ($sfx1q || $sfx2q || $sfxsq) {
+    if ($f1q || $f2q || $fsq) {
         if ($force || ! $haveContigs) {
             $assemble = 1;
             my $fileCount = 0;
-            # Try to find the FASTQ files.
-            opendir (my $dh, $workDir) || die "Could not open directory $workDir: $!";
-            my @files = sort grep { -f "$workDir/$_" } readdir $dh;
-            close $dh;
-            my $l1q = length ($sfx1q // '');
-            my $l2q = length ($sfx2q // '');
-            my $lsq = length ($sfxsq // '');
-            my %sfxes;
-            if ($sfx1q) {
-                $sfxes{1} = [length $sfx1q, $sfx1q, \@f1q];
-            }
-            if ($sfx2q) {
-                $sfxes{2} = [length $sfx2q, $sfx2q, \@f2q];
-            }
-            if ($sfxsq) {
-                $sfxes{s} = [length $sfxsq, $sfxsq, \@fsq];
-            }
-            for my $file (@files) {
-                for my $t (keys %sfxes) {
-                    my ($len, $sfx, $list) = @{$sfxes{$t}};
-                    if (substr($file, -$len, $len) eq $sfx) {
-                        push @$list, "$workDir/$file";
-                        $fileCount++;
-                    }
+            for my $file ($f1q, $f2q, $fsq) {
+                if ($file && -f "$workDir/$file") {
+                    $fileCount++;
                 }
             }
             if (! $fileCount) {
@@ -257,29 +229,12 @@ sub Process {
         # Add the directory and the style parms.
         my @parms = ('-o', "$workDir/Assembly", '--meta', '--threads', 8, '--memory', $mem);
         # Determine the type of reads. If there is only "s", we do interleaved.
-        my $stype = 's';
-        if (! scalar(@f1q) && ! scalar(@f2q)) {
-            $stype = '-12';
-        }
-        # We must merge the read libraries.
-        my %libs = ($stype => \@fsq, 1 => \@f1q, 2 => \@f2q);
-        for my $t (1, 2, $stype) {
-            my $libList = $libs{$t};
-            my $count = scalar @$libList;
-            if ($count == 1) {
-                push @parms, "-$t", $libList->[0];
-            } elsif ($count > 1) {
-                my $readFile = "$workDir/merge$t.fq";
-                print "Spooling $count fastq files into $readFile.\n";
-                open(my $qh, '>', $readFile) || die "Could not open merge file type $t: $!";
-                for my $qfile (@$libList) {
-                    open(my $ih, '<', $qfile) || die "Could not open read file $qfile: $!";
-                    while (! eof $ih) {
-                        my $line = <$ih>;
-                        print $qh $line;
-                    }
-                }
-                push @parms, "-$t", $readFile;
+        if (! $f1q && ! $f2q) {
+            push @parms, '-12', $fsq;
+        } else {
+            push @parms, '-1', $f1q, '-2', $f2q;
+            if ($fsq) {
+                push @parms, '-s', $fsq;
             }
         }
         # Find the command.
@@ -326,15 +281,6 @@ sub Process {
             my $rc = system('p3x-eval-bins', '--deep', $workDir);
             die "Error exit $rc from p3x-eval-bins." if $rc;
         }
-    }
-    # Finally, we do the expectation check. This is only performed if there is an expectation file.
-    if (! $options{expect}) {
-        print "No expectation file specified. Expectation check skipped.\n";
-    } else {
-        print "Generating expectation report.\n";
-        my @expectReport = `bins_expect_check --col=$eNameCol --dcol=$eDepthCol --genus --input=$options{expect} $workDir`;
-        open(my $oh, ">", "$workDir/expect.report.txt") || die "Could not open expectation report file: $!";
-        print $oh @expectReport;
     }
 }
 

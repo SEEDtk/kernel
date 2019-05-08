@@ -30,37 +30,10 @@ use SamplePipeline;
 This script runs a single sample through the binning pipeline. This includes assembling the reads, forming the bins,
 applying RAST to each bin, and checking expectations. The bulk of the work is performed by L<SamplePipeline>.
 
-This script assumes the sample comes from the Human Microbiome Project and conforms to its naming conventions. Command-line
-options allow support of other formats.
-
-=head2 Parameters
-
-The positional parameters are the ID of the sample and the name of the working directory.
-
-The following command-line options are supported.
+This script detects the type of the sample based on the fastq files in the directory.  There can be only one
+fastq file of each type. The following formats are supported.
 
 =over 4
-
-=item user
-
-User name for RAST access. If omitted, the default is taken from the RASTUSER environment variable.
-
-=item password
-
-Password for RAST access. If omitted, the default is taken from the RASTPASS environment variable.
-
-=item force
-
-Force rebuilding of all files, even ones that already exist. Otherwise, if files exist in the directory, it will
-be presumed a previous run failed in progress and it will be resumed.
-
-=item project
-
-The project type for this sample-- currently either C<HMP> (Human Microbiome Project, the default), C<MH>
-(MetaHit), C<SYNTH> (synthetic), C<AG> (American Gut), or C<CT> (Contact Transfer). The project type determines
-the naming conventions for the fastq files.
-
-=over 8
 
 =item HMP
 
@@ -88,6 +61,27 @@ Interleaved paired-end reads. C<*.fq> for all of them.
 Paired-end reads. C<*_R1_001.fastq> for the left reads and C<*_R2_001.fastq> for the right reads.
 
 =back
+
+=head2 Parameters
+
+The positional parameters are the ID of the sample and the name of the working directory.
+
+The following command-line options are supported.
+
+=over 4
+
+=item user
+
+User name for RAST access. If omitted, the default is taken from the RASTUSER environment variable.
+
+=item password
+
+Password for RAST access. If omitted, the default is taken from the RASTPASS environment variable.
+
+=item force
+
+Force rebuilding of all files, even ones that already exist. Otherwise, if files exist in the directory, it will
+be presumed a previous run failed in progress and it will be resumed.
 
 =item reset
 
@@ -140,72 +134,6 @@ if (! $sampleID) {
 }
 # This will contain our options for the pipeline.
 my %options = (force => $opt->force, user => $opt->user, password => $opt->password);
-# Compute the file name suffixes based on the project.
-my ($f1q, $f2q, $fsq);
-my $project = $opt->project;
-if ($project eq 'HMP') {
-    $f1q = ".1.fastq";
-    $f2q = ".2.fastq";
-    $fsq = ".singleton.fastq";
-} elsif ($project eq 'MH') {
-    $f1q = "_1.fastq";
-    $f2q = "_2.fastq";
-} elsif ($project eq 'AG') {
-    $fsq = ".fastq";
-} elsif ($project eq 'PQ') {
-    $fsq = ".fq";
-} elsif ($project eq 'SYNTH') {
-    $f1q = "synth1.fq";
-    $f2q = "synth2.fq";
-} elsif ($project eq 'CT') {
-    $f1q = "_R1_001.fastq";
-    $f2q = "_R2_001.fastq";
-} else {
-    die "Invalid project type $project.";
-}
-# Store the engine.
-$options{engine} = $opt->engine;
-# Store the indexing option.
-$options{noIndex} = $opt->noindex // 0;
-# Compute the file names for the sample.
-my $expectF = "$workDir/$sampleID" . "_abundance_table.tsv";
-# Check the file name suffixes. Save the ones that exist as options.
-if ($f1q) {
-    $options{f1} = $f1q;
-}
-if ($f2q) {
-    $options{f2} = $f2q;
-}
-if ($fsq) {
-    $options{fs} = $fsq;
-}
-if (-f $expectF) {
-    $options{expect} = $expectF;
-}
-if ($opt->large) {
-    $options{large} = 1;
-}
-my $resetOpt = $opt->reset;
-# Are we resetting?
-if (defined $resetOpt) {
-    # Yes. Get the list of files and delete the binning stuff.
-    opendir(my $dh, $workDir) || die "Could not open work directory: $!";
-    my @files = grep { -f "$workDir/$_" } readdir $dh;
-    print "Deleting intermediate files in $workDir.\n";
-    my ($count, $total) = (0,0);
-    for my $file (@files) {
-        my $fullName = "$workDir/$file";
-        $total++;
-        unless ($fullName eq $expectF || $fullName =~ /\.fastq$/ || $fullName =~ /\.fq/ || $file eq 'site.tbl' ||
-                $file eq 'run.log' || $file eq 'err.log' || $file eq 'exclude.tbl') {
-            if ($resetOpt || ($file ne 'contigs.fasta' && $file ne 'output.contigs2reads.txt')) {
-                unlink $fullName;
-                $count++;
-            }
-        }
-    }
-    print "$count of $total files deleted.\n";
-}
 # Are we unzipping?
 if ($opt->gz) {
     # Yes. Get the list of gz files.
@@ -219,6 +147,66 @@ if ($opt->gz) {
         die "Gunzip failed for $file: rc = $rc." if $rc;
         $count++;
     }
+}
+# Compute the FASTQ file names based on guesses about the project.
+my ($f1q, $f2q, $fsq);
+# We only need to do this if there are not yet assembled contigs.
+if (! -s "$workDir/contigs.fasta") {
+    opendir(my $dh, $workDir) || die "Could not open work directory: $!";
+    my @files = grep { $_ =~ /\.(?:fastq|fq)$/ } readdir $dh;
+    for my $file (@files) {
+        if ($file =~ /R2_001\.fastq/) {
+            $f2q = $file;
+        } elsif ($file =~ /\.1.(?:fastq|fq)/) {
+            $f1q = $file;
+        } elsif ($file =~ /\.2.(?:fastq|fq)/) {
+            $f2q = $file;
+        } elsif ($file =~ /\.singleton\.fastq/) {
+            $fsq = $file;
+        } elsif ($file =~ /\.fq/) {
+            $fsq = $file;
+        }
+    }
+}
+# Store the engine.
+$options{engine} = $opt->engine;
+# Store the indexing option.
+$options{noIndex} = $opt->noindex // 0;
+# Check the file names. Save the ones that exist as options.
+if ($f1q) {
+    $options{f1} = $f1q;
+}
+if ($f2q) {
+    $options{f2} = $f2q;
+}
+if ($fsq) {
+    $options{fs} = $fsq;
+}
+if ($opt->large) {
+    $options{large} = 1;
+}
+my $resetOpt = $opt->reset;
+# Are we resetting?
+if (defined $resetOpt) {
+    # We don't use this file any more, but we save it from deletions anyway.
+    my $expectF = "$workDir/$sampleID" . "_abundance_table.tsv";
+    # Yes. Get the list of files and delete the binning stuff.
+    opendir(my $dh, $workDir) || die "Could not open work directory: $!";
+    my @files = grep { -f "$workDir/$_" } readdir $dh;
+    print "Deleting intermediate files in $workDir.\n";
+    my ($count, $total) = (0,0);
+    for my $file (@files) {
+        my $fullName = "$workDir/$file";
+        $total++;
+        unless ($fullName eq $expectF || $fullName =~ /\.fastq$/ || $fullName =~ /\.fq$/ || $file eq 'site.tbl' ||
+                $file eq 'run.log' || $file eq 'err.log' || $file eq 'exclude.tbl') {
+            if ($resetOpt || ($file ne 'contigs.fasta' && $file ne 'output.contigs2reads.txt')) {
+                unlink $fullName;
+                $count++;
+            }
+        }
+    }
+    print "$count of $total files deleted.\n";
 }
 # Process the pipeline.
 SamplePipeline::Process($workDir, %options);

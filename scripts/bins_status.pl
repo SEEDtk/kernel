@@ -61,8 +61,7 @@ RAST processing completed-- C<bins.rast.json> exists.
 
 =item Done
 
-Expectation processing completed-- C<expect.report.txt> exists or C<bins.rast.json> exists and there is no
-abundance file.
+Evaluation processing completed-- C<Eval/index.tbl> exists.
 
 =back
 
@@ -134,7 +133,6 @@ my $opt = ScriptUtils::Opts('directory',
                 ['resume', 'restart failed jobs'],
                 ['terse', 'do not show completed bins'],
                 ['rerun', 'do not show assembled bins that are not running'],
-                ['project=s', 'project type for binning jobs', { default => 'MH' }],
                 ['fix=s', 'remove unprocessed sample directories', { default => 'none' }],
                 ['backout', 'back out incomplete assemblies'],
                 ['maxResume=i', 'maximum number of running jobs for resume', { default => 20 }],
@@ -228,18 +226,11 @@ for my $dir (@dirs) {
     # Check for the evaluation.
     my $evalDone = (-s "$subDir/Eval/index.tbl");
     # Determine the status.
-    if (-s "$subDir/expect.report.txt") {
-        $done = "Expectations Computed.";
-    } elsif ($evalDone && (! -s "$subDir/$dir" . '_abundance_table.tsv' || ! -s "bins.found.tbl")) {
-        $done = "Done (No Expectations).";
+    if ($evalDone && ! -s "bins.found.tbl")) {
+        $done = "Done (No bins found).";
+        $stats->Add(noBinsFound => 1);
     } elsif ($evalDone) {
-        if (! $run && $opt->resume && $resumeLeft) {
-            StartJob($dir, $subDir, '', 'Restarted', $label, $proj);
-            $resumeLeft--;
-        } else {
-            push @other, "$label: Eval Complete.\n";
-            $stats->Add(dirs7RastComplete => 1);
-        }
+        $done = "Done.";
     } elsif ($rastFound) {
         if (! $run && $opt->resume && $resumeLeft) {
             StartJob($dir, $subDir, '', 'Restarted', $label, $proj);
@@ -338,7 +329,7 @@ for my $dir (@dirs) {
     # If we are done, we process here and check for cleaning.
     if ($done) {
         my $show = ($opt->terse ? 0 : 1);
-        $stats->Add(dirs8Done => 1);
+        $stats->Add(dirs7Done => 1);
         if ($clean && ! $cleaned) {
             print "Cleaning $subDir.\n";
             $cleaned = "  Cleaning Assembly.";
@@ -365,7 +356,9 @@ for my $dir (@dirs) {
                 $tot++;
                 $stats->Add(totBin => 1);
             }
-            $cleaned .= "  $good of $tot bins.";
+            if ($tot) {
+                $cleaned .= "  $good of $tot bins.";
+            }
         }
         if ($show) {
             push @done, "$label: $done$cleaned\n";
@@ -379,7 +372,7 @@ print "\nAll done:\n" . $stats->Show();
 sub StartJob {
     my ($dir, $subDir, $gz, $start, $label, $proj) = @_;
     my $realProj = ($proj eq 'NCBI' ? 'MH' : $proj);
-    my $cmd = "bins_sample_pipeline --project=$realProj --engine=$engine $noIndex $gz $dir $subDir >$subDir/run.log 2>$subDir/err.log";
+    my $cmd = "bins_sample_pipeline --engine=$engine $noIndex $gz $dir $subDir >$subDir/run.log 2>$subDir/err.log";
     my $rc = system("nohup $cmd &");
     push @other, "$label: $start $cmd.\n";
     $stats->Add("dirs0$start" => 1);
