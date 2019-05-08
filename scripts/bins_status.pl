@@ -226,7 +226,7 @@ for my $dir (@dirs) {
     # Check for the evaluation.
     my $evalDone = (-s "$subDir/Eval/index.tbl");
     # Determine the status.
-    if ($evalDone && ! -s "bins.found.tbl")) {
+    if ($evalDone && ! -s "bins.found.tbl") {
         $done = "Done (No bins found).";
         $stats->Add(noBinsFound => 1);
     } elsif ($evalDone) {
