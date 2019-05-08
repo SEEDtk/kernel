@@ -208,7 +208,7 @@ sub Process {
             $assemble = 1;
             my $fileCount = 0;
             for my $file ($f1q, $f2q, $fsq) {
-                if ($file && -f "$workDir/$file") {
+                if ($file && -f $file) {
                     $fileCount++;
                 }
             }
