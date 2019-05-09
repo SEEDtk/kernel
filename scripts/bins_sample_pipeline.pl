@@ -157,11 +157,11 @@ if (! -s "$workDir/contigs.fasta") {
     for my $file (@files) {
         if ($file =~ /R2_001\.fastq/) {
             $f2q = $file;
-        } elsif ($file =~ /\.1.(?:fastq|fq)/) {
+        } elsif ($file =~ /[_.]1.(?:fastq|fq)/) {
             $f1q = $file;
-        } elsif ($file =~ /\.2.(?:fastq|fq)/) {
+        } elsif ($file =~ /[_.]2.(?:fastq|fq)/) {
             $f2q = $file;
-        } elsif ($file =~ /\.singleton\.fastq/) {
+        } elsif ($file =~ /(?:\.singleton|_s)\.fastq/) {
             $fsq = $file;
         } elsif ($file =~ /\.fq/) {
             $fsq = $file;
