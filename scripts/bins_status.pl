@@ -172,6 +172,8 @@ print scalar(@dirs) . " subdirectories found.\n";
 # Get the number of jobs we can resume. Each running job decrements this.
 my $resumeLeft = $opt->maxresume - scalar (keys %running);
 print "$resumeLeft job slots available.\n";
+# Subtract the number of jobs to start from the number of jobs left.
+$resumeLeft -= $runCount;
 # Groups for printing.
 my (@done, @downloaded, @other);
 for my $dir (@dirs) {
