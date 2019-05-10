@@ -29,7 +29,8 @@ If specified, the output directory will be emptied before starting.
 =item site
 
 If specified, the name to be put into a C<site.tbl> file in the output folder. This should be
-a lower case site name without spaces, such as is used in the HMP project.
+a lower case site name without spaces, such as is used in the HMP project.  If no site is
+specified, the metadata will be read.
 
 =item gzip
 
@@ -58,10 +59,9 @@ my $opt = P3Utils::script_opts('outDir srs1 srs2 ... srsN', P3Utils::col_options
 my $stats = Stats->new();
 # Get the options.
 my $missing = $opt->missing;
-my ($siteName, $siteTitle);
+my $siteName;
 if ($opt->site) {
     $siteName = $opt->site;
-    $siteTitle = join(' ', map { ucfirst $_ } split /_/, $siteName);
 }
 my $gzip = $opt->gzip;
 # Get the output directory.
@@ -121,12 +121,16 @@ for my $sample (@samples) {
                 $stats->Add(sampleError => 1);
             } else {
                 $stats->Add(sampleDownloaded => 1);
-                if ($siteName) {
-                    # Here we need a site file.
-                    print "Creating site file for $siteTitle.\n";
-                    open(my $oh, ">$target/site.tbl") || die "Could not open site file in $target: $!";
-                    print $oh join("\t", 'NCBI', $siteName, $siteTitle) . "\n";
+                # Create the site file.
+                my ($project, $site) = ('NCBI', $siteName);
+                if (! $site) {
+                    ($project, $site) = $sra->compute_site($sample);
                 }
+                my $siteTitle = join(' ', map { ucfirst $_ } split /_/, $site);
+                # Here we need a site file.
+                print "Creating site file for $siteTitle.\n";
+                open(my $oh, ">$target/site.tbl") || die "Could not open site file in $target: $!";
+                print $oh join("\t", 'NCBI', $siteName, $siteTitle) . "\n";
             }
         }
     }

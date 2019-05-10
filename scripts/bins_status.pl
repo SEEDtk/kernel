@@ -37,7 +37,7 @@ are
 
 =item Downloaded
 
-The reads have been downloaded. If the project type is C<NCBI>, this means C<site.tbl> exists.
+The reads have been downloaded. This means C<site.tbl> exists.
 
 =item Assembling
 
@@ -259,7 +259,7 @@ for my $dir (@dirs) {
             $resumeLeft--;
         } else {
             push @other, "$label: RAST Complete.\n";
-            $stats->Add(dirs6RastComplete => 1);
+            $stats->Add(dirs7RastComplete => 1);
         }
     } elsif (-s "$subDir/bin1.gto") {
         if (! $run && $opt->resume && $resumeLeft) {
@@ -272,7 +272,7 @@ for my $dir (@dirs) {
             push @other, "$label: RAST in Progress. $bins completed.\n";
             $stats->Add(binsAccumulating => $bins);
         }
-        $stats->Add(dirs5RastPartial => 1);
+        $stats->Add(dirs6RastPartial => 1);
     } elsif (-s "$subDir/bins.json") {
         if (! $run && $opt->resume && $resumeLeft) {
             StartJob($dir, $subDir, '', 'Restarted', $label);
@@ -280,7 +280,7 @@ for my $dir (@dirs) {
         } else {
             push @other, "$label: Bins Computed.\n";
         }
-        $stats->Add(dirs4Binned => 1);
+        $stats->Add(dirs5Binned => 1);
     } elsif (-f "$subDir/bins.report.txt") {
         $stats->Add(noBinsFound => 1);
         $done = "No bins found.";
@@ -291,7 +291,7 @@ for my $dir (@dirs) {
         } else {
             push @other, "$label: Binning in Progress.\n";
         }
-        $stats->Add(dirs3Binning => 1);
+        $stats->Add(dirs4Binning => 1);
     } elsif (-s "$subDir/contigs.fasta") {
         if (! $run && $opt->resume && $resumeLeft) {
             StartJob($dir, $subDir, '', 'Restarted', $label);
@@ -299,17 +299,27 @@ for my $dir (@dirs) {
         } elsif (! $run && ! $opt->rerun) {
             push @other, "$label: Assembled.\n";
         }
-        $stats->Add(dirs2Assembled => 1);
+        $stats->Add(dirs3Assembled => 1);
     } elsif (-d "$subDir/Assembly") {
         if (! $run && $opt->backout) {
             File::Copy::Recursive::pathrmdir("$subDir/Assembly");
             $stats->Add(assemblyBackout => 1);
             push @other, "$label: Downloaded.\n";
-            $stats->Add(dirs0Downloaded => 1);
+            $stats->Add(dirs1Downloaded => 1);
         } else {
             push @other, "$label: Assembling.\n";
-            $stats->Add(dirs1Assembling => 1);
+            $stats->Add(dirs2Assembling => 1);
         }
+    } elsif (! -s "$subDir/site.tbl") {
+        # A download is in progress here.  Compute the progress.
+        opendir(my $dh, $subDir) || die "Could not open directory $subDir: $!";
+        my $count = 0;
+        map { $count += -s "$subDir/$_ " } grep { $_ =~ /\.(?:fastq|fq)/ } readdir $dh;
+        if ($count > 1000000) {
+            $count = int($count/1000000) . "M";
+        }
+        push @other, "$label: Downloading. $count so far.\n";
+        $stats->Add(dirs0Downloading => 1);
     } else {
         # Here the directory is downloaded. We may need to fix it or run the pipeline.
         opendir(my $dh, $subDir) || die "Could not open directory $subDir: $!";
@@ -339,7 +349,7 @@ for my $dir (@dirs) {
             $stats->Add(dirsDeleted => 1);
         } else {
             # It's valid, but we are leaving it alone.
-            $stats->Add(dirs0Downloaded => 1);
+            $stats->Add(dirs1Downloaded => 1);
             if (! $opt->rerun) {
                 push @downloaded, "$label: Downloaded.\n";
             }
@@ -376,5 +386,5 @@ sub StartJob {
     my $cmd = "bins_sample_pipeline --engine=$engine $noIndex $gz $dir $subDir >$subDir/run.log 2>$subDir/err.log";
     my $rc = system("nohup $cmd &");
     push @other, "$label: $start $cmd.\n";
-    $stats->Add("dirs0$start" => 1);
+    $stats->Add("dirsX$start" => 1);
 }
