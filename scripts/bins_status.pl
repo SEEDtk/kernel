@@ -314,7 +314,7 @@ for my $dir (@dirs) {
         # A download is in progress here.  Compute the progress.
         opendir(my $dh, $subDir) || die "Could not open directory $subDir: $!";
         my $count = 0;
-        map { $count += -s "$subDir/$_ " } grep { $_ =~ /\.(?:fastq|fq)/ } readdir $dh;
+        map { $count += -s "$subDir/$_" } grep { $_ =~ /\.(?:fastq|fq)/ } readdir $dh;
         if ($count > 1000000) {
             $count = int($count/1000000) . "M";
         }

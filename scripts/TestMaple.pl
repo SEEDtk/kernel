@@ -32,7 +32,7 @@ for my $itDir (@itDirs) {
                 $output = 0;
             }
             if (! $binGeo->is_good) {
-                $stats->Add(banBinGenome => 1);
+                $stats->Add(badBinGenome => 1);
                 $output = 0;
             }
             if ($output) {
