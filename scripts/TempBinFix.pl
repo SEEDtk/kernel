@@ -11,6 +11,6 @@ while (! eof $ih) {
     my ($sample, $project, $site) = split /\t/, $line;
     open(my $oh, '>', "Bins_HMP/$sample/site.tbl") || die "Could not open site.tbl for $sample: $!";
     my $siteTitle = join(' ', map { ucfirst $_ } split /_/, $site);
-    print join("\t", $project, $site, $siteTitle) . "\n";
+    print $oh join("\t", $project, $site, $siteTitle) . "\n";
     close $oh;
 }
