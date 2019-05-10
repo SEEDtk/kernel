@@ -18,7 +18,7 @@ while (! eof $ih) {
     my $matches = {};
     # We must search for the specified universal protein to create the initial bins.
     # Get the list of genomes.
-    my $protFile = "$FIG_Config::global/seedprot.fa";
+    my $protFile = "testProt.fa";
     $matches = $blaster->FindProtein($protFile);
     my $count = 0;
     # Save the matches to a work file.
