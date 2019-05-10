@@ -244,10 +244,12 @@ for my $dir (@dirs) {
                 $line = <$ih>;
                 if ($line =~ /\t1$/) {
                     $good++;
-                    $stats->Add(goodBin => 1);
+                    $stats->Add(binsGood => 1);
+                } else {
+                    $stats->Add(binsBad => 1);
                 }
                 $tot++;
-                $stats->Add(totBin => 1);
+                $stats->Add(binsTotal => 1);
             }
             if ($tot) {
                 $binStatus = "  $good of $tot bins.";
