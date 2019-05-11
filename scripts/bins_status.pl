@@ -227,7 +227,7 @@ for my $dir (@dirs) {
         if (-d "$subDir/Eval") {
             File::Copy::Recursive::pathrmdir("$subDir/Eval") || die "Could not remove Eval from $subDir: $!";
         }
-        $cleaned .= "  $count of $total files deleted by reset.";
+        print "$count of $total files deleted by reset of $dir.\n";
     }
     # Check for the RAST completion file.
     my $rastFound = (-f "$subDir/bins.report.txt");
