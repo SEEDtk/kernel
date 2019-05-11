@@ -130,7 +130,7 @@ while (my $sample = readdir $dh) {
     }
 }
 print STDERR "Producing report.\n" if $debug;
-print join("\t", qw(site name good_bins bad_bins accum_bins fail_samples done_samples in_progress not_started)) . "\n";
+print join("\t", qw(site_name good_bins bad_bins accum_bins fail_samples done_samples in_progress not_started)) . "\n";
 for my $cat (sort keys %cats) {
     print join("\t", @{$cats{$cat}}) . "\n";
 }

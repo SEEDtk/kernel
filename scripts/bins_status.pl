@@ -171,6 +171,8 @@ if (! $FIG_Config::win_mode) {
         }
     }
 }
+# These will be used to determine production ratio.
+my ($totGood, $totDone) = (0, 0);
 # Loop through the subdirectories.
 opendir(my $ih, $directory) || die "Could not open directory $directory.";
 my @dirs = sort grep { substr($_,0,1) ne '.' && -d "$directory/$_" } readdir $ih;
@@ -250,6 +252,7 @@ for my $dir (@dirs) {
                 $line = <$ih>;
                 if ($line =~ /\t1$/) {
                     $good++;
+                    $totGood++;
                     $stats->Add(binsGood => 1);
                 } else {
                     $stats->Add(binsBad => 1);
@@ -257,6 +260,7 @@ for my $dir (@dirs) {
                 $tot++;
                 $stats->Add(binsTotal => 1);
             }
+            $totDone++;
             if ($tot) {
                 $binStatus = "  $good of $tot bins.";
             }
@@ -384,6 +388,9 @@ for my $dir (@dirs) {
             push @done, "$label: $done$cleaned$binStatus\n";
         }
     }
+}
+if ($totDone) {
+    print "Production ratio is " . Math::Round::nearest(0.01, $totGood / $totDone) . ".\n";
 }
 print @done, @downloaded, @other;
 print "\nAll done:\n" . $stats->Show();
