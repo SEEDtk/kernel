@@ -119,6 +119,10 @@ Type of binning engine to use-- C<s> for the standard binner, C<2> for the alter
 
 If specified, the annotated genomes will not be indexed in PATRIC.
 
+=item rebin
+
+If specified, a comma-delimited list of samples whose binning results will be removed to force re-binning.
+
 =back
 
 =cut
@@ -139,6 +143,7 @@ my $opt = ScriptUtils::Opts('directory',
                 ['engine=s', 'type of binning engine to use', { default => 's' }],
                 ['noIndex', 'do not index bins in PATRIC'],
                 ['reset', 'delete all binning results to force re-binning of all directories'],
+                ['rebin=s', 'comma-delimited list of samples to reset'],
                 ['run=i', 'run binning pipeline on new directories', { default => 0 }]);
 my $stats = Stats->new();
 # Get the main directory name.
@@ -155,6 +160,7 @@ my $fix = $opt->fix;
 my $engine = $opt->engine;
 my $noIndex = ($opt->noindex ? '--noIndex ' : '');
 my $resetOpt = $opt->reset;
+my %rebins = map { $_ => 1 } split /,/, ($opt->rebin // '');
 # Get a hash of the running subdirectories (Unix only).
 my %running;
 if (! $FIG_Config::win_mode) {
@@ -204,7 +210,7 @@ for my $dir (@dirs) {
     }
     my $label = "$subDir ($site$run)";
     # Are we resetting?
-    if ($resetOpt && ! $run) {
+    if (($resetOpt || $rebins{$dir}) && ! $run) {
         # Yes. Get the list of files and delete the binning stuff.
         my ($count, $total) = (0, 0);
         opendir(my $dh, $subDir) || die "Could not open work directory: $!";
