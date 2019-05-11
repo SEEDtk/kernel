@@ -172,7 +172,7 @@ if (! $FIG_Config::win_mode) {
     }
 }
 # These will be used to determine production ratio and assembly total.
-my ($totGood, $totDone, $asming) = (0, 0, 0);
+my ($totGood, $totDone, $asming, $stopped) = (0, 0, 0, 0);
 # Loop through the subdirectories.
 opendir(my $ih, $directory) || die "Could not open directory $directory.";
 my @dirs = sort grep { substr($_,0,1) ne '.' && -d "$directory/$_" } readdir $ih;
@@ -272,6 +272,7 @@ for my $dir (@dirs) {
         } else {
             push @other, "$label: RAST Complete.\n";
             $stats->Add(dirs7RastComplete => 1);
+            if (! $run) { $stopped++; }
         }
     } elsif (-s "$subDir/bin1.gto") {
         if (! $run && $opt->resume && $resumeLeft) {
@@ -283,6 +284,7 @@ for my $dir (@dirs) {
             my $bins = $i - 1;
             push @other, "$label: RAST in Progress. $bins completed.\n";
             $stats->Add(binsAccumulating => $bins);
+            if (! $run) { $stopped++; }
         }
         $stats->Add(dirs6RastPartial => 1);
     } elsif (-s "$subDir/bins.json") {
@@ -291,6 +293,7 @@ for my $dir (@dirs) {
             $resumeLeft--;
         } else {
             push @other, "$label: Bins Computed.\n";
+            if (! $run) { $stopped++; }
         }
         $stats->Add(dirs5Binned => 1);
     } elsif (-f "$subDir/bins.report.txt") {
@@ -301,6 +304,7 @@ for my $dir (@dirs) {
             StartJob($dir, $subDir, '', 'Restarted', $label);
             $resumeLeft--;
         } else {
+            if (! $run) { $stopped++; }
             push @other, "$label: Binning in Progress.\n";
         }
         $stats->Add(dirs4Binning => 1);
@@ -397,6 +401,9 @@ if ($asming) {
     print "$asming assemblies in progress.\n";
 } else {
     print "No assemblies in progress.\n";
+}
+if ($stopped) {
+    print "$stopped jobs are stopped.\n";
 }
 print @done, @downloaded, @other;
 print "\nAll done:\n" . $stats->Show();
