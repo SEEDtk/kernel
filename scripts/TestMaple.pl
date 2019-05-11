@@ -1,31 +1,35 @@
 use strict;
 use FIG_Config;
 use File::Copy::Recursive;
-use File::stat;
-use Fcntl qw(:mode);
+use Bin;
+use SeedUtils;
 
-my ($dir) = @ARGV;
-open(my $oh, '>', 'blockedFiles.tbl') || die "Could not open output: $!";
-opendir(my $dh, $dir) || die "Could not open $dir: $!";
-while (my $file = readdir $dh) {
-    if (substr($file, 0, 1) ne '.') {
-        my $path = "$dir/$file";
-        my $stat = stat($path);
-        if (! $stat->cando(S_IWUSR)) {
-            print $oh "$path\n";
-        } elsif (time - $stat->atime > 100000) {
-            if (-d $path) {
-                print "Erasing $path.";
-                if (File::Copy::Recursive::pathempty($path)) {
-                    rmdir $path;
-                    print "  Done.\n";
-                } else {
-                    print "  Failed.\n";
-                }
-            } else {
-                print "Deleting $path.\n";
-                unlink $path;
+opendir(my $dh, 'Bins_HMP') || die "Could not open binning directory: $!";
+my @samples = grep { -s "Bins_HMP/$_/bins.rast.json" } readdir $dh;
+closedir $dh;
+for my $sample (@samples) {
+    print STDERR "Processing $sample.\n";
+    my $error = 0;
+    my $subDir = "Bins_HMP/$sample";
+    my $binList = Bin::ReadBins("$subDir/bins.rast.json");
+    for (my $idx = 1; $idx <= scalar @$binList && ! $error; $idx++) {
+        my $bin = $binList->[$idx - 1];
+        my $gtoFile = "$subDir/bin$idx.gto";
+        if (! -s $gtoFile) {
+            $error++;
+            print STDERR "$gtoFile is missing for bin $idx.\n";
+        } else {
+            my $gto = SeedUtils::read_encoded_object($gtoFile);
+            my $gtoName = $gto->{scientific_name};
+            $gtoName =~ s/\s+cleaned//;
+            my $binName = $bin->name || "(unknown)";
+            if ($gtoName ne $binName) {
+                print STDERR "Bin $idx should be $binName but is $gtoName.\n";
+                $error++;
             }
         }
+    }
+    if ($error) {
+        print "$sample\n";
     }
 }
