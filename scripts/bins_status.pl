@@ -23,8 +23,8 @@ use FIG_Config;
 use ScriptUtils;
 use Stats;
 use File::Copy::Recursive;
-use Bin::Package;
 use FIG_Config;
+use Math::Round;
 
 =head1 Check Status of Bin Pipeline
 
@@ -171,8 +171,8 @@ if (! $FIG_Config::win_mode) {
         }
     }
 }
-# These will be used to determine production ratio.
-my ($totGood, $totDone) = (0, 0);
+# These will be used to determine production ratio and assembly total.
+my ($totGood, $totDone, $asming) = (0, 0, 0);
 # Loop through the subdirectories.
 opendir(my $ih, $directory) || die "Could not open directory $directory.";
 my @dirs = sort grep { substr($_,0,1) ne '.' && -d "$directory/$_" } readdir $ih;
@@ -321,6 +321,7 @@ for my $dir (@dirs) {
         } else {
             push @other, "$label: Assembling.\n";
             $stats->Add(dirs2Assembling => 1);
+            $asming++;
         }
     } elsif (! -s "$subDir/site.tbl") {
         # A download is in progress here.  Compute the progress.
@@ -391,6 +392,11 @@ for my $dir (@dirs) {
 }
 if ($totDone) {
     print "Production ratio is " . Math::Round::nearest(0.01, $totGood / $totDone) . ".\n";
+}
+if ($asming) {
+    print "$asming assemblies in progress.\n";
+} else {
+    print "No assemblies in progress.\n";
 }
 print @done, @downloaded, @other;
 print "\nAll done:\n" . $stats->Show();
