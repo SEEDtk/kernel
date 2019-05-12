@@ -95,13 +95,9 @@ Restart non-running jobs in progress.
 Maximum number of running jobs to allow when resuming. The default is C<20>. This is always approximate: it is just a
 stopgap to avoid overwhelming the machine.
 
-=item terse
+=item all
 
-If specified, completed samples will not be shown, only samples in progress.
-
-=item rerun
-
-Used when rerunning assemblies.  Does not display assembled or downloaded bins that are not running.
+If specified, completed samples, and assembled or downloaded bins that are not running will be shown.
 
 =item fix
 
@@ -140,8 +136,7 @@ use constant KEEPERS => { 'site.tbl' => 1, 'run.log' => 1, 'err.log' => 1, 'excl
 my $opt = ScriptUtils::Opts('directory',
                 ['clean', 'clean up assembly information for complete samples'],
                 ['resume', 'restart failed jobs'],
-                ['terse', 'do not show completed bins'],
-                ['rerun', 'do not show assembled bins that are not running'],
+                ['all', 'show all directories'],
                 ['fix=s', 'remove unprocessed sample directories', { default => 'none' }],
                 ['backout', 'back out incomplete assemblies'],
                 ['maxResume=i', 'maximum number of running jobs for resume', { default => 20 }],
@@ -324,7 +319,7 @@ for my $dir (@dirs) {
         if (! $run && $opt->resume && $resumeLeft) {
             StartJob($dir, $subDir, '', 'Restarted', $label);
             $resumeLeft--;
-        } elsif (! $run && ! $opt->rerun) {
+        } elsif (! $run && $opt->all) {
             push @other, "$label: Assembled.\n";
         }
         $stats->Add(dirs3Assembled => 1);
@@ -379,14 +374,14 @@ for my $dir (@dirs) {
         } else {
             # It's valid, but we are leaving it alone.
             $stats->Add(dirs1Downloaded => 1);
-            if (! $opt->rerun) {
+            if ($opt->all) {
                 push @downloaded, "$label: Downloaded.\n";
             }
         }
     }
     # If we are done, we process here and check for cleaning.
     if ($done) {
-        my $show = ($opt->terse ? 0 : 1);
+        my $show = $opt->all || 0;
         $stats->Add(dirs7Done => 1);
         if ($clean && ! $cleaned) {
             print "Cleaning $subDir.\n";
