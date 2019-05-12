@@ -115,7 +115,6 @@ for my $sample (@samples) {
         print "Skipping $sample ($count of $sampleTot) with existing directory.\n";
         $stats->Add(sampleSkipped => 1);
     } elsif ($max > 0) {
-        $max--;
         print "Processing $sample ($count of $sampleTot).\n";
         my $runList = $sra->get_runs($sample);
         if (! $runList) {
@@ -140,6 +139,8 @@ for my $sample (@samples) {
                 print "Creating site file for $siteTitle.\n";
                 open(my $oh, ">$target/site.tbl") || die "Could not open site file in $target: $!";
                 print $oh join("\t", $project, $site, $siteTitle) . "\n";
+                # Count this download.
+                $max--;
             }
         }
     }
