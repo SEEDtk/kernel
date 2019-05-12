@@ -123,6 +123,11 @@ If specified, the annotated genomes will not be indexed in PATRIC.
 
 If specified, a comma-delimited list of samples whose binning results will be removed to force re-binning.
 
+=item stopFile
+
+The name of a file to contain error information about stopped jobs.  The default is C<stoppedJobs.log> in the
+current directory.
+
 =back
 
 =cut
@@ -144,6 +149,7 @@ my $opt = ScriptUtils::Opts('directory',
                 ['noIndex', 'do not index bins in PATRIC'],
                 ['reset', 'delete all binning results to force re-binning of all directories'],
                 ['rebin=s', 'comma-delimited list of samples to reset'],
+                ['stopFile=s', 'file to contain stopped-job error data', { default => 'stoppedJobs.log' }],
                 ['run=i', 'run binning pipeline on new directories', { default => 0 }]);
 my $stats = Stats->new();
 # Get the main directory name.
@@ -161,6 +167,8 @@ my $engine = $opt->engine;
 my $noIndex = ($opt->noindex ? '--noIndex ' : '');
 my $resetOpt = $opt->reset;
 my %rebins = map { $_ => 1 } split /,/, ($opt->rebin // '');
+# Get an output handle for the stop file.
+open(my $sh, '>', $opt->stopfile) || die "Could not open stopped-jobs file: $!";
 # Get a hash of the running subdirectories (Unix only).
 my %running;
 if (! $FIG_Config::win_mode) {
@@ -272,7 +280,7 @@ for my $dir (@dirs) {
         } else {
             push @other, "$label: RAST Complete.\n";
             $stats->Add(dirs7RastComplete => 1);
-            if (! $run) { $stopped++; }
+            RecordStopped($sh, $label, 'Evaluation', $subDir, \$stopped) if (! $run);
         }
     } elsif (-s "$subDir/bin1.gto") {
         if (! $run && $opt->resume && $resumeLeft) {
@@ -284,7 +292,7 @@ for my $dir (@dirs) {
             my $bins = $i - 1;
             push @other, "$label: RAST in Progress. $bins completed.\n";
             $stats->Add(binsAccumulating => $bins);
-            if (! $run) { $stopped++; }
+            RecordStopped($sh, $label, 'RAST Processing', $subDir, \$stopped) if (! $run);
         }
         $stats->Add(dirs6RastPartial => 1);
     } elsif (-s "$subDir/bins.json") {
@@ -293,7 +301,7 @@ for my $dir (@dirs) {
             $resumeLeft--;
         } else {
             push @other, "$label: Bins Computed.\n";
-            if (! $run) { $stopped++; }
+            RecordStopped($sh, $label, 'RAST Processing', $subDir, \$stopped) if (! $run);
         }
         $stats->Add(dirs5Binned => 1);
     } elsif (-f "$subDir/bins.report.txt") {
@@ -304,7 +312,7 @@ for my $dir (@dirs) {
             StartJob($dir, $subDir, '', 'Restarted', $label);
             $resumeLeft--;
         } else {
-            if (! $run) { $stopped++; }
+            RecordStopped($sh, $label, 'Binning', $subDir, \$stopped) if (! $run);
             push @other, "$label: Binning in Progress.\n";
         }
         $stats->Add(dirs4Binning => 1);
@@ -415,4 +423,30 @@ sub StartJob {
     my $rc = system("nohup $cmd &");
     push @other, "$label: $start $cmd.\n";
     $stats->Add("dirsX$start" => 1);
+}
+
+sub RecordStopped {
+    my ($sh, $label, $status, $subDir, $pStopped) = @_;
+    print $sh "*** $label stopped during $status.\n";
+    my $ih;
+    my $size = -s "$subDir/err.log";
+    if (! $size) {
+        print $sh "  * Error log file is missing or empty.\n";
+    } elsif (! open($ih, '<', "$subDir/err.log")) {
+        print $sh "  * Could not open error log file: $!\n";
+    } else {
+        my $pos = $size - 1500;
+        if ($pos > 0) {
+            seek $ih, $pos, 0;
+            # Throw out the first line fragment.
+            my $line = <$ih>;
+        }
+        # Echo the rest.
+        while (! eof) {
+            my $line = <$ih>;
+            print $sh "    $line";
+        }
+        print $sh "\n";
+    }
+    $$pStopped++;
 }
