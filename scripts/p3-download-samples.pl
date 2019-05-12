@@ -130,7 +130,7 @@ for my $sample (@samples) {
                 # Here we need a site file.
                 print "Creating site file for $siteTitle.\n";
                 open(my $oh, ">$target/site.tbl") || die "Could not open site file in $target: $!";
-                print $oh join("\t", 'NCBI', $siteName, $siteTitle) . "\n";
+                print $oh join("\t", $project, $site, $siteTitle) . "\n";
             }
         }
     }
