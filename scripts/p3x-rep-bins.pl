@@ -63,7 +63,7 @@ my $stats = Stats->new();
 my $debug = $opt->verbose;
 my $missing = $opt->missing;
 # This will be the option hash for creating the GEOs.
-my %options = (stats => $stats, detail => 0, logH => \*STDOUT);
+my %options = (stats => $stats, detail => 0, logH => \*STDERR);
 # Get the positional parameters.
 my ($binDir, $repDir) = @ARGV;
 if (! $binDir) {
