@@ -435,14 +435,14 @@ sub RecordStopped {
     } elsif (! open($ih, '<', "$subDir/err.log")) {
         print $sh "  * Could not open error log file: $!\n";
     } else {
-        my $pos = $size - 1500;
+        my $pos = $size - 500;
         if ($pos > 0) {
             seek $ih, $pos, 0;
             # Throw out the first line fragment.
             my $line = <$ih>;
         }
         # Echo the rest.
-        while (! eof) {
+        while (! eof $ih) {
             my $line = <$ih>;
             print $sh "    $line";
         }
