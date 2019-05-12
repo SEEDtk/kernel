@@ -32,6 +32,11 @@ If specified, the name to be put into a C<site.tbl> file in the output folder. T
 a lower case site name without spaces, such as is used in the HMP project.  If no site is
 specified, the metadata will be read.
 
+=item max
+
+Maximum number of samples to download.  When this number is reached, the downloads will stop.  This
+is best used with C<--missing> to download a few at a time from a specific list.
+
 =item gzip
 
 If specified, the output files will be in gzip format.
@@ -53,7 +58,8 @@ my $opt = P3Utils::script_opts('outDir srs1 srs2 ... srsN', P3Utils::col_options
         ['missing', 'only download new samples'],
         ['clear', 'erase output directory before starting'],
         ['site=s', 'site name to specify'],
-        ['gzip', 'output files should be compressed']
+        ['gzip', 'output files should be compressed'],
+        ['max=i', 'maximum number to download']
         );
 # Create a statistics object.
 my $stats = Stats->new();
@@ -95,42 +101,46 @@ for my $id (@ids) {
     }
 }
 my $sampleTot = scalar @samples;
-print "$sampleTot samples selected for downloading.\n";
+# Compute the number of samples to download.
+my $max = $opt->max || $sampleTot;
+print "$max of $sampleTot samples selected for downloading.\n";
 my $count = 0;
 # Create the SRAlib object.
 my $sra = SRAlib->new(logH => \*STDOUT, stats => $stats, gzip => $gzip);
 # Loop through the samples.
 for my $sample (@samples) {
     $count++;
-    my $target = "$outDir/$sample";
-    if ($missing && -d $target) {
-        print "Skipping $sample ($count of $sampleTot) with existing directory.\n";
-        $stats->Add(sampleSkipped => 1);
-    } else {
-        print "Processing $sample ($count of $sampleTot).\n";
-        my $runList = $sra->get_runs($sample);
-        if (! $runList) {
-            print "No runs found.\n";
-            $stats->Add(sampleEmpty => 1);
+    if ($count <= $max) {
+        my $target = "$outDir/$sample";
+        if ($missing && -d $target) {
+            print "Skipping $sample ($count of $sampleTot) with existing directory.\n";
+            $stats->Add(sampleSkipped => 1);
         } else {
-            my $runCount = scalar @$runList;
-            print "Downloading $runCount runs from $sample.\n";
-            my $okFlag = $sra->download_runs($runList, $target, $sample);
-            if (! $okFlag) {
-                print "Error downloading $sample.\n";
-                $stats->Add(sampleError => 1);
+            print "Processing $sample ($count of $sampleTot).\n";
+            my $runList = $sra->get_runs($sample);
+            if (! $runList) {
+                print "No runs found.\n";
+                $stats->Add(sampleEmpty => 1);
             } else {
-                $stats->Add(sampleDownloaded => 1);
-                # Create the site file.
-                my ($project, $site) = ('NCBI', $siteName);
-                if (! $site) {
-                    ($project, $site) = $sra->compute_site($sample);
+                my $runCount = scalar @$runList;
+                print "Downloading $runCount runs from $sample.\n";
+                my $okFlag = $sra->download_runs($runList, $target, $sample);
+                if (! $okFlag) {
+                    print "Error downloading $sample.\n";
+                    $stats->Add(sampleError => 1);
+                } else {
+                    $stats->Add(sampleDownloaded => 1);
+                    # Create the site file.
+                    my ($project, $site) = ('NCBI', $siteName);
+                    if (! $site) {
+                        ($project, $site) = $sra->compute_site($sample);
+                    }
+                    my $siteTitle = join(' ', map { ucfirst $_ } split /_/, $site);
+                    # Here we need a site file.
+                    print "Creating site file for $siteTitle.\n";
+                    open(my $oh, ">$target/site.tbl") || die "Could not open site file in $target: $!";
+                    print $oh join("\t", $project, $site, $siteTitle) . "\n";
                 }
-                my $siteTitle = join(' ', map { ucfirst $_ } split /_/, $site);
-                # Here we need a site file.
-                print "Creating site file for $siteTitle.\n";
-                open(my $oh, ">$target/site.tbl") || die "Could not open site file in $target: $!";
-                print $oh join("\t", $project, $site, $siteTitle) . "\n";
             }
         }
     }

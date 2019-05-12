@@ -3,13 +3,13 @@
     p3-filter-samples.pl [options] <inFile >outFile 2>logFile
 
 This script will take as input a list of SRA sample IDs and filter out the ones unlikely to produce good bins.
-The basic strategy is to count the spots and throw away the sample if it has fewer than 1 million.
+The basic strategy is to count the spots and throw away the sample if it has fewer than 20 million.  In addition,
+the number of base pairs must be at least 180 times the number of spots.
 
 
 =head2 Parameters
 
 There are no positional parameters.
-
 
 The options in L<P3Utils/col_options> can be used to specify the input column and
 L<P3Utils/ih_options> can be used to modify the standard input.
@@ -20,7 +20,11 @@ The following additional options are supported.
 
 =item min
 
-The minimum number of spots required. The default is C<1000000>.
+The minimum number of spots required, in millions. The default is C<20>.
+
+=item ratio
+
+The required ratio of bases to spots. Somewhere close to 200 indicates the sample is properly paired.  The default is C<180>.
 
 =back
 
@@ -36,11 +40,13 @@ $| = 1;
 # Get the command-line options.
 my $opt = P3Utils::script_opts('', P3Utils::col_options(), P3Utils::ih_options(),
         ['min=i', 'minimum number of spots', { default => 1000000 }],
+        ['ratio=f', 'minimum ratio of bases to spots', { default => 180 }],
         );
 # Create a statistics object.
 my $stats = Stats->new();
 # Get the options.
-my $min = $opt->min;
+my $min = $opt->min * 1000000;
+my $ratio = $opt->ratio;
 # Open the standard input file.
 my $ih = P3Utils::ih($opt);
 # Read the incoming headers.
@@ -56,13 +62,16 @@ while (! eof $ih) {
     my $couplets = P3Utils::get_couplets($ih, $keyCol, $opt);
     for my $couplet (@$couplets) {
         my ($id, $line) = @$couplet;
-        my ($spots) = $sra->get_stats($id);
+        my ($spots, $bases) = $sra->get_stats($id);
         if (! $spots) {
             print STDERR "$id not found.\n";
             $stats->Add(notFound => 1);
         } elsif ($spots < $min) {
             print STDERR "$id too small-- $spots spots.\n";
             $stats->Add(tooSmall => 1);
+        } elsif ($spots * $ratio < $bases) {
+            print STDERR "$id not likely paired.  Ratio = " . ($bases/$spots) . "\n";
+            $stats->Add(notPaired => 1);
         } else {
             P3Utils::print_cols($line);
             $stats->Add(accepted => 1);
