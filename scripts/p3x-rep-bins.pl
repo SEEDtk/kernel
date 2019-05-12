@@ -20,21 +20,26 @@
 
     p3x-rep-bins.pl [options] binDir repDir
 
-This script will look at an evaluated binning directory and try to find the representatives of the good genomes found.
-A report on the genomes found will be placed in the C<reps.tbl> file in the binning directory.
+This script will look at evaluated binning directories and try to find the representatives of the good genomes found.
+A report on the genomes found will be placed in the C<reps.tbl> file in the binning directory and in the standard
+output.
 
 =head2 Parameters
 
-The positional parameters are the name of the binning directory and the name of the representative-genome directory
-(described in L<RepGenomeDb>).
+The positional parameters are the name of the master binning directory (containing the actual binning directory as
+subdirectories) and the name of the representative-genome directory (described in L<RepGenomeDb>).
 
 Additional command-line options are the following.
 
 =over 4
 
-=item recursive
+=item missing
 
-If specified, the specified input directory is presumed to contain multiple subdirectories that are binning directories.
+If specified, directories with an existing C<reps.tbl> file will not be reprocessed.
+
+=item verbose
+
+Display status messages on STDERR.
 
 =back
 
@@ -50,9 +55,13 @@ use Stats;
 $| = 1;
 # Get the command-line options.
 my $opt = P3Utils::script_opts('binDir repDir',
-    ['recursive|R', 'process binning subdirectories']);
+    ['missing', 'only process new directories'],
+    ['verbose|debug|v', 'display progress messages on STDERR']);
 # Create the statistics object.
 my $stats = Stats->new();
+# Get the options.
+my $debug = $opt->verbose;
+my $missing = $opt->missing;
 # This will be the option hash for creating the GEOs.
 my %options = (stats => $stats, detail => 0, logH => \*STDOUT);
 # Get the positional parameters.
@@ -69,56 +78,79 @@ if (! $binDir) {
     die "$repDir does not appear to be a representative-genomes directory.";
 }
 # Create the rep-genomes object.
-print "Loading representative genome data from $repDir.\n";
+print STDERR "Loading representative genome data from $repDir.\n";
 my $repDB = RepGenomeDb->new_from_dir($repDir, unconnected => 1, verbose => 1);
 # Now we need to find the binning data.
-my @binDirs = ($binDir);
-if ($opt->recursive) {
-    # Here we are reading subdirectories.
-    print "Scanning $binDir for completed binning directories.\n";
-    opendir(my $dh, $binDir) || die "Could not open $binDir: $!";
-    @binDirs = map { "$binDir/$_" } grep { substr($_, 0, 1) ne '.' && -s "$binDir/$_/Eval/index.tbl" } readdir $dh;
-    closedir $dh;
-    print scalar(@binDirs) . " completed binning directories found.\n";
-}
+# Here we are reading subdirectories.
+print "Scanning $binDir for completed binning directories.\n";
+opendir(my $dh, $binDir) || die "Could not open $binDir: $!";
+my @binDirs = grep { substr($_, 0, 1) ne '.' && -s "$binDir/$_/Eval/index.tbl" } readdir $dh;
+closedir $dh;
+print STDERR scalar(@binDirs) . " completed binning directories found.\n" if $debug;
 # Get the cutoff score for this RepDB.
 my $minScore = $repDB->score();
+print STDERR "Representation score is $minScore.\n" if $debug;
+# Start the main output file.
+P3Utils::print_cols(['directory', 'genome', 'name', 'rep', 'rep_name', 'score', 'class']);
 # Loop through the binning directories.
-for my $dir (@binDirs) {
-    # Get the GEOs for this bin.
-    my $geos = GeoGroup->new(\%options, $dir);
+for my $sample (@binDirs) {
     $stats->Add(dirsIn => 1);
-    # Create the output file.
-    open(my $oh, '>', "$dir/reps.tbl") || die "Could not open output for $binDir: $!";
-    P3Utils::print_cols(['genome', 'name', 'rep', 'rep_name', 'score', 'class'], oh => $oh);
-    # Loop through the GEOs.
-    my $geoList = $geos->geoList;
-    for my $geo (@$geoList) {
-        # Only process good genomes.
-        if (! $geo->is_good) {
-            $stats->Add(badGenome => 1);
-        } else {
-            $stats->Add(goodGenome => 1);
-            # These will be the output values.
-            my ($genome, $name, $repID, $rep_name, $score, $class) = ($geo->id, $geo->name, '', '', 0, 'extreme');
-            ($repID, $score) = $repDB->find_rep($geo->seed);
-            if (! $repID) {
-                print "$genome $name is an extreme outlier.\n";
+    my $dir = "$binDir/$sample";
+    if ($missing && -s "$dir/reps.tbl") {
+        # Here we do not need to re-process the directory, but we need to include its data in the main
+        # report and the stats.
+        print STDERR "Reading report for $sample.\n";
+        open(my $ih, '<', "$dir/reps.tbl") || die "Could not open reps.tbl for $dir: $!";
+        # Skip the header.
+        my $line = <$ih>;
+        # Process the data lines.
+        while (! eof $ih) {
+            my $line = <$ih>;
+            print "$sample\t$line";
+            if ($line =~ /extreme$/) {
                 $stats->Add(extremeOutlier => 1);
+            } elsif ($line =~ /outlier$/) {
+                $stats->Add(outlier => 1);
             } else {
-                $rep_name = $repDB->rep_object($repID)->name;
-                if ($score < $minScore) {
-                    print "$genome $name is an outlier.\n";
-                    $stats->Add(outlier => 1);
-                    $class = 'outlier';
-                } else {
-                    $stats->Add(represented => 1);
-                    $class = '';
-                }
+                $stats->Add(represented => 1);
             }
-            P3Utils::print_cols([$genome, $name, $repID, $rep_name, $score, $class], oh => $oh);
+        }
+    } else {
+        # Get the GEOs for this bin.
+        my $geos = GeoGroup->new(\%options, $dir);
+        # Create the output file.
+        open(my $oh, '>', "$dir/reps.tbl") || die "Could not open output for $binDir: $!";
+        P3Utils::print_cols(['genome', 'name', 'rep', 'rep_name', 'score', 'class'], oh => $oh);
+        # Loop through the GEOs.
+        my $geoList = $geos->geoList;
+        for my $geo (@$geoList) {
+            # Only process good genomes.
+            if (! $geo->is_good) {
+                $stats->Add(badGenome => 1);
+            } else {
+                $stats->Add(goodGenome => 1);
+                # These will be the output values.
+                my ($genome, $name, $repID, $rep_name, $score, $class) = ($geo->id, $geo->name, '', '', 0, 'extreme');
+                ($repID, $score) = $repDB->find_rep($geo->seed);
+                if (! $repID) {
+                    print "$genome $name is an extreme outlier.\n";
+                    $stats->Add(extremeOutlier => 1);
+                } else {
+                    $rep_name = $repDB->rep_object($repID)->name;
+                    if ($score < $minScore) {
+                        print "$genome $name is an outlier with score $score.\n";
+                        $stats->Add(outlier => 1);
+                        $class = 'outlier';
+                    } else {
+                        $stats->Add(represented => 1);
+                        $class = '';
+                    }
+                }
+                P3Utils::print_cols([$genome, $name, $repID, $rep_name, $score, $class], oh => $oh);
+                P3Utils::print_cols([$sample, $genome, $name, $repID, $rep_name, $score, $class]);
+            }
         }
     }
 }
-print "All done.\n" . $stats->Show();
+print STDERR "All done.\n" . $stats->Show();
 
