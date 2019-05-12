@@ -78,11 +78,11 @@ if (! $binDir) {
     die "$repDir does not appear to be a representative-genomes directory.";
 }
 # Create the rep-genomes object.
-print STDERR "Loading representative genome data from $repDir.\n";
-my $repDB = RepGenomeDb->new_from_dir($repDir, unconnected => 1, verbose => 1);
+print STDERR "Loading representative genome data from $repDir.\n" if $debug;
+my $repDB = RepGenomeDb->new_from_dir($repDir, unconnected => 1);
 # Now we need to find the binning data.
 # Here we are reading subdirectories.
-print "Scanning $binDir for completed binning directories.\n";
+print STDERR "Scanning $binDir for completed binning directories.\n" if $debug;
 opendir(my $dh, $binDir) || die "Could not open $binDir: $!";
 my @binDirs = grep { substr($_, 0, 1) ne '.' && -s "$binDir/$_/Eval/index.tbl" } readdir $dh;
 closedir $dh;
