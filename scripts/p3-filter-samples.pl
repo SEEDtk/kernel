@@ -39,8 +39,8 @@ use SRAlib;
 $| = 1;
 # Get the command-line options.
 my $opt = P3Utils::script_opts('', P3Utils::col_options(), P3Utils::ih_options(),
-        ['min=i', 'minimum number of spots', { default => 1000000 }],
-        ['ratio=f', 'minimum ratio of bases to spots', { default => 180 }],
+        ['min=i', 'minimum number of spots', { default => 20 }],
+        ['ratio=i', 'minimum ratio of bases to spots', { default => 180 }],
         );
 # Create a statistics object.
 my $stats = Stats->new();
@@ -69,12 +69,15 @@ while (! eof $ih) {
         } elsif ($spots < $min) {
             print STDERR "$id too small-- $spots spots.\n";
             $stats->Add(tooSmall => 1);
-        } elsif ($spots * $ratio < $bases) {
-            print STDERR "$id not likely paired.  Ratio = " . ($bases/$spots) . "\n";
-            $stats->Add(notPaired => 1);
         } else {
-            P3Utils::print_cols($line);
-            $stats->Add(accepted => 1);
+            my $rat = int($bases/$spots);
+            if ($rat < $ratio) {
+                print STDERR "$id not likely paired.  Ratio = $rat.\n";
+                $stats->Add(notPaired => 1);
+            } else {
+                P3Utils::print_cols($line);
+                $stats->Add(accepted => 1);
+            }
         }
     }
 }
