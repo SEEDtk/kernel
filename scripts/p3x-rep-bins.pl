@@ -99,7 +99,7 @@ for my $sample (@binDirs) {
     if ($missing && -s "$dir/reps.tbl") {
         # Here we do not need to re-process the directory, but we need to include its data in the main
         # report and the stats.
-        print STDERR "Reading report for $sample.\n";
+        print STDERR "Reading report for $sample.\n" if $debug;
         open(my $ih, '<', "$dir/reps.tbl") || die "Could not open reps.tbl for $dir: $!";
         # Skip the header.
         my $line = <$ih>;
@@ -133,12 +133,12 @@ for my $sample (@binDirs) {
                 my ($genome, $name, $repID, $rep_name, $score, $class) = ($geo->id, $geo->name, '', '', 0, 'extreme');
                 ($repID, $score) = $repDB->find_rep($geo->seed);
                 if (! $repID) {
-                    print "$genome $name is an extreme outlier.\n";
+                    print STDERR "$genome $name is an extreme outlier.\n" if $debug;
                     $stats->Add(extremeOutlier => 1);
                 } else {
                     $rep_name = $repDB->rep_object($repID)->name;
                     if ($score < $minScore) {
-                        print "$genome $name is an outlier with score $score.\n";
+                        print STDERR "$genome $name is an outlier with score $score.\n" if $debug;
                         $stats->Add(outlier => 1);
                         $class = 'outlier';
                     } else {
