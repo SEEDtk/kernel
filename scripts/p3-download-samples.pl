@@ -110,37 +110,36 @@ my $sra = SRAlib->new(logH => \*STDOUT, stats => $stats, gzip => $gzip);
 # Loop through the samples.
 for my $sample (@samples) {
     $count++;
-    if ($count <= $max) {
-        my $target = "$outDir/$sample";
-        if ($missing && -d $target) {
-            print "Skipping $sample ($count of $sampleTot) with existing directory.\n";
-            $stats->Add(sampleSkipped => 1);
+    my $target = "$outDir/$sample";
+    if ($missing && -d $target) {
+        print "Skipping $sample ($count of $sampleTot) with existing directory.\n";
+        $stats->Add(sampleSkipped => 1);
+    } elsif ($max > 0) {
+        $max--;
+        print "Processing $sample ($count of $sampleTot).\n";
+        my $runList = $sra->get_runs($sample);
+        if (! $runList) {
+            print "No runs found.\n";
+            $stats->Add(sampleEmpty => 1);
         } else {
-            print "Processing $sample ($count of $sampleTot).\n";
-            my $runList = $sra->get_runs($sample);
-            if (! $runList) {
-                print "No runs found.\n";
-                $stats->Add(sampleEmpty => 1);
+            my $runCount = scalar @$runList;
+            print "Downloading $runCount runs from $sample.\n";
+            my $okFlag = $sra->download_runs($runList, $target, $sample);
+            if (! $okFlag) {
+                print "Error downloading $sample.\n";
+                $stats->Add(sampleError => 1);
             } else {
-                my $runCount = scalar @$runList;
-                print "Downloading $runCount runs from $sample.\n";
-                my $okFlag = $sra->download_runs($runList, $target, $sample);
-                if (! $okFlag) {
-                    print "Error downloading $sample.\n";
-                    $stats->Add(sampleError => 1);
-                } else {
-                    $stats->Add(sampleDownloaded => 1);
-                    # Create the site file.
-                    my ($project, $site) = ('NCBI', $siteName);
-                    if (! $site) {
-                        ($project, $site) = $sra->compute_site($sample);
-                    }
-                    my $siteTitle = join(' ', map { ucfirst $_ } split /_/, $site);
-                    # Here we need a site file.
-                    print "Creating site file for $siteTitle.\n";
-                    open(my $oh, ">$target/site.tbl") || die "Could not open site file in $target: $!";
-                    print $oh join("\t", $project, $site, $siteTitle) . "\n";
+                $stats->Add(sampleDownloaded => 1);
+                # Create the site file.
+                my ($project, $site) = ('NCBI', $siteName);
+                if (! $site) {
+                    ($project, $site) = $sra->compute_site($sample);
                 }
+                my $siteTitle = join(' ', map { ucfirst $_ } split /_/, $site);
+                # Here we need a site file.
+                print "Creating site file for $siteTitle.\n";
+                open(my $oh, ">$target/site.tbl") || die "Could not open site file in $target: $!";
+                print $oh join("\t", $project, $site, $siteTitle) . "\n";
             }
         }
     }
