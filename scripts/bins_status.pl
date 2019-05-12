@@ -234,6 +234,10 @@ for my $dir (@dirs) {
                 $count++;
             }
         }
+        if (-s "$subDir/contigs.fasta" && ! -d "$subDir/Assembly") {
+            # Add back Assembly dir so that --clean displays this directory when its done.
+            mkdir "$subDir/Assembly";
+        }
         if (-d "$subDir/Eval") {
             File::Copy::Recursive::pathrmdir("$subDir/Eval") || die "Could not remove Eval from $subDir: $!";
         }
