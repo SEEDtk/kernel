@@ -124,6 +124,10 @@ If specified, a comma-delimited list of samples whose binning results will be re
 The name of a file to contain error information about stopped jobs.  The default is C<stoppedJobs.log> in the
 current directory.
 
+=item target
+
+The target number of assemblies to use for predicting the next command.  The default is C<4>.
+
 =back
 
 =cut
@@ -145,6 +149,7 @@ my $opt = ScriptUtils::Opts('directory',
                 ['reset', 'delete all binning results to force re-binning of all directories'],
                 ['rebin=s', 'comma-delimited list of samples to reset'],
                 ['stopFile=s', 'file to contain stopped-job error data', { default => 'stoppedJobs.log' }],
+                ['target=i', 'maximum number of assembly jobs', { default => 4 }],
                 ['run=i', 'run binning pipeline on new directories', { default => 0 }]);
 my $stats = Stats->new();
 # Get the main directory name.
@@ -162,6 +167,8 @@ my $engine = $opt->engine;
 my $noIndex = ($opt->noindex ? '--noIndex ' : '');
 my $resetOpt = $opt->reset;
 my %rebins = map { $_ => 1 } split /,/, ($opt->rebin // '');
+# This will hold the names of the jobs that should be rebinned next time.
+my @rebins;
 # Get an output handle for the stop file.
 open(my $sh, '>', $opt->stopfile) || die "Could not open stopped-jobs file: $!";
 # Get a hash of the running subdirectories (Unix only).
@@ -280,6 +287,7 @@ for my $dir (@dirs) {
             push @other, "$label: RAST Complete.\n";
             $stats->Add(dirs7RastComplete => 1);
             RecordStopped($sh, $label, 'Evaluation', $subDir, \$stopped) if (! $run);
+            push @rebins, $dir;
         }
     } elsif (-s "$subDir/bin1.gto") {
         if (! $run && $opt->resume && $resumeLeft) {
@@ -414,6 +422,18 @@ if ($stopped) {
 }
 print @done, @downloaded, @other;
 print "\nAll done:\n" . $stats->Show();
+# Here we want to predict the next command.  We only do this if job slots are still available.
+if ($resumeLeft) {
+    my $runs = $opt->target - $asming;
+    my @parms = ('--clean', '--resume');
+    if ($opt->noindex) {
+        push @parms, '--noIndex';
+    }
+    if (@rebins) {
+        push @parms, '--rebin=' . join(',', @rebins);
+    }
+    print "Next command is: " . join(' ', 'bins_status', @parms, $directory) . "\n";
+}
 
 
 sub StartJob {
