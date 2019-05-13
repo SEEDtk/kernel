@@ -288,8 +288,10 @@ for my $dir (@dirs) {
         } else {
             push @other, "$label: RAST Complete.\n";
             $stats->Add(dirs7RastComplete => 1);
-            RecordStopped($sh, $label, 'Evaluation', $subDir, \$stopped) if (! $run);
-            push @rebins, $dir;
+            if (! $run) {
+                RecordStopped($sh, $label, 'Evaluation', $subDir, \$stopped);
+                push @rebins, $dir;
+            }
         }
     } elsif (-s "$subDir/bin1.gto") {
         if (! $run && $opt->resume && $resumeLeft) {
