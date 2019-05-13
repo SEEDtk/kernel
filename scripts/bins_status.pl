@@ -424,10 +424,13 @@ print @done, @downloaded, @other;
 print "\nAll done:\n" . $stats->Show();
 # Here we want to predict the next command.  We only do this if job slots are still available.
 if ($resumeLeft) {
-    my $runs = $opt->target - $asming;
     my @parms = ('--clean', '--resume');
     if ($opt->noindex) {
         push @parms, '--noIndex';
+    }
+    my $runs = $opt->target - $asming;
+    if ($runs) {
+        push @parms, "--run=$runs";
     }
     if (@rebins) {
         push @parms, '--rebin=' . join(',', @rebins);
