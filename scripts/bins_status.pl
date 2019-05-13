@@ -136,6 +136,8 @@ The target number of assemblies to use for predicting the next command.  The def
 use constant KEEPERS => { 'site.tbl' => 1, 'run.log' => 1, 'err.log' => 1, 'exclude.tbl' => 1, 'contigs.fasta' => 1,
         'output.contigs2reads.txt' => 1 };
 
+# Save the parameters.
+my @saved = grep { ! ($_ =~ /^--(?:clean|resume|fix|backout|reset|run)/) } @ARGV;
 # Get the command-line parameters.
 my $opt = ScriptUtils::Opts('directory',
                 ['clean', 'clean up assembly information for complete samples'],
@@ -425,9 +427,6 @@ print "\nAll done:\n" . $stats->Show();
 # Here we want to predict the next command.  We only do this if job slots are still available.
 if ($resumeLeft) {
     my @parms = ('--clean', '--resume');
-    if ($opt->noindex) {
-        push @parms, '--noIndex';
-    }
     my $runs = $opt->target - $asming;
     if ($runs) {
         push @parms, "--run=$runs";
@@ -435,7 +434,7 @@ if ($resumeLeft) {
     if (@rebins) {
         push @parms, '--rebin=' . join(',', @rebins);
     }
-    print "Next command is: " . join(' ', 'bins_status', @parms, $directory) . "\n";
+    print "Next command is: " . join(' ', 'bins_status', @parms, @saved) . "\n";
 }
 
 
