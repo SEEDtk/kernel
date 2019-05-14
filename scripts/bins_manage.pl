@@ -92,8 +92,7 @@ if (! $binDir) {
 }
 # Process the stop option first.
 if ($opt->stop) {
-    open (my $oh, '>', "$binDir/STOP") || die "Could not open stop file: $!";
-    print $oh "STOP\n";
+    StopFile();
     print "STOP file created.\n";
 } else {
     # Here we want to go into the loop.  Get the options.
@@ -129,6 +128,10 @@ if ($opt->stop) {
             opendir(my $dh, $binDir) || die "Could not open $binDir: $!";
             my @samples = sort grep { substr($_,0,1) ne '.' && -d "$binDir/$_" } readdir $dh;
             closedir $dh;
+            # This will track the number of completed samples in each category.
+            my %cats;
+            # This will contain the category of each incomplete sample.
+            my %sampCats;
             # We now run through the directories.  Directories that are still running are skipped.  If a directory is
             # in the downloaded state, we queue it for assembly. If it is evaluating, we reset it and queue it for
             # resume.  If it is assembled and not done, we simply queue it for resume.
@@ -148,8 +151,21 @@ if ($opt->stop) {
                         $stats->Add(dirsCleaned => 1);
                         print "$sample reads cleaned.\n";
                     }
-                    # At this point, we only care about the directory if it is incomplete.
-                    if (! -s "$subDir/Eval/index.tbl") {
+                    # Get the sample category.
+                    my $site = "Unspecified";
+                    if (open(my $sh, '<', "$subDir/site.tbl")) {
+                        my $line = <$sh>;
+                        if ($line =~ /\t(\S+)\t/) {
+                            $site = $1;
+                        }
+                    }
+                    $cats{$site} //= 0;
+                    $sampCats{$sample} = $site;
+                    # We count the complete bins by category.
+                    if (-s "$subDir/Eval/index.tbl") {
+                        $cats{$site}++;
+                    } else {
+                        # Here we are incomplete.  We need to check for a need to start this sample.
                         $incomplete++;
                         if (-f "$subDir/bins.rast.json") {
                             # Here RAST is complete, but we failed during evaluation.  This means we have to rebin.
@@ -185,16 +201,31 @@ if ($opt->stop) {
                     }
                 }
             }
-            while ($jobsLeft && $asmLeft && @assemble) {
-                my $sample = shift @assemble;
-                StartJob($binDir, $sample, $noIndex, 'Started');
-                $jobsLeft--;
-                $asmLeft--;
+            if ($jobsLeft) {
+                # Here we need to start some jobs.  Do we have room for assemblies?
+                if ($asmLeft) {
+                    # Yes.  Sort the samples from the rarest categories last.  We want to start those first.
+                    @assemble = sort { $cats{$sampCats{$b}} <=> $cats{$sampCats{$a}} } @assemble;
+                    # Start the jobs.
+                    while ($asmLeft && @assemble) {
+                        my $sample = pop @assemble;
+                        StartJob($binDir, $sample, $noIndex, 'Started');
+                        $asmLeft--;
+                        $jobsLeft--;
+                    }
+                }
+                # Resume anything we have room for.
+                while ($jobsLeft && @resume) {
+                    my $sample = shift @resume;
+                    StartJob($binDir, $sample, $noIndex, 'Restarted');
+                    $jobsLeft--;
+                }
             }
-            while ($jobsLeft && @resume) {
-                my $sample = shift @resume;
-                StartJob($binDir, $sample, $noIndex, 'Restarted');
-                $jobsLeft--;
+            # Do we have any incomplete samples?
+            if (! $incomplete) {
+                # No, stop the loop.
+                print "No samples left to process.  Stopping main loop.\n";
+                StopFile();
             }
         }
         # Wait for the next wakeup.
@@ -205,6 +236,12 @@ if ($opt->stop) {
 }
 print "All done.\n" . $stats->Show();
 
+
+sub StopFile {
+    open (my $oh, '>', "$binDir/STOP") || die "Could not open stop file: $!";
+    print $oh "STOP\n";
+    close $oh;
+}
 
 sub StartJob {
     my ($binDir, $dir, $noIndex, $start) = @_;
