@@ -100,6 +100,7 @@ if ($opt->stop) {
     my $maxAsm = $opt->maxasm;
     my $noIndex = ($opt->noindex ? '--noIndex' : '');
     my $sleep = $opt->sleep * 60;
+    print "Starting main loop for $maxJobs jobs with up to $maxAsm assemblies.\n";
     # Loop until we find the stop file.
     while (! -f "$binDir/STOP") {
         $stats->Add(cycles => 1);
