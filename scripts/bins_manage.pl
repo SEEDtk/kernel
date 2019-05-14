@@ -215,6 +215,8 @@ sub StartJob {
 
 sub ClearAssembly {
     my ($subDir) = @_;
-    File::Copy::Recursive::pathempty("$subDir/Assembly") || die "Could not empty $subDir/Assembly: $!";
-    rmdir "$subDir/Assembly";
+    print "Clearing assembly work directory for $subDir.\n";
+    my $asmDir = "$subDir/Assembly";
+    File::Copy::Recursive::pathempty($asmDir) || die "Could not empty $asmDir: $!";
+    rmdir $asmDir;
 }
