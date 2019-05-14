@@ -117,7 +117,7 @@ If specified, the annotated genomes will not be indexed in PATRIC.
 
 =item rebin
 
-If specified, a comma-delimited list of samples whose binning results will be removed to force re-binning.
+Remove binning results from samples stopped during evaluation.
 
 =item stopFile
 
@@ -149,7 +149,7 @@ my $opt = ScriptUtils::Opts('directory',
                 ['engine=s', 'type of binning engine to use', { default => 's' }],
                 ['noIndex', 'do not index bins in PATRIC'],
                 ['reset', 'delete all binning results to force re-binning of all directories'],
-                ['rebin=s', 'comma-delimited list of samples to reset'],
+                ['rebin', 'reset samples that are stopped during evaluation'],
                 ['stopFile=s', 'file to contain stopped-job error data', { default => 'stoppedJobs.log' }],
                 ['target=i', 'maximum number of assembly jobs', { default => 4 }],
                 ['run=i', 'run binning pipeline on new directories', { default => 0 }]);
@@ -168,9 +168,7 @@ my $fix = $opt->fix;
 my $engine = $opt->engine;
 my $noIndex = ($opt->noindex ? '--noIndex ' : '');
 my $resetOpt = $opt->reset;
-my %rebins = map { $_ => 1 } split /,/, ($opt->rebin // '');
-# This will hold the names of the jobs that should be rebinned next time.
-my @rebins;
+my $rebin = $opt->rebin;
 # Get an output handle for the stop file.
 open(my $sh, '>', $opt->stopfile) || die "Could not open stopped-jobs file: $!";
 # Get a hash of the running subdirectories (Unix only).
@@ -225,28 +223,9 @@ for my $dir (@dirs) {
     }
     my $label = "$subDir ($site$run)";
     # Are we resetting?
-    if (($resetOpt || $rebins{$dir}) && ! $run) {
-        # Yes. Get the list of files and delete the binning stuff.
-        my ($count, $total) = (0, 0);
-        opendir(my $dh, $subDir) || die "Could not open work directory: $!";
-        my @files = grep { -f "$subDir/$_" } readdir $dh;
-        for my $file (@files) {
-            my $fullName = "$subDir/$file";
-            $total++;
-            unless ($fullName =~ /_abundance_table.tsv$/ || $fullName =~ /\.fastq$/ || $fullName =~ /\.fq/ ||
-                    KEEPERS->{$file}) {
-                unlink $fullName;
-                $count++;
-            }
-        }
-        if (-s "$subDir/contigs.fasta" && ! -d "$subDir/Assembly") {
-            # Add back Assembly dir so that --clean displays this directory when its done.
-            mkdir "$subDir/Assembly";
-        }
-        if (-d "$subDir/Eval") {
-            File::Copy::Recursive::pathrmdir("$subDir/Eval") || die "Could not remove Eval from $subDir: $!";
-        }
-        print "$count of $total files deleted by reset of $dir.\n";
+    if ($resetOpt && ! $run) {
+        # Yes. Delete the binning stuff.
+        ResetSample($dir, $subDir);
     }
     # Check for the RAST completion file.
     my $rastFound = (-f "$subDir/bins.report.txt");
@@ -283,6 +262,9 @@ for my $dir (@dirs) {
             }
         }
     } elsif ($rastFound) {
+        if (! $run && $rebin) {
+            ResetSample($dir, $subDir);
+        }
         if (! $run && $opt->resume && $resumeLeft) {
             StartJob($dir, $subDir, '', 'Restarted', $label);
             $resumeLeft--;
@@ -291,7 +273,6 @@ for my $dir (@dirs) {
             $stats->Add(dirs7RastComplete => 1);
             if (! $run) {
                 RecordStopped($sh, $label, 'Evaluation', $subDir, \$stopped);
-                push @rebins, $dir;
             }
         }
     } elsif (-s "$subDir/bin1.gto") {
@@ -434,18 +415,6 @@ if ($stopped) {
 }
 print @done, @downloaded, @other;
 print "\nAll done:\n" . $stats->Show();
-# Here we want to predict the next command.  We only do this if job slots are still available.
-if ($resumeLeft) {
-    my @parms = ('--clean', '--resume');
-    my $runs = $opt->target - $asming;
-    if ($runs) {
-        push @parms, "--run=$runs";
-    }
-    if (@rebins) {
-        push @parms, '--rebin=' . join(',', @rebins);
-    }
-    print "Next command is: " . join(' ', 'bins_status', @parms, @saved) . "\n";
-}
 
 
 sub StartJob {
@@ -454,6 +423,26 @@ sub StartJob {
     my $rc = system("nohup $cmd &");
     push @other, "$label: $start $cmd.\n";
     $stats->Add("dirsX$start" => 1);
+}
+
+sub ResetSample {
+    my ($dir, $subDir) = @_;
+    my ($count, $total) = (0, 0);
+    opendir(my $dh, $subDir) || die "Could not open work directory: $!";
+    my @files = grep { -f "$subDir/$_" } readdir $dh;
+    for my $file (@files) {
+        my $fullName = "$subDir/$file";
+        $total++;
+        unless ($fullName =~ /_abundance_table.tsv$/ || $fullName =~ /\.fastq$/ || $fullName =~ /\.fq/ ||
+                KEEPERS->{$file}) {
+            unlink $fullName;
+            $count++;
+        }
+    }
+    if (-d "$subDir/Eval") {
+        File::Copy::Recursive::pathrmdir("$subDir/Eval") || die "Could not remove Eval from $subDir: $!";
+    }
+    print "$count of $total files deleted by reset of $dir.\n";
 }
 
 sub RecordStopped {

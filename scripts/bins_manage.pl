@@ -173,32 +173,15 @@ if ($opt->stop) {
                         # Here we are incomplete.  We need to check for a need to start this sample.
                         $incomplete++;
                         if (-f "$subDir/bins.rast.json") {
-                            # Here RAST is complete, but we failed during evaluation.  This means we have to rebin.
-                            print "Must rebin $sample.\n";
-                            # Delete the assembly work directory.
-                            ClearAssembly($subDir);
-                            # Get the list of files and delete the binning stuff.
-                            opendir(my $dh, $subDir) || die "Could not open work directory: $!";
-                            my @files = grep { -f "$subDir/$_" } readdir $dh;
-                            for my $file (@files) {
-                                my $fullName = "$subDir/$file";
-                                unless ($fullName =~ /_abundance_table.tsv$/ || $fullName =~ /\.fastq$/ || $fullName =~ /\.fq/ ||
-                                        KEEPERS->{$file}) {
-                                    unlink $fullName;
-                                }
-                            }
-                            # Queue for resume.
-                            push @resume, $sample;
+                            # Here RAST is complete, but we failed during evaluation.  bins_status can do this.
                         } elsif (! -s "$subDir/contigs.fasta" && -s "$subDir/site.tbl") {
                             # This directory is unassembled.
                             if (-d "$subDir/Assembly") {
-                                # The assembly crashed, so prep for restart.
-                                print "Must backout $sample.\n";
-                                ClearAssembly($subDir);
-                                $stats->Add(assemblyBackout => 1);
+                                # The assembly crashed.  This means we have to backout.  bins_status can do this.
+                            } else {
+                                # Queue for assembly.
+                                push @assemble, $sample;
                             }
-                            # Queue for assembly.
-                            push @assemble, $sample;
                         } else {
                             # Queue for resume.
                             push @resume, $sample;
