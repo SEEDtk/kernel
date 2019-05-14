@@ -76,9 +76,9 @@ $| = 1;
 # Get the command-line parameters.
 my $opt = ScriptUtils::Opts('binDir',
         ['maxJobs=i', 'maximum number of jobs to have running at one time', { default => 20 }],
-        ['maxAsm=i', 'maximum number of assemblies to have running at one time'],
+        ['maxAsm=i', 'maximum number of assemblies to have running at one time', { default => 4 }],
         ['noIndex', 'if specified, the bins produced will not be indexed in PATRIC'],
-        ['sleep=i', 'number of minutes to sleep between awakening cycles'],
+        ['sleep=i', 'number of minutes to sleep between awakening cycles', { default => 5 }],
         ['stop', 'attempt to stop another management process']
         );
 # Create a statistics object.
