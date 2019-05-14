@@ -146,11 +146,15 @@ if ($opt->stop) {
                         ClearAssembly($subDir);
                         opendir(my $dh, $subDir) || die "Could not open $subDir: $!";
                         my @fastqs = grep { $_ =~ /\.(?:fastq|fq)$/ } readdir $dh;
+                        my $cleaned = 0;
                         for my $fastq (@fastqs) {
                             unlink "$subDir/$fastq";
+                            $cleaned++;
                         }
                         $stats->Add(dirsCleaned => 1);
-                        print "$sample reads cleaned.\n";
+                        if ($cleaned) {
+                            print "$cleaned read files cleaned from $sample.\n";
+                        }
                     }
                     # Get the sample category.
                     my $site = "Unspecified";
