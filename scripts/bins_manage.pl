@@ -29,7 +29,7 @@ use File::Copy::Recursive;
 
     bins_manage.pl [ options ] binDir
 
-This is a long-running job that processes the binning pipeline in a binning directory.  Every 5 minutes it will wake
+This is a long-running job that processes the binning pipeline in a binning directory.  Every 2 minutes it will wake
 up and check for progress, then start or restart jobs in order to keep the binning pipeline going.  When all the
 samples are complete it will stop.  It can also be stopped using the C<--stop> option.
 
@@ -57,7 +57,7 @@ If specified, the bins will not be indexed in PATRIC.
 
 =item sleep
 
-The number of minutes to sleep between status checks.  The default is C<5>.
+The number of minutes to sleep between status checks.  The default is C<2>.
 
 =item stop
 
@@ -78,7 +78,7 @@ my $opt = ScriptUtils::Opts('binDir',
         ['maxJobs=i', 'maximum number of jobs to have running at one time', { default => 20 }],
         ['maxAsm=i', 'maximum number of assemblies to have running at one time', { default => 4 }],
         ['noIndex', 'if specified, the bins produced will not be indexed in PATRIC'],
-        ['sleep=i', 'number of minutes to sleep between awakening cycles', { default => 5 }],
+        ['sleep=i', 'number of minutes to sleep between awakening cycles', { default => 2 }],
         ['stop', 'attempt to stop another management process']
         );
 # Create a statistics object.
@@ -200,9 +200,11 @@ if ($opt->stop) {
         # Wait for the next wakeup.
         sleep $sleep;
     }
+    print "Deleting stop file.\n";
+    unlink "$binDir/STOP";
 }
 print "All done.\n" . $stats->Show();
-unlink "$binDir/STOP";
+
 
 sub StartJob {
     my ($binDir, $dir, $noIndex, $start) = @_;
