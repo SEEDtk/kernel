@@ -211,12 +211,13 @@ for my $dir (@dirs) {
         if ($line =~ /(\S+)\t([^\t]+)\t(.+)/) {
             $site = "$1 $3";
             $sited = 1;
-            $stats->Add("site-$2" => 1);
         } else {
             $site = "Invalid";
+            $stats->Add(siteInvalid => 1);
         }
     } else {
         $site = "Error";
+        $stats->Add(siteError => 1);
     }
     my $run = '';
     if ($running{$dir}) {
