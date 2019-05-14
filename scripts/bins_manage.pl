@@ -74,7 +74,7 @@ use constant KEEPERS => { 'site.tbl' => 1, 'run.log' => 1, 'err.log' => 1, 'excl
 
 $| = 1;
 # Get the command-line parameters.
-my $opt = ScriptUtils::Opts('binDir', Shrub::script_options(),
+my $opt = ScriptUtils::Opts('binDir',
         ['maxJobs=i', 'maximum number of jobs to have running at one time', { default => 20 }],
         ['maxAsm=i', 'maximum number of assemblies to have running at one time'],
         ['noIndex', 'if specified, the bins produced will not be indexed in PATRIC'],
