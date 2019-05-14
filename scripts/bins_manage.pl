@@ -110,7 +110,7 @@ if ($opt->stop) {
         my %running;
         my $jobsLeft = $maxJobs;
         my $asmLeft = $maxAsm;
-        my @jobs = `ps -AF`;
+        my @jobs = `ps -Af`;
         for my $job (@jobs) {
             if ($job =~ /bins_sample_pipeline\s+(?:--\S+\s+)*(\w+)/) {
                 my $sample = $1;
@@ -209,7 +209,8 @@ sub StartJob {
     my $subDir = "$binDir/$dir";
     my $cmd = "bins_sample_pipeline $noIndex $dir $subDir >$subDir/run.log 2>$subDir/err.log";
     my $rc = system("nohup $cmd &");
-    print "$start job for $dir.\n";
+    my $time = scalar(localtime);
+    print "$start job for $dir at $time.\n";
     $stats->Add("jobs$start" => 1);
 }
 
