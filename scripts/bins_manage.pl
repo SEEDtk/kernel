@@ -202,6 +202,7 @@ if ($opt->stop) {
     }
 }
 print "All done.\n" . $stats->Show();
+unlink "$binDir/STOP";
 
 sub StartJob {
     my ($binDir, $dir, $noIndex, $start) = @_;
