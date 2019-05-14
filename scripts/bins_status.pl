@@ -176,7 +176,7 @@ open(my $sh, '>', $opt->stopfile) || die "Could not open stopped-jobs file: $!";
 # Get a hash of the running subdirectories (Unix only).
 my %running;
 if (! $FIG_Config::win_mode) {
-    my @jobs = `ps -AF`;
+    my @jobs = `ps -Af`;
     for my $job (@jobs) {
         if ($job =~ /bins_sample_pipeline\s+(?:--\S+\s+)*(\w+)/) {
             $running{$1} = 1;
