@@ -212,7 +212,7 @@ if ($opt->stop) {
                     # Start the jobs.
                     while ($asmLeft && @assemble) {
                         my $sample = pop @assemble;
-                        StartJob($binDir, $sample, $noIndex, 'Started');
+                        StartJob($binDir, $sample, $noIndex);
                         $asmLeft--;
                         $jobsLeft--;
                     }
@@ -220,8 +220,7 @@ if ($opt->stop) {
                 # Resume anything we have room for.
                 while ($jobsLeft && @resume) {
                     my $sample = shift @resume;
-                    my $label = (-f "$binDir/$sample/bins.found.tbl" ? "Restarted" : "Started");
-                    StartJob($binDir, $sample, $noIndex, $label);
+                    StartJob($binDir, $sample, $noIndex);
                     $jobsLeft--;
                 }
             }
@@ -248,16 +247,22 @@ sub StopFile {
 }
 
 sub StartJob {
-    my ($binDir, $dir, $noIndex, $start) = @_;
+    my ($binDir, $dir, $noIndex) = @_;
     my $subDir = "$binDir/$dir";
     my $cmd = "bins_sample_pipeline $noIndex $dir $subDir >$subDir/run.log 2>$subDir/err.log";
     my $rc = system("nohup $cmd &");
     my $time = scalar(localtime);
+    # Check the start marker.
+    my $start = 'Started';
+    if (-f "$subDir/START") {
+        $start = 'Restarted';
+    } else {
+        # Create the start marker.
+        open(my $oh, '>', "$subDir/START") || die "Could not create start marker for $subDir: $!";
+        print $oh "\n";
+    }
     print "$start job for $dir at $time.\n";
     $stats->Add("jobs$start" => 1);
-    # Create the start marker.
-    open(my $oh, '>', "$subDir/START") || die "Could not create start marker for $subDir: $!";
-    print $oh "\n";
 }
 
 
