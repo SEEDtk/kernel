@@ -23,7 +23,7 @@ use FIG_Config;
 use ScriptUtils;
 use Stats;
 use File::Copy::Recursive;
-
+use Math::Round;
 
 =head1 Process All Samples in a Binning Directory
 
