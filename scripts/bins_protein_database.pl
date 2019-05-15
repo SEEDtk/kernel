@@ -23,6 +23,7 @@ use FIG_Config;
 use Shrub;
 use ScriptUtils;
 use P3DataAPI;
+use P3Utils;
 use Stats;
 
 =head1 Generate Seed Protein Database for Binning
@@ -137,95 +138,47 @@ for my $genome (@genomes) {
     } elsif (! $taxID) {
         $stats->Add(genomeNoTaxID => 1);
     } else {
-        # Extract the genus from the genome name.
-        my ($genus) = split ' ', $genomeName;
-        # Get the genus name from the taxonomy ID.
-        my $taxName;
-        while (! $taxName && $taxID ne 1) {
-            my ($taxData) = $shrub->GetAll('TaxonomicGrouping IsInTaxonomicGroup', 'TaxonomicGrouping(id) = ?', [$taxID],
-                'TaxonomicGrouping(scientific-name) TaxonomicGrouping(type) IsInTaxonomicGroup(to-link)');
-            if (! $taxData) {
-                # Here we have an invalid taxonomy ID.
-                $stats->Add(genomeNoTaxId => 1);
-                $taxID = 1;
-            } else {
-                my ($newName, $type, $nextID) = @$taxData;
-                $stats->Add(genusSearch => 1);
-                if ($type eq 'genus') {
-                    $stats->Add(genusFound => 1);
-                    $taxName = $newName;
-                } else {
-                    $taxID = $nextID;
-                }
-            }
-        }
-        if (! $taxName) {
-            $stats->Add(genomeNoGenus => 1);
-        } elsif ($taxName ne $genus) {
-            $stats->Add(genomeBadGenus => 1);
-        } else {
-            $stats->Add(genomeGood => 1);
-            $genomes{$genomeID} = $genomeName;
-        }
+        $stats->Add(genomeGood => 1);
+        $genomes{$genomeID} = $genomeName;
     }
 }
 # Now we have a list of the genomes we can use.
-print scalar(keys %genomes) . " genomes with good genus information.\n";
+print scalar(keys %genomes) . " genomes with good taxonomy information.\n";
 # Release the genome list memory.
 @genomes = ();
 # Now we need to get all the features for the seed role.
 my ($roleData) = $shrub->GetAll("Role", 'Role(id) = ?', [$opt->seedrole], 'Role(description) Role(checksum)');
 my ($roleName, $roleCheck) = @$roleData;
-print "Role name is $roleName.\n";
 # Clean the role name for PATRIC and ask for features.
-$roleName =~ s/[()]/ /g;
-my @prots = $p3->query("genome_feature", ["select", "patric_id", "genome_id", "product"],
-        ["eq", "annotation", "PATRIC"], ["eq", "product", qq("$roleName")]);
+$roleName =~ s/\([^)]+\)/ /g;
+$roleName =~ s/\s+/ /g;
+$roleName =~ s/^\s+//;
+$roleName =~ s/\s+$//;
+print "Role name is $roleName.\n";
+my $prots = P3Utils::get_data($p3, feature => [['eq', 'product', $roleName]], ["patric_id", "genome_id", "product", $seqType]);
 # This will hold our protein batch.
-my %prots;
-my $batchCount = 0;
-my $protCount = 0;
 # Loop through the proteins, keeping the ones for the good genomes.
-print scalar(@prots) . " proteins found.\n";
-for my $prot (@prots) {
-    my $genomeID = $prot->{genome_id};
-    my $protID = $prot->{patric_id};
+my $totCount = scalar(@$prots);
+print "$totCount proteins found.\n";
+my $protCount = 0;
+for my $prot (@$prots) {
+    my ($protID, $genomeID, $product, $seq) = @$prot;
     my $genomeName = $genomes{$genomeID};
-    my $protCheck = RoleParse::Checksum($prot->{product});
+    my $protCheck = RoleParse::Checksum($product);
     $stats->Add(protFound => 1);
     if (! $genomeName) {
         # Relevant genome is ambiguously classified.
         $stats->Add(protBadGenome => 1);
+    } elsif (! $protID) {
+        # Not a PATRIC feature.
+        $stats->Add(protNotPatric => 1);
     } elsif ($protCheck ne $roleCheck) {
         # Wrong role returned.
         $stats->Add(protWrongRole => 1);
     } else {
         # Compute the label/comment combination for this protein.
-        $prots{$protID} = ($glabel ? "$genomeID $protID" : "$protID $genomeID" ) . "\t$genomeName";
+        my $header = ($glabel ? "$genomeID $protID" : "$protID $genomeID" ) . "\t$genomeName";
         # Process the protein.
-        $protCount++;
-        $batchCount++;
-        if ($batchCount >= 100) {
-            ProcessProteins($oh, $p3, $stats, \%prots, $seqType);
-            $batchCount = 0;
-            %prots = ();
-            print "$protCount proteins processed.\n";
-        }
-    }
-}
-if ($batchCount > 0) {
-    ProcessProteins($oh, $p3, $stats, \%prots, $seqType);
-}
-print "All done:\n" . $stats->Show();
-
-sub ProcessProteins {
-    my ($oh, $p3, $stats, $prots, $seqType) = @_;
-    my @protList = $p3->query("genome_feature", ["select", "patric_id", $seqType],
-            ["in", "patric_id", '(' . join(",", keys %$prots) . ')']);
-    for my $prot (@protList) {
-        my $fid = $prot->{patric_id};
-        my $header = $prots->{$fid};
-        my $seq = $prot->{$seqType};
         if (! $seq) {
             $stats->Add(missingSequence => 1);
         } else {
@@ -233,4 +186,8 @@ sub ProcessProteins {
             $stats->Add(protOut => 1);
         }
     }
+    $protCount++;
+    print "$protCount of $totCount proteins processed.\n" if $protCount % 10000 == 0;
 }
+print "All done:\n" . $stats->Show();
+

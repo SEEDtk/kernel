@@ -27,7 +27,7 @@ package SamplePipeline;
     use Loader;
     use SeedUtils;
     use SeedAware;
-    use Shrub;
+    use RoleParse;
 
 =head1 Process a Metagenome Sample Pipeline
 
@@ -37,7 +37,7 @@ the following commands.
     spades.py -1 pair.1.fastq -2 pair.2.fastq -s singles.fastq -o Assembly --meta
     bins_coverage Assembly/contigs.fasta .
     bins_generate .
-    bins_rast .
+    ... call RastBins ...
     p3x-eval-bins .
     bins_expect_check --genus --input=expect.tbl .
 
@@ -176,6 +176,11 @@ Type of binning engine to use-- C<s> for standard or C<2> for alternate.
 
 If TRUE, the annotated genomes produced will not be indexed in PATRIC.
 
+=item uniRoles
+
+The name of a file containing the universal roles.  Each record of the file should contain a role ID, a checksum,
+and a role description.  The default is C<uniRoles.tbl> in the SEEDtk global directory.
+
 =back
 
 =back
@@ -199,6 +204,17 @@ sub Process {
     my $eDepthCol = $options{eDepthCol} // 3;
     my %rastOptions = (user => $options{user}, password => $options{password}, 'sleep' => $options{sleep}, noIndex => $options{noIndex});
     my $force = $options{force} // 0;
+    my $uFile = $options{uniRoles} // "$FIG_Config::global/uniRoles.tbl";
+    # Build the uni-role hash.
+    my %uniRoles;
+    open(my $uh, '<', $uFile) || die "Could not open universal role file: $!";
+    while (! eof $uh) {
+        my $line = <$uh>;
+        chomp $line;
+        my ($role, $check, $name) = split /\t/, $line;
+        $uniRoles{$check} = [$role, $name];
+    }
+    close $uh;
     # Do we need to assemble the contigs?
     my $assemble = 0;
     my $haveContigs = (-s "$workDir/contigs.fasta" && -s "$workDir/output.contigs2reads.txt");
@@ -253,6 +269,7 @@ sub Process {
     if ($force || ! -s "$workDir/bins.json") {
         # We need to generate bins.
         my $command = join('_', "bin$engine", 'generate');
+        print "Generating bins with $command.\n";
         my $rc = system($command, $workDir);
         die "Error exit $rc from bins_generate." if $rc;
         $force = 1;
@@ -262,12 +279,10 @@ sub Process {
         # We need to run RAST on the bins. This is done internally, and we need some parameters.
         # First, we set the "partial" option to the inverse of "force".
         $rastOptions{partial} = ($force ? 0 : 1);
-        # Get the shrub object.
-        my $shrub = Shrub->new();
         # Get the files.
         my $binJsonFile = "$workDir/bins.json";
         my $contigFastaFile = "$workDir/sample.fasta";
-        RastBins($shrub, $binJsonFile, $contigFastaFile, $workDir, %rastOptions);
+        RastBins(\%uniRoles, $binJsonFile, $contigFastaFile, $workDir, %rastOptions);
         $force = 1;
     }
     # Now we need to insure we have an evaluation.
@@ -296,9 +311,9 @@ of the bins.
 
 =over 4
 
-=item shrub
+=item uniRoleH
 
-The L<Shrub> object for accessing the database.
+A hash mapping each universal role's checksum to a 2-tuple of (0) ID and (1) description.
 
 =item binJsonFile
 
@@ -346,15 +361,21 @@ Returns a reference to a list of L<Bin> objects representing the bins found.
 =cut
 
 sub RastBins {
-    my ($shrub, $binJsonFile, $contigFastaFile, $workDir, %options) = @_;
+    my ($uniRoleH, $binJsonFile, $contigFastaFile, $workDir, %options) = @_;
     # Get the options.
     my $rastUser = $options{user} // $ENV{RASTUSER};
     my $rastPass = $options{password} // $ENV{RASTPASS};
     my $sleep = $options{'sleep'} // 60;
     my $partial = $options{partial} // 0;
-    # Create a hash of the universal roles.
-    my $uniRoleH = $shrub->GetUniRoles();
+    # Count the universal roles.
     my $totUnis = scalar keys %$uniRoleH;
+    # Build the uni-role hashes.
+    my (%uniCheck, %uniName);
+    for my $check (keys %$uniRoleH) {
+        my $tuple = $uniRoleH->{$check};
+        $uniCheck{$check} = $tuple->[0];
+        $uniName{$tuple->[0]} = $tuple->[1];
+    }
     # Get the loader object.
     my $loader = Loader->new();
     my $stats = $loader->stats;
@@ -429,9 +450,13 @@ sub RastBins {
         for my $feature (@$flist) {
             my $fun = $feature->{function};
             if ($fun) {
-                my $funID = $shrub->desc_to_function($fun);
-                if ($funID && $uniRoleH->{$funID}) {
-                    $bin->incr_prot($funID, 1);
+                my @roles = SeedUtils::roles_of_function($fun);
+                for my $role (@roles) {
+                    my $checksum = RoleParse::Checksum($role);
+                    my $roleID = $uniCheck{$checksum};
+                    if ($roleID) {
+                        $bin->incr_prot($roleID, 1);
+                    }
                 }
             }
         }
@@ -465,7 +490,7 @@ sub RastBins {
     }
     # Write the report.
     open(my $rh, ">$workDir/bins.report.txt") || die "Could not open report file: $!";
-    $analyzer->BinReport($rh, $uniRoleH, \@$binList);
+    $analyzer->BinReport($rh, \%uniName, \@$binList);
     close $rh;
 }
 

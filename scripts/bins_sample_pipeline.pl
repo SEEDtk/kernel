@@ -104,7 +104,7 @@ If specified, the annotated genomes will not be indexed in PATRIC.
 
 =cut
 
-use constant LARGE => 25 * 1024 * 1024;
+use constant LARGE => 55 * 1024 * 1024;
 
 $| = 1;
 # Get the command-line parameters.
@@ -169,17 +169,21 @@ if (! -s "$workDir/contigs.fasta") {
 $options{engine} = $opt->engine;
 # Store the indexing option.
 $options{noIndex} = $opt->noindex // 0;
-# Check the file names. Save the ones that exist as options.
+# Check the file names. Save the file lengths.
+my $flen = 0;
 if ($f1q) {
     $options{f1} = "$workDir/$f1q";
+    $flen = -s $options{f1} // 0;
 }
 if ($f2q) {
     $options{f2} = "$workDir/$f2q";
+    $flen += -s $options{f2} // 0;
 }
 if ($fsq) {
     $options{fs} = "$workDir/$fsq";
+    $flen += -s $options{fs} // 0;
 }
-if (-s $options{f1} + -s $options{fs} > LARGE) {
+if ($flen > LARGE) {
     $options{large} = 1;
 }
 my $resetOpt = $opt->reset;
