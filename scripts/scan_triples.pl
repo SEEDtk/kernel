@@ -31,7 +31,7 @@ There are no positional parameters.
 The standard input can be overridden using the options in L<P3Utils/ih_options>.  It should contain the output of
 the following pipeline, where the desired role name is put in place of the string C<roleName>.
 
-    p3-echo "roleName" | p3-role-features --attr=genome_id,aa_sequence | p3-join --key1=genome_id --only=taxon_lineage_ids,Score
+    p3-echo "roleName" | p3-role-features --attr=genome_id,aa_sequence | p3-join --key1=genome_id --only=taxon_lineage_ids,Score - patric.good.tbl
 
 The input columns will be C<feature.genome_id>, C<feature.aa_sequence>, C<genome.taxon_lineage_ids>, and C<Score>.  We
 need to reduce this to just the genome ID, score, and amino acid sequence, but only for genomes where the role is a valid
