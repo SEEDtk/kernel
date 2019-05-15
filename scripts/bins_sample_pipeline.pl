@@ -104,7 +104,7 @@ If specified, the annotated genomes will not be indexed in PATRIC.
 
 =cut
 
-use constant LARGE => 55 * 1024 * 1024;
+use constant LARGE => 55;
 
 $| = 1;
 # Get the command-line parameters.
@@ -173,7 +173,7 @@ $options{noIndex} = $opt->noindex // 0;
 my $flen = 0;
 if ($f1q) {
     $options{f1} = "$workDir/$f1q";
-    $flen = -s $options{f1} // 0;
+    $flen += -s $options{f1} // 0;
 }
 if ($f2q) {
     $options{f2} = "$workDir/$f2q";
@@ -183,8 +183,13 @@ if ($fsq) {
     $options{fs} = "$workDir/$fsq";
     $flen += -s $options{fs} // 0;
 }
-if ($flen > LARGE) {
-    $options{large} = 1;
+if ($flen) {
+    $flen = int($flen / (1024*1024*1024));
+    print "Sample size is $flen gigabytes.\n";
+    if ($flen > LARGE) {
+        $options{large} = 1;
+        print "Large assembly selected.\n";
+    }
 }
 my $resetOpt = $opt->reset;
 # Are we resetting?

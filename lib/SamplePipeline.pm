@@ -243,7 +243,7 @@ sub Process {
             ($threads, $mem) = (4, 1200);
         }
         # Add the directory and the style parms.
-        my @parms = ('-o', "$workDir/Assembly", '--meta', '--threads', 8, '--memory', $mem);
+        my @parms = ('-o', "$workDir/Assembly", '--meta', '--threads', $threads, '--memory', $mem);
         # Determine the type of reads. If there is only "s", we do interleaved.
         if (! $f1q && ! $f2q) {
             push @parms, '-12', $fsq;
