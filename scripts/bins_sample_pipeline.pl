@@ -88,10 +88,6 @@ be presumed a previous run failed in progress and it will be resumed.
 Delete all files except the assembly results (C<contigs.fasta> and C<output.contigs2reads.txt>) to force re-binning.
 If C<all> is specified, even the assembly results will be deleted to force re-assembly, too.
 
-=item large
-
-Configure the assembly for a large number of reads. This makes the assembly slower.
-
 =item gz
 
 If specified, then the reads are stored in C<gz> files and must be unzipped first.
@@ -108,13 +104,14 @@ If specified, the annotated genomes will not be indexed in PATRIC.
 
 =cut
 
+use constant LARGE => 25 * 1024 * 1024;
+
 $| = 1;
 # Get the command-line parameters.
 my $opt = ScriptUtils::Opts('sampleID workDir',
         ["user|u=s", "user name for RAST access", { default => $ENV{RASTUSER} }],
         ["password|p=s", "password for RAST access", { default => $ENV{RASTPASS} }],
         ["force", "rebuild all files"],
-        ["large", "assembly is large"],
         ["project=s", "source project type", { default => 'MH' }],
         ["reset:s", "delete all files except the assembly results to force re-binning"],
         ["gz", "unzip read files before processing"],
@@ -182,7 +179,7 @@ if ($f2q) {
 if ($fsq) {
     $options{fs} = "$workDir/$fsq";
 }
-if ($opt->large) {
+if (-s $options{f1} + -s $options{fs} > LARGE) {
     $options{large} = 1;
 }
 my $resetOpt = $opt->reset;

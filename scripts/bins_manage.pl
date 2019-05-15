@@ -166,9 +166,24 @@ if ($opt->stop) {
                     }
                     $cats{$site} //= 0;
                     $sampCats{$sample} = $site;
-                    # We count the complete bins by category.
+                    # We count the complete samples by category.
                     if (-s "$subDir/Eval/index.tbl") {
+                        # Here we are complete.
                         $cats{$site}++;
+                        if (-f "$subDir/START") {
+                            # Here it is the first time we've seen it completed, so write a message.
+                            my $duration = -M "$subDir/START";
+                            if ($duration) {
+                                $duration = " in  " . Math::Round::nearest(0.1, 24 * $duration) . " hours";
+                            } else {
+                                $duration = '';
+                            }
+                            if (! -s "$subDir/bin1.gto") {
+                                $duration .= ' with no bins found';
+                            }
+                            print "$sample ($site) completed$duration.\n";
+                            unlink "$subDir/START";
+                        }
                     } else {
                         # Here we are incomplete.  We need to check for a need to start this sample.
                         $incomplete++;
@@ -205,7 +220,8 @@ if ($opt->stop) {
                 # Resume anything we have room for.
                 while ($jobsLeft && @resume) {
                     my $sample = shift @resume;
-                    StartJob($binDir, $sample, $noIndex, 'Restarted');
+                    my $label = (-f "$binDir/$sample/bins.found.tbl" ? "Restarted" : "Started");
+                    StartJob($binDir, $sample, $noIndex, $label);
                     $jobsLeft--;
                 }
             }
@@ -239,6 +255,9 @@ sub StartJob {
     my $time = scalar(localtime);
     print "$start job for $dir at $time.\n";
     $stats->Add("jobs$start" => 1);
+    # Create the start marker.
+    open(my $oh, '>', "$subDir/START") || die "Could not create start marker for $subDir: $!";
+    print $oh "\n";
 }
 
 

@@ -404,6 +404,7 @@ sub RastBins {
                 }
                 $triple = $loader->GetLine(sampleContigs => $ih);
             }
+            close $oh;
             my $contigCount = scalar @$triples;
             print "Submitting $binNum to RAST: $contigCount contigs.\n";
             $gto = RASTlib::Annotate($triples, $taxonID, $name, %rastOpts);

@@ -325,15 +325,18 @@ for my $dir (@dirs) {
             $stats->Add(dirs1Downloaded => 1);
         } else {
             # Here we are assembling.  Get the time in progress.
-            my $duration = -M "$subDir/Assembly/params.txt";
-            if ($duration) {
-                $duration = "  " . Math::Round::nearest(0.1, 24 * $duration) . " hours.";
-            } else {
-                $duration = '';
+            my $duration = '';
+            if ($run) {
+                $duration = -M "$subDir/Assembly/params.txt";
+                if ($duration) {
+                    $duration = "  " . Math::Round::nearest(0.1, 24 * $duration) . " hours.";
+                } else {
+                    $duration = '';
+                }
+                $asming++;
             }
             push @other, "$label: Assembling.$duration\n";
             $stats->Add(dirs2Assembling => 1);
-            $asming++;
         }
     } elsif (! -s "$subDir/site.tbl") {
         # A download is in progress here.  Compute the progress.

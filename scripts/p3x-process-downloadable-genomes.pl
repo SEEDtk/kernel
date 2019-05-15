@@ -215,8 +215,8 @@ while (! $done) {
     my %gJobs;
     # This saves the input lines for each job in case of error.
     my %gLines;
-    # This saves the genome name for each job.
-    my %gNames;
+    # This saves the genome checksum for each job.
+    my %gCheck;
     # Loop through the genomes, submitting.
     for my $couplet (@$couplets) {
         if (! $done) {
@@ -274,18 +274,17 @@ while (! $done) {
                 if (defined $speciesID) {
                     # Convert the domain to a domain code.
                     $domain = uc substr($domain, 0, 1);
-                    # We are about to submit.  Save the retained columns and the genome name.
+                    # We are about to submit.  Save the retained columns.
                     $gRetain{$label} = \@retainers;
-                    my $gName = "$species $label";
-                    $gNames{$label} = $gName;
                     # Submit the job to RAST.
                     print STDERR "Submitting $fastaFile using $species and domain $domain.\n";
                     my $contigs = RASTlib::read_fasta($fastaFile);
-                    my $jobID = RASTlib::Submit($contigs, $speciesID, "$species $label", domain => $domain,
+                    my ($jobID, $checksum) = RASTlib::Submit($contigs, $speciesID, "$species $label", domain => $domain,
                             path => $folder, header => $header, noIndex => $opt->noindex, robust => 1);
                     if ($jobID) {
                         $gJobs{$label} = $jobID;
                         $gLines{$label} = $line;
+                        $gCheck{$label} = $checksum;
                         print STDERR "Job ID is $jobID.\n";
                     } else {
                         P3Utils::print_cols($line, oh => $rh);
@@ -317,7 +316,7 @@ while (! $done) {
                 $count--;
             } else {
                 print STDERR "$job has completed.\n";
-                my $gto = RASTlib::retrieve($jobID, $gNames{$job}, $header);
+                my $gto = RASTlib::retrieve($jobID, $gCheck{$job}, $header);
                 # Get the genome ID and name.
                 my $genomeID = $gto->{id};
                 my $genomeName = $gto->{scientific_name};
