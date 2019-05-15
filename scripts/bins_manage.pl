@@ -172,9 +172,10 @@ if ($opt->stop) {
                         $cats{$site}++;
                         if (-f "$subDir/START") {
                             # Here it is the first time we've seen it completed, so write a message.
-                            my $duration = -M "$subDir/START";
-                            if ($duration) {
-                                $duration = " in  " . Math::Round::nearest(0.1, 24 * $duration) . " hours";
+                            my $duration = '';
+                            my @stats = stat("$subDir/START");
+                            if (@stats) {
+                                $duration = " in  " . Math::Round::nearest(0.1, (time - $stats[9])/3600) . " hours";
                             } else {
                                 $duration = '';
                             }
