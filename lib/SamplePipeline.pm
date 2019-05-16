@@ -240,7 +240,7 @@ sub Process {
         my $cmd = "spades.py";
         my ($threads, $mem) = (8, 250);
         if ($options{large}) {
-            ($threads, $mem) = (4, 1200);
+            ($threads, $mem) = (4, 500);
         }
         # Add the directory and the style parms.
         my @parms = ('-o', "$workDir/Assembly", '--meta', '--threads', $threads, '--memory', $mem);

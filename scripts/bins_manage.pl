@@ -47,8 +47,8 @@ The maximum number of jobs to run at one time.  The default is C<20>.
 
 =item maxAsm
 
-The maximum number of assemblies to run at one time.  The default is C<4>.  Note that an assembly counts as a job,
-so if this parameter is 4 and the maximum number of jobs is 20, there can be 16 non-assembly jobs when all 4
+The maximum number of assemblies to run at one time.  The default is C<2>.  Note that an assembly counts as a job,
+so if this parameter is 2 and the maximum number of jobs is 20, there can be 18 non-assembly jobs when both
 assemblies are running.
 
 =item noIndex
@@ -76,7 +76,7 @@ $| = 1;
 # Get the command-line parameters.
 my $opt = ScriptUtils::Opts('binDir',
         ['maxJobs=i', 'maximum number of jobs to have running at one time', { default => 20 }],
-        ['maxAsm=i', 'maximum number of assemblies to have running at one time', { default => 4 }],
+        ['maxAsm=i', 'maximum number of assemblies to have running at one time', { default => 2 }],
         ['noIndex', 'if specified, the bins produced will not be indexed in PATRIC'],
         ['sleep=i', 'number of minutes to sleep between awakening cycles', { default => 2 }],
         ['stop', 'attempt to stop another management process']
