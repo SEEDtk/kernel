@@ -117,7 +117,8 @@ If specified, the annotated genomes will not be indexed in PATRIC.
 
 =item rebin
 
-Remove binning results from samples stopped during evaluation.
+Remove binning results from samples stopped during evaluation.  If the value is C<all>, also remove binning results from
+samples stopped during binning.
 
 =item stopFile
 
@@ -149,7 +150,7 @@ my $opt = ScriptUtils::Opts('directory',
                 ['engine=s', 'type of binning engine to use', { default => 's' }],
                 ['noIndex', 'do not index bins in PATRIC'],
                 ['reset', 'delete all binning results to force re-binning of all directories'],
-                ['rebin', 'reset samples that are stopped during evaluation'],
+                ['rebin:s', 'reset samples that are stopped during evaluation and/or binning'],
                 ['stopFile=s', 'file to contain stopped-job error data', { default => 'stoppedJobs.log' }],
                 ['target=i', 'maximum number of assembly jobs', { default => 4 }],
                 ['run=i', 'run binning pipeline on new directories', { default => 0 }]);
@@ -168,7 +169,13 @@ my $fix = $opt->fix;
 my $engine = $opt->engine;
 my $noIndex = ($opt->noindex ? '--noIndex ' : '');
 my $resetOpt = $opt->reset;
+# Make sure the rebin value is comparable and easy to discern.
 my $rebin = $opt->rebin;
+if (! defined $rebin) {
+    $rebin = '';
+} elsif (! $rebin) {
+    $rebin = 'some';
+}
 # Get an output handle for the stop file.
 open(my $sh, '>', $opt->stopfile) || die "Could not open stopped-jobs file: $!";
 # Get a hash of the running subdirectories (Unix only).
@@ -301,6 +308,10 @@ for my $dir (@dirs) {
         $stats->Add(noBinsFound => 1);
         $done = "No bins found.";
     } elsif (-s "$subDir/sample.fasta") {
+        if (! $run && $rebin eq 'all') {
+            # Stopped and we are re-binning these. Delete the binning stuff.
+            ResetSample($dir, $subDir);
+        }
         if (! $run && $opt->resume && $resumeLeft) {
             StartJob($dir, $subDir, '', 'Restarted', $label);
             $resumeLeft--;
