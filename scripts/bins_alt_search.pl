@@ -102,7 +102,7 @@ for my $jobDir (sort @binJobs) {
     my $reducedFastaFile = "$workDir/reduced.fasta";
     my $binsFoundFile = "$workDir/bins.found.tbl";
     # Create the BLAST utility object.
-    my $blaster = Bin::Blast->new(undef, $workDir, $reducedFastaFile,
+    my $blaster = Bin::Blast->new($workDir, $reducedFastaFile,
         maxE => $maxE, minlen => $opt->minlen, gap => $opt->gap);
     # We will put the seed protein match locations in here.
     my %matches;

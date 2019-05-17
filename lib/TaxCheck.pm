@@ -214,7 +214,7 @@ sub Compute {
     my ($retID, $retName);
     my $retLineage = [];
     # Create the blaster.
-    my $blaster = Bin::Blast->new(undef, $FIG_Config::temp, $fastaFile,
+    my $blaster = Bin::Blast->new($FIG_Config::temp, $fastaFile,
             maxE => $maxE, minlen => $minlen, gap => $gap, silent => 1);
     # Find the seed protein.
     print STDERR "Searching for seed protein in $fastaFile using $protFile.\n" if $debug;
