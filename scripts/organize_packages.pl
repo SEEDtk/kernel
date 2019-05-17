@@ -65,7 +65,7 @@ $| = 1;
 # Get the command-line parameters.
 my $opt = ScriptUtils::Opts('packageDir outDir',
         ['missing', 'only process packages for new samples'],
-        ['roleFile|rolefile|roles=s', 'role file', { default => "$FIG_Config::global/roles.in.subsystems" }],
+        ['roleFile|rolefile|roles=s', 'role file', { default => "$FIG_Config::p3data/roles.in.subsystems" }],
         );
 # This hash will contain the samples already processed if MISSING is turned on.
 my %doneSamples;

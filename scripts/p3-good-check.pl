@@ -91,7 +91,7 @@ print "$total genomes to check.\n";
 $genomeList = [ sort { $a->[0] cmp $b->[0] } @$genomeList ];
 # Get the completeness checker.
 print "Initializing GTO checker.\n";
-my $checkG = EvalCom::Tax->new("$FIG_Config::global/CheckG", logH => \*STDOUT, stats => $stats);
+my $checkG = EvalCom::Tax->new("$FIG_Config::p3data/CheckG", logH => \*STDOUT, stats => $stats);
 # Create the temp directory for the SciKit tool.
 my $pDir = "$outDir/Temp";
 if (! -d $pDir) {
@@ -214,7 +214,7 @@ sub process_batch {
                         # Clean up past working files from the checkers.
                         print "Cleaning work directories.\n";
                         File::Copy::Recursive::pathempty("$pDir/SciKit") || die "Could not clean SciKit working directory: $!";
-                        my $cmd = "gto_consistency $pDir/bin.gto $pDir/SciKit $FIG_Config::global/FunctionPredictors $FIG_Config::global/roles.in.subsystems $FIG_Config::global/roles.to.use";
+                        my $cmd = "gto_consistency $pDir/bin.gto $pDir/SciKit $FIG_Config::p3data/FunctionPredictors $FIG_Config::p3data/roles.in.subsystems $FIG_Config::p3data/roles.to.use";
                         SeedUtils::run($cmd);
                         my $score = 0;
                         if (! open(my $ih, '<', "$pDir/SciKit/evaluate.log")) {

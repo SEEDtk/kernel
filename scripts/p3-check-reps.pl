@@ -303,7 +303,7 @@ if ($opt->filter) {
                     File::Copy::Recursive::pathmk("$pDir/Eval/CheckM") || die "Could not create CheckM working directory: $!";
                 }
                 # We do the SciKit check first, because it's faster.
-                my $cmd = "gto_consistency $pDir/bin.gto $pDir/Eval/SciKit $FIG_Config::global/FunctionPredictors $FIG_Config::global/roles.in.subsystems $FIG_Config::global/roles.to.use";
+                my $cmd = "gto_consistency $pDir/bin.gto $pDir/Eval/SciKit $FIG_Config::p3data/FunctionPredictors $FIG_Config::p3data/roles.in.subsystems $FIG_Config::p3data/roles.to.use";
                 SeedUtils::run($cmd);
                 $stats->Add(sciKitRun => 1);
                 my $score = 0;

@@ -50,7 +50,7 @@ use IO::Handle;
 $| = 1;
 # Get the command-line options.
 my $opt = P3Utils::script_opts('outDir', P3Utils::col_options(), P3Utils::ih_options(),
-        ['roleFile|rolefile|R=s', 'role definition file', { default => "$FIG_Config::global/roles.in.subsystems"} ],
+        ['roleFile|rolefile|R=s', 'role definition file', { default => "$FIG_Config::p3data/roles.in.subsystems"} ],
         ['minRoles|minroles|m=i', 'minimum number of acceptable roles per genome', { default => 800 }],
         ['resume=s', 'resume after the specified genome']
         );

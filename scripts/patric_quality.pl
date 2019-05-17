@@ -141,7 +141,7 @@ eval {
                 # Clear the result directory.
                 File::Copy::Recursive::pathrmdir($resultDir) || die "Could not clear $resultDir: $!";
                 # Compute the quality.
-                my $cmd = "gto_consistency $tempGto $resultDir $FIG_Config::global/FunctionPredictors $FIG_Config::global/roles.in.subsystems $FIG_Config::global/roles.to.use";
+                my $cmd = "gto_consistency $tempGto $resultDir $FIG_Config::p3data/FunctionPredictors $FIG_Config::p3data/roles.in.subsystems $FIG_Config::p3data/roles.to.use";
                 SeedUtils::run($cmd);
                 # Read in the results.
                 open(my $qh, "<$resultDir/evaluate.log") || die "Could not open $genomeID quality log: $!";

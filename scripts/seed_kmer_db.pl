@@ -64,7 +64,7 @@ my $opt = ScriptUtils::Opts('outFile',
         Shrub::script_options(),
         ['kmerSize|kmersize|kmer|K=i', 'kmer size in base pairs', { default => 18 }],
         ['maxFound|maxfound|max|m=i',  'maximum number of kmer occurrences', { default => 10 }],
-        ['seedFile|seedfile|f=s',      'seed protein FASTA file', { default => "$FIG_Config::global/seedprot.fa" }]
+        ['seedFile|seedfile|f=s',      'seed protein FASTA file', { default => "$FIG_Config::p3data/seedprot.fa" }]
         );
 # Check the parameters.
 my ($outFile) = @ARGV;

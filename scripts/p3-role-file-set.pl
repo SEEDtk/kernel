@@ -70,7 +70,7 @@ use RoleParse;
 $| = 1;
 # Get the command-line options.
 my $opt = P3Utils::script_opts('outDir role1 role2 ... roleN',
-        ['roleFile|roles|r=s', 'file containing role definitions', { default => "$FIG_Config::global/roles.in.subsystems" }],
+        ['roleFile|roles|r=s', 'file containing role definitions', { default => "$FIG_Config::p3data/roles.in.subsystems" }],
         ['goodFile|good|g=s', 'file containing good genome definitions', { default => "$FIG_Config::data/patric.good.tbl"}],
         ['preFiltered|pre|p=s', 'prefiltered role', { default => 'PhenTrnaSyntAlph' }],
     );

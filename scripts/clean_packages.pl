@@ -101,7 +101,7 @@ my $rolesToUse;
 if (-s "$predictor/roles.to.use") {
     $rolesToUse = "$predictor/roles.to.use";
 } else {
-    $rolesToUse = "$FIG_Config::global/roles.to.use";
+    $rolesToUse = "$FIG_Config::p3data/roles.to.use";
 }
 # Check the input directory.
 my ($packageDir) = @ARGV;
@@ -152,7 +152,7 @@ eval {
             $skip = 1;
         }
         if (! $skip) {
-            my $rc = system("gto_consistency", "$thisDir/bin.gto", $temp, $predictor, "$FIG_Config::global/roles.in.subsystems", $rolesToUse);
+            my $rc = system("gto_consistency", "$thisDir/bin.gto", $temp, $predictor, "$FIG_Config::p3data/roles.in.subsystems", $rolesToUse);
             if ($rc) {
                 die "Error in gto_consistency: rc = $rc.";
             }

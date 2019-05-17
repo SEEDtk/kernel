@@ -99,7 +99,7 @@ if (! $testDir) {
 }
 # Create the role map.
 my %roleMap;
-open(my $ih, '<', "$FIG_Config::global/roles.in.subsystems") || die "Could not open role map: $!";
+open(my $ih, '<', "$FIG_Config::p3data/roles.in.subsystems") || die "Could not open role map: $!";
 while (my $line = <$ih>) {
     if ($line =~ /^(\S+)\t\S+\t(.+)/) {
         $roleMap{$1} = $2;

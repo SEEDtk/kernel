@@ -91,7 +91,7 @@ $| = 1;
 # Get the command-line parameters.
 my $opt = ScriptUtils::Opts('binDir', ScriptUtils::ih_options(),
         ['col|c=i', 'genome name input column', { default => 1 }],
-        ['primer|p=s', 'primer file name', { default => "$FIG_Config::global/PhenTrnaSyntAlph.fa" }],
+        ['primer|p=s', 'primer file name', { default => "$FIG_Config::p3data/PhenTrnaSyntAlph.fa" }],
         ['genus|G', 'classify genomes by genus instead of genus and species'],
         ['dcol|d=i', 'abundance depth input column', { default => 3 }],
         ['mindepth|m=f', 'minimum depth for a genome to be considered expected', { default => 5 }],

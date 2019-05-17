@@ -120,7 +120,7 @@ if (! $binDir) {
 }
 # Read the role files.
 print "Reading role files.\n";
-my ($nMap, $cMap) = EvalCon::LoadRoleHashes("$FIG_Config::global/roles.in.subsystems", $stats);
+my ($nMap, $cMap) = EvalCon::LoadRoleHashes("$FIG_Config::p3data/roles.in.subsystems", $stats);
 # Create the GEO options.
 my %gOptions = (roleHashes => [$nMap, $cMap], detail => 2, p3 => $p3, stats => $stats);
 # Create the RAST options.

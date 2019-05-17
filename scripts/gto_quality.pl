@@ -69,7 +69,7 @@ must be the same filter file used to generate the function predictors with L<bui
 my $opt = ScriptUtils::Opts('inDir',
         ['list|f=s', 'file containing list of GTOs to process'],
         ['temp|t=s', 'temporary working directory', { default => $FIG_Config::temp }],
-        ['filter=s', 'filter file of roles to use, or 0 for no filtering', { default => "$FIG_Config::global/roles.to.use"}],
+        ['filter=s', 'filter file of roles to use, or 0 for no filtering', { default => "$FIG_Config::p3data/roles.to.use"}],
         ['keep', 'keep output logs'],
         );
 # Compute the input directory.
@@ -130,7 +130,7 @@ eval {
             }
             File::Copy::Recursive::pathrmdir($resultDir) || die "Could not clear $resultDir: $!";
             # Compute the quality.
-            my $cmd = "gto_consistency $gtoFileName $resultDir $FIG_Config::global/FunctionPredictors $FIG_Config::global/roles.in.subsystems $roles_to_use";
+            my $cmd = "gto_consistency $gtoFileName $resultDir $FIG_Config::p3data/FunctionPredictors $FIG_Config::p3data/roles.in.subsystems $roles_to_use";
             SeedUtils::run($cmd);
             # Read in the results.
             open(my $qh, "<$resultDir/evaluate.log") || die "Could not open $genomeID quality log: $!";

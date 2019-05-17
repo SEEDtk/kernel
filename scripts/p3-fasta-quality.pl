@@ -83,9 +83,9 @@ if ($opt->predictors) {
     $rolesToUse = "$predictors/roles.to.use";
     $roleFile = "$predictors/roles.in.subsystems";
 } else {
-    $predictors = "$FIG_Config::global/FunctionPredictors";
-    $rolesToUse = "$FIG_Config::global/roles.to.use";
-    $roleFile = "$FIG_Config::global/roles.in.subsystems";
+    $predictors = "$FIG_Config::p3data/FunctionPredictors";
+    $rolesToUse = "$FIG_Config::p3data/roles.to.use";
+    $roleFile = "$FIG_Config::p3data/roles.in.subsystems";
 }
 print "EvalCon files are $predictors, $rolesToUse, and $roleFile.\n";
 my $domain = $opt->domain;

@@ -68,8 +68,8 @@ if (! $gtoDir) {
     die "Input directory $gtoDir not found or invalid.";
 }
 # Check the function predictors.
-my ($predictors, $roleFile, $rolesToUse) = ("$FIG_Config::global/FunctionPredictors", "$FIG_Config::global/roles.in.subsystems",
-        "$FIG_Config::global/roles.to.use");
+my ($predictors, $roleFile, $rolesToUse) = ("$FIG_Config::p3data/FunctionPredictors", "$FIG_Config::p3data/roles.in.subsystems",
+        "$FIG_Config::p3data/roles.to.use");
 my $funPred = $opt->predictors;
 if ($funPred) {
     $predictors = $funPred;

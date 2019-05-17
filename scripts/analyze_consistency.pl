@@ -56,7 +56,7 @@ directory. The file contains role IDs in the first column, checksums in the seco
 
 # Get the command-line parameters.
 my $opt = ScriptUtils::Opts('gto evalDir outDir',
-        ['roleFile=s', 'master role mapping file', { default => "$FIG_Config::global/roles.in.subsystems"}]
+        ['roleFile=s', 'master role mapping file', { default => "$FIG_Config::p3data/roles.in.subsystems"}]
         );
 # Create a statistics object.
 my $stats = Stats->new();

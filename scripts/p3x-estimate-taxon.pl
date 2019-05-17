@@ -73,8 +73,8 @@ $| = 1;
 # Get the command-line options.
 my $opt = P3Utils::script_opts('fastaFile1 fastaFile2 ... fastaFileN',
                 ['seedProtFasta=s', 'name of a FASTA file containing examples of the seed protein to locate',
-                                    { default => "$FIG_Config::global/seedprot.fa" }],
-                ['seedfasta|F=s', 'BLAST database (or FASTA file) of seed protein in all genomes', { default => "$FIG_Config::global/PhenTrnaSyntAlph.fa"}],
+                                    { default => "$FIG_Config::p3data/seedprot.fa" }],
+                ['seedfasta|F=s', 'BLAST database (or FASTA file) of seed protein in all genomes', { default => "$FIG_Config::p3data/PhenTrnaSyntAlph.fa"}],
                 ['maxE|e=f', 'maximum acceptable e-value for blast hits', { default => 1e-20 }],
                 ['refMaxE=f', 'maximum acceptable e-value for reference genome blast hits', { default => 1e-10 }],
                 ['gap|g=i', 'maximum permissible gap between blast hits for merging', { default => 600 }],

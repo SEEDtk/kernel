@@ -73,7 +73,7 @@ $| = 1;
 # Get the command-line parameters.
 my $opt = ScriptUtils::Opts('packageDir outDir',
         ['samples=s', 'name of a file listing the samples to process'],
-        ['roles=s', 'name of role mapping file', { default => "$FIG_Config::global/roles.in.subsystems"}],
+        ['roles=s', 'name of role mapping file', { default => "$FIG_Config::p3data/roles.in.subsystems"}],
         ['coarse', 'remove fewer contigs']
         );
 # Check the parameters.

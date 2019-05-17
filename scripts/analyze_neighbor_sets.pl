@@ -62,8 +62,8 @@ $| = 1;
 # Get the command-line options.
 my $opt = P3Utils::script_opts('setDir',
             ['domain=i', 'taxonomic grouping to use for universal roles', { default => 2 }],
-            ['checkDir=s', 'completeness data directory', { default => "$FIG_Config::global/CheckG" }],
-            ['roleFile|rolefile|R=s', 'role definition file', { default => "$FIG_Config::global/roles.in.subsystems" }],
+            ['checkDir=s', 'completeness data directory', { default => "$FIG_Config::p3data/CheckG" }],
+            ['roleFile|rolefile|R=s', 'role definition file', { default => "$FIG_Config::p3data/roles.in.subsystems" }],
             ['alignOpts|alignopts|ao=s', 'alignment options file', { default => "$FIG_Config::global/muscle_align_protein.mao" }],
             ['buildOpts|buildopts|bo=s', 'tree-build options file', { default => "$FIG_Config::global/infer_ME_nucleotide.mao" }],
             ['clear', 'clear GTO directory before starting']

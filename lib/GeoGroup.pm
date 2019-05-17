@@ -87,7 +87,7 @@ sub new {
     my $p3 = $options->{p3} // P3DataAPI->new();
     $options->{p3} //= $p3;
     if (! $options->{roleHashes}) {
-        my ($nMap, $cMap) = EvalCon::LoadRoleHashes("$FIG_Config::global/roles.in.subsystems", $stats);
+        my ($nMap, $cMap) = EvalCon::LoadRoleHashes("$FIG_Config::p3data/roles.in.subsystems", $stats);
         $options->{roleHashes} = [$nMap, $cMap];
     }
     # Create the object.

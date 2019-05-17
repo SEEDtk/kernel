@@ -56,7 +56,7 @@ if (! $outDir) {
 }
 # Create the input file.
 print "Creating counts.\n";
-my $cmd = "gto_to_roles --counts $gto $FIG_Config::global/roles.in.subsystems >$outDir/roles.counts 2>$outDir/roles.not.mapped";
+my $cmd = "gto_to_roles --counts $gto $FIG_Config::p3data/roles.in.subsystems >$outDir/roles.counts 2>$outDir/roles.not.mapped";
 SeedUtils::run($cmd);
 # Process it.
 print "Computing predictions.\n";

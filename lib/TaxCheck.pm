@@ -145,8 +145,8 @@ sub new {
     my ($class, $p3, %options) = @_;
     # Extract the options.
     my $debug = $options{debug} // 0;
-    my $protFile = $options{protFile} // "$FIG_Config::global/seedprot.fa";
-    my $seedFastaFile = $options{seedFastaFile} // "$FIG_Config::global/PhenTrnaSyntAlph.fa";
+    my $protFile = $options{protFile} // "$FIG_Config::p3data/seedprot.fa";
+    my $seedFastaFile = $options{seedFastaFile} // "$FIG_Config::p3data/PhenTrnaSyntAlph.fa";
     my $maxE = $options{maxE} // 1e-20;
     my $refMaxE = $options{refMaxE} // 1e-10;
     my $gap = $options{gap} // 600;

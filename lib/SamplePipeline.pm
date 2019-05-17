@@ -383,7 +383,7 @@ sub RastBins {
     my $improver = Bin::Improve->new($workDir, stats => $stats);
     # Initialize the role hashes.
     print "Reading role files.\n";
-    my ($nMap, $cMap) = EvalCon::LoadRoleHashes("$FIG_Config::global/roles.in.subsystems", $stats);
+    my ($nMap, $cMap) = EvalCon::LoadRoleHashes("$FIG_Config::p3data/roles.in.subsystems", $stats);
     # Create the GEO options.
     my $p3 = P3DataAPI->new();
     my %gOptions = (roleHashes => [$nMap, $cMap], detail => 2, p3 => $p3, stats => $stats);
