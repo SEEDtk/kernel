@@ -293,7 +293,12 @@ sub Process {
             open(my $oh, '>', "$workDir/Eval/index.tbl") || die "Could not open eval output file: $!";
             print $oh "No bins found.\n";
         } else {
-            my $rc = system('p3x-eval-bins', '--deep', $workDir);
+            # Configure the options.  We always do a deep analysis, but we need to know if the genome is indexed.
+            my @options = ('--deep');
+            if ($options{noIndex}) {
+                push @options, '--noIndex';
+            }
+            my $rc = system('p3x-eval-bins', @options, $workDir);
             die "Error exit $rc from p3x-eval-bins." if $rc;
         }
     }
