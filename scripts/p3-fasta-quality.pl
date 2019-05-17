@@ -59,7 +59,7 @@ my $opt = P3Utils::script_opts('taxonID name outDir', P3Utils::ih_options(),
         ["domain|d=s", "domain (A or B) of the new genome", { default => 'B' }],
         ["geneticCode=i", "genetic code for the new genome", { default => 11 }],
         ["sleep=i", "sleep interval for status polling", { default => 60 }],
-        ['tDir|tdir|templates=s', 'template file directory', { default => "$FIG_Config::mod_base/kernel/lib/BinningReports" }],
+        ['tDir|tdir|templates=s', 'template file directory', { default => "$FIG_Config::mod_base/p3_code/lib/BinningReports" }],
         );
 # Get the positional parameters.
 my ($taxonID, $name, $outDir) = @ARGV;

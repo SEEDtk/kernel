@@ -32,7 +32,7 @@ use File::Spec;
 
 # Get the command-line options.
 my $opt = P3Utils::script_opts('repDir outFile',
-        ['template=s', 'web page template file', { default => "$FIG_Config::mod_base/RASTtk/lib/BinningReports/reps.tt" }],
+        ['template=s', 'web page template file', { default => "$FIG_Config::mod_base/p3_code/lib/BinningReports/reps.tt" }],
         );
 my $stats = Stats->new();
 # Get the input directory and the output file.
