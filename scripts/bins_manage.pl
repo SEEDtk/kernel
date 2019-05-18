@@ -135,8 +135,9 @@ if ($opt->stop) {
             my %sampCats;
             # We now run through the directories.  Directories that are still running are skipped.  If a directory is
             # in the downloaded state, we queue it for assembly. If it is evaluating, we reset it and queue it for
-            # resume.  If it is assembled and not done, we simply queue it for resume.
-            my (@assemble, @resume);
+            # resume.  If it is binned and not done, we queue it for resume.  If it is assembled and not binned, we
+            # queue it for startup.
+            my (@assemble, @resume, @startup);
             for my $sample (@samples) {
                 my $subDir = "$binDir/$sample";
                 # Only process the directory if it is not running.
@@ -198,9 +199,12 @@ if ($opt->stop) {
                                 # Queue for assembly.
                                 push @assemble, $sample;
                             }
-                        } else {
-                            # Queue for resume.
+                        } elsif (-s "$subDir/bins.json") {
+                            # Queue for resume. We can start annotating, so this is our highest priority.
                             push @resume, $sample;
+                        } else {
+                            # Queue for startup.
+                            push @startup, $sample;
                         }
                     }
                 }
@@ -219,6 +223,7 @@ if ($opt->stop) {
                     }
                 }
                 # Resume anything we have room for.
+                push @resume, @startup;
                 while ($jobsLeft && @resume) {
                     my $sample = shift @resume;
                     StartJob($binDir, $sample, $noIndex);
