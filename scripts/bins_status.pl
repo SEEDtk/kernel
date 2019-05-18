@@ -183,7 +183,9 @@ if (! defined $rebin) {
 }
 # Process the manager-stop option first.
 if ($opt->stop) {
-    StopFile();
+    open (my $oh, '>', "$directory/STOP") || die "Could not open stop file: $!";
+    print $oh "STOP\n";
+    close $oh;
     print "STOP file created.\n";
 }
 # Get an output handle for the stopped-jobs file.
