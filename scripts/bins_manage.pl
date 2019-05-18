@@ -59,11 +59,6 @@ If specified, the bins will not be indexed in PATRIC.
 
 The number of minutes to sleep between status checks.  The default is C<2>.
 
-=item stop
-
-If specified, a C<STOP> file will be written to the directory and this program will exit.  This will cause any
-other instance of this script to stop when it next wakes up.
-
 =back
 
 =cut
@@ -90,159 +85,153 @@ if (! $binDir) {
 } elsif (! -d $binDir) {
     die "Binning directory $binDir missing or invalid.";
 }
-# Process the stop option first.
-if ($opt->stop) {
-    StopFile();
-    print "STOP file created.\n";
-} else {
-    # Here we want to go into the loop.  Get the options.
-    my $maxJobs = $opt->maxjobs;
-    my $maxAsm = $opt->maxasm;
-    my $noIndex = ($opt->noindex ? '--noIndex' : '');
-    my $sleep = $opt->sleep * 60;
-    print "Starting main loop for $maxJobs jobs with up to $maxAsm assemblies.\n";
-    # Loop until we find the stop file.
-    while (! -f "$binDir/STOP") {
-        $stats->Add(cycles => 1);
-        # This will count the incomplete directories.
-        my $incomplete = 0;
-        # Get a hash of the running jobs.
-        my %running;
-        my $jobsLeft = $maxJobs;
-        my $asmLeft = $maxAsm;
-        my @jobs = `ps -Af`;
-        for my $job (@jobs) {
-            if ($job =~ /bins_sample_pipeline\s+(?:--\S+\s+)*(\w+)/) {
-                my $sample = $1;
-                $running{$sample} = 1;
-                $jobsLeft--;
-                $incomplete++;
-                # Is an assembly in progress?
-                if (-d "$binDir/$sample/Assembly" && ! -s "$binDir/$sample/contigs.fasta") {
-                    $asmLeft--;
+# Here we want to go into the loop.  Get the options.
+my $maxJobs = $opt->maxjobs;
+my $maxAsm = $opt->maxasm;
+my $noIndex = ($opt->noindex ? '--noIndex' : '');
+my $sleep = $opt->sleep * 60;
+print "Starting main loop for $maxJobs jobs with up to $maxAsm assemblies.\n";
+# Loop until we find the stop file.
+while (! -f "$binDir/STOP") {
+    $stats->Add(cycles => 1);
+    # This will count the incomplete directories.
+    my $incomplete = 0;
+    # Get a hash of the running jobs.
+    my %running;
+    my $jobsLeft = $maxJobs;
+    my $asmLeft = $maxAsm;
+    my @jobs = `ps -Af`;
+    for my $job (@jobs) {
+        if ($job =~ /bins_sample_pipeline\s+(?:--\S+\s+)*(\w+)/) {
+            my $sample = $1;
+            $running{$sample} = 1;
+            $jobsLeft--;
+            $incomplete++;
+            # Is an assembly in progress?
+            if (-d "$binDir/$sample/Assembly" && ! -s "$binDir/$sample/contigs.fasta") {
+                $asmLeft--;
+            }
+        }
+    }
+    # Only proceed if we have room to start a job.
+    if ($jobsLeft > 0) {
+        # Get the subdirectories.
+        opendir(my $dh, $binDir) || die "Could not open $binDir: $!";
+        my @samples = sort grep { substr($_,0,1) ne '.' && -d "$binDir/$_" } readdir $dh;
+        closedir $dh;
+        # This will track the number of completed samples in each category.
+        my %cats;
+        # This will contain the category of each incomplete sample.
+        my %sampCats;
+        # We now run through the directories.  Directories that are still running are skipped.  If a directory is
+        # in the downloaded state, we queue it for assembly. If it is evaluating, we reset it and queue it for
+        # resume.  If it is binned and not done, we queue it for resume.  If it is assembled and not binned, we
+        # queue it for startup.
+        my (@assemble, @resume, @startup);
+        for my $sample (@samples) {
+            my $subDir = "$binDir/$sample";
+            # Only process the directory if it is not running.
+            if (! $running{$sample}) {
+                if (-s "$subDir/contigs.fasta" && -d "$subDir/Assembly") {
+                    # We have a contig file and there is assembly data.  Clean it up.
+                    ClearAssembly($subDir);
+                    opendir(my $dh, $subDir) || die "Could not open $subDir: $!";
+                    my @fastqs = grep { $_ =~ /\.(?:fastq|fq)$/ } readdir $dh;
+                    my $cleaned = 0;
+                    for my $fastq (@fastqs) {
+                        unlink "$subDir/$fastq";
+                        $cleaned++;
+                    }
+                    $stats->Add(dirsCleaned => 1);
+                    if ($cleaned) {
+                        print "$cleaned read files cleaned from $sample.\n";
+                    }
+                }
+                # Get the sample category.
+                my $site = "Unspecified";
+                if (open(my $sh, '<', "$subDir/site.tbl")) {
+                    my $line = <$sh>;
+                    if ($line =~ /\t(\S+)\t/) {
+                        $site = $1;
+                    }
+                }
+                $cats{$site} //= 0;
+                $sampCats{$sample} = $site;
+                # We count the complete samples by category.
+                if (-s "$subDir/Eval/index.tbl") {
+                    # Here we are complete.
+                    $cats{$site}++;
+                    if (-f "$subDir/START") {
+                        # Here it is the first time we've seen it completed, so write a message.
+                        my $duration = '';
+                        my @stats = stat("$subDir/START");
+                        if (@stats) {
+                            $duration = " in  " . Math::Round::nearest(0.1, (time - $stats[9])/3600) . " hours";
+                        } else {
+                            $duration = '';
+                        }
+                        if (! -s "$subDir/bin1.gto") {
+                            $duration .= ' with no bins found';
+                        }
+                        print "$sample ($site) completed$duration.\n";
+                        unlink "$subDir/START";
+                    }
+                } else {
+                    # Here we are incomplete.  We need to check for a need to start this sample.
+                    $incomplete++;
+                    if (-f "$subDir/bins.rast.json") {
+                        # Here RAST is complete, but we failed during evaluation.  bins_status can do this.
+                    } elsif (! -s "$subDir/contigs.fasta" && -s "$subDir/site.tbl") {
+                        # This directory is unassembled.
+                        if (-d "$subDir/Assembly") {
+                            # The assembly crashed.  This means we have to backout.  bins_status can do this.
+                        } else {
+                            # Queue for assembly.
+                            push @assemble, $sample;
+                        }
+                    } elsif (-s "$subDir/bins.json") {
+                        # Queue for resume. We can start annotating, so this is our highest priority.
+                        push @resume, $sample;
+                    } else {
+                        # Queue for startup.
+                        push @startup, $sample;
+                    }
                 }
             }
         }
-        # Only proceed if we have room to start a job.
-        if ($jobsLeft > 0) {
-            # Get the subdirectories.
-            opendir(my $dh, $binDir) || die "Could not open $binDir: $!";
-            my @samples = sort grep { substr($_,0,1) ne '.' && -d "$binDir/$_" } readdir $dh;
-            closedir $dh;
-            # This will track the number of completed samples in each category.
-            my %cats;
-            # This will contain the category of each incomplete sample.
-            my %sampCats;
-            # We now run through the directories.  Directories that are still running are skipped.  If a directory is
-            # in the downloaded state, we queue it for assembly. If it is evaluating, we reset it and queue it for
-            # resume.  If it is binned and not done, we queue it for resume.  If it is assembled and not binned, we
-            # queue it for startup.
-            my (@assemble, @resume, @startup);
-            for my $sample (@samples) {
-                my $subDir = "$binDir/$sample";
-                # Only process the directory if it is not running.
-                if (! $running{$sample}) {
-                    if (-s "$subDir/contigs.fasta" && -d "$subDir/Assembly") {
-                        # We have a contig file and there is assembly data.  Clean it up.
-                        ClearAssembly($subDir);
-                        opendir(my $dh, $subDir) || die "Could not open $subDir: $!";
-                        my @fastqs = grep { $_ =~ /\.(?:fastq|fq)$/ } readdir $dh;
-                        my $cleaned = 0;
-                        for my $fastq (@fastqs) {
-                            unlink "$subDir/$fastq";
-                            $cleaned++;
-                        }
-                        $stats->Add(dirsCleaned => 1);
-                        if ($cleaned) {
-                            print "$cleaned read files cleaned from $sample.\n";
-                        }
-                    }
-                    # Get the sample category.
-                    my $site = "Unspecified";
-                    if (open(my $sh, '<', "$subDir/site.tbl")) {
-                        my $line = <$sh>;
-                        if ($line =~ /\t(\S+)\t/) {
-                            $site = $1;
-                        }
-                    }
-                    $cats{$site} //= 0;
-                    $sampCats{$sample} = $site;
-                    # We count the complete samples by category.
-                    if (-s "$subDir/Eval/index.tbl") {
-                        # Here we are complete.
-                        $cats{$site}++;
-                        if (-f "$subDir/START") {
-                            # Here it is the first time we've seen it completed, so write a message.
-                            my $duration = '';
-                            my @stats = stat("$subDir/START");
-                            if (@stats) {
-                                $duration = " in  " . Math::Round::nearest(0.1, (time - $stats[9])/3600) . " hours";
-                            } else {
-                                $duration = '';
-                            }
-                            if (! -s "$subDir/bin1.gto") {
-                                $duration .= ' with no bins found';
-                            }
-                            print "$sample ($site) completed$duration.\n";
-                            unlink "$subDir/START";
-                        }
-                    } else {
-                        # Here we are incomplete.  We need to check for a need to start this sample.
-                        $incomplete++;
-                        if (-f "$subDir/bins.rast.json") {
-                            # Here RAST is complete, but we failed during evaluation.  bins_status can do this.
-                        } elsif (! -s "$subDir/contigs.fasta" && -s "$subDir/site.tbl") {
-                            # This directory is unassembled.
-                            if (-d "$subDir/Assembly") {
-                                # The assembly crashed.  This means we have to backout.  bins_status can do this.
-                            } else {
-                                # Queue for assembly.
-                                push @assemble, $sample;
-                            }
-                        } elsif (-s "$subDir/bins.json") {
-                            # Queue for resume. We can start annotating, so this is our highest priority.
-                            push @resume, $sample;
-                        } else {
-                            # Queue for startup.
-                            push @startup, $sample;
-                        }
-                    }
-                }
-            }
-            if ($jobsLeft) {
-                # Here we need to start some jobs.  Do we have room for assemblies?
-                if ($asmLeft) {
-                    # Yes.  Sort the samples from the rarest categories last.  We want to start those first.
-                    @assemble = sort { $cats{$sampCats{$b}} <=> $cats{$sampCats{$a}} } @assemble;
-                    # Start the jobs.
-                    while ($asmLeft && @assemble) {
-                        my $sample = pop @assemble;
-                        StartJob($binDir, $sample, $noIndex);
-                        $asmLeft--;
-                        $jobsLeft--;
-                    }
-                }
-                # Resume anything we have room for.
-                push @resume, @startup;
-                while ($jobsLeft && @resume) {
-                    my $sample = shift @resume;
+        if ($jobsLeft) {
+            # Here we need to start some jobs.  Do we have room for assemblies?
+            if ($asmLeft) {
+                # Yes.  Sort the samples from the rarest categories last.  We want to start those first.
+                @assemble = sort { $cats{$sampCats{$b}} <=> $cats{$sampCats{$a}} } @assemble;
+                # Start the jobs.
+                while ($asmLeft && @assemble) {
+                    my $sample = pop @assemble;
                     StartJob($binDir, $sample, $noIndex);
+                    $asmLeft--;
                     $jobsLeft--;
                 }
             }
-            # Do we have any incomplete samples?
-            if (! $incomplete) {
-                # No, stop the loop.
-                print "No samples left to process.  Stopping main loop.\n";
-                StopFile();
+            # Resume anything we have room for.
+            push @resume, @startup;
+            while ($jobsLeft && @resume) {
+                my $sample = shift @resume;
+                StartJob($binDir, $sample, $noIndex);
+                $jobsLeft--;
             }
         }
-        # Wait for the next wakeup.
-        sleep $sleep;
+        # Do we have any incomplete samples?
+        if (! $incomplete) {
+            # No, stop the loop.
+            print "No samples left to process.  Stopping main loop.\n";
+            StopFile();
+        }
     }
-    print "Deleting stop file.\n";
-    unlink "$binDir/STOP";
+    # Wait for the next wakeup.
+    sleep $sleep;
 }
+print "Deleting stop file.\n";
+unlink "$binDir/STOP";
 print "All done.\n" . $stats->Show();
 
 

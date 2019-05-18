@@ -129,6 +129,10 @@ current directory.
 
 The target number of assemblies to use for predicting the next command.  The default is C<4>.
 
+=item stop
+
+If specified, a file will be generated to stop the L<bins_manage.pl> process.
+
 =back
 
 =cut
@@ -152,6 +156,7 @@ my $opt = ScriptUtils::Opts('directory',
                 ['reset', 'delete all binning results to force re-binning of all directories'],
                 ['rebin:s', 'reset samples that are stopped during evaluation and/or binning'],
                 ['stopFile=s', 'file to contain stopped-job error data', { default => 'stoppedJobs.log' }],
+                ['stop', 'stop the binning manager loop'],
                 ['target=i', 'maximum number of assembly jobs', { default => 4 }],
                 ['run=i', 'run binning pipeline on new directories', { default => 0 }]);
 my $stats = Stats->new();
@@ -176,7 +181,12 @@ if (! defined $rebin) {
 } elsif (! $rebin) {
     $rebin = 'some';
 }
-# Get an output handle for the stop file.
+# Process the manager-stop option first.
+if ($opt->stop) {
+    StopFile();
+    print "STOP file created.\n";
+}
+# Get an output handle for the stopped-jobs file.
 open(my $sh, '>', $opt->stopfile) || die "Could not open stopped-jobs file: $!";
 # Get a hash of the running subdirectories (Unix only).
 my %running;
