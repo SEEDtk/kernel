@@ -409,7 +409,7 @@ for my $dir (@dirs) {
     # If we are done, we process here and check for cleaning.
     if ($done) {
         my $show = $opt->all || 0;
-        $stats->Add(dirs7Done => 1);
+        $stats->Add(dirs8Done => 1);
         if ($clean && ! $cleaned) {
             print "Cleaning $subDir.\n";
             $cleaned = "  Cleaning Assembly.";

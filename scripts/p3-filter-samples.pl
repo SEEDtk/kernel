@@ -22,6 +22,10 @@ The following additional options are supported.
 
 The minimum number of spots required, in millions. The default is C<20>.
 
+=item max
+
+The maximum number of base pairs allowed, in billions.  The default is C<60>.
+
 =item ratio
 
 The required ratio of bases to spots. Somewhere close to 200 indicates the sample is properly paired.  The default is C<180>.
@@ -39,14 +43,16 @@ use SRAlib;
 $| = 1;
 # Get the command-line options.
 my $opt = P3Utils::script_opts('', P3Utils::col_options(), P3Utils::ih_options(),
-        ['min=i', 'minimum number of spots', { default => 20 }],
+        ['min=i', 'minimum number of spots (millions)', { default => 20 }],
         ['ratio=i', 'minimum ratio of bases to spots', { default => 180 }],
+        ['max=i', 'maximum number of base pairs (billions)', { default => 60 }],
         );
 # Create a statistics object.
 my $stats = Stats->new();
 # Get the options.
 my $min = $opt->min * 1000000;
 my $ratio = $opt->ratio;
+my $max = $opt->max * 1000000000;
 # Open the standard input file.
 my $ih = P3Utils::ih($opt);
 # Read the incoming headers.
@@ -69,6 +75,9 @@ while (! eof $ih) {
         } elsif ($spots < $min) {
             print STDERR "$id too small-- $spots spots.\n";
             $stats->Add(tooSmall => 1);
+        } elsif ($bases > $max) {
+            print STDERR "$id too bin-- $bases bases.\n";
+            $stats->Add(tooBig => 1);
         } else {
             my $rat = int($bases/$spots);
             if ($rat < $ratio) {

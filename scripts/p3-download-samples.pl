@@ -1,18 +1,17 @@
 =head1 Download FASTQ Files for NCBI SRA Runs
 
-    p3-download-samples.pl [options] outDir srs1 srs2 ... srsN
+    p3-download-samples.pl [options] outDir
 
 This script will take as input a list of SRA sample IDs and download the FastQ files for the runs in a format
 usable for the PATRIC binning service. The SRA toolkit must be installed (see L<InstallSRAtk>).
 
 =head2 Parameters
 
-The first positional parameter is the name of the output directory. Each run's files will be put in a subdirectory of the
+The sole positional parameter is the name of the output directory. Each run's files will be put in a subdirectory of the
 output directory having the same name as the sample ID.
 
-The other positional parameters are the IDs of the samples to download. A parameter of C<-> indicates that the standard input
-contains a list of the sample IDs. The options in L<P3Utils/col_options> can be used to specify the input column and
-L<P3Utils/ih_options> can be used to modify the standard input.
+The sample IDs are specified in the standard input.  The options in L<P3Utils/col_options> can be used to specify the
+input column and L<P3Utils/ih_options> can be used to modify the standard input.
 
 The following additional options are supported.
 
@@ -54,12 +53,13 @@ use SRAlib;
 
 $| = 1;
 # Get the command-line options.
-my $opt = P3Utils::script_opts('outDir srs1 srs2 ... srsN', P3Utils::col_options(), P3Utils::ih_options(),
+my $opt = P3Utils::script_opts('outDir', P3Utils::col_options(), P3Utils::ih_options(),
         ['missing', 'only download new samples'],
         ['clear', 'erase output directory before starting'],
         ['site=s', 'site name to specify'],
         ['gzip', 'output files should be compressed'],
-        ['max=i', 'maximum number to download']
+        ['max=i', 'maximum number to download'],
+
         );
 # Create a statistics object.
 my $stats = Stats->new();
@@ -86,24 +86,17 @@ if (! $outDir) {
 }
 # Loop through the sample IDs.
 my @samples;
-for my $id (@ids) {
-    if ($id eq '-') {
-        # Here we want the standard input file.
-        my $ih = P3Utils::ih($opt);
-        # Read the incoming headers.
-        my ($outHeaders, $keyCol) = P3Utils::process_headers($ih, $opt);
-        my $inSamples = P3Utils::get_col($ih, $keyCol);
-        $stats->Add(inputIDs => scalar @$inSamples);
-        push @samples, @$inSamples;
-    } else {
-        push @samples, $id;
-        $stats->Add(clineIDs => 1);
-    }
-}
+my $ih = P3Utils::ih($opt);
+# Read the incoming headers.
+my ($outHeaders, $keyCol) = P3Utils::process_headers($ih, $opt);
+# Get the sample IDs.
+my $inSamples = P3Utils::get_col($ih, $keyCol);
+$stats->Add(inputIDs => scalar @$inSamples);
+push @samples, @$inSamples;
 my $sampleTot = scalar @samples;
 # Compute the number of samples to download.
 my $max = $opt->max || $sampleTot;
-print "$max of $sampleTot samples selected for downloading.\n";
+print "$max of $sampleTot samples will be selected for downloading.\n";
 my $count = 0;
 # Create the SRAlib object.
 my $sra = SRAlib->new(logH => \*STDOUT, stats => $stats, gzip => $gzip);
