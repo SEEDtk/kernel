@@ -45,7 +45,7 @@ my $opt = ScriptUtils::Opts('', ScriptUtils::ih_options(),
 my $ih = ScriptUtils::IH($opt->input);
 # Loop through it, searching for the all-done marker.
 my $line = <$ih>;
-while (defined $line && $line ne "All done.\n") {
+while (defined $line && $line !~ /^All\s+done/) {
     $line = <$ih>;
 }
 print "\n";
