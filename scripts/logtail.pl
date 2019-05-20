@@ -48,8 +48,10 @@ my $line = <$ih>;
 while (defined $line && $line !~ /^All\s+done/) {
     $line = <$ih>;
 }
-print "\n";
-while (! eof $ih) {
-    $line = <$ih>;
+if ($line) {
     print $line;
+    while (! eof $ih) {
+        $line = <$ih>;
+        print $line;
+    }
 }
