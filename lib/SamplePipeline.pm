@@ -215,6 +215,7 @@ sub Process {
         $uniRoles{$check} = [$role, $name];
     }
     close $uh;
+    print scalar(%uniRoles) . " universal roles found.\n";
     # Do we need to assemble the contigs?
     my $assemble = 0;
     my $haveContigs = (-s "$workDir/contigs.fasta" && -s "$workDir/output.contigs2reads.txt");
