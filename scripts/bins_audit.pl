@@ -66,8 +66,8 @@ if (! $binDir) {
 my $debug = $opt->verbose;
 # This hash will track the totals for each site type.  The columns are
 # [site name, good-bins, bad-bins, accum-bins, fails, done, in-progress, not-started].
-use constant { SITE_NAME => 0, GOOD_BINS => 1, BAD_BINS => 2, ACCUM_BINS => 3, FAILS => 4,
-        DONE => 5, IN_PROGRESS => 6, NOT_STARTED => 7 };
+use constant { SITE_NAME => 0, GOOD_BINS => 1, BAD_BINS => 2, OUTLIERS => 3, ACCUM_BINS => 4, FAILS => 5,
+        DONE => 6, IN_PROGRESS => 7, NOT_STARTED => 8 };
 my %cats;
 # Loop through the binning directories.
 print STDERR "Reading $binDir.\n" if $debug;
@@ -85,7 +85,7 @@ while (my $sample = readdir $dh) {
         print STDERR "Processing $subDir: $cat\n" if $debug;
         if (! $cats{$cat}) {
             $stats->Add(catFound => 1);
-            $cats{$cat} = [$cat, 0, 0, 0, 0, 0, 0, 0];
+            $cats{$cat} = [$cat, 0, 0, 0, 0, 0, 0, 0, 0];
         }
         my $counters = $cats{$cat};
         # Are we done, in-progress, or not-started?
@@ -109,6 +109,20 @@ while (my $sample = readdir $dh) {
                         $counters->[BAD_BINS]++;
                         $stats->Add(binsBad => 1);
                     }
+                }
+                close $ih; undef $ih;
+                # If we have a reps.tbl, count the outliers.
+                if (open($ih, '<', "$subDir/reps.tbl")) {
+                    $stats->Add(repsChecked => 1);
+                    my $line = <$ih>;
+                    while (! eof $ih) {
+                        $line = <$ih>;
+                        if ($line =~ /\t\S+$/) {
+                            $counters->[OUTLIERS]++;
+                            $stats->Add(binsOutlier => 1);
+                        }
+                    }
+                    close $ih; undef $ih;
                 }
             }
         } elsif (-f "$subDir/sample.fasta") {
