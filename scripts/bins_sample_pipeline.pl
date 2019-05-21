@@ -100,6 +100,10 @@ Type of binning engine to use-- C<s> for standard or C<2> for alternate.
 
 If specified, the annotated genomes will not be indexed in PATRIC.
 
+=item noBin
+
+If specified, samples will be assembled but not binned.
+
 =back
 
 =cut
@@ -117,6 +121,7 @@ my $opt = ScriptUtils::Opts('sampleID workDir',
         ["gz", "unzip read files before processing"],
         ['engine=s', 'type of binning engine to use', { default => 's' }],
         ['noIndex', 'do not index annotated genomes in PATRIC'],
+        ['noBin', 'do not bin the samples']
         );
 # Close STDIN so we don't hang a parent process.
 close(STDIN);
@@ -167,8 +172,9 @@ if (! -s "$workDir/contigs.fasta") {
 }
 # Store the engine.
 $options{engine} = $opt->engine;
-# Store the indexing option.
+# Store the options.
 $options{noIndex} = $opt->noindex // 0;
+$options{noBin} = $opt->nobin // 0;
 # Check the file names. Save the file lengths.
 my $flen = 0;
 if ($f1q) {

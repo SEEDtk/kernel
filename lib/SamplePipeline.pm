@@ -176,6 +176,10 @@ Type of binning engine to use-- C<s> for standard or C<2> for alternate.
 
 If TRUE, the annotated genomes produced will not be indexed in PATRIC.
 
+=item noBin
+
+If TRUE, the samples will be assembled but not binned.
+
 =item uniRoles
 
 The name of a file containing the universal roles.  Each record of the file should contain a role ID, a checksum,
@@ -205,6 +209,7 @@ sub Process {
     my %rastOptions = (user => $options{user}, password => $options{password}, 'sleep' => $options{sleep}, noIndex => $options{noIndex});
     my $force = $options{force} // 0;
     my $uFile = $options{uniRoles} // "$FIG_Config::global/uniRoles.tbl";
+    my $doBinning = ! $options{noBin};
     # Build the uni-role hash.
     my %uniRoles;
     open(my $uh, '<', $uFile) || die "Could not open universal role file: $!";
@@ -266,41 +271,44 @@ sub Process {
         die "Error exit $rc from bins_coverage." if $rc;
         $force = 1;
     }
-    # At this point, we have the contigs and the coverage data.
-    if ($force || ! -s "$workDir/bins.json") {
-        # We need to generate bins.
-        my $command = join('_', "bin$engine", 'generate');
-        print "Generating bins with $command.\n";
-        my $rc = system($command, $workDir);
-        die "Error exit $rc from bins_generate." if $rc;
-        $force = 1;
-    }
-    # At this point, we have the bins JSON file.
-    if ($force || ! -f "$workDir/bins.report.txt") {
-        # We need to run RAST on the bins. This is done internally, and we need some parameters.
-        # First, we set the "partial" option to the inverse of "force".
-        $rastOptions{partial} = ($force ? 0 : 1);
-        # Get the files.
-        my $binJsonFile = "$workDir/bins.json";
-        my $contigFastaFile = "$workDir/sample.fasta";
-        RastBins(\%uniRoles, $binJsonFile, $contigFastaFile, $workDir, %rastOptions);
-        $force = 1;
-    }
-    # Now we need to insure we have an evaluation.
-    if ($force || ! -s "$workDir/Eval/index.tbl") {
-        if (! -s "$workDir/bins.rast.json") {
-            # No bins to evaluate.
-            mkdir "$workDir/Eval" || die "Could not create Eval for $workDir: $!";
-            open(my $oh, '>', "$workDir/Eval/index.tbl") || die "Could not open eval output file: $!";
-            print $oh "No bins found.\n";
-        } else {
-            # Configure the options.  We always do a deep analysis, but we need to know if the genome is indexed.
-            my @options = ('--deep');
-            if ($options{noIndex}) {
-                push @options, '--noIndex';
+    # Only proceed if we are binning.
+    if ($doBinning) {
+        # At this point, we have the contigs and the coverage data.
+        if ($force || ! -s "$workDir/bins.json") {
+            # We need to generate bins.
+            my $command = join('_', "bin$engine", 'generate');
+            print "Generating bins with $command.\n";
+            my $rc = system($command, $workDir);
+            die "Error exit $rc from bins_generate." if $rc;
+            $force = 1;
+        }
+        # At this point, we have the bins JSON file.
+        if ($force || ! -f "$workDir/bins.report.txt") {
+            # We need to run RAST on the bins. This is done internally, and we need some parameters.
+            # First, we set the "partial" option to the inverse of "force".
+            $rastOptions{partial} = ($force ? 0 : 1);
+            # Get the files.
+            my $binJsonFile = "$workDir/bins.json";
+            my $contigFastaFile = "$workDir/sample.fasta";
+            RastBins(\%uniRoles, $binJsonFile, $contigFastaFile, $workDir, %rastOptions);
+            $force = 1;
+        }
+        # Now we need to insure we have an evaluation.
+        if ($force || ! -s "$workDir/Eval/index.tbl") {
+            if (! -s "$workDir/bins.rast.json") {
+                # No bins to evaluate.
+                mkdir "$workDir/Eval" || die "Could not create Eval for $workDir: $!";
+                open(my $oh, '>', "$workDir/Eval/index.tbl") || die "Could not open eval output file: $!";
+                print $oh "No bins found.\n";
+            } else {
+                # Configure the options.  We always do a deep analysis, but we need to know if the genome is indexed.
+                my @options = ('--deep');
+                if ($options{noIndex}) {
+                    push @options, '--noIndex';
+                }
+                my $rc = system('p3x-eval-bins', @options, $workDir);
+                die "Error exit $rc from p3x-eval-bins." if $rc;
             }
-            my $rc = system('p3x-eval-bins', @options, $workDir);
-            die "Error exit $rc from p3x-eval-bins." if $rc;
         }
     }
 }

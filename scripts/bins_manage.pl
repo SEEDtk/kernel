@@ -55,6 +55,10 @@ assemblies are running.
 
 If specified, the bins will not be indexed in PATRIC.
 
+=item noBin
+
+If specified, samples will be assembled but not binned.
+
 =item sleep
 
 The number of minutes to sleep between status checks.  The default is C<2>.
@@ -71,8 +75,9 @@ $| = 1;
 # Get the command-line parameters.
 my $opt = ScriptUtils::Opts('binDir',
         ['maxJobs=i', 'maximum number of jobs to have running at one time', { default => 20 }],
-        ['maxAsm=i', 'maximum number of assemblies to have running at one time', { default => 2 }],
+        ['maxAsm=i', 'maximum number of assemblies to have running at one time', { default => 1 }],
         ['noIndex', 'if specified, the bins produced will not be indexed in PATRIC'],
+        ['noBin', 'if specified, samples will be assembled but not binned'],
         ['sleep=i', 'number of minutes to sleep between awakening cycles', { default => 2 }],
         ['stop', 'attempt to stop another management process']
         );
@@ -88,7 +93,15 @@ if (! $binDir) {
 # Here we want to go into the loop.  Get the options.
 my $maxJobs = $opt->maxjobs;
 my $maxAsm = $opt->maxasm;
-my $noIndex = ($opt->noindex ? '--noIndex' : '');
+my $extras = ($opt->noindex ? '--noIndex' : '');
+my $noBin = ($opt->nobin ? '--noBin' : '');
+if ($noBin) {
+    if ($extras) {
+        $extras .= " $noBin";
+    } else {
+        $extras = $noBin;
+    }
+}
 my $sleep = $opt->sleep * 60;
 print "Starting main loop for $maxJobs jobs with up to $maxAsm assemblies.\n";
 # Loop until we find the stop file.
@@ -207,17 +220,19 @@ while (! -f "$binDir/STOP") {
                 # Start the jobs.
                 while ($asmLeft && @assemble) {
                     my $sample = pop @assemble;
-                    StartJob($binDir, $sample, $noIndex);
+                    StartJob($binDir, $sample, $extras);
                     $asmLeft--;
                     $jobsLeft--;
                 }
             }
-            # Resume anything we have room for.
-            push @resume, @startup;
-            while ($jobsLeft && @resume) {
-                my $sample = shift @resume;
-                StartJob($binDir, $sample, $noIndex);
-                $jobsLeft--;
+            # Resume anything we have room for, but only if we are binning.
+            if (! $noBin) {
+                push @resume, @startup;
+                while ($jobsLeft && @resume) {
+                    my $sample = shift @resume;
+                    StartJob($binDir, $sample, $extras);
+                    $jobsLeft--;
+                }
             }
         }
         # Do we have any incomplete samples?
@@ -242,9 +257,9 @@ sub StopFile {
 }
 
 sub StartJob {
-    my ($binDir, $dir, $noIndex) = @_;
+    my ($binDir, $dir, $extras) = @_;
     my $subDir = "$binDir/$dir";
-    my $cmd = "bins_sample_pipeline $noIndex $dir $subDir >$subDir/run.log 2>$subDir/err.log";
+    my $cmd = "bins_sample_pipeline $extras $dir $subDir >$subDir/run.log 2>$subDir/err.log";
     my $rc = system("nohup $cmd &");
     my $time = scalar(localtime);
     # Check the start marker.
