@@ -129,8 +129,8 @@ while (! -f "$binDir/STOP") {
         my (@assemble, @resume, @startup);
         for my $sample (@samples) {
             my $subDir = "$binDir/$sample";
-            # Only process the directory if it is not running.
-            if (! $running{$sample}) {
+            # Only process the directory if it is not running either here or on an assembly machine.
+            if (! $running{$sample} && ! -f "$subDir/ASSEMBLE") {
                 if (-s "$subDir/contigs.fasta" && -d "$subDir/Assembly") {
                     # We have a contig file and there is assembly data.  Clean it up.
                     ClearAssembly($subDir);

@@ -108,8 +108,6 @@ If specified, samples will be assembled but not binned.
 
 =cut
 
-use constant LARGE => 55;
-
 $| = 1;
 # Get the command-line parameters.
 my $opt = ScriptUtils::Opts('sampleID workDir',
@@ -151,24 +149,9 @@ if ($opt->gz) {
     }
 }
 # Compute the FASTQ file names based on guesses about the project.
-my ($f1q, $f2q, $fsq);
 # We only need to do this if there are not yet assembled contigs.
 if (! -s "$workDir/contigs.fasta") {
-    opendir(my $dh, $workDir) || die "Could not open work directory: $!";
-    my @files = grep { $_ =~ /\.(?:fastq|fq)$/ } readdir $dh;
-    for my $file (@files) {
-        if ($file =~ /R2_001\.fastq/) {
-            $f2q = $file;
-        } elsif ($file =~ /[_.]1.(?:fastq|fq)/) {
-            $f1q = $file;
-        } elsif ($file =~ /[_.]2.(?:fastq|fq)/) {
-            $f2q = $file;
-        } elsif ($file =~ /(?:\.singleton|_s)\.fastq/) {
-            $fsq = $file;
-        } elsif ($file =~ /\.fq/) {
-            $fsq = $file;
-        }
-    }
+    SamplePipeline::PrepareAssembly($workDir, \%options);
 }
 # Store the engine.
 $options{engine} = $opt->engine;
@@ -176,27 +159,6 @@ $options{engine} = $opt->engine;
 $options{noIndex} = $opt->noindex // 0;
 $options{noBin} = $opt->nobin // 0;
 # Check the file names. Save the file lengths.
-my $flen = 0;
-if ($f1q) {
-    $options{f1} = "$workDir/$f1q";
-    $flen += -s $options{f1} // 0;
-}
-if ($f2q) {
-    $options{f2} = "$workDir/$f2q";
-    $flen += -s $options{f2} // 0;
-}
-if ($fsq) {
-    $options{fs} = "$workDir/$fsq";
-    $flen += -s $options{fs} // 0;
-}
-if ($flen) {
-    $flen = int($flen / (1024*1024*1024));
-    print "Sample size is $flen gigabytes.\n";
-    if ($flen > LARGE) {
-        $options{large} = 1;
-        print "Large assembly selected.\n";
-    }
-}
 my $resetOpt = $opt->reset;
 # Are we resetting?
 if (defined $resetOpt) {

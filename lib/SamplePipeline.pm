@@ -509,4 +509,69 @@ sub RastBins {
 }
 
 
+=head3 PrepareAssembly
+
+    SamplePipeline::PrepareAssembly($workDir, \%options);
+
+Set up the options for assembly of a sample directory.  The read files are selected and the options hash is filled in
+for L</Process>.
+
+=over 4
+
+=item workDir
+
+The name of the working directory containing the sample.
+
+=item options
+
+A reference to a hash that is to contain the running options for the assembly.  The files will be filled in and the
+C<large> option will be set if the files are large.
+
+=back
+
+=cut
+
+use constant LARGE => 55;
+
+sub PrepareAssembly {
+    my ($workDir, $options) = @_;
+    my ($f1q, $f2q, $fsq);
+    opendir(my $dh, $workDir) || die "Could not open work directory: $!";
+    my @files = grep { $_ =~ /\.(?:fastq|fq)$/ } readdir $dh;
+    for my $file (@files) {
+        if ($file =~ /R2_001\.fastq/) {
+            $f2q = $file;
+        } elsif ($file =~ /[_.]1.(?:fastq|fq)/) {
+            $f1q = $file;
+        } elsif ($file =~ /[_.]2.(?:fastq|fq)/) {
+            $f2q = $file;
+        } elsif ($file =~ /(?:\.singleton|_s)\.fastq/) {
+            $fsq = $file;
+        } elsif ($file =~ /\.fq/) {
+            $fsq = $file;
+        }
+    }
+    my $flen = 0;
+    if ($f1q) {
+        $options->{f1} = "$workDir/$f1q";
+        $flen += -s $options->{f1} // 0;
+    }
+    if ($f2q) {
+        $options->{f2} = "$workDir/$f2q";
+        $flen += -s $options->{f2} // 0;
+    }
+    if ($fsq) {
+        $options->{fs} = "$workDir/$fsq";
+        $flen += -s $options->{fs} // 0;
+    }
+    if ($flen) {
+        $flen = int($flen / (1024*1024*1024));
+        print "Sample size is $flen gigabytes.\n";
+        if ($flen > LARGE) {
+            $options->{large} = 1;
+            print "Large assembly selected.\n";
+        }
+    }
+}
+
 1;

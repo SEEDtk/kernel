@@ -182,12 +182,18 @@ if (! defined $rebin) {
 } elsif (! $rebin) {
     $rebin = 'some';
 }
-# Process the manager-stop option first.
+# Process the manager-stop options first.
 if ($opt->stop) {
     open (my $oh, '>', "$directory/STOP") || die "Could not open stop file: $!";
     print $oh "STOP\n";
     close $oh;
     print "STOP file created.\n";
+}
+if ($opt->stopasm) {
+    open (my $oh, '>', "$directory/STOPASM") || die "Could not open stop-assembly file: $!";
+    print $oh "STOP\n";
+    close $oh;
+    print "STOPASM file created.\n";
 }
 # Get an output handle for the stopped-jobs file.
 open(my $sh, '>', $opt->stopfile) || die "Could not open stopped-jobs file: $!";
