@@ -76,7 +76,7 @@ while (! eof $ih) {
             print STDERR "$id too small-- $spots spots.\n";
             $stats->Add(tooSmall => 1);
         } elsif ($bases > $max) {
-            print STDERR "$id too bin-- $bases bases.\n";
+            print STDERR "$id too big-- $bases bases.\n";
             $stats->Add(tooBig => 1);
         } else {
             my $rat = int($bases/$spots);
