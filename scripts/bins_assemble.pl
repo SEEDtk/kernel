@@ -61,8 +61,9 @@ while (! -f "$binDir/STOPASM") {
     opendir(my $dh, $binDir) || die "Could not open $binDir: $!";
     my @samples = sort grep { substr($_,0,1) ne '.' && -d "$binDir/$_" && ! -s "$binDir/$_/contigs.fasta" } readdir $dh;
     closedir $dh;
-    # This will be set to the name of the first directory we can use.
+    # This will be set to TRUE if we found a directory.
     my $found;
+    # Loop through the directories.
     while (! $found && scalar @samples) {
         my $sample = pop @samples;
         # Can we assemble this directory?
@@ -80,6 +81,14 @@ while (! -f "$binDir/STOPASM") {
             SamplePipeline::Process($subDir, %options);
             # Remove the marker.
             unlink "$subDir/ASSEMBLE";
+            # Denote we found one.
+            $found = 1;
         }
+    }
+    # Did we assemble something?
+    if (! $found) {
+        # No.  Stop the loop.
+        open(my $oh, '>', "$binDir/STOPASM") || die "Could not create stop file: $!";
+        print $oh "\n";
     }
 }
