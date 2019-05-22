@@ -157,6 +157,7 @@ my $opt = ScriptUtils::Opts('directory',
                 ['rebin:s', 'reset samples that are stopped during evaluation and/or binning'],
                 ['stopFile=s', 'file to contain stopped-job error data', { default => 'stoppedJobs.log' }],
                 ['stop', 'stop the binning manager loop'],
+                ['stopAsm', 'stop the binning assembler loop'],
                 ['target=i', 'maximum number of assembly jobs', { default => 4 }],
                 ['run=i', 'run binning pipeline on new directories', { default => 0 }]);
 my $stats = Stats->new();
@@ -347,16 +348,16 @@ for my $dir (@dirs) {
             push @other, "$label: Downloaded.\n";
             $stats->Add(dirs1Downloaded => 1);
         } else {
-            # Here we are assembling.  Get the time in progress.
+            # Here we are assembling.  Get the time in progress if it is running or is on an assembly machine.
             my $duration = '';
-            if ($run) {
+            if ($run || -f "$subDir/ASSEMBLE") {
                 $duration = -M "$subDir/Assembly/params.txt";
                 if ($duration) {
                     $duration = "  " . Math::Round::nearest(0.1, 24 * $duration) . " hours.";
                 } else {
                     $duration = '';
                 }
-                $asming++;
+                $asming++ if $run;
             }
             push @other, "$label: Assembling.$duration\n";
             $stats->Add(dirs2Assembling => 1);

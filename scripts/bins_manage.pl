@@ -31,7 +31,7 @@ use Math::Round;
 
 This is a long-running job that processes the binning pipeline in a binning directory.  Every 2 minutes it will wake
 up and check for progress, then start or restart jobs in order to keep the binning pipeline going.  When all the
-samples are complete it will stop.  It can also be stopped using the C<--stop> option.
+samples are complete it will stop.  It can also be stopped using the C<--stop> option in L<bins_status.pl>.
 
 =head2 Parameters
 
@@ -55,10 +55,6 @@ assemblies are running.
 
 If specified, the bins will not be indexed in PATRIC.
 
-=item noBin
-
-If specified, samples will be assembled but not binned.
-
 =item sleep
 
 The number of minutes to sleep between status checks.  The default is C<2>.
@@ -77,9 +73,7 @@ my $opt = ScriptUtils::Opts('binDir',
         ['maxJobs=i', 'maximum number of jobs to have running at one time', { default => 20 }],
         ['maxAsm=i', 'maximum number of assemblies to have running at one time', { default => 1 }],
         ['noIndex', 'if specified, the bins produced will not be indexed in PATRIC'],
-        ['noBin', 'if specified, samples will be assembled but not binned'],
         ['sleep=i', 'number of minutes to sleep between awakening cycles', { default => 2 }],
-        ['stop', 'attempt to stop another management process']
         );
 # Create a statistics object.
 my $stats = Stats->new();
@@ -94,14 +88,6 @@ if (! $binDir) {
 my $maxJobs = $opt->maxjobs;
 my $maxAsm = $opt->maxasm;
 my $extras = ($opt->noindex ? '--noIndex' : '');
-my $noBin = ($opt->nobin ? '--noBin' : '');
-if ($noBin) {
-    if ($extras) {
-        $extras .= " $noBin";
-    } else {
-        $extras = $noBin;
-    }
-}
 my $sleep = $opt->sleep * 60;
 print "Starting main loop for $maxJobs jobs with up to $maxAsm assemblies.\n";
 # Loop until we find the stop file.
@@ -197,7 +183,7 @@ while (! -f "$binDir/STOP") {
                     } elsif (! -s "$subDir/contigs.fasta" && -s "$subDir/site.tbl") {
                         # This directory is unassembled.
                         if (-d "$subDir/Assembly") {
-                            # The assembly crashed.  This means we have to backout.  bins_status can do this.
+                            # The assembly crashed or it is running on an assembly machine.
                         } else {
                             # Queue for assembly.
                             push @assemble, $sample;
@@ -225,14 +211,12 @@ while (! -f "$binDir/STOP") {
                     $jobsLeft--;
                 }
             }
-            # Resume anything we have room for, but only if we are binning.
-            if (! $noBin) {
-                push @resume, @startup;
-                while ($jobsLeft && @resume) {
-                    my $sample = shift @resume;
-                    StartJob($binDir, $sample, $extras);
-                    $jobsLeft--;
-                }
+            # Resume anything we have room for.
+            push @resume, @startup;
+            while ($jobsLeft && @resume) {
+                my $sample = shift @resume;
+                StartJob($binDir, $sample, $extras);
+                $jobsLeft--;
             }
         }
         # Do we have any incomplete samples?
