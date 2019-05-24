@@ -348,7 +348,7 @@ for my $dir (@dirs) {
         }
         $stats->Add(dirs3Assembled => 1);
     } elsif (-d "$subDir/Assembly") {
-        if (! $run && $opt->backout) {
+        if (! $run && ! -f "$subDir/ASSEMBLE" && $opt->backout) {
             File::Copy::Recursive::pathrmdir("$subDir/Assembly");
             $stats->Add(assemblyBackout => 1);
             push @other, "$label: Downloaded.\n";

@@ -179,7 +179,7 @@ while (! -f "$binDir/STOP") {
                     # Here we are incomplete.  We need to check for a need to start this sample.
                     $incomplete++;
                     if (-f "$subDir/bins.rast.json") {
-                        # Here RAST is complete, but we failed during evaluation.  bins_status can do this.
+                        # Here RAST is complete, but we failed during evaluation.  bins_status must fix this.
                     } elsif (! -s "$subDir/contigs.fasta" && -s "$subDir/site.tbl") {
                         # This directory is unassembled.
                         if (-d "$subDir/Assembly") {
@@ -248,7 +248,9 @@ sub StartJob {
     my $time = scalar(localtime);
     # Check the start marker.
     my $start = 'Started';
-    if (-f "$subDir/START") {
+    if (! -f "$subDir/contigs.fasta") {
+        $start = 'Initiated';
+    } elsif (-f "$subDir/START") {
         $start = 'Restarted';
     } else {
         # Create the start marker.
