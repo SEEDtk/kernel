@@ -178,9 +178,11 @@ while (! -f "$binDir/STOP") {
                 } else {
                     # Here we are incomplete.  We need to check for a need to start this sample.
                     $incomplete++;
-                    if (-f "$subDir/bins.rast.json") {
+                    if (! -s "$subDir/site.tbl") {
+                        # Here we are still downloading.
+                    } elsif (-f "$subDir/bins.rast.json") {
                         # Here RAST is complete, but we failed during evaluation.  bins_status must fix this.
-                    } elsif (! -s "$subDir/contigs.fasta" && -s "$subDir/site.tbl") {
+                    } elsif (! -s "$subDir/contigs.fasta") {
                         # This directory is unassembled.
                         if (-d "$subDir/Assembly") {
                             # The assembly crashed or it is running on an assembly machine.
