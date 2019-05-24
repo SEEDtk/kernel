@@ -204,7 +204,7 @@ while (! -f "$binDir/STOP") {
                 # Yes.  Sort the samples from the rarest categories last.  We want to start those first.
                 @assemble = sort { $cats{$sampCats{$b}} <=> $cats{$sampCats{$a}} } @assemble;
                 # Start the jobs.
-                while ($asmLeft && @assemble) {
+                while ($asmLeft > 0 && @assemble) {
                     my $sample = pop @assemble;
                     StartJob($binDir, $sample, $extras);
                     $asmLeft--;
@@ -213,7 +213,7 @@ while (! -f "$binDir/STOP") {
             }
             # Resume anything we have room for.
             push @resume, @startup;
-            while ($jobsLeft && @resume) {
+            while ($jobsLeft > 0 && @resume) {
                 my $sample = shift @resume;
                 StartJob($binDir, $sample, $extras);
                 $jobsLeft--;
