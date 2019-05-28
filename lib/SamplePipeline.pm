@@ -364,6 +364,10 @@ The number of seconds to sleep between polling requests to the RAST server. The 
 If TRUE, only bins that have not yet been submitted to RAST will be processed. Otherwise, all bins will
 be processed.
 
+=item noIndex
+
+If TRUE, the genome will not be indexed in the PATRIC database.
+
 =item RETURN
 
 Returns a reference to a list of L<Bin> objects representing the bins found.
@@ -406,6 +410,7 @@ sub RastBins {
     my $binList = Bin::ReadBins($binJsonFile);
     # Create the RAST option hash.
     my %rastOpts = (user => $rastUser, password => $rastPass, 'sleep' => $sleep);
+    $rastOpts{noIndex} = 1 if $options{noIndex};
     # Loop through the bins, processing them one at a time. For each bin, we read the whole sample
     # file to get the contigs. Only one bin's worth of contigs is kept in memory at a time, at the cost of
     # a lot of extra reading.
