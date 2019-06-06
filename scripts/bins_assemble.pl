@@ -100,11 +100,11 @@ while (! -f "$binDir/STOPASM") {
                 if (-s "$subDir/contigs.fasta") {
                     SamplePipeline::ClearAssembly($subDir, $sample);
                 }
+                # Denote we found something to assemble.
+                $found = 1;
             }
             # Remove the marker.
             unlink "$subDir/ASSEMBLE";
-            # Denote we found something to assemble.
-            $found = 1;
         }
     }
     # Did we assemble something?
