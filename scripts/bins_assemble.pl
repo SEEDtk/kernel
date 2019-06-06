@@ -37,12 +37,23 @@ samples are assembled it will stop.  It can also be stopped using the C<--stopAs
 
 The positional parameter is the name of the binning directory.  All the samples must be in subdirectories.
 
+The following command-line options are supported.
+
+=over 4
+
+=item small
+
+Only assemble small samples.
+
+=back
+
 =cut
 
 
 $| = 1;
 # Get the command-line parameters.
 my $opt = ScriptUtils::Opts('binDir',
+        ['small', 'only assemble small samples']
         );
 # Get the input directory.
 my ($binDir) = @ARGV;
@@ -77,12 +88,16 @@ while (! -f "$binDir/STOPASM") {
             # Create the options hash for the assembly pipeline call.
             my %options = (noBin => 1);
             SamplePipeline::PrepareAssembly($subDir, \%options);
-            # Perform the assembly.
-            SamplePipeline::Process($subDir, %options);
-            # Remove the marker.
-            unlink "$subDir/ASSEMBLE";
-            # Denote we found one.
-            $found = 1;
+            if ($opt->small && $options{large}) {
+                print "Skipping $sample:  too big for this machine.\n";
+            } else {
+                # Perform the assembly.
+                SamplePipeline::Process($subDir, %options);
+                # Remove the marker.
+                unlink "$subDir/ASSEMBLE";
+                # Denote we found one.
+                $found = 1;
+            }
         }
     }
     # Did we assemble something?
