@@ -185,6 +185,10 @@ If TRUE, the samples will be assembled but not binned.
 The name of a file containing the universal roles.  Each record of the file should contain a role ID, a checksum,
 and a role description.  The default is C<uniRoles.tbl> in the SEEDtk global directory.
 
+=item nameSuffix
+
+The suffix to use when naming the bins:  this is appended to the species name.  The default is C<clonal population>.
+
 =back
 
 =back
@@ -210,6 +214,7 @@ sub Process {
     my $force = $options{force} // 0;
     my $uFile = $options{uniRoles} // "$FIG_Config::global/uniRoles.tbl";
     my $doBinning = ! $options{noBin};
+    my $nameSuffix = $options{nameSuffix} // 'clonal population';
     # Build the uni-role hash.
     my %uniRoles;
     open(my $uh, '<', $uFile) || die "Could not open universal role file: $!";
@@ -220,7 +225,7 @@ sub Process {
         $uniRoles{$check} = [$role, $name];
     }
     close $uh;
-    print scalar(%uniRoles) . " universal roles found.\n";
+    print scalar(keys %uniRoles) . " universal roles found.\n";
     # Do we need to assemble the contigs?
     my $assemble = 0;
     my $haveContigs = (-s "$workDir/contigs.fasta" && -s "$workDir/output.contigs2reads.txt");
@@ -278,7 +283,7 @@ sub Process {
             # We need to generate bins.
             my $command = join('_', "bin$engine", 'generate');
             print "Generating bins with $command.\n";
-            my $rc = system($command, $workDir);
+            my $rc = system($command, qq(--nameSuffix="$nameSuffix"), $workDir);
             die "Error exit $rc from bins_generate." if $rc;
             $force = 1;
         }

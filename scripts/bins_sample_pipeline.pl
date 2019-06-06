@@ -104,6 +104,10 @@ If specified, the annotated genomes will not be indexed in PATRIC.
 
 If specified, samples will be assembled but not binned.
 
+=item nameSuffix
+
+The suffix to use when naming the bins:  this is appended to the species name.  The default is C<clonal population>.
+
 =back
 
 =cut
@@ -119,7 +123,8 @@ my $opt = ScriptUtils::Opts('sampleID workDir',
         ["gz", "unzip read files before processing"],
         ['engine=s', 'type of binning engine to use', { default => 's' }],
         ['noIndex', 'do not index annotated genomes in PATRIC'],
-        ['noBin', 'do not bin the samples']
+        ['noBin', 'do not bin the samples'],
+        ['nameSuffix=s', 'suffix to assign to the bin name', { default => 'clonal population' }],
         );
 # Close STDIN so we don't hang a parent process.
 close(STDIN);
@@ -158,6 +163,7 @@ $options{engine} = $opt->engine;
 # Store the options.
 $options{noIndex} = $opt->noindex // 0;
 $options{noBin} = $opt->nobin // 0;
+$options{nameSuffix} = $opt->namesuffix;
 # Check the file names. Save the file lengths.
 my $resetOpt = $opt->reset;
 # Are we resetting?
