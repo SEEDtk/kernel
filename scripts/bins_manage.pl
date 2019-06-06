@@ -133,18 +133,8 @@ while (! -f "$binDir/STOP") {
             if (! $running{$sample} && ! -f "$subDir/ASSEMBLE") {
                 if (-s "$subDir/contigs.fasta" && -d "$subDir/Assembly") {
                     # We have a contig file and there is assembly data.  Clean it up.
-                    ClearAssembly($subDir);
-                    opendir(my $dh, $subDir) || die "Could not open $subDir: $!";
-                    my @fastqs = grep { $_ =~ /\.(?:fastq|fq)$/ } readdir $dh;
-                    my $cleaned = 0;
-                    for my $fastq (@fastqs) {
-                        unlink "$subDir/$fastq";
-                        $cleaned++;
-                    }
+                    SamplePipeline::ClearAssembly($subDir, $sample);
                     $stats->Add(dirsCleaned => 1);
-                    if ($cleaned) {
-                        print "$cleaned read files cleaned from $sample.\n";
-                    }
                 }
                 # Get the sample category.
                 my $site = "Unspecified";
@@ -264,12 +254,3 @@ sub StartJob {
 }
 
 
-sub ClearAssembly {
-    my ($subDir) = @_;
-    my $asmDir = "$subDir/Assembly";
-    if (-d $asmDir) {
-        print "Clearing assembly work directory for $subDir.\n";
-        File::Copy::Recursive::pathempty($asmDir) || die "Could not empty $asmDir: $!";
-        rmdir $asmDir;
-    }
-}

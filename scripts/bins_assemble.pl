@@ -90,14 +90,21 @@ while (! -f "$binDir/STOPASM") {
             SamplePipeline::PrepareAssembly($subDir, \%options);
             if ($opt->small && $options{large}) {
                 print "Skipping $sample:  too big for this machine.\n";
+                # Release the directory.
+                File::Copy::Recursive::pathempty("$subDir/Assembly") || die "Could not clean up $subDir: $!";
+                rmdir "$subDir/Assembly";
             } else {
                 # Perform the assembly.
                 SamplePipeline::Process($subDir, %options);
-                # Remove the marker.
-                unlink "$subDir/ASSEMBLE";
-                # Denote we found one.
-                $found = 1;
+                # Erase the FASTQ files if we were successful.
+                if (-s "$subDir/contigs.fasta") {
+                    SamplePipeline::ClearAssembly($subDir, $sample);
+                }
             }
+            # Remove the marker.
+            unlink "$subDir/ASSEMBLE";
+            # Denote we found something to assemble.
+            $found = 1;
         }
     }
     # Did we assemble something?

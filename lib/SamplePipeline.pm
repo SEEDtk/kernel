@@ -584,4 +584,43 @@ sub PrepareAssembly {
     }
 }
 
+=head3 ClearAssembly
+
+    SamplePipeline::ClearAssembly($subDir, $sample);
+
+Remove all assembly-related files from an assembled sample.
+
+=over 4
+
+=item subDir
+
+The directory containing the sample.
+
+=item sample
+
+The sample name.
+
+=back
+
+=cut
+
+sub ClearAssembly {
+    my ($subDir, $sample) = @_;
+    my $asmDir = "$subDir/Assembly";
+    if (-d $asmDir) {
+        print "Clearing assembly work directory for $subDir.\n";
+        File::Copy::Recursive::pathempty($asmDir) || die "Could not empty $asmDir: $!";
+        rmdir $asmDir;
+        opendir(my $dh, $subDir) || die "Could not open $subDir: $!";
+        my @fastqs = grep { $_ =~ /\.(?:fastq|fq)$/ } readdir $dh;
+        my $cleaned = 0;
+        for my $fastq (@fastqs) {
+            unlink "$subDir/$fastq";
+            $cleaned++;
+        }
+        if ($cleaned) {
+            print "$cleaned read files cleaned from $sample.\n";
+        }
+    }
+}
 1;
