@@ -25,6 +25,8 @@ package KmerFramer;
     use P3Utils;
     use SeedUtils;
     use Statistics::Descriptive;
+    use BasicLocation;
+    use Shrub::Contigs;
     use POSIX qw(ceil floor);
 
 =head1 Analyze Sequences to Classify Kmers by Frame
@@ -44,7 +46,7 @@ A L<P3DataAPI> object for accessing the PATRIC database.
 
 =item debug
 
-If TRUE, then progress messages are written to STDERR.
+If specified, an open file handle on which to write progress messages.
 
 =item stats
 
@@ -58,6 +60,10 @@ The DNA kmer size.
 
 Reference to a hash mapping each kmer to a 7-tuple containing the counts, in the order C<-3>, C<-2>, C<-1>, C<0>, C<+1>,
 C<+2>, and C<+3>.
+
+=item gHash
+
+Reference to a hash keyed on the IDs of all the genomes processed for kmers.
 
 =back
 
@@ -80,6 +86,7 @@ A hash containing zero or more of the following keys.
 =item p3
 
 A L<P3DataAPI> object for accessing the PATRIC database.  If none is provided, one will be created.
+Alternatively, a L<Shrub> object for accessing the Shrub database.
 
 =item K
 
@@ -87,11 +94,16 @@ The DNA kmer size.  The default is C<15>.
 
 =item debug
 
-TRUE if progress messages should be written to STDERR, else FALSE.  The default is FALSE.
+An open file handle on which to write progress messages.  If none is specified, no progress messages will be written.
 
 =item stats
 
 A L<Stats> object for tracking activity.  If none is provided, one will be created.
+
+=item saved
+
+If specified, the name of a file containing a saved copy of the database (created using L</Save>).  If this option is
+specified, the C<K> value is ignored.
 
 =back
 
@@ -102,19 +114,25 @@ A L<Stats> object for tracking activity.  If none is provided, one will be creat
 sub new {
     my ($class, %options) = @_;
     # Get the options.
-    my $debug = $options{debug} // 0;
+    my $debug = $options{debug};
     my $p3 = $options{p3} // P3DataAPI->new();
     my $stats = $options{stats} // Stats->new();
     my $K = $options{K} // 15;
-    # Create the object.
-    my %kHash;
-    my $retVal = {
-        kHash => \%kHash,
-        debug => $debug,
-        p3 => $p3,
-        stats => $stats,
-        K => $K
-    };
+    # This will be the return value.
+    my $retVal;
+    # Are we loading?
+    if ($options{saved}) {
+        # Yes.  Create the object from the file.
+        $retVal = SeedUtils::read_encoded_object($options{saved});
+    } else {
+        # No.  Create a blank object.
+        my (%kHash, %gHash);
+        $retVal = { kHash => \%kHash, gHash => \%gHash, K => $K };
+    }
+    # Update the run-time options.
+    $retVal->{debug} = $debug;
+    $retVal->{p3} = $p3;
+    $retVal->{stats} = $stats;
     # Bless and return it.
     bless $retVal, $class;
     return $retVal;
@@ -138,19 +156,6 @@ use constant LABELS => ['-3', '-2', '-1', '0', '+1', '+2', '+3'];
 
 =head2 Access Methods
 
-=head3 p3
-
-    my $p3 = $kmerFramer->p3;
-
-Return the internal L<P3DataAPI> object.
-
-=cut
-
-sub p3 {
-    my ($self) = @_;
-    return $self->{p3};
-}
-
 =head3 stats
 
     my $stats = $kmerFramer->stats;
@@ -168,7 +173,7 @@ sub stats {
 
     my $debug = $kmerFramer->debug;
 
-Return the internal debug flag.
+Return the internal debug log handle.
 
 =cut
 
@@ -179,107 +184,6 @@ sub debug {
 
 
 =head2 Public Manipulation Methods
-
-=head3 SequenceMap
-
-    my $seqMap = $kmerFramer->SequenceMap($genomeID);
-
-Create a sequence map for the specified genome.  The sequence map is reference to a hash of all the non-overlapping
-coding regions in the genomes, keyed by sequence ID and sorted by starting offset within sequence ID.  The information is
-read from PATRIC, and can be used to compute the frame of a kmer in the genome.  In practice, we will run through the
-genome's sequences in alphabetical order by sequence ID, and then from left to right on the sequence, and we will
-run through the sequence maps in parallel.  Note that regions containing overlapping features, or frame-shifted features,
-are not counted.  These are marked appropriately.
-
-=over 4
-
-=item genomeID
-
-The ID of the genome whose sequences are to be analyzed.
-
-=item RETURN
-
-Returns a reference to a hash mapping each sequence ID to a list of 3-tuples.  Each 3-tuple consists of (0) a starting
-offset (0-based), an ending offset, and a strand indicator-- C<+> if there is a protein on the + strand, C<-> if there
-is a protein on the - strand, and C<0> if the region is invalid and should not be counted.  Note that all the offsets
-are 1-based.
-
-=back
-
-=cut
-
-sub SequenceMap {
-    my ($self, $genomeID) = @_;
-    my $p3 = $self->p3;
-    my $stats = $self->stats;
-    my $debug = $self->debug;
-    # Get the genome's CDS features.
-    print STDERR "Reading coding features for $genomeID.\n" if $debug;
-    my $cdsList = P3Utils::get_data($p3, feature => [['eq', 'genome_id', $genomeID], ['eq', 'feature_type', 'CDS']],
-            ['patric_id', 'sequence_id', 'strand', 'start', 'end', 'segments']);
-    my $fCount = scalar @$cdsList;
-    print STDERR "Sorting $fCount results.\n" if $debug;
-    # Separate them by sequence.
-    my %seqHash;
-    for my $cdsItem (@$cdsList) {
-        my ($id, $seqID, $strand, $start, $end, $segments) = @$cdsItem;
-        # If this is a multi-segment feature, it counts as the zero strand.
-        if ($segments && @$segments > 1) {
-            $strand = '0';
-            $stats->Add(frameShiftFound => 1);
-        }
-        push @{$seqHash{$seqID}}, [$start, $end, $strand];
-    }
-    # Release the master list.
-    undef $cdsList;
-    # This will be the return hash.
-    my %retVal;
-    # Sort each sequence.
-    for my $seqID (keys %seqHash) {
-        print STDERR "Processing features in $seqID.\n" if $debug;
-        my $seqList = $seqHash{$seqID};
-        $seqList = [sort { $b->[0] <=> $a->[0] } @$seqList];
-        # Now we have the sequence's entries sorted.  We need to transfer them to the output, separating out the
-        # overlaps.  We will be popping and pushing items onto the active stack, and putting finished items
-        # into the result queue.
-        my $firstItem = pop @$seqList;
-        my ($start, $end, $strand) = @$firstItem;
-        # Loop through the items, transferring them to the output list.
-        my @retList;
-        while (my $seqItem = pop @$seqList) {
-            my ($start1, $end1, $strand1) = @$seqItem;
-            if ($start1 <= $end) {
-                $stats->Add(overlap => 1);
-                # Here we have an overlap.
-                if ($start1 > $start) {
-                    # Hack off the non-overlapping part.
-                    push @retList, [$start, $start1-1, $strand];
-                    $stats->Add(overlapPrefixOut => 1);
-                }
-                # Now we know everything about the region before $start1.  $start1 is the beginning of an overlap region.
-                $start = $start1;
-                my $strand0 = $strand;
-                $strand = '0';
-                # The overlap region ends at end1 or end, whichever is smaller.  Everything after that is coding on the
-                # appropriate item's strand.
-                if ($end1 < $end) {
-                    push @$seqList, [$end1+1, $end, $strand1];
-                    $end = $end1;
-                } elsif ($end1 > $end) {
-                    push @$seqList, [$end+1, $end1, $strand0];
-                }
-            } else {
-                # Here the regions are non-overlapping.  Output the old one and save the new one.
-                push @retList, [$start, $end, $strand];
-                ($start, $end, $strand) = ($start1, $end1, $strand1);
-                $stats->Add(regionOut => 1);
-            }
-        }
-        push @retList, [$start, $end, $strand];
-        $retVal{$seqID} = \@retList;
-    }
-    return \%retVal;
-}
 
 =head3 CountKmers
 
@@ -359,9 +263,9 @@ sub CountKmers {
     }
 }
 
-=head3 Store
+=head3 Save
 
-    $kmerFramer->Store($outFile);
+    $kmerFramer->Save($outFile);
 
 Store this kmer database to a file in JSON format.
 
@@ -375,15 +279,220 @@ The name of the output file, or an open file handle to which the database should
 
 =cut
 
-sub Store {
+sub Save {
     my ($self, $outFile) = @_;
     my $oh;
     if (ref $outFile eq 'GLOB') {
         $oh = $outFile;
     } else {
         open($oh, '>', $outFile) || die "Could not open JSON output file for kmers: $!";
-        SeedUtils::write_encoded_object({ K => $self->{K}, kHash => $self->{kHash} }, $oh);
+        SeedUtils::write_encoded_object({ K => $self->{K}, kHash => $self->{kHash}, gHash => $self->{gHash} }, $oh);
     }
+}
+
+=head3 Record
+
+    $kmerFramer->Record($genome);
+
+Denote that a genome has been processed.
+
+=over 4
+
+=item genome
+
+ID of the genome that has been processed.
+
+=back
+
+=cut
+
+sub Record {
+    my ($self, $genome) = @_;
+    $self->{gHash}{$genome} = 1;
+}
+
+
+
+=head2 Database Methods
+
+=head3 SequenceMap
+
+    my $seqMap = $kmerFramer->SequenceMap($genomeID);
+
+Create a sequence map for the specified genome.  The sequence map is reference to a hash of all the non-overlapping
+coding regions in the genomes, keyed by sequence ID and sorted by starting offset within sequence ID.  The information is
+read from PATRIC, and can be used to compute the frame of a kmer in the genome.  In practice, we will run through the
+genome's sequences in alphabetical order by sequence ID, and then from left to right on the sequence, and we will
+run through the sequence maps in parallel.  Note that regions containing overlapping features, or frame-shifted features,
+are not counted.  These are marked appropriately.
+
+=over 4
+
+=item genomeID
+
+The ID of the genome whose sequences are to be analyzed.
+
+=item RETURN
+
+Returns a reference to a hash mapping each sequence ID to a list of 3-tuples.  Each 3-tuple consists of (0) a starting
+offset (0-based), an ending offset, and a strand indicator-- C<+> if there is a protein on the + strand, C<-> if there
+is a protein on the - strand, and C<0> if the region is invalid and should not be counted.  Note that all the offsets
+are 1-based.
+
+=back
+
+=cut
+
+sub SequenceMap {
+    my ($self, $genomeID) = @_;
+    my $p3 = $self->{p3};
+    my $stats = $self->stats;
+    my $debug = $self->debug;
+    # Get the genome's CDS features.
+    print $debug "Reading coding features for $genomeID.\n" if $debug;
+    my $cdsList;
+    if (ref $p3 eq 'P3DataAPI') {
+        # For PATRIC we get all the features en masse.
+        $cdsList = P3Utils::get_data($p3, feature => [['eq', 'genome_id', $genomeID], ['eq', 'feature_type', 'CDS']],
+                ['patric_id', 'sequence_id', 'strand', 'start', 'end', 'segments']);
+    } else {
+        $cdsList = [];
+        # For Shrub, we loop through the features and must compute the global strand, start, and end along with the
+        # segments.
+        my @fids = $p3->GetFlat('Genome2Feature', 'Genome2Feature(from-link) = ? AND Genome2Feature(to-link) LIKE ?',
+                [$genomeID, "fig|$genomeID.peg.%"], 'to-link');
+        for my $fid (@fids) {
+            my @locs = $p3->fid_locs($fid);
+            my ($start, $end) = BasicLocation::ListBounds(@locs);
+            my @segments = map { [$_->Left, $_->Right] } @locs;
+            my $sequenceID = $locs[0]->Contig;
+            my $strand = $locs[0]->Dir;
+            push @$cdsList, [$fid, $sequenceID, $strand, $start, $end, \@segments];
+        }
+    }
+    my $fCount = scalar @$cdsList;
+    print $debug "Sorting $fCount results.\n" if $debug;
+    # Separate them by sequence.
+    my %seqHash;
+    for my $cdsItem (@$cdsList) {
+        my ($id, $seqID, $strand, $start, $end, $segments) = @$cdsItem;
+        # If this is a multi-segment feature, it counts as the zero strand.
+        if ($segments && @$segments > 1) {
+            $strand = '0';
+            $stats->Add(frameShiftFound => 1);
+        }
+        push @{$seqHash{$seqID}}, [$start, $end, $strand];
+    }
+    # Release the master list.
+    undef $cdsList;
+    # This will be the return hash.
+    my %retVal;
+    # Sort each sequence.
+    for my $seqID (keys %seqHash) {
+        print $debug "Processing features in $seqID.\n" if $debug;
+        my $seqList = $seqHash{$seqID};
+        $seqList = [sort { $b->[0] <=> $a->[0] } @$seqList];
+        # Now we have the sequence's entries sorted.  We need to transfer them to the output, separating out the
+        # overlaps.  We will be popping and pushing items onto the active stack, and putting finished items
+        # into the result queue.
+        my $firstItem = pop @$seqList;
+        my ($start, $end, $strand) = @$firstItem;
+        # Loop through the items, transferring them to the output list.
+        my @retList;
+        while (my $seqItem = pop @$seqList) {
+            my ($start1, $end1, $strand1) = @$seqItem;
+            if ($start1 <= $end) {
+                $stats->Add(overlap => 1);
+                # Here we have an overlap.
+                if ($start1 > $start) {
+                    # Hack off the non-overlapping part.
+                    push @retList, [$start, $start1-1, $strand];
+                    $stats->Add(overlapPrefixOut => 1);
+                }
+                # Now we know everything about the region before $start1.  $start1 is the beginning of an overlap region.
+                $start = $start1;
+                my $strand0 = $strand;
+                $strand = '0';
+                # The overlap region ends at end1 or end, whichever is smaller.  Everything after that is coding on the
+                # appropriate item's strand.
+                if ($end1 < $end) {
+                    push @$seqList, [$end1+1, $end, $strand1];
+                    $end = $end1;
+                } elsif ($end1 > $end) {
+                    push @$seqList, [$end+1, $end1, $strand0];
+                }
+            } else {
+                # Here the regions are non-overlapping.  Output the old one and save the new one.
+                push @retList, [$start, $end, $strand];
+                ($start, $end, $strand) = ($start1, $end1, $strand1);
+                $stats->Add(regionOut => 1);
+            }
+        }
+        push @retList, [$start, $end, $strand];
+        $retVal{$seqID} = \@retList;
+    }
+    return \%retVal;
+}
+
+=head3 GenomeNames
+
+    my $nameResults = $kmerFramer->GenomeNames(\@genomeIDs);
+
+Retrieve a batch of genome names from whichever database is attached.
+
+=over 4
+
+=item genomeIDs
+
+Reference to a list of genome IDs.
+
+=item RETURN
+
+Returns a reference to a list of 2-tuples, each consisting of (0) a genome ID and (1) the genome name.
+
+=back
+
+=cut
+
+sub GenomeNames {
+    my ($self, $genomeIDs) = @_;
+    my $p3 = $self->{p3};
+    # This will be the return value.
+    my $retVal;
+    if (ref $p3 eq 'P3DataAPI') {
+        # Here we have PATRIC, and we ask for all the genomes at once.
+        my @couples = map { [$_, [$_]] } @$genomeIDs;
+        $retVal = P3Utils::get_data_batch($p3, genome => [], ['genome_name'], \@couples);
+    } else {
+        # Here we have a Shrub database, and we rip through the genomes one at a time.
+        $retVal = [];
+        for my $genome (@$genomeIDs) {
+            my ($name) = $p3->GetFlat('Genome', 'Genome(id) = ?', [$genome], 'name');
+            if ($name) {
+                push @$retVal, [$genome, $name];
+            }
+        }
+    }
+    return $retVal;
+}
+
+=head3 SequenceList
+
+=cut
+
+sub SequenceList {
+    my ($self, $genomeID) = @_;
+    my $p3 = $self->{p3};
+    my $retVal;
+    if (ref $p3 eq 'P3DataAPI') {
+        # Here we can ask for the sequences from PATRIC.
+        $retVal = P3Utils::get_data($p3, contig => [['eq', 'genome_id', $genomeID]], ['sequence_id', 'sequence']);
+    } else {
+        # For Shrub, we use a Contigs object.
+        my $contigs = Shrub::Contigs->new($p3, $genomeID);
+        $retVal = [map { [$_->[0], $_->[2]] } $contigs->tuples];
+    }
+    return $retVal;
 }
 
 =head2 Query Methods
@@ -489,6 +598,7 @@ Returns a reference to a hash mapping each z-score bracket to its kmer count.
 
 sub Distribution {
     my ($self, $mean, $sdev) = @_;
+    my $debug = $self->{debug};
     # This will be the return hash.
     my %retVal;
     # Loop through the kmers.
@@ -498,10 +608,35 @@ sub Distribution {
         my $z = ($frac - $mean) / $sdev;
         my $bracket = ($z < 0 ? floor($z) : ceil($z));
         $retVal{$bracket}++;
-        print STDERR "$kmer fraction is $frac.\n" if $z < 0;
+        print $debug "$kmer fraction is $frac.\n" if $z < 0;
     }
     # Return the hash.
     return \%retVal;
+}
+
+=head3 gCheck
+
+    my $processed = $kmerFramer->gCheck($genome);
+
+Return TRUE if the specified genome has already been processed, else FALSE.
+
+=over 4
+
+=item genome
+
+ID of the genome to check.
+
+=item RETURN
+
+Returns TRUE if the genome is already processed, else FALSE.
+
+=back
+
+=cut
+
+sub gCheck {
+    my ($self, $genome) = @_;
+    return ($self->{gHash}{$genome} ? 1 : 0);
 }
 
 

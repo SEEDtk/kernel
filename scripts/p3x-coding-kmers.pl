@@ -40,13 +40,19 @@ The following additional command-line parameters are supported.
 
 =over 4
 
-=item verbose
-
-Progress messages will be written to STDERR.
-
 =item K
 
 The DNA kmer size to use.  The default is C<15>.
+
+=item shrub
+
+If specified, the genomes are taken from a L<Shrub> database instead of PATRIC.  If this is the case, the Shrub
+database is specified using L<Shrub/script_options>.
+
+=item resume
+
+If specified, then this is a restart of a partial job.  The datbase will be reloaded from C<kmers.json> in the
+working directory.
 
 =back
 
@@ -55,6 +61,7 @@ The DNA kmer size to use.  The default is C<15>.
 use strict;
 use P3DataAPI;
 use P3Utils;
+use Shrub;
 use Stats;
 use KmerFramer;
 use File::Copy::Recursive;
@@ -62,65 +69,98 @@ use File::Copy::Recursive;
 $| = 1;
 # Get the command-line options.
 my $opt = P3Utils::script_opts('workDir', P3Utils::col_options(), P3Utils::ih_options(),
-    ['verbose|debug|v', 'write progress messages to STDERR'],
+    Shrub::script_options(),
+    ['shrub', 'use the Shrub database'],
     ['kmer|K=i', 'DNA kmer size', { default => 15 }],
+    ['resume', 'resume after failed run'],
     );
 my $stats = Stats->new();
 # Get the options.
 my $K = $opt->kmer;
-my $debug = $opt->verbose;
 # Get the work directory name.
 my ($workDir) = @ARGV;
 if (! $workDir) {
     die "No output directory specified.";
 } elsif (! -d $workDir) {
-    print STDERR "Creating output directory $workDir.\n" if $debug;
+    print "Creating output directory $workDir.\n";
     File::Copy::Recursive::pathmk($workDir) || die "Could not create working directory $workDir: $!";
 }
-# Get access to PATRIC.
-my $p3 = P3DataAPI->new();
+# Get access to the database.
+my $p3;
+if ($opt->shrub) {
+    print "Connecting to Shrub.\n";
+    $p3 = Shrub->new_for_script($opt);
+} else {
+    print "Connecting to PATRIC.\n";
+    $p3 = P3DataAPI->new();
+}
 # Open the input file.
 my $ih = P3Utils::ih($opt);
 # Read the incoming headers.
 my ($outHeaders, $keyCol) = P3Utils::process_headers($ih, $opt);
-# Create the utility object.
-my $kmerFramer = KmerFramer->new(stats => $stats, p3 => $p3, K => $K, debug => $debug);
+# Create the utility object.  How we do this depends on the resume flag.
+my %options = (stats => $stats, p3 => $p3, debug => \*STDOUT);
+if ($opt->resume) {
+    print "Loading saved results for resume.\n";
+    $options{saved} = "$workDir/kmers.json";
+} else  {
+    print "Creating new database.\n";
+    $options{K} = $K;
+}
+my $kmerFramer = KmerFramer->new(%options);
 # Loop through the input.
 my ($batchCount, $genomeCount) = (0, 0);
 while (! eof $ih) {
     my $couplets = P3Utils::get_couplets($ih, $keyCol, $opt);
     # First get the names of the genomes.  We rebuild the couplets to genome IDs only.
     $batchCount++;
-    print STDERR "Retrieving genome batch $batchCount.\n" if $debug;
-    my @couples = map { [$_->[0], [$_->[0]]] } @$couplets;
-    my $nameResults = P3Utils::get_data_batch($p3, genome => [], ['genome_name'], \@couples);
-    print STDERR scalar(@$nameResults) . " genomes found.\n" if $debug;
+    print "Retrieving genome batch $batchCount.\n";
+    my $nameResults = $kmerFramer->GenomeNames([map { $_->[0] } @$couplets]);
+    print scalar(@$nameResults) . " genomes found.\n";
     # Loop through the genomes found.
     for my $genomeData (@$nameResults) {
         $stats->Add(genomesIn => 1);
         $genomeCount++;
         my ($genomeID, $genomeName) = @$genomeData;
-        print STDERR "Processing genome $genomeCount: $genomeID $genomeName.\n" if $debug;
-        # Get all the protein feature data for this genome.
-        my $seqMap = $kmerFramer->SequenceMap($genomeID);
-        # Now we run through the sequences, counting kmers.
-        print STDERR "Retrieving sequences.\n" if $debug;
-        my $seqList = P3Utils::get_data($p3, contig => [['eq', 'genome_id', $genomeID]],
-                ['sequence_id', 'sequence']);
-        while (my $seqData = pop @$seqList) {
-            my ($seqID, $sequence) = @$seqData;
-            print STDERR "Processing $seqID.\n" if $debug;
-            $kmerFramer->CountKmers($sequence, $seqMap->{$seqID});
+        if ($kmerFramer->gCheck($genomeID)) {
+            print "Already processed genome $genomeCount: $genomeID $genomeName.\n";
+            $stats->Add(genomeSkipped => 1);
+        } else {
+            print "Processing genome $genomeCount: $genomeID $genomeName.\n";
+            # We will fill these variables from the database.  The actual filling is protected so we can recover.
+            my ($seqMap, $seqList);
+            eval {
+                # Get all the protein feature data for this genome.
+                $seqMap = $kmerFramer->SequenceMap($genomeID);
+                # Now we run through the sequences, counting kmers.
+                print "Retrieving sequences.\n";
+                $seqList = $kmerFramer->SequenceList($genomeID);
+            };
+            if ($@) {
+                # Here we failed retrieving data.  Checkpoint our results so far and percolate the error.
+                my $savedError = $@;
+                print "ERROR retrieving genome $genomeID.  Saving progress.\n";
+                $kmerFramer->Save("$workDir/kmers.json");
+                die "Fatal error for $genomeID: $savedError";
+            }
+            print "Processing sequences.\n";
+            while (my $seqData = pop @$seqList) {
+                my ($seqID, $sequence) = @$seqData;
+                $kmerFramer->CountKmers($sequence, $seqMap->{$seqID});
+            }
+            # Denote this genome is done.
+            $kmerFramer->Record($genomeID);
+            $stats->Add(genomeProcessed => 1);
         }
     }
 }
 # Write the kmer database.
-print STDERR "Creating output file in $workDir.\n" if $debug;
-$kmerFramer->Store("$workDir/kmers.json");
+print "Creating output file in $workDir.\n";
+$kmerFramer->Save("$workDir/kmers.json");
 # Compute the mean and standard deviation.
-print STDERR "Computing statistical metrics.\n" if $debug;
+print "Computing statistical metrics.\n";
 my ($mean, $sdev, $kCount) = $kmerFramer->Metrics();
-print STDERR "Mean is $mean with deviation $sdev over $kCount kmers.\n" if $debug;
+print "Mean is $mean with deviation $sdev over $kCount kmers.\n";
 # Create the distribution analysis.
 my $dHash = $kmerFramer->Distribution($mean, $sdev);
 # Write the brackets.
@@ -130,5 +170,5 @@ for my $bracket (sort { $a <=> $b } keys %$dHash) {
     P3Utils::print_cols([$bracket, $dHash->{$bracket}], oh => $oh);
 }
 close $oh; undef $oh;
-print STDERR "All done.\n" . $stats->Show();
+print "All done.\n" . $stats->Show();
 
