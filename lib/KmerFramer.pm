@@ -608,7 +608,6 @@ sub Distribution {
         my $z = ($frac - $mean) / $sdev;
         my $bracket = ($z < 0 ? floor($z) : ceil($z));
         $retVal{$bracket}++;
-        print $debug "$kmer fraction is $frac.\n" if $z < 0;
     }
     # Return the hash.
     return \%retVal;
