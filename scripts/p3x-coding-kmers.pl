@@ -115,8 +115,15 @@ while (! eof $ih) {
     # First get the names of the genomes.  We rebuild the couplets to genome IDs only.
     $batchCount++;
     print "Retrieving genome batch $batchCount.\n";
-    my $nameResults = $kmerFramer->GenomeNames([map { $_->[0] } @$couplets]);
-    print scalar(@$nameResults) . " genomes found.\n";
+    my $nameResults;
+    eval {
+        $nameResults = $kmerFramer->GenomeNames([map { $_->[0] } @$couplets]);
+        print scalar(@$nameResults) . " genomes found.\n";
+    };
+    if ($@) {
+        # Here we failed retrieving the genomes.
+        ProcessError($@);
+    }
     # Loop through the genomes found.
     for my $genomeData (@$nameResults) {
         $stats->Add(genomesIn => 1);
@@ -137,11 +144,8 @@ while (! eof $ih) {
                 $seqList = $kmerFramer->SequenceList($genomeID);
             };
             if ($@) {
-                # Here we failed retrieving data.  Checkpoint our results so far and percolate the error.
-                my $savedError = $@;
-                print "ERROR retrieving genome $genomeID.  Saving progress.\n";
-                $kmerFramer->Save("$workDir/kmers.json");
-                die "Fatal error for $genomeID: $savedError";
+                # Here we failed retrieving data.
+                ProcessError($@);
             }
             print "Processing sequences.\n";
             while (my $seqData = pop @$seqList) {
@@ -172,3 +176,9 @@ for my $bracket (sort { $a <=> $b } keys %$dHash) {
 close $oh; undef $oh;
 print "All done.\n" . $stats->Show();
 
+sub ProcessError {
+    my ($msg) = @_;
+    print "Saving progress after error.\n";
+    $kmerFramer->Save("$workDir/kmers.json");
+    die "Fatal error: $msg";
+}
