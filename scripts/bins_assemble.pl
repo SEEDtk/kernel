@@ -45,6 +45,10 @@ The following command-line options are supported.
 
 Only assemble small samples.
 
+=item priority
+
+The ID of a sample to assemble first.
+
 =back
 
 =cut
@@ -53,7 +57,8 @@ Only assemble small samples.
 $| = 1;
 # Get the command-line parameters.
 my $opt = ScriptUtils::Opts('binDir',
-        ['small', 'only assemble small samples']
+        ['small', 'only assemble small samples'],
+        ['priority=s', 'ID of sample to assemble first']
         );
 # Get the input directory.
 my ($binDir) = @ARGV;
@@ -62,6 +67,8 @@ if (! $binDir) {
 } elsif (! -d $binDir) {
     die "Binning directory $binDir missing or invalid.";
 }
+# Get the priority directory.
+my $priority = $opt->priority;
 # Here we want to go into the loop.
 # Loop until we find the stop file.
 while (! -f "$binDir/STOPASM") {
@@ -72,6 +79,14 @@ while (! -f "$binDir/STOPASM") {
     opendir(my $dh, $binDir) || die "Could not open $binDir: $!";
     my @samples = sort grep { substr($_,0,1) ne '.' && -d "$binDir/$_" && ! -s "$binDir/$_/contigs.fasta" } readdir $dh;
     closedir $dh;
+    # Insure we look at the priority sample first.
+    if ($priority) {
+        my @residual = grep { $_ ne $priority } @samples;
+        if (scalar(@residual) < scalar(@samples)) {
+            @samples = (@residual, $priority);
+        }
+        undef $priority;
+    }
     # This will be set to TRUE if we found a directory.
     my $found;
     # Loop through the directories.

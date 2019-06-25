@@ -186,7 +186,6 @@ if (! $fileMode) {
 }
 print STDERR "All done.\n" . $stats->Show();
 
-
 sub Checkpoint {
     my ($kmerFramer, $savedError, $workDir) = @_;
     if ($workDir) {
