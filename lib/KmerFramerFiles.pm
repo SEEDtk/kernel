@@ -55,7 +55,7 @@ sub _StoreKmer {
     # Get the reverse complement.
     my $kmerR = SeedUtils::rev_comp($kmer);
     for my $kmerX ($kmer, $kmerR) {
-        print join("\t", $kmer, $frame) . "\n";
+        print join("\t", $kmerX, $frame) . "\n";
         $frame =~ tr/+-/-+/;
     }
 }
