@@ -67,7 +67,7 @@ use Shrub;
 use Stats;
 use KmerFramer;
 use File::Copy::Recursive;
-use KmerFrameFiles;
+use KmerFramerFiles;
 
 $| = 1;
 # Get the command-line options.
