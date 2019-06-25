@@ -27,9 +27,11 @@ been annotated.
 
 =head2 Parameters
 
-The positional parameter is the name of the output directory.  The output directory will contain
+The positional parameter is the name of the output directory.  In normal mode, the output directory will contain
 the database in JSON format in the file C<kmers.json>, and a summary of the useful kmers in
-the file C<stats.tbl>.
+the file C<stats.tbl>.  If the output directory is not specified, the program will run in file mode.  In this
+case, the kmers will be written to the standard output as a two-column table, each record containing (0) a kmer, and
+(1) a frame ID.
 
 The standard input should contain the IDs of the genomes to process.
 
@@ -65,6 +67,7 @@ use Shrub;
 use Stats;
 use KmerFramer;
 use File::Copy::Recursive;
+use KmerFrameFiles;
 
 $| = 1;
 # Get the command-line options.
@@ -77,21 +80,23 @@ my $opt = P3Utils::script_opts('workDir', P3Utils::col_options(), P3Utils::ih_op
 my $stats = Stats->new();
 # Get the options.
 my $K = $opt->kmer;
+my $fileMode = 0;
 # Get the work directory name.
 my ($workDir) = @ARGV;
 if (! $workDir) {
-    die "No output directory specified.";
+    $fileMode = 1;
+    print STDERR "File mode specified.\n";
 } elsif (! -d $workDir) {
-    print "Creating output directory $workDir.\n";
+    print STDERR "Creating output directory $workDir.\n";
     File::Copy::Recursive::pathmk($workDir) || die "Could not create working directory $workDir: $!";
 }
 # Get access to the database.
 my $p3;
 if ($opt->shrub) {
-    print "Connecting to Shrub.\n";
+    print STDERR "Connecting to Shrub.\n";
     $p3 = Shrub->new_for_script($opt);
 } else {
-    print "Connecting to PATRIC.\n";
+    print STDERR "Connecting to PATRIC.\n";
     $p3 = P3DataAPI->new();
 }
 # Open the input file.
@@ -99,51 +104,57 @@ my $ih = P3Utils::ih($opt);
 # Read the incoming headers.
 my ($outHeaders, $keyCol) = P3Utils::process_headers($ih, $opt);
 # Create the utility object.  How we do this depends on the resume flag.
-my %options = (stats => $stats, p3 => $p3, debug => \*STDOUT);
+my %options = (stats => $stats, p3 => $p3, debug => \*STDERR);
 if ($opt->resume) {
-    print "Loading saved results for resume.\n";
-    $options{saved} = "$workDir/kmers.json";
+    if ($fileMode) {
+        die "Cannot resume in file mode.";
+    } else {
+        print STDERR "Loading saved results for resume.\n";
+        $options{saved} = "$workDir/kmers.json";
+    }
 } else  {
-    print "Creating new database.\n";
+    print STDERR "Creating new database.\n";
     $options{K} = $K;
 }
-my $kmerFramer = KmerFramer->new(%options);
+my $kmerFramer = ($fileMode ? KmerFramerFiles->new(%options) : KmerFramer->new(%options));
 # Loop through the input.
 my ($batchCount, $genomeCount) = (0, 0);
 while (! eof $ih) {
     my $couplets = P3Utils::get_couplets($ih, $keyCol, $opt);
     # First get the names of the genomes.  We rebuild the couplets to genome IDs only.
     $batchCount++;
-    print "Retrieving genome batch $batchCount.\n";
-    my $nameResults = $kmerFramer->GenomeNames([map { $_->[0] } @$couplets]);
-    print scalar(@$nameResults) . " genomes found.\n";
+    my $nameResults;
+    eval {
+        print STDERR "Retrieving genome batch $batchCount.\n";
+        $nameResults = $kmerFramer->GenomeNames([map { $_->[0] } @$couplets]);
+        print STDERR scalar(@$nameResults) . " genomes found.\n";
+    };
+    if ($@) {
+        Checkpoint($kmerFramer, $@, $workDir);
+    }
     # Loop through the genomes found.
     for my $genomeData (@$nameResults) {
         $stats->Add(genomesIn => 1);
         $genomeCount++;
         my ($genomeID, $genomeName) = @$genomeData;
         if ($kmerFramer->gCheck($genomeID)) {
-            print "Already processed genome $genomeCount: $genomeID $genomeName.\n";
+            print STDERR "Already processed genome $genomeCount: $genomeID $genomeName.\n";
             $stats->Add(genomeSkipped => 1);
         } else {
-            print "Processing genome $genomeCount: $genomeID $genomeName.\n";
+            print STDERR "Processing genome $genomeCount: $genomeID $genomeName.\n";
             # We will fill these variables from the database.  The actual filling is protected so we can recover.
             my ($seqMap, $seqList);
             eval {
                 # Get all the protein feature data for this genome.
                 $seqMap = $kmerFramer->SequenceMap($genomeID);
                 # Now we run through the sequences, counting kmers.
-                print "Retrieving sequences.\n";
+                print STDERR "Retrieving sequences.\n";
                 $seqList = $kmerFramer->SequenceList($genomeID);
             };
             if ($@) {
-                # Here we failed retrieving data.  Checkpoint our results so far and percolate the error.
-                my $savedError = $@;
-                print "ERROR retrieving genome $genomeID.  Saving progress.\n";
-                $kmerFramer->Save("$workDir/kmers.json");
-                die "Fatal error for $genomeID: $savedError";
+                Checkpoint($kmerFramer, $@, $workDir);
             }
-            print "Processing sequences.\n";
+            print STDERR "Processing sequences.\n";
             while (my $seqData = pop @$seqList) {
                 my ($seqID, $sequence) = @$seqData;
                 $kmerFramer->CountKmers($sequence, $seqMap->{$seqID});
@@ -154,21 +165,34 @@ while (! eof $ih) {
         }
     }
 }
-# Write the kmer database.
-print "Creating output file in $workDir.\n";
-$kmerFramer->Save("$workDir/kmers.json");
-# Compute the mean and standard deviation.
-print "Computing statistical metrics.\n";
-my ($mean, $sdev, $kCount) = $kmerFramer->Metrics();
-print "Mean is $mean with deviation $sdev over $kCount kmers.\n";
-# Create the distribution analysis.
-my $dHash = $kmerFramer->Distribution($mean, $sdev);
-# Write the brackets.
-open(my $oh, '>', "$workDir/brackets.tbl") || die "Could not open brackets.tbl: $!";
-P3Utils::print_cols(['bracket', 'count'], oh => $oh);
-for my $bracket (sort { $a <=> $b } keys %$dHash) {
-    P3Utils::print_cols([$bracket, $dHash->{$bracket}], oh => $oh);
+# In normal mode, we do our output here.
+if (! $fileMode) {
+    # Write the kmer database.
+    print STDERR "Creating output file in $workDir.\n";
+    $kmerFramer->Save("$workDir/kmers.json");
+    # Compute the mean and standard deviation.
+    print STDERR "Computing statistical metrics.\n";
+    my ($mean, $sdev, $kCount) = $kmerFramer->Metrics();
+    print STDERR "Mean is $mean with deviation $sdev over $kCount kmers.\n";
+    # Create the distribution analysis.
+    my $dHash = $kmerFramer->Distribution($mean, $sdev);
+    # Write the brackets.
+    open(my $oh, '>', "$workDir/brackets.tbl") || die "Could not open brackets.tbl: $!";
+    P3Utils::print_cols(['bracket', 'count'], oh => $oh);
+    for my $bracket (sort { $a <=> $b } keys %$dHash) {
+        P3Utils::print_cols([$bracket, $dHash->{$bracket}], oh => $oh);
+    }
+    close $oh; undef $oh;
 }
-close $oh; undef $oh;
-print "All done.\n" . $stats->Show();
+print STDERR "All done.\n" . $stats->Show();
 
+
+sub Checkpoint {
+    my ($kmerFramer, $savedError, $workDir) = @_;
+    if ($workDir) {
+        # Here we failed retrieving data.  Checkpoint our results so far and percolate the error.
+        print STDERR "ERROR retrieving genome data.  Saving progress.\n";
+        $kmerFramer->Save("$workDir/kmers.json");
+    }
+    die "Fatal error: $savedError";
+}

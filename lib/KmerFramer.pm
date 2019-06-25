@@ -679,6 +679,5 @@ sub _StoreKmer {
     }
 }
 
+
 1;
-
-
