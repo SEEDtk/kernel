@@ -273,7 +273,7 @@ Store this kmer database to a file in JSON format.
 
 =item outFile
 
-The name of the output file, or an open file handle to which the database should be written.
+The name of the output file.
 
 =back
 
@@ -281,21 +281,17 @@ The name of the output file, or an open file handle to which the database should
 
 sub Save {
     my ($self, $outFile) = @_;
-    my $oh;
-    if (ref $outFile eq 'GLOB') {
-        $oh = $outFile;
-    } else {
-        open($oh, '>', $outFile) || die "Could not open JSON output file for kmers: $!";
-        print $oh $self->{K} . "\n";
-        my $kHash = $self->{kHash};
-        for my $kmer (keys %$kHash) {
-            print $oh join("\t", $kmer, @{$kHash->{$kmer}}) ."\n";
-        }
-        my $gHash = $self->{gHash};
-        for my $genome (keys %$gHash) {
-            print $oh "$genome\n";
-        }
+    open(my $oh, '>', $outFile) || die "Could not open JSON output file for kmers: $!";
+    print $oh $self->{K} . "\n";
+    my $kHash = $self->{kHash};
+    for my $kmer (keys %$kHash) {
+        print $oh join("\t", $kmer, @{$kHash->{$kmer}}) ."\n";
     }
+    my $gHash = $self->{gHash};
+    for my $genome (keys %$gHash) {
+        print $oh "$genome\n";
+    }
+    close $oh;
 }
 
 =head3 Record

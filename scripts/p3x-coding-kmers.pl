@@ -89,6 +89,8 @@ if (! $workDir) {
 } elsif (! -d $workDir) {
     print STDERR "Creating output directory $workDir.\n";
     File::Copy::Recursive::pathmk($workDir) || die "Could not create working directory $workDir: $!";
+} else {
+    print STDERR "Writing output to $workDir.\n";
 }
 # Get access to the database.
 my $p3;
@@ -118,6 +120,7 @@ if ($opt->resume) {
 }
 my $kmerFramer = ($fileMode ? KmerFramerFiles->new(%options) : KmerFramer->new(%options));
 # Loop through the input.
+my $startTime = time;
 my ($batchCount, $genomeCount) = (0, 0);
 while (! eof $ih) {
     my $couplets = P3Utils::get_couplets($ih, $keyCol, $opt);
@@ -164,6 +167,8 @@ while (! eof $ih) {
             $stats->Add(genomeProcessed => 1);
         }
     }
+    my $speed = int(3600 * $genomeCount / (time - $startTime));
+    print "Batch $batchCount complete. $genomeCount genomes, $speed genomes per hour.\n";
 }
 # In normal mode, we do our output here.
 if (! $fileMode) {
