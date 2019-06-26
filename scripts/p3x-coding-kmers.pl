@@ -193,10 +193,11 @@ print STDERR "All done.\n" . $stats->Show();
 
 sub Checkpoint {
     my ($kmerFramer, $savedError, $workDir) = @_;
+    print STDERR "Error in progress: $savedError\n";
     if ($workDir) {
         # Here we failed retrieving data.  Checkpoint our results so far and percolate the error.
         print STDERR "ERROR retrieving genome data.  Saving progress.\n";
         $kmerFramer->Save("$workDir/kmers.json");
     }
-    die "Fatal error: $savedError";
+    die "Fatal error encountered.";
 }
