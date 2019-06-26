@@ -28,7 +28,7 @@ been annotated.
 =head2 Parameters
 
 The positional parameter is the name of the output directory.  The output directory will contain
-the database in JSON format in the file C<kmers.json>, and a summary of the useful kmers in
+the database in internal format in the file C<kmers.json>, and a summary of the useful kmers in
 the file C<stats.tbl>.
 
 The standard input should contain the IDs of the genomes to process.

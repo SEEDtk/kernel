@@ -123,7 +123,7 @@ sub new {
     # Are we loading?
     if ($options{saved}) {
         # Yes.  Create the object from the file.
-        $retVal = SeedUtils::read_encoded_object($options{saved});
+        $retVal = _Load($options{saved});
     } else {
         # No.  Create a blank object.
         my (%kHash, %gHash);
@@ -286,7 +286,15 @@ sub Save {
         $oh = $outFile;
     } else {
         open($oh, '>', $outFile) || die "Could not open JSON output file for kmers: $!";
-        SeedUtils::write_encoded_object({ K => $self->{K}, kHash => $self->{kHash}, gHash => $self->{gHash} }, $oh);
+        print $oh $self->{K} . "\n";
+        my $kHash = $self->{kHash};
+        for my $kmer (keys %$kHash) {
+            print $oh join("\t", $kmer, @{$kHash->{$kmer}}) ."\n";
+        }
+        my $gHash = $self->{gHash};
+        for my $genome (keys %$gHash) {
+            print $oh "$genome\n";
+        }
     }
 }
 
@@ -640,6 +648,51 @@ sub gCheck {
 
 
 =head2 Internal Utilities
+
+=head3 _Load
+
+    my $kmerFramer = KmerFramer::_Load($file);
+
+Load this object from a file saved using L</Save>.
+
+=over 4
+
+=item file
+
+The name of the file containing the saved kmer database.
+
+=item RETURN
+
+Returns an unblessed object ready to use.
+
+=back
+
+=cut
+
+sub _Load {
+    my ($file) = @_;
+    # First read the kmer size.
+    open(my $ih, '<', $file) || die "Could not open input $file: $!";
+    my $K = <$ih>;
+    chomp $K;
+    # Now read the hashes.
+    my (%kHash, %gHash);
+    while (! eof $ih) {
+        my $line = <$ih>;
+        if ($line =~ /^(\d+\.\d+)/) {
+            $gHash{$1} = 1;
+        } else {
+            chomp $line;
+            my ($kmer, @counts) = split /\t/, $line;
+            $kHash{$kmer} = \@counts;
+        }
+    }
+    # Return the object.
+    my $retVal = { K => $K, kHash => \%kHash, gHash => \%gHash };
+    return $retVal;
+}
+
+=head3 _StoreKmer
 
     $kmerFramer->_StoreKmer($kmer, $frame);
 
