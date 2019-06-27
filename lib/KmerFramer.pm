@@ -33,8 +33,8 @@ package KmerFramer;
 
 This object creates a kmer database that counts the number of times each kmer occurs within a specific coding frame.
 The coding frames are C<-3>, C<-2>, C<-1>, C<0>, C<+1>, C<+2>, and C<+3>.  C<0> indicates a non-coding region.  The
-others indicate the strand (is the DNA on the same or opposite strand as the protein coding) and whether the DNA begins
-in the same codon frame (C<3>), or is off by 1 or 2.
+others indicate the strand (whether the DNA is on the same or opposite strand as the protein coding) and whether the
+DNA begins in the same codon frame (C<3>), or is off by 1 or 2.
 
 The fields in this object are as follows.
 
@@ -56,10 +56,10 @@ A L<Stats> object used to track activity.
 
 The DNA kmer size.
 
-=item kHash
+=item kArray
 
-Reference to a hash mapping each kmer to a 7-tuple containing the counts, in the order C<-3>, C<-2>, C<-1>, C<0>, C<+1>,
-C<+2>, and C<+3>.
+Reference to a array mapping each kmer to a 7-tuple containing the counts, in the order C<-3>, C<-2>, C<-1>, C<0>, C<+1>,
+C<+2>, and C<+3>.  The index of the array is a bitmap of the kmer, computed using C<A> = 0, C<C> = 1, C<G> = 2, and C<T> = 3.
 
 =item gHash
 
@@ -126,8 +126,8 @@ sub new {
         $retVal = _Load($options{saved});
     } else {
         # No.  Create a blank object.
-        my (%kHash, %gHash);
-        $retVal = { kHash => \%kHash, gHash => \%gHash, K => $K };
+        my (@kArray, %gHash);
+        $retVal = { kArray => \@kArray, gHash => \%gHash, K => $K };
     }
     # Update the run-time options.
     $retVal->{debug} = $debug;
@@ -283,9 +283,10 @@ sub Save {
     my ($self, $outFile) = @_;
     open(my $oh, '>', $outFile) || die "Could not open JSON output file for kmers: $!";
     print $oh $self->{K} . "\n";
-    my $kHash = $self->{kHash};
-    for my $kmer (keys %$kHash) {
-        print $oh join("\t", $kmer, @{$kHash->{$kmer}}) ."\n";
+    my $kArray = $self->{kArray};
+    my $n = scalar @$kArray;
+    for (my $i = 0; $i < $n; $i++) {
+        print $oh join("\t", @{$kArray->[$i]}) ."\n";
     }
     my $gHash = $self->{gHash};
     for my $genome (keys %$gHash) {
@@ -501,9 +502,10 @@ sub SequenceList {
 
 =head2 Query Methods
 
+
 =head3 frac
 
-    my ($hFrac, $frame) = $kmerFramer->_frac($kmer);
+    my ($hFrac, $frame) = $kmerFramer->frac($kmer);
 
 For a specified kmer, return the most likely frame identifier and the fraction of occurrences
 in that frame.  If the kmer does not exist, the frame will be undefined and the fraction will
@@ -526,24 +528,10 @@ frame and (1) the ID of the frame.
 
 sub frac {
     my ($self, $kmer) = @_;
-    # Get the kmer's count vector.
-    my $vector = $self->{kHash}{$kmer} // [0, 0, 0, 0, 0, 0, 0];
-    # These will be the return values.
-    my ($hFrac, $frame) = (0);
-    # This is the total for the vector.
-    my $tot = 0;
-    for (my $i = 0; $i < 7; $i++) {
-        my $v = $vector->[$i];
-        if ($v > $hFrac) {
-            $frame = LABELS->[$i];
-            $hFrac = $v;
-        }
-        $tot += $v;
-    }
-    # Convert the best result to a fraction.
-    if ($tot > 0) {
-        $hFrac /= $tot;
-    }
+    # Get the kmer's array index.
+    my $idx = $self->_kIdx($kmer);
+    # Compute the result.
+    my ($hFrac, $frame) = $self->_iFrac($idx);
     # Return the results.
     return ($hFrac, $frame);
 }
@@ -561,13 +549,14 @@ be the total number of unique kmers.
 
 sub Metrics {
     my ($self) = @_;
-    my $kHash = $self->{kHash};
     # Create a statistical calculator.
     my $calc = Statistics::Descriptive::Sparse->new();
-    for my $kmer (keys %$kHash) {
+    my $i = $self->_iFirst();
+    while (defined($i)) {
         # Get the probability
-        my ($frac) = $self->frac($kmer);
+        my ($frac) = $self->_Frac($i);
         $calc->add_data($frac);
+        $i = $self->_iNext($i);
     }
     return ($calc->mean(), $calc->standard_deviation(), $calc->count());
 }
@@ -602,16 +591,16 @@ Returns a reference to a hash mapping each z-score bracket to its kmer count.
 
 sub Distribution {
     my ($self, $mean, $sdev) = @_;
-    my $debug = $self->{debug};
     # This will be the return hash.
     my %retVal;
     # Loop through the kmers.
-    my $kHash = $self->{kHash};
-    for my $kmer (keys %$kHash) {
-        my ($frac) = $self->frac($kmer);
+    my $i = $self->_iFirst();
+    while (defined($i)) {
+        my ($frac) = $self->_iFrac($i);
         my $z = ($frac - $mean) / $sdev;
         my $bracket = ($z < 0 ? floor($z) : ceil($z));
         $retVal{$bracket}++;
+        $i = $self->_iNext($i);
     }
     # Return the hash.
     return \%retVal;
@@ -645,6 +634,57 @@ sub gCheck {
 
 =head2 Internal Utilities
 
+=head3 _iFrac
+
+    my ($hFrac, $frame) = $kmerFramer->_iFrac($kIdx);
+
+For a specified kmer, return the most likely frame identifier and the fraction of occurrences
+in that frame.  If the kmer does not exist, the frame will be undefined and the fraction will
+be zero.
+
+=over 4
+
+=item kIdx
+
+The bitmap index of the kmer to examine.
+
+=item RETURN
+
+Returns a two-element list consisting of (0) the probability of the kmer being in a particular
+frame and (1) the ID of the frame.
+
+=back
+
+=cut
+
+sub _iFrac {
+    my ($self, $kIdx) = @_;
+    # Get the kmer's count vector.
+    my $vector = [0,0,0,0,0,0,0];
+    if (defined $kIdx) {
+        $vector = $self->{kArray}[$kIdx] // $vector;
+    }
+    # These will be the return values.
+    my ($hFrac, $frame) = (0);
+    # This is the total for the vector.
+    my $tot = 0;
+    for (my $i = 0; $i < 7; $i++) {
+        my $v = $vector->[$i];
+        if ($v > $hFrac) {
+            $frame = LABELS->[$i];
+            $hFrac = $v;
+        }
+        $tot += $v;
+    }
+    # Convert the best result to a fraction.
+    if ($tot > 0) {
+        $hFrac /= $tot;
+    }
+    # Return the results.
+    return ($hFrac, $frame);
+}
+
+
 =head3 _Load
 
     my $kmerFramer = KmerFramer::_Load($file);
@@ -672,19 +712,19 @@ sub _Load {
     my $K = <$ih>;
     chomp $K;
     # Now read the hashes.
-    my (%kHash, %gHash);
+    my (@kArray, %gHash);
     while (! eof $ih) {
         my $line = <$ih>;
         if ($line =~ /^(\d+\.\d+)/) {
             $gHash{$1} = 1;
         } else {
             chomp $line;
-            my ($kmer, @counts) = split /\t/, $line;
-            $kHash{$kmer} = \@counts;
+            my @counts = split /\t/, $line;
+            push @kArray, \@counts;
         }
     }
     # Return the object.
-    my $retVal = { K => $K, kHash => \%kHash, gHash => \%gHash };
+    my $retVal = { K => $K, kArray => \@kArray, gHash => \%gHash };
     return $retVal;
 }
 
@@ -710,23 +750,114 @@ Frame identifier for the kmer.
 
 sub _StoreKmer {
     my ($self, $kmer, $frame) = @_;
-    my $kHash = $self->{kHash};
+    my $kArray = $self->{kArray};
     my $stats = $self->{stats};
     # Compute the frame index.
     my $fidx = INDICES->{$frame};
     # Get the reverse complement.
     my $kmerR = SeedUtils::rev_comp($kmer);
     for my $kmerX ($kmer, $kmerR) {
-        # If this is a new kmer, create an empty array for it.
-        if (! $kHash->{$kmerX}) {
-            $kHash->{$kmerX} = [0, 0, 0, 0, 0, 0, 0];
+        # Compute the kmer index.
+        my $kIdx = $self->_kIdx($kmerX);
+        # Only proceed if the kmer is valid.
+        if (defined $kIdx) {
+            # If this is a new kmer, create an empty array for it.
+            if (! $kArray->[$kIdx]) {
+                $kArray->[$kIdx] = [0, 0, 0, 0, 0, 0, 0];
+            }
+            # Update the indicated frame.
+            $kArray->[$kIdx][$fidx]++;
         }
-        # Update the indicated frame.
-        $kHash->{$kmerX}[$fidx]++;
         # Invert the frame for the next version.
         $fidx = 6 - $fidx;
     }
 }
 
+=head3 _iFirst
+
+    my $i = $kmerFramer->_iFirst();
+
+Get the index of the first useful kmer in the array (that is, the first with a non-zero vector).  Return C<undef> if
+the array is empty.
+
+=cut
+
+sub _iFirst {
+    my ($self) = @_;
+    return $self->_iNext(-1);
+}
+
+=head3 _iNext
+
+    my $i2 = $kmerFramer->_iNext($i);
+
+Get the index of the next useful kmer in the array (that is, the next with a non-zero vector), or C<undef>, if we
+are at the end of the array.
+
+=over 4
+
+=item i
+
+The current position in the array.
+
+=item RETURN
+
+Returns the index of the next nonempty vector entry, or C<undef> if we are at the end of the array.
+
+=back
+
+=cut
+
+sub _iNext {
+    my ($self, $i) = @_;
+    my $i2 = $i + 1;
+    my $retVal;
+    my $kArray = $self->{kArray};
+    my $n = scalar @$kArray;
+    while (! $retVal && $i2 < $n) {
+        my $vector = $kArray->[$i2];
+        if ($vector && grep { $_ > 0 } @$vector) {
+            $retVal = $i2;
+        }
+        $i2++;
+    }
+    return $retVal;
+}
+
+=head3 _kIdx
+
+    my $kIdx = $kmerFramer->_kIdx($kmer);
+
+Return the array index corresponding to a kmer, or C<undef> if the kmer is invalid.
+
+=over 4
+
+=item kmer
+
+The DNA kmer to convert to an array index.
+
+=item RETURN
+
+Returns a number corresponding to the kmer, or C<undef> if the kmer is not DNA.
+
+=back
+
+=cut
+
+use constant BITS => { 'A' => 0, 'C' => 1, 'G' => 2, 'T' => 3, 'U' => 3 };
+
+sub _kIdx {
+    my ($self, $kmer) = @_;
+    my $retVal = 0;
+    while ((my $c = chop $kmer) && defined $retVal) {
+        my $k = BITS->{$c};
+        if (! defined $k) {
+            undef $retVal;
+        } else {
+            $retVal = ($retVal << 2) | $k;
+        }
+    }
+    return $retVal;
+}
 
 1;
