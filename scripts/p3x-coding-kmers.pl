@@ -113,7 +113,7 @@ if ($opt->resume) {
 my $kmerFramer = KmerFramer->new(%options);
 # Loop through the input.
 my $startTime = time;
-my ($batchCount, $genomeCount) = (0, 0);
+my ($batchCount, $genomeCount, $processCount) = (0, 0, 0);
 while (! eof $ih) {
     my $couplets = P3Utils::get_couplets($ih, $keyCol, $opt);
     # First get the names of the genomes.  We rebuild the couplets to genome IDs only.
@@ -136,6 +136,7 @@ while (! eof $ih) {
             print STDERR "Already processed genome $genomeCount: $genomeID $genomeName.\n";
             $stats->Add(genomeSkipped => 1);
         } else {
+            $processCount++;
             print STDERR "Processing genome $genomeCount: $genomeID $genomeName.\n";
             # We will fill these variables from the database.  The actual filling is protected so we can recover.
             my ($seqMap, $seqList);
@@ -159,8 +160,11 @@ while (! eof $ih) {
             $stats->Add(genomeProcessed => 1);
         }
     }
-    my $speed = int(3600 * $genomeCount / (time - $startTime));
-    print "Batch $batchCount complete. $genomeCount genomes, $speed genomes per hour.\n";
+    my $duration = (time - $startTime);
+    if ($processCount && $duration) {
+        my $speed = int(3600 * $processCount / $duration);
+        print "Batch $batchCount complete. $genomeCount genomes, $speed genomes per hour.\n";
+    }
 }
 # Write the kmer database.
 print STDERR "Creating output file in $workDir.\n";
