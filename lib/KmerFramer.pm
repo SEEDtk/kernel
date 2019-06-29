@@ -554,7 +554,7 @@ sub Metrics {
     my $i = $self->_iFirst();
     while (defined($i)) {
         # Get the probability
-        my ($frac) = $self->_Frac($i);
+        my ($frac) = $self->_iFrac($i);
         $calc->add_data($frac);
         $i = $self->_iNext($i);
     }
