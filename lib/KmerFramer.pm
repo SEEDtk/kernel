@@ -286,7 +286,11 @@ sub Save {
     my $kArray = $self->{kArray};
     my $n = scalar @$kArray;
     for (my $i = 0; $i < $n; $i++) {
-        print $oh join("\t", @{$kArray->[$i]}) ."\n";
+        if (! $kArray->[$i]) {
+            print $oh join("\t", 0, 0, 0, 0, 0, 0, 0);
+        } else {
+            print $oh join("\t", @{$kArray->[$i]}) ."\n";
+        }
     }
     my $gHash = $self->{gHash};
     for my $genome (keys %$gHash) {
