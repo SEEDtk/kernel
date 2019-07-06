@@ -108,6 +108,3 @@ $templateEngine->process($opt->template, \%vars, \$html) || die $templateEngine-
 # Output the web page.  For now, we kill wide characters without worrying about it.
 $html =~ s/[^[:ascii:]]+//g;
 print $oh $html;
-
-
-## TODO why only 500 results?
