@@ -108,6 +108,20 @@ If specified, samples will be assembled but not binned.
 
 The suffix to use when naming the bins:  this is appended to the species name.  The default is C<clonal population>.
 
+=item seedrole
+
+The name of the universal role used for seeding the bins (generally only needed for status messages). The default is
+C<PhenTrnaSyntAlph>.
+
+=item seedProtFasta
+
+A FASTA file containing examples of the universal role to use for seeding the bin assignment.
+
+=item seedfasta
+
+The name of the BLAST database for the seed protein in the various PATRIC genomes. The default is
+C<PhenTrnaSyntAlph.fa> in the global data directory.
+
 =back
 
 =cut
@@ -125,6 +139,10 @@ my $opt = ScriptUtils::Opts('sampleID workDir',
         ['noIndex', 'do not index annotated genomes in PATRIC'],
         ['noBin', 'do not bin the samples'],
         ['nameSuffix=s', 'suffix to assign to the bin name', { default => 'clonal population' }],
+        ['seedProtFasta=s', 'name of a FASTA file containing examples of the seed protein to use for seeding the bins',
+                            { default => "$FIG_Config::p3data/seedprot.fa" }],
+        ['seedrole|R=s',   'ID of the universal role to seed the bins', { default => 'PhenTrnaSyntAlph' }],
+        ['seedfasta|F=s',  'BLAST database (or FASTA file) of seed protein in all genomes', { default => "$FIG_Config::p3data/PhenTrnaSyntAlph.fa"}],
         );
 # Close STDIN so we don't hang a parent process.
 close(STDIN);
@@ -164,6 +182,9 @@ $options{engine} = $opt->engine;
 $options{noIndex} = $opt->noindex // 0;
 $options{noBin} = $opt->nobin // 0;
 $options{nameSuffix} = $opt->namesuffix;
+$options{seedProtFasta} = $opt->seedprotfasta;
+$options{seedfasta} = $opt->seedfasta;
+$options{seedrole} = $opt->seedrole;
 # Check the file names. Save the file lengths.
 my $resetOpt = $opt->reset;
 # Are we resetting?

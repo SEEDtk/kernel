@@ -189,6 +189,20 @@ and a role description.  The default is C<uniRoles.tbl> in the SEEDtk global dir
 
 The suffix to use when naming the bins:  this is appended to the species name.  The default is C<clonal population>.
 
+=item seedrole
+
+The name of the universal role used for seeding the bins (generally only needed for status messages). The default is
+C<PhenTrnaSyntAlph>.
+
+=item seedProtFasta
+
+A FASTA file containing examples of the universal role to use for seeding the bin assignment.
+
+=item seedfasta
+
+The name of the BLAST database for the seed protein in the various PATRIC genomes. The default is
+C<PhenTrnaSyntAlph.fa> in the global data directory.
+
 =back
 
 =back
@@ -283,7 +297,14 @@ sub Process {
             # We need to generate bins.
             my $command = join('_', "bin$engine", 'generate');
             print "Generating bins with $command.\n";
-            my $rc = system($command, qq(--nameSuffix="$nameSuffix"), $workDir);
+            my @options;
+            for my $seedopt (qw(seedProtFasta seedrole seedfasta)) {
+                if ($options{$seedopt}) {
+                    push @options, "--$seedopt=$options{$seedopt}";
+                }
+            }
+            my $rc = system($command, qq(--nameSuffix="$nameSuffix"), @options,
+                $workDir);
             die "Error exit $rc from bins_generate." if $rc;
             $force = 1;
         }

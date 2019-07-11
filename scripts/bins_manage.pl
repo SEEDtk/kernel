@@ -59,6 +59,12 @@ If specified, the bins will not be indexed in PATRIC.
 
 The number of minutes to sleep between status checks.  The default is C<2>.
 
+=item altseed
+
+Name of the alternate seed protein to use.  If specified, there must be a DNA fasta file named I<protName>C<.fa>
+and a corresponding protein fasta file named I<protName>C<.faa> in the SEEDtk global directory.  These files
+will be used to seed the binning process and find reference genomes.
+
 =back
 
 =cut
@@ -74,6 +80,7 @@ my $opt = ScriptUtils::Opts('binDir',
         ['maxAsm=i', 'maximum number of assemblies to have running at one time', { default => 1 }],
         ['noIndex', 'if specified, the bins produced will not be indexed in PATRIC'],
         ['sleep=i', 'number of minutes to sleep between awakening cycles', { default => 2 }],
+        ['altseed=s', 'ID of an alternate seed protein to use']
         );
 # Create a statistics object.
 my $stats = Stats->new();
@@ -88,6 +95,10 @@ if (! $binDir) {
 my $maxJobs = $opt->maxjobs;
 my $maxAsm = $opt->maxasm;
 my $extras = ($opt->noindex ? '--noIndex' : '');
+if ($opt->altseed) {
+    my $altSeed = $opt->altseed;
+    $extras .= "--seedrole=$altSeed --seedProtFasta=$FIG_Config::global/$altSeed.faa --seedfasta=$FIG_Config::global/$altSeed.fa";
+}
 my $sleep = $opt->sleep * 60;
 print "Starting main loop for $maxJobs jobs with up to $maxAsm assemblies.\n";
 # Loop until we find the stop file.
