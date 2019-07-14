@@ -7,6 +7,7 @@ use SeedUtils;
 opendir(my $dh, 'Bins_HMP') || die "Could not open binning directory: $!";
 my @samples = grep { -s "Bins_HMP/$_/Eval/index.tbl" } readdir $dh;
 closedir $dh;
+my $count = 0;
 for my $sample (@samples) {
     print STDERR "Processing $sample.\n";
     my $subDir = "Bins_HMP/$sample";
@@ -24,8 +25,9 @@ for my $sample (@samples) {
         my $gto = SeedUtils::read_encoded_object("$subDir/bin$idx.gto");
         my $id = $gto->{id};
         if ($good{$id}) {
-            print "Copying bin $idx: $id\n";
-            File::Copy::Recursive("$subDir/bin$idx.gto", "GoodBins/$id.gto");
+            $count++;
+            print "Copying genome $count from bin $idx: $id\n";
+            File::Copy::Recursive::fcopy("$subDir/bin$idx.gto", "GoodBins/$id.gto");
         }
     }
 }
