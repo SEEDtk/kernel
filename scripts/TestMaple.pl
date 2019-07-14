@@ -29,5 +29,6 @@ for my $sample (@samples) {
             print "Copying genome $count from bin $idx: $id\n";
             File::Copy::Recursive::fcopy("$subDir/bin$idx.gto", "GoodBins/$id.gto");
         }
+        $idx++;
     }
 }
