@@ -4,31 +4,17 @@ use File::Copy::Recursive;
 use Bin;
 use SeedUtils;
 
-opendir(my $dh, 'Bins_HMP') || die "Could not open binning directory: $!";
-my @samples = grep { -s "Bins_HMP/$_/Eval/index.tbl" } readdir $dh;
+my @files = qw(contigs.fasta output.contigs2reads.txt site.tbl);
+opendir(my $dh, 'Bins_Test') || die "Could not open binning directory: $!";
+my @samples = grep { -s "Bins_Test/$_/contigs.fasta" } readdir $dh;
 closedir $dh;
 my $count = 0;
 for my $sample (@samples) {
     print STDERR "Processing $sample.\n";
-    my $subDir = "Bins_HMP/$sample";
-    open(my $ih, '<', "$subDir/Eval/index.tbl") || die "Could not open index.tbl: $!";
-    my $line = <$ih>;
-    my %good;
-    while (! eof $ih) {
-        $line = <$ih>;
-        if ($line =~ /(\d+\.\d+).+1$/) {
-            $good{$1} = 1;
-        }
-    }
-    my $idx = 1;
-    while (-s "$subDir/bin$idx.gto") {
-        my $gto = SeedUtils::read_encoded_object("$subDir/bin$idx.gto");
-        my $id = $gto->{id};
-        if ($good{$id}) {
-            $count++;
-            print "Copying genome $count from bin $idx: $id\n";
-            File::Copy::Recursive::fcopy("$subDir/bin$idx.gto", "GoodBins/$id.gto");
-        }
-        $idx++;
+    my $subDir = "Bins_Test/$sample";
+    my $oldDir = "Bins_HMP/$sample";
+    File::Copy::Recursive::pathempty($subDir) || die "Could not erase $subDir: $!";
+    for my $file (@files) {
+        File::Copy::Recursive::fcopy("$oldDir/$file", "$subDir/$file") || die "Could not copy $file into $subDir: $!";
     }
 }

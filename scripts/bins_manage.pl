@@ -97,7 +97,7 @@ my $maxAsm = $opt->maxasm;
 my $extras = ($opt->noindex ? '--noIndex' : '');
 if ($opt->altseed) {
     my $altSeed = $opt->altseed;
-    $extras .= "--seedrole=$altSeed --seedProtFasta=$FIG_Config::global/$altSeed.faa --seedfasta=$FIG_Config::global/$altSeed.fa";
+    $extras .= " --seedrole=$altSeed --seedProtFasta=$FIG_Config::global/$altSeed.faa --seedfasta=$FIG_Config::global/$altSeed.fa";
 }
 my $sleep = $opt->sleep * 60;
 print "Starting main loop for $maxJobs jobs with up to $maxAsm assemblies.\n";
