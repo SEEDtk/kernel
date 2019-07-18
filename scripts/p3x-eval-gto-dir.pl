@@ -42,8 +42,11 @@ If specified, a report of the most common problematic roles will be written to t
 use strict;
 use P3DataAPI;
 use P3Utils;
-use EvalHelper;
+use EvalCon;
+use EvalCom::Rep;
+use EvalCom::Tax;
 use GenomeTypeObject;
+use GEO;
 
 # Get the command-line options.
 my $opt = P3Utils::script_opts('gtoFile outFile outHtml',
@@ -64,6 +67,33 @@ if (! $gtoDir) {
 } elsif (! -d $gtoDir) {
     die "Invalid or missing GTO directory $gtoDir.";
 }
+# Create the work directory.
+my $workDir = $opt->workdir;
+my $tmpObject;
+if (! $workDir) {
+    $tmpObject = File::Temp->newdir();
+    $workDir = $tmpObject->dirname;
+} elsif (! -d $workDir) {
+    File::Copy::Recursive::pathmk($workDir) || die "Could not create work directory: $!";
+}
+# Create the consistency helper.
+my $evalCon = EvalCon->new(predictors => $opt->predictors);
+# Get access to the statistics object.
+my $stats = $evalCon->stats;
+# Create the completeness helper.
+my $checkDir = $opt->checkdir // "$FIG_Config::p3data/CheckG";
+my ($nMap, $cMap) = $evalCon->roleHashes;
+my %evalOptions = (logH => \*STDERR, stats => $stats);
+my $evalG;
+if (-s "$checkDir/REP") {
+    open(my $xh, '<', "$checkDir/REP") || die "Could not open REP file: $!";
+    my $k = <$xh>;
+    chomp $k;
+    $evalG = EvalCom::Rep->new($checkDir, %evalOptions, K => $k);
+} else {
+    $evalG = EvalCom::Tax->new($checkDir, %evalOptions, roleHashes=> [$nMap, $cMap]);
+}
+my %geoOptions = (roleHashes => [$nMap, $cMap], p3 => $p3, stats => $stats, detail => 1);
 # Loop through the gto directory.
 print STDERR "Scanning $gtoDir.\n";
 opendir(my $dh, $gtoDir) || die "Could not open $gtoDir: $!";
@@ -72,22 +102,19 @@ closedir $dh;
 my ($count, $total) = (0, scalar @gtoFiles);
 print STDERR "$total GTOs found in $gtoDir.\n";
 my %rolesBad;
+my @gtoList;
 for my $gtoFile (@gtoFiles) {
-    # Read in the GTO.
+    # Collect the GTO files.
     $count++;
-    print STDERR "Processing $gtoFile: $count of $total.\n";
-    my $gto = GenomeTypeObject->create_from_file("$gtoDir/$gtoFile");
-    # Call the main processor.
-    my $geo = EvalHelper::ProcessGto($gto, checkDir => $opt->checkdir, predictors => $opt->predictors,
-        parallel => $opt->parallel, workDir => $opt->workdir, p3 => $p3);
-    if ($opt->report) {
-        my $roleReport = $geo->roleReport;
-        for my $role (keys %$roleReport) {
-            $rolesBad{$role}++;
-        }
+    print STDERR "Loading $gtoFile: $count of $total.\n";
+    push @gtoList, $gtoFile;
+    if (scalar @gtoList >= 50) {
+        ProcessGtoList(\@gtoList, \%rolesBad);
+        @gtoList = ();
     }
-    # Write the results.
-    $gto->destroy_to_file("$gtoDir/$gtoFile");
+}
+if (scalar @gtoList) {
+    ProcessGtoList(\@gtoList, \%rolesBad)
 }
 if ($opt->report && $count > 0) {
     print STDERR "Generating role report.\n";
@@ -95,5 +122,54 @@ if ($opt->report && $count > 0) {
     print "Role\tcount\tpercent\n";
     for my $role (@roles) {
         P3Utils::print_cols([$role, $rolesBad{$role}, $rolesBad{$role} * 100 / $count]);
+    }
+}
+
+sub ProcessGtoList {
+    my ($gtoList, $rolesBad) = @_;
+    # Create the eval matrix for the consistency checker.
+    $evalCon->OpenMatrix($workDir);
+    # Loop through the GTOs, gathering completeness data and preparing for the consistency check.
+    my %geoMap;
+    my %gtoMap;
+    for my $gtoFile (@$gtoList) {
+        my $gto = GenomeTypeObject->create_from_file("$gtoDir/$gtoFile");
+        my $geo = GEO->CreateFromGto($gto, %geoOptions);
+        my $genomeID = $gto->{id};
+        $gtoMap{$gtoFile} = $gto;
+        $geoMap{$genomeID} = $geo;
+        # Open the output file for the quality data.
+        my $qFile = "$workDir/$genomeID.out";
+        open(my $oh, '>', $qFile) || die "Could not open work file: $!";
+        # Output the completeness data.
+        $evalG->Check2($geo, $oh);
+        close $oh;
+        $evalCon->AddGeoToMatrix($geo);
+    }
+    $evalCon->CloseMatrix();
+    # Evaluate the consistency.
+    my $rc = system('eval_matrix', "-p", $opt->parallel, '-q', $evalCon->predictors, $workDir, $workDir);
+    if ($rc) {
+        die "EvalCon returned error code $rc.";
+    }
+    # Store the quality metrics in the GEOs.
+    for my $genomeID (keys %geoMap) {
+        my $qFile = "$workDir/$genomeID.out";
+        $geoMap{$genomeID}->AddQuality($qFile);
+    }
+    # Update the GTOs from the GEOs.
+    for my $gtoFile (@$gtoList) {
+        my $gto = $gtoMap{$gtoFile};
+        my $genomeID = $gto->{id};
+        my $geo = $geoMap{$genomeID};
+        $geo->UpdateGTO($gto);
+        $gto->destroy_to_file("$gtoDir/$gtoFile");
+        # Update the report if necessary.
+        if ($opt->report) {
+            my $roleReport = $geo->roleReport;
+            for my $role (keys %$roleReport) {
+                $rolesBad->{$role}++;
+            }
+        }
     }
 }
