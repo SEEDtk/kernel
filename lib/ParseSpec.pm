@@ -172,6 +172,8 @@ and a list of elements. Each element is a 3-tuple consisting of (0) a type defin
 
 Returns the HTML to display the type.
 
+=back
+
 =cut
 
 sub DisplayDefinition {
