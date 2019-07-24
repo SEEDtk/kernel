@@ -24,6 +24,7 @@ use ScriptUtils;
 use Stats;
 use File::Copy::Recursive;
 use Math::Round;
+use SamplePipeline;
 
 =head1 Process All Samples in a Binning Directory
 
