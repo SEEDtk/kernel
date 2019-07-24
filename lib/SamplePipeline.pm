@@ -303,7 +303,7 @@ sub Process {
                     push @options, "--$seedopt=$options{$seedopt}";
                 }
             }
-            my $rc = system($command, qq(--nameSuffix="$nameSuffix"), @options,
+            my $rc = system($command, qq(--nameSuffix=$nameSuffix), @options,
                 $workDir);
             die "Error exit $rc from bins_generate." if $rc;
             $force = 1;
