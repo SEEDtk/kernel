@@ -55,7 +55,7 @@ for my $sample (sort keys %$samples1H) {
     if ($file2) {
         my ($good1, $bad1) = countBins($samples1H->{$sample});
         my ($good2, $bad2) = countBins($file2);
-        P3Utils::print_cols($sample, $good1, $bad1, $good2, $bad2);
+        P3Utils::print_cols([$sample, $good1, $bad1, $good2, $bad2]);
     }
 }
 
