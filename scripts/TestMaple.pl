@@ -16,7 +16,7 @@ my @gtos = grep { $_ =~ /^\d+\.\d+\.gto$/ } readdir $dh;
 my %gtos;
 for my $gto (@gtos) {
     if ($gto =~ /(\d+\.\d+)\.gto/) {
-        $gtos{$1} = $gto;
+        $gtos{$1} = "Italians/0_10000/$gto";
     }
 }
 my %geoOptions = (roleHashes => [$nMap, $cMap], stats => $stats, detail => 0, logH => \*STDERR);
