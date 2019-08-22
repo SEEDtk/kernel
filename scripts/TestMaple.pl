@@ -12,6 +12,7 @@ my ($nMap, $cMap) = EvalCon::LoadRoleHashes("$FIG_Config::p3data/roles.in.subsys
 print STDERR "Loading GTO directory.\n";
 opendir(my $dh, "Italians/0_10000") || die "Could not open italian directory: $!";
 open(my $ih, "<italians2.tbl") || die "Could not open input: $!";
+open(my $oh, ">italians.prot.fa") || die "Could not open protein fasta: $!";
 my @gtos = grep { $_ =~ /^\d+\.\d+\.gto$/ } readdir $dh;
 my %gtos;
 for my $gto (@gtos) {
@@ -19,6 +20,7 @@ for my $gto (@gtos) {
         $gtos{$1} = "Italians/0_10000/$gto";
     }
 }
+closedir $dh;
 my %geoOptions = (roleHashes => [$nMap, $cMap], stats => $stats, detail => 0, logH => \*STDERR);
 # print the output header
 my @roles = sort keys %$nMap;
@@ -35,6 +37,9 @@ while (! eof $ih) {
         my $geo = GEO->CreateFromGto($gto, %geoOptions);
         my $roleH = $geo->roleCounts;
         P3Utils::print_cols([$genome, $name, $complete, $contam, map { $roleH->{$_} // 0 } @roles]);
+        print $oh ">$genome $name\n" . $geo->seed . "\n";
     }
 }
+close $oh;
+close $ih;
 print STDERR "All done.\n" . $stats->Show();
