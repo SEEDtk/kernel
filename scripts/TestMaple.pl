@@ -22,7 +22,7 @@ for my $gto (@gtos) {
 my %geoOptions = (roleHashes => [$nMap, $cMap], stats => $stats, detail => 0, logH => \*STDERR);
 # print the output header
 my @roles = sort keys %$nMap;
-P3Utils::p3_cols(['genome_id', 'genome_name', 'completeness', 'contamination', @roles]);
+P3Utils::print_cols(['genome_id', 'genome_name', 'completeness', 'contamination', @roles]);
 print STDERR scalar(@roles) . " roles found in database.\n";
 my ($headers, $cols) = P3Utils::find_headers($ih, input => 'genome_id', 'genome_name', 'completeness', 'contamination');
 while (! eof $ih) {
@@ -34,7 +34,7 @@ while (! eof $ih) {
         my $gto = GenomeTypeObject->create_from_file($gtos{$genome});
         my $geo = GEO->CreateFromGto($gto, %geoOptions);
         my $roleH = $geo->roleCounts;
-        P3Utils::p3_cols([$genome, $name, $complete, $contam, map { $roleH->{$_} // 0 } @roles]);
+        P3Utils::print_cols([$genome, $name, $complete, $contam, map { $roleH->{$_} // 0 } @roles]);
     }
 }
 print STDERR "All done.\n" . $stats->Show();
