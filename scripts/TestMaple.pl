@@ -2,44 +2,44 @@ use strict;
 use FIG_Config;
 use SeedUtils;
 use P3Utils;
+use GEO;
+use EvalCon;
+use Stats;
 
-opendir(my $dh, 'Bins_HMP') || die "Could not open binning directory: $!";
-my @samples = grep { -s "Bins_HMP/$_/Eval/index.tbl" } readdir $dh;
+my $stats = Stats->new();
+print STDERR "Loading role hashes.\n";
+my ($nMap, $cMap) = EvalCon::LoadRoleHashes("$FIG_Config::p3data/roles.in.subsystems", $stats);
+print STDERR "Loading GTO directory.\n";
+opendir(my $dh, "Italians/0_10000") || die "Could not open italian directory: $!";
+open(my $ih, "<italians2.tbl") || die "Could not open input: $!";
+open(my $oh, ">italians.prot.fa") || die "Could not open protein fasta: $!";
+my @gtos = grep { $_ =~ /^\d+\.\d+\.gto$/ } readdir $dh;
+my %gtos;
+for my $gto (@gtos) {
+    if ($gto =~ /(\d+\.\d+)\.gto/) {
+        $gtos{$1} = "Italians/0_10000/$gto";
+    }
+}
 closedir $dh;
-my $binCount = 0;
-my %roleBad;
-for my $sample (@samples) {
-    print STDERR "Processing $sample.\n";
-    my $subDir = "Bins_HMP/$sample";
-    # Loop through the bins.
-    for (my $i = 1; -s "$subDir/bin$i.gto"; $i++) {
-        my $gto = SeedUtils::read_encoded_object("$subDir/bin$i.gto");
-        my $qHash = $gto->{quality};
-        # We only process bins that Maulik thinks are good.
-        if ($qHash->{genome_quality} eq 'Good') {
-            print STDERR "Scanning $sample bin $i.\n";
-            $binCount++;
-            my %roles;
-            for my $type (qw(consistency_roles completeness_roles)) {
-                my $rCounts = $qHash->{problematic_roles_report}{$type};
-                for my $role (keys %$rCounts) {
-                    if ($rCounts->{$role}[0] != $rCounts->{$role}[1]) {
-                        $roles{$role} = 1;
-                    }
-                }
-            }
-            for my $role (keys %roles) {
-                $roleBad{$role}++;
-            }
-        }
+my %geoOptions = (roleHashes => [$nMap, $cMap], stats => $stats, detail => 0, logH => \*STDERR);
+# print the output header
+my @roles = sort keys %$nMap;
+P3Utils::print_cols(['genome_id', 'genome_name', 'completeness', 'contamination', @roles]);
+print STDERR scalar(@roles) . " roles found in database.\n";
+my ($headers, $cols) = P3Utils::find_headers($ih, input => 'genome_id', 'genome_name', 'completeness', 'contamination');
+while (! eof $ih) {
+    my ($genome, $name, $complete, $contam) = P3Utils::get_cols($ih, $cols);
+    $stats->Add(genomeIn => 1);
+    if ($gtos{$genome}) {
+        print STDERR "Processing $genome: $name\n";
+        $stats->Add(gtoFound => 1);
+        my $gto = GenomeTypeObject->create_from_file($gtos{$genome});
+        my $geo = GEO->CreateFromGto($gto, %geoOptions);
+        my $roleH = $geo->roleCounts;
+        P3Utils::print_cols([$genome, $name, $complete, $contam, map { $roleH->{$_} // 0 } @roles]);
+        print $oh ">$genome $name\n" . $geo->seed . "\n";
     }
 }
-print STDERR "$binCount bins scanned.\n";
-if ($binCount > 0) {
-    my @roles = sort { $roleBad{$b} <=> $roleBad{$a} } keys %roleBad;
-    print "Role\tcount\tpercent\n";
-    for my $role (@roles) {
-        my $pct = $roleBad{$role} * 100 / $binCount;
-        P3Utils::print_cols([$role, $roleBad{$role}, $pct]);
-    }
-}
+close $oh;
+close $ih;
+print STDERR "All done.\n" . $stats->Show();
