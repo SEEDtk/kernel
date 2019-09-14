@@ -38,13 +38,36 @@ PATRIC does not have a real snapshot of the coreSEED. Instead, there is a compre
 directory and a directory containing assignments for each genome. The subsystem directory must be
 decompressed before this script is used.
 
-The assignment directory contains a file for each genome, with the same name as the genome ID. The file is
+The assignment subdirectories contains a file for each genome, with the same name as the genome ID. The file is
 tab-delimited. Each row contains (0) a feature ID and (1) a functional assignment.
 
 The Shrub database is used to convert checksums to role IDs.
 
 Note that the C<roles.to.use> file will be restricted to non-hypothetical roles that occur between 1 to 5 times in over 100
 genomes.
+
+=head2 Basic Procedure for Creating the Predictors.
+
+First, you must identify a directory for the predictors and a directory for the role files. In the example below,
+we will use C<FunctionPredictors.X> for the predictors and C<Staging> for the role files.
+
+The first command creates the initial role files.
+
+    p3-build-role-tables Staging Annotations Subsystems
+
+The following four commands are run repeatedly in a loop. When the output of L<build_roles_to_use.pl> indicates that
+all of the roles are good, the loop stops.
+
+    build_matrix --clear Staging/raw.table FunctionPredictors.X Staging/roles.to.use
+    build_LDA_predictors FunctionPredictors.X
+    cp Staging/roles.to.use FunctionPredictors.X/
+    build_roles_to_use FunctionPredictors.X Staging
+
+Once the role set has converged, to install the new predictors you must (1) copy C<roles.in.subsystems> from C<Staging>
+to the SEEDtk P3Data directory. (2) Copy C<FunctionPredictors.X/roles.to.use> to the SEEDtk P3Data directory. (3)
+Symbolically link C<FunctionPredictors> in the P3Data directory to C<FunctionPredictors.X>.
+
+=cut
 
 =head2 Parameters
 
