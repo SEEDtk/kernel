@@ -172,16 +172,25 @@ if ($subsystems) {
 }
 # Now we build the raw table. Get the genomes.
 opendir(my $adh, $annotations) || die "Could not open annotations directory: $!";
-my @genomes = sort grep { $genomes{$_} && -s "$annotations/$_" } readdir $adh;
+my @subDirs = grep { -d "$annotations/$_" } readdir $adh;
 closedir $adh;
+my %genomeFiles;
+for my $subDir (@subDirs) {
+    opendir(my $dh, "$annotations/$subDir") || die "Could not open $annotations/$subDir: $!";
+    while (my $file = readdir $dh) {
+        if ($genomes{$file}) {
+            $genomeFiles{$file} = "$annotations/$subDir/$file";
+        }
+    }
+}
 # Open the output file.
 open(my $oh, ">$outDir/raw.table") || die "Could not open raw.table: $!";
 # The role counts will be stored in here.
 my %roleCount;
 # Loop through the genomes.
-for my $genome (@genomes) {
+for my $genome (sort keys %genomeFiles) {
     print "Processing $genome.\n";
-    open(my $ih, "$annotations/$genome") || die "Could not open $genome annotations: $!";
+    open(my $ih, '<', $genomeFiles{$genome}) || die "Could not open $genome annotations: $!";
     # This will track the genome counts for each role.
     my %gRoleCount;
     while (! eof $ih) {
