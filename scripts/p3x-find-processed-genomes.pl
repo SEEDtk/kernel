@@ -26,6 +26,10 @@ Write progress messages to STDERR.
 If specified, the name of a directory to which the FASTA and GTO files found should be copied.  This directory's files will
 be the ones listed in the output.
 
+=item fix
+
+Restore missing FASTA files from GTOs.
+
 =item all
 
 If specified, all genomes will be output, not just the good ones.
@@ -40,12 +44,14 @@ use P3Utils;
 use Stats;
 use GEO;
 use File::Copy::Recursive;
+use GenomeTypeObject;
 
 # Get the command-line options.
 my $opt = P3Utils::script_opts('mainDir', P3Utils::ih_options(),
         ['verbose|debug|v', 'write progress messages to STDERR'],
         ['all', 'output all genomes, even bad ones'],
         ['copy=s', 'copy GTOs and FASTAs to specified directory'],
+        ['fix', 'restore missing FASTA files from GTOs']
         );
 # Get the debug option.
 my $debug = $opt->verbose;
@@ -53,6 +59,7 @@ my $stats = Stats->new();
 # Get the other options.
 my $copy = $opt->copy;
 my $all = $opt->all;
+my $fix = $opt->fix;
 if ($copy && ! -d $copy) {
     print STDERR "Creating copy directory $copy.\n" if $debug;
     File::Copy::Recursive::pathmk($copy) || die "Could not create $copy: $!";
@@ -142,6 +149,17 @@ while (! eof $ih) {
                 $fastaFile = '';
             }
             if ($all || $goodSeed) {
+                if ($fix) {
+                    if (! $fastaFile) {
+                        # Here we need to create a FASTA file.
+                        print STDERR "Creating FASTA file for $genomeID.\n" if $debug;
+                        $stats->Add(fastaCreated => 1);
+                        $fastaFile = $gtoFile;
+                        $fastaFile =~ s/gto$/fa/;
+                        my $gto = GenomeTypeObject->create_from_file($gtoFile);
+                        $gto->write_contigs_to_file($fastaFile);
+                    }
+                }
                 if ($copy) {
                     File::Copy::Recursive::fcopy($gtoFile, "$copy/$genomeID.gto") || die "Could not copy $gtoFile: $!";
                     $gtoFile = "$copy/$genomeID.gto";
