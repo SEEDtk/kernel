@@ -21,7 +21,7 @@ package Assembly;
     use strict;
     use warnings;
     use SeedUtils;
-    use SeedAware;
+    use SeedTkRun;
     use File::Path;
 
 =head1 Assemble Metagenomic Sample Reads
@@ -64,7 +64,7 @@ sub Assemble {
     # First we must run the samples through the assembly RAST and get back a job ID.
     my $cmd = "ar-run -f " . join(" ", @$samples) . " -a kiki";
     my $jobID;
-    my $rc = SeedAware::run_redirected('ar-run', '-f', @$samples, '-a', 'kiki', { stdout => \$jobID });
+    my $rc = SeedTkRun::run_redirected('ar-run', '-f', @$samples, '-a', 'kiki', { stdout => \$jobID });
     if ($rc) { die "Improper exit code $rc from ar-run"; }
     chomp $jobID;
     Print($oh, "ARAST job ID is $jobID.\n");
@@ -75,7 +75,7 @@ sub Assemble {
         # Wait one minute.
         sleep 60;
         # Get the job status.
-        $rc = SeedAware::run_redirected('ar-stat', '-j', $jobID, { stdout => \$status });
+        $rc = SeedTkRun::run_redirected('ar-stat', '-j', $jobID, { stdout => \$status });
         if ($rc) { die "Improper exit code $rc from ar-stat."; }
         if ($status =~ /Complete/) {
             $assembled = 1;

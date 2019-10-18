@@ -21,7 +21,7 @@ use strict;
 use warnings;
 use FIG_Config;
 use ScriptUtils;
-use SeedAware;
+use SeedTkRun;
 use File::Copy::Recursive;
 
 =head1 Assemble Bins from Reads
@@ -74,7 +74,7 @@ my @inputs = grep { $_ =~ /\.fastq$/ } readdir $dh;
 closedir $dh;
 print scalar(@inputs) . " bin files found in $binDir.\n";
 # Find the SPAdes assembler.
-my $cmdPath = SeedAware::executable_for('spades.py');
+my $cmdPath = SeedTkRun::executable_for('spades.py');
 print "Assembler found at $cmdPath.\n";
 # Loop through the input files.
 for my $inFile (@inputs) {

@@ -3,7 +3,7 @@ package Projection;
 use strict;
 use warnings;
 use gjo::stat;
-use BlastInterface;
+use BlastUtils;
 use Data::Dumper;
 
 sub relevant_projection_data
@@ -104,7 +104,7 @@ sub get_blast_cutoffs
                     }
                 }
                 my @output =
-                  &BlastInterface::blast( \@seq_tuples, \@seq_tuples,
+                  &BlastUtils::blast( \@seq_tuples, \@seq_tuples,
                     'blastp', { outForm => 'sim' } );
 
                 my %best;
@@ -206,7 +206,7 @@ sub bitscore_stats_by_family
                     }
                 }
                 my @output =
-                   &BlastInterface::blast( \@seq_tuples, \@seq_tuples,
+                   &BlastUtils::blast( \@seq_tuples, \@seq_tuples,
                                        'blastp', { outForm => 'sim' } );
 
                if ( @output < 3 ) {
@@ -491,7 +491,7 @@ sub bad_sims
     if ( !$blast_parms ) { return undef }
     my ( $worst, $seq_tuples ) = @{$blast_parms};
 
-    my @sims = &BlastInterface::blast( [ $peg, '', $seq ],
+    my @sims = &BlastUtils::blast( [ $peg, '', $seq ],
         $seq_tuples, 'blastp', { outForm => 'sim' } );
     my $sim;
     while ( ( $sim = shift @sims ) && ( $sim->id2 eq $peg ) ) { }

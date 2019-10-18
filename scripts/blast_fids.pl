@@ -23,7 +23,7 @@ use FIG_Config;
 use Shrub;
 use ScriptUtils;
 use gjoseqlib;
-use BlastInterface;
+use BlastUtils;
 use SeedUtils;
 use Shrub::Contigs;
 use BasicLocation;
@@ -202,7 +202,7 @@ if (! $blastdb) {
     $db = \@triples;
 }
 # Now run the BLAST.
-my $matches = BlastInterface::blast(\@query, $db, $blastProg, \%blast);
+my $matches = BlastUtils::blast(\@query, $db, $blastProg, \%blast);
 # Format the output.
 for my $match (@$matches) {
     print join("\t", @$match) . "\n";

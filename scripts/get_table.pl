@@ -1,6 +1,6 @@
 use strict;
 use Data::Dumper;
-use BlastInterface;
+use BlastUtils;
 use gjoseqlib;
 
 my %seen;
@@ -19,7 +19,7 @@ gjoseqlib::write_fasta('EvalBinning/condensed.fa', \@seqs);
 #my %genomes = map { ($_->[1] =~ /(\d+\.\d+)\t(\S+ \S+)/) ? ($1 => $2) : () } @seqs;
 #foreach my $seq (@seqs)
 #{
-#    my @matches = grep { ($_->[0] ne $_->[1]) } &BlastInterface::blastp([$seq],\@seqs,{});
+#    my @matches = grep { ($_->[0] ne $_->[1]) } &BlastUtils::blastp([$seq],\@seqs,{});
 #    my $g1;
 #    my $g2;
 #    my $iden = $matches[0]->[2];

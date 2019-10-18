@@ -5,7 +5,7 @@ use Stats;
 use Data::Dumper;
 use SeedUtils;
 use gjoseqlib;
-use BlastInterface;
+use BlastUtils;
 #######################################################
 
 =head1 annotation_utilities

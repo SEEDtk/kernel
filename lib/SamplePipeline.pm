@@ -26,7 +26,7 @@ package SamplePipeline;
     use Bin::Improve;
     use Loader;
     use SeedUtils;
-    use SeedAware;
+    use SeedTkRun;
     use RoleParse;
 
 =head1 Process a Metagenome Sample Pipeline
@@ -279,7 +279,7 @@ sub Process {
             }
         }
         # Find the command.
-        my $cmdPath = SeedAware::executable_for($cmd);
+        my $cmdPath = SeedTkRun::executable_for($cmd);
         die "Could not find $cmd." if ! $cmdPath;
         # Execute the command.
         print "Running spades: " . join(" ", @parms) . "\n";

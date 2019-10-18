@@ -22,7 +22,7 @@ use warnings;
 use FIG_Config;
 use Shrub;
 use ScriptUtils;
-use SeedAware;
+use SeedTkRun;
 
 =head1 Synthesize Metagenomes
 
@@ -122,7 +122,7 @@ my $out = "$dir/input.fa";
 my $len = $opt->len;
 my $mean = $opt->mean;
 my $stdev = $opt->stdev;
-my $cmdPath = SeedAware::executable_for($art);
+my $cmdPath = SeedTkRun::executable_for($art);
 die "Could not find $art." if ! $cmdPath;
 # Windows hack for paths with spaces.
 if ($cmdPath =~ /\s/) {

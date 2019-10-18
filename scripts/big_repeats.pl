@@ -22,7 +22,7 @@ use warnings;
 use FIG_Config;
 use Shrub;
 use ScriptUtils;
-use BlastInterface;
+use BlastUtils;
 
 =head1 Find Repeat Regions in Genomes
 
@@ -111,7 +111,7 @@ if ($opt->genome) {
         $queryFile = $opt->input;
     } else {
         # No. Make a query file out of the standard input.
-        $queryFile = BlastInterface::get_query(\*STDIN);
+        $queryFile = BlastUtils::get_query(\*STDIN);
         if (! $queryFile) {
             die "Could not create FASTA query file from standard input.";
         }
@@ -127,7 +127,7 @@ if ($opt->blastdb) {
     $haveDB = 1;
 } else {
     # No. Make a blast database out of the query file.
-    $blastDB = BlastInterface::get_db($queryFile, 'blastn', $FIG_Config::temp);
+    $blastDB = BlastUtils::get_db($queryFile, 'blastn', $FIG_Config::temp);
     if (! $blastDB) {
         die "Could not create BLAST database out of $queryFile.";
     }
@@ -137,7 +137,7 @@ my %seen;
 # Now we run the BLAST. If we find a match longer than the minimum length that does not overlap itself,
 # we treat it as a repeat region and write it to the output. Note that we pre-filter on the length and
 # percent identity.
-my $matches = BlastInterface::blast($queryFile, $blastDB, 'blastn',
+my $matches = BlastUtils::blast($queryFile, $blastDB, 'blastn',
                 { maxE => 1e-20, minIden => $opt->miniden / 100, minlen => $opt->minlen,
                   outForm => 'hsp', includeSelf => 1 });
 for my $match (@$matches) {
