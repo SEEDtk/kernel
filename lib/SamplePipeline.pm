@@ -478,10 +478,10 @@ sub RastBins {
             if ($improver->eligible($gto)) {
                 # Yes.  Try to improve it.
                 print "Attempting to improve $binNum.\n";
-                $triples = $improver->Process($bin, $gto, $binFastaFile, $triples);
-                if ($triples) {
-                    print "Submitting improved bin to RAST.\n";
-                    $gto = RASTlib::Annotate($triples, $taxonID, "$name cleaned", %rastOpts);
+                my $improved = $improver->Improve($bin->{refGenomes}, $gto);
+                if ($improved) {
+                    print "Updating fasta file for $binNum.\n";
+                    $gto->write_contigs_to_file($binFastaFile);
                 }
             }
             print "Spooling genome to $workDir.\n";
