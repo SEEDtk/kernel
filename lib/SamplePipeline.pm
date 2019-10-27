@@ -481,7 +481,7 @@ sub RastBins {
                 my $improved = $improver->Improve($bin->{refGenomes}, $gto);
                 if ($improved) {
                     print "Updating fasta file for $binNum.\n";
-                    $gto->write_contigs_to_file($binFastaFile);
+                    GenomeTypeObject::write_contigs_to_file($gto, $binFastaFile);
                 }
             }
             print "Spooling genome to $workDir.\n";
