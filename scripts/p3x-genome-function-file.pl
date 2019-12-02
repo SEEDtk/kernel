@@ -74,10 +74,8 @@ for my $feature (@$features) {
     # Compensate for strand.
     my $len = $stop - $start + 1;
     ($start,$stop) = ($stop,$start) if $dir eq '-';
-    # Parse the function.
-    my $roles = process_function($function, 1);
     # Store the ORF in the ORF hash.
-    $orfs{"$contig$dir$stop"} = [$len, @$roles];
+    $orfs{"$contig$dir$stop"} = [$len, $function];
     $fcount++;
     print STDERR "$fcount of $ftotal PATRIC features processed.\n" if ($fcount % 100 == 0);
 }
@@ -88,6 +86,7 @@ my $line = <$ih>;
 # Loop through the input file.
 print STDERR "Analyzing input file.\n";
 $fcount = 0;
+print "ORF\tPatric_len\tnew_len\tpatric_fun\tnew_fun\n";
 while (! eof $ih) {
     my ($contig, $start, $dir, $stop, $function) = P3Utils::get_fields($ih);
     $stats->Add(newPeg => 1);
@@ -101,39 +100,47 @@ while (! eof $ih) {
     my $roles = process_function($function, -1);
     if (! $orfs{$orf}) {
         $stats->Add(extraOrf => 1);
+        print "$orf\t\t$len\t\t$function\n";
     } else {
-        my ($len2, @roles2) = @{$orfs{$orf}};
+        # Get the PATRIC data and parse its function.
+        my $same;
+        my ($len2, $function2) = @{$orfs{$orf}};
+        my $roles2 = process_function($function, 1);
         if ($len2 > $len) {
             $stats->Add(patricLonger => 1);
         } elsif ($len > $len2) {
             $stats->Add(newLonger => 1);
         } else {
             $stats->Add(sameLength => 1);
+            if ($function eq $function2) {
+                $stats->Add(samePeg => 1);
+                $same = 1;
+            }
         }
-        if (scalar @$roles > scalar @roles2) {
+        if (scalar @$roles > scalar @$roles2) {
             $stats->Add(newMoreRoles => 1);
-        } elsif (scalar @$roles < scalar @roles2) {
+        } elsif (scalar @$roles < scalar @$roles2) {
             $stats->Add(patricMoreRoles => 1);
         } else {
-            for (my $i = 0; $i < @roles2; $i++) {
-                if ($roles->[$i] eq $roles2[$i]) {
+            for (my $i = 0; $i < @$roles2; $i++) {
+                if ($roles->[$i] eq $roles2->[$i]) {
                     $stats->Add(roleMatch => 1);
                 } else {
                     $stats->Add(roleDifferent => 1);
                 }
             }
         }
+        if (! $same) {
+            print "$orf\t$len2\t$len\t$function2\t$function\n";
+        }
     }
     $fcount++;
     print STDERR "$fcount new features processed.\n" if ($fcount % 100 == 0);
 }
-# Unspool the role comparisons.
-print "role\tcount\tpatric\tnew\n";
-my @roles = sort { $checksum{$a} cmp $checksum{$b} } keys %roleCounts;
-for my $checksum (@roles) {
+# Count the role differences.
+for my $checksum (keys %roleCounts) {
     my ($count, $patric, $new) = @{$roleCounts{$checksum}};
     if ($count) {
-        print "$checksum{$checksum}\t$count\t$patric\t$new\n";
         if ($count > 0) {
             $stats->Add(patricExtraRole => $count);
         } else {
