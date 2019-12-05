@@ -127,6 +127,9 @@ while (! eof $ih) {
         my $roles2 = process_function($function, 1);
         if ($function eq $function2) {
             $stats->Add(sameFunction => 1);
+            if (abs($len - $len2)/$len <= 0.1) {
+                $stats->Add(closeLength => 1);
+            }
         }
         if ($len2 > $len) {
             $stats->Add(patricLonger => 1);
@@ -138,9 +141,6 @@ while (! eof $ih) {
                 $stats->Add(samePeg => 1);
                 $same = 1;
             }
-        }
-        if (abs($len - $len2)/$len <= 0.1) {
-            $stats->Add(closeLength => 1);
         }
         if (scalar @$roles > scalar @$roles2) {
             $stats->Add(newMoreRoles => 1);

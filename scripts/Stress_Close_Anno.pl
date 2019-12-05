@@ -29,7 +29,11 @@ and a comparison log.
 
 To pre-process a genome, we download a GTO for the genome and remove all the features, then download protein FASTA
 files for all the genomes in its close-genome table.  Then for each test, we create the control file and the
-working directory, then run L<Close_Anno.pl> and L<p3x-genome-function-file.pl>.
+working directory, run L<Close_Anno.pl>, and finally run L<p3x-genome-function-file.pl>.
+
+The control files created will have extra fields used to analyze the results.  In addition to the FASTA file name and
+the genetic code, there will be a column for the GC content and the normalized similiarity with the target genome.
+These are used to create a summary of the results.
 
 =head2 Parameters
 
@@ -38,6 +42,13 @@ The positional parameter is the name of the testing directory.
 The command-line options are as follows:
 
 =over 4
+
+=item build
+
+If specified, then the input files should be built and the genomes pre-processed.  Otherwise, the test directories are presumed to already exist
+and the tests are simply run from inside them.  The parameter should be the name of a file containing the IDs of the target genomes in the first
+column.  The incoming genomes must be representative genomes found in the file C<rep100.sorted.tbl> in the SEEDtk global directory.  This
+file contains all the good PATRIC genomes sorted by similarity to its representative.
 
 =item missing
 
@@ -52,6 +63,7 @@ Only run the comparisons.
 =cut
 
 use strict;
+use FIG_Config;
 use P3DataAPI;
 use P3Utils;
 use GenomeTypeObject;
@@ -61,7 +73,8 @@ use File::Copy::Recursive;
 $| = 1;
 # Get the command-line options.
 my $opt = P3Utils::script_opts('testDir',
-        ['compare', 'rerun the comparisons'],
+        ['build=s', 'build the test directories and files from the specified input genomes'],
+        ['compare', 'rerun the comparisons only'],
         ['missing', 'only run tests that have not been run yet']);
 # Get access to PATRIC.
 my $p3 = P3DataAPI->new();
@@ -72,48 +85,170 @@ if (! $testDir) {
 } elsif (! -d $testDir) {
     die "Invalid or missing testing directory $testDir.";
 }
-# Get the test genome files.
+if ($opt->build) {
+    open(my $ih, '<', $opt->build) || die "Could not open build file: $!";
+    BuildTestDirectory($ih, $testDir);
+}
+# Get the test genome directories.
 opendir(my $dh, $testDir) || die "Could not open $testDir: $!";
-my @gFiles = sort grep { $_ =~ /^\d+\.\d+\.tbl$/ } readdir $dh;
-print scalar(@gFiles) . " test files found.\n";
+my @gDirs = sort grep { $_ =~ /^\d+\.\d+\./ && -f "$testDir/$_/control.tbl" } readdir $dh;
+print scalar(@gDirs) . " test directories found.\n";
 # Make the test directory current.
 chdir "$testDir";
-# This hash will map genome IDs to protein FASTA file names.
-my %genomeFasta;
-# This hash will map genome IDs to genetic codes.
-my %genomeGC;
-# Loop through the test genome files.
-for my $gFile (@gFiles) {
-    # Extract the genome ID.
-    my ($genomeID) = ($gFile =~ /^(\d+\.\d+)/);
-    print "Processing tests for $genomeID.\n";
-    # Get the GTO for this genome and remove all the feature data.
-    CreateSourceGto($genomeID);
-    # Now read the neighbor file.
-    my $nList = FindCloseGenomes($genomeID);
-    my $nCount = scalar @$nList;
-    if ($nCount < 2) {
-        die "Neighbor file for $genomeID too small.";
+# Loop through the test genome directories.
+for my $gDir (@gDirs) {
+    RunTest($gDir);
+}
+# Now build the analysis file.
+print "Analyzing results.\n";
+my @stats = qw(test_name patricPeg newPeg samePeg sameLength sameFunction closeLength extraOrf lostOrf patricLonger newLonger duration pct_found pct_close pct_same similarity neighbors gc_content);
+open(my $oh, '>', "analysis.tbl") || die "Could not open analysis file: $!";
+P3Utils::print_cols(\@stats, oh => $oh);
+for my $gDir (@gDirs) {
+    print "Analyzing $gDir.\n";
+    my %columns = map {$_ => 0} @stats;
+    $columns{test_name} = $gDir;
+    open(my $ih, '<', "$gDir/DONE") || die "Could not open completion file for $gDir: $!";
+    $columns{duration} = <$ih>;
+    close $ih; undef $ih;
+    open($ih, '<', "$gDir/control.tbl") || die "Could not open control file for $gDir: $!";
+    my ($score, $content, $count) = (0, 0, 0);
+    while (! eof $ih) {
+        my ($genomeID, $gc, $scoreX, $contentX) = P3Utils::get_fields($ih);
+        $score += $scoreX;
+        $content += $contentX;
+        $count++;
+    }
+    $columns{gc_content} = $content / $count;
+    $columns{similarity} = $score / $count;
+    $columns{neighbors} = $count;
+    close $ih; undef $ih;
+    open($ih, '<', "$gDir/compare.log") || die "Could not open comparison file for $gDir: $!";
+    while (! eof $ih) {
+        my $line = <$ih>;
+        if ($line =~ /^(\S+)\s+(\d+)$/) {
+            if (exists $columns{$1}) {
+                $columns{$1} = $2;
+            }
+        }
+    }
+    close $ih;
+    my $orfs = $columns{patricPeg};
+    $columns{pct_found} = ($orfs - $columns{lostOrf}) * 100 / $orfs;
+    $columns{pct_close} = $columns{closeLength} * 100 / $orfs;
+    $columns{pct_same} = $columns{samePeg} * 100 / $orfs;
+    P3Utils::print_cols([map { $columns{$_} } @stats], oh => $oh);
+}
+close $oh;
+print "All done.\n";
+
+## Create the test directory.  For each genome, we need a contigs-only GTO file in the test directory, the protein FASTA files for its
+## neighbors, and 3 or more subdirectories set up to run the tests.
+sub BuildTestDirectory {
+    my ($ih, $testDir) = @_;
+    if (-d $testDir) {
+        print "Clearing test directory.\n";
+        File::Copy::Recursive::pathempty($testDir) || die "Could not erase $testDir: $!";
     } else {
-        print "$nCount neighbors found for $genomeID.\n";
-        # Compute one-half the neighbor count.
-        my $half = ($nCount + 1) >> 1;
-        # Now we run the tests.
-        RunTest($genomeID, $nList, 0, $half, "closest$half");
-        RunTest($genomeID, $nList, $nCount - $half, $half, "furthest$half");
-        RunTest($genomeID, $nList, 0, $nCount, "closest$nCount");
-        if ($half > 2) {
-            RunTest($genomeID, $nList, 0, 2, "closest2");
+        print "Creating test directory.\n";
+        File::Copy::Recursive::pathmk($testDir) || die "Could not create $testDir: $!";
+    }
+    # Now read in the target genome IDs.
+    print "Reading target genomes.\n";
+    my %genomes;
+    while (! eof $ih) {
+        my $line = <$ih>;
+        if ($line =~ /(\d+.\d+)/) {
+            $genomes{$1} = [];
         }
-        if ($half > 1) {
-            RunTest($genomeID, $nList, $nCount - 1, 1, "furthest1");
+    }
+    my $gCount = scalar keys %genomes;
+    print "$gCount genome IDs found.\n";
+    # Now we read the rep-genomes file to find the neighbors.  For each genome, there will be a sub-list of [neighbor, score]
+    # pairs.
+    my %normalizer;
+    open(my $rh, '<', "$FIG_Config::global/rep100.sorted.tbl") || die "Could not open rep100.sorted.tbl: $!";
+    # Skip the header.
+    my $line = <$rh>;
+    while (! eof $rh) {
+        my ($genome, $name, $rep, $score) = P3Utils::get_fields($rh);
+        if ($genomes{$genome}) {
+            print "$genome ($name) found.\n";
+            # Save the normalization factor for this genome.
+            $normalizer{$genome} = $score;
+        } elsif ($genomes{$rep}) {
+            # Here we have a possible neighbor.
+            my $subList = $genomes{$rep};
+            if (scalar(@$subList) < 10) {
+                push @$subList, [$genome, $score];
+                print "$genome ($name) is a neighbor of $rep.\n";
+            }
         }
+    }
+    close $rh;
+    # We have the neighbor lists.  Now we process each genome and its neighbors.
+    for my $genome (sort keys %genomes) {
+        CreateSourceGto($genome);
+        # Get the neighbor list for this genome.
+        my $nList = $genomes{$genome};
+        my $nDenom = $normalizer{$genome};
+        # Create the neighbor FASTA files.  First we need the genetic code and GC content.
+        my @nCouplets = map { [$_->[0], [$_->[0], $_->[1]/$nDenom]] } @$nList;
+        print "Retrieving $genome neighbor data.\n";
+        my $nData = P3Utils::get_data_batch($p3, genome => [], ['gc_content', 'genetic_code'], \@nCouplets, 'genome_id');
+        my $nCount = scalar @$nData;
+        print "$nCount neighbors found.\n";
+        die "Two few neighbors for $genome.\n" if $nCount < 4;
+        # Now we create the files themselves.
+        for my $nTuple (@$nData) {
+            my $nID = $nTuple->[0];
+            print "Downloading $nID proteins.\n";
+            my $proteins = P3Utils::get_data($p3, feature => [['eq', 'genome_id', $nID], ['eq', 'feature_type', 'CDS']], ['patric_id', 'product', 'aa_sequence']);
+            open(my $fh, '>', "$testDir/$nID.faa") || die "Could not open $nID.faa: $!";
+            my ($kept, $skipped) = (0, 0);
+            for my $protein (@$proteins) {
+                my $aaSeq = uc $protein->[2];
+                if ($protein->[1] && $aaSeq && $aaSeq =~ /^[GALMFWKQESPVICYHRNDT]+$/) {
+                    print $fh ">$protein->[0] $protein->[1]\n$aaSeq\n";
+                    $kept++;
+                } else {
+                    print "Invalid protein $protein->[0] skipped.\n";
+                    $skipped++;
+                }
+            }
+            print "$kept proteins kept, $skipped skipped.\n";
+        }
+        # Finally, we create the testing sub-directories.
+        CreateTestDir($genome, $nData, 0, closest => $nCount);
+        if ($nCount > 5) {
+            CreateTestDir($genome, $nData, 0, closest => 5);
+            CreateTestDir($genome, $nData, $nCount - 5, furthest => 5);
+        }
+        CreateTestDir($genome, $nData, 0, closest => 2);
+        CreateTestDir($genome, $nData, $nCount - 1, furthest => 1);
     }
 }
 
+# Create a single testing subdirectory.
+sub CreateTestDir {
+    my ($genome, $nData, $n0, $type, $nCount) = @_;
+    # Create the subdirectory.
+    my $testDirName = "$testDir/$genome.$type$nCount";
+    print "Creating $testDirName.\n";
+    File::Copy::Recursive::pathmk($testDirName) || die "Could not create $testDirName: $!";
+    open(my $oh, '>', "$testDirName/control.tbl") || die "Could not open control file: $!";
+    my $n2 = $n0 + $nCount;
+    for (my $i = $n0; $i < $n2; $i++) {
+        my ($genome, $score, $gc_content, $gc) = @{$nData->[$i]};
+        print $oh "$genome.faa\t$gc\t$score\t$gc_content\n";
+    }
+    close $oh;
+}
+
+# Create the target genome's GTO in the main test directory.
 sub CreateSourceGto {
     my ($genomeID) = @_;
-    my $gtoName = "$genomeID.gto";
+    my $gtoName = "$testDir/$genomeID.gto";
     if (-s $gtoName) {
         print "$genomeID already downloaded.\n";
     } else {
@@ -129,80 +264,38 @@ sub CreateSourceGto {
     }
 }
 
-sub FindCloseGenomes {
-    my ($genomeID) = @_;
-    my @retVal;
-    print "Reading neighbor file for $genomeID.\n";
-    open(my $ih, '<', "$genomeID.tbl") || die "Could not open neighbor file for $genomeID: $!";
-    while (! eof $ih) {
-        my $line = <$ih>;
-        if ($line =~ /(\d+\.\d+)/) {
-            my $neighborID = $1;
-            if ($genomeFasta{$neighborID}) {
-                print "$neighborID is a duplicate.\n";
-            } else {
-                print "Downloading neighbor $neighborID.\n";
-                my $gto = $p3->gto_of($neighborID);
-                if (! $gto) {
-                    print "$neighborID not found-- skipping.\n";
-                } else {
-                    # Save the genetic code and create the FASTA.
-                    $genomeGC{$neighborID} = $gto->{genetic_code} // 11;
-                    print "Creating FASTA file for $neighborID.\n";
-                    my $fastaFile = "$neighborID.fna";
-                    $gto->write_protein_translations_to_file($fastaFile, 1);
-                    $genomeFasta{$neighborID} = $fastaFile;
-                    push @retVal, $neighborID;
-                }
-            }
-        }
-    }
-    return \@retVal;
-}
-
+## Run a test in a single test directory.
 sub RunTest {
-    my ($genomeID, $nList, $i0, $n, $testName) = @_;
-    # Build the commands.
-    my $testDirName = "$genomeID.$testName";
+    my ($testDirName) = @_;
+    # Get the genome ID.
+    my ($genomeID) = ($testDirName =~ /^(\d+\.\d+)/);
+    # Compute the commands.
     my $closeAnno = "Close_Anno --log $testDirName/results.log --gto $testDirName/results.gto $genomeID.gto $testDirName/control.tbl $testDirName";
     my $analyze = "p3x-genome-function-file --log $testDirName/compare.log --input $testDirName/results.tbl $genomeID";
     # Check to see if we need to run this test.
     my $done = -f "$testDirName/DONE";
     if ($opt->missing && $done) {
-        print "Skipping $testName for $genomeID:  already found.\n";
+        print "Skipping $testDirName for $genomeID:  already found.\n";
     } elsif ($opt->compare && $done) {
         Analyze($analyze, $testDirName);
     } else {
-        # Create/clear the test directory.
-        if (-d $testDirName) {
-            print "Clearing $testDirName.\n";
-            File::Copy::Recursive::pathempty($testDirName);
-        } else {
-            print "Creating $testDirName.\n";
-            File::Copy::Recursive::pathmk($testDirName);
-        }
-        # Create the control file for this test.
-        open(my $oh, '>', "$testDirName/control.tbl") || die "Could not create control file: $!";
-        for (my $i = $i0; $i < $i0 + $n; $i++) {
-            my $neighborID = $nList->[$i];
-            print $oh "$genomeFasta{$neighborID}\t$genomeGC{$neighborID}\n";
-        }
-        close $oh; undef $oh;
         print "Running close annotation: $closeAnno\n";
         my $start = time;
         my @results = `$closeAnno`;
-        print ((time - $start) . " seconds to annotate.\n");
-        open($oh, '>', "$testDirName/results.tbl") || die "Could not open results.tbl: $!";
+        my $duration = time - $start;
+        print "$duration seconds to annotate.\n";
+        open(my $oh, '>', "$testDirName/results.tbl") || die "Could not open results.tbl: $!";
         print $oh @results;
         close $oh; undef $oh;
         Analyze($analyze, $testDirName);
         print "Writing the completion flag.\n";
         open($oh, '>', "$testDirName/DONE") || die "Could not write completion file: $!";
-        print $oh "\n";
+        print $oh "$duration";
         close $oh; undef $oh;
     }
 }
 
+## Run the analysis for a single test.
 sub Analyze {
     my ($analyze, $testDirName) = @_;
     print "Running the analysis:  $analyze\n";
