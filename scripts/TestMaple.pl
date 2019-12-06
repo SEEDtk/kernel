@@ -8,5 +8,5 @@ my $fq = FastQ->new($ARGV[0]);
 my $count = 0;
 while ($fq->next()) {
     $count++;
-    print "$count processed.\n" if $count % 4000 == 0;
+    print "$count processed.\n" if $count % 40000 == 0;
 }
