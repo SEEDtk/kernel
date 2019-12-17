@@ -4,12 +4,12 @@ use SeedTkRun;
 
 my ($dir) = @ARGV;
 open (my $dh, $dir) || die "Could not open directory $dir: $!";
-my @files = grep { $_ =~ /^bin\d+\.\d+_[12s]\.fastq/ } readdir $dh;
+my @files = grep { $_ =~ /^bin\.\d+\.\d+_[12s]\.fastq/ } readdir $dh;
 closedir $dh;
 print scalar(@files) . " read files found.\n";
 my %groups;
 for my $file (@files) {
-    my ($prefix, $type) = $file =~ /(bin\d+\.\d+)_(.)/;
+    my ($prefix, $type) = $file =~ /(bin\.\d+\.\d+)_(.)/;
     $groups{$prefix}{"-$type"} = $file;
 }
 chdir $dir;
