@@ -31,7 +31,8 @@ for my $group (sort keys %groups) {
     print "Processing $group.\n";
     my $parmH = $groups{$group};
     my @parms = map { $_, $parmH->{$_} } keys %$parmH;
-    File::Copy::Recursive::pathmk("asm.$group");
+    File::Copy::Recursive::pathmk("asm.$group") || die "Could not make directory asm.$group: $!";
     push @parms, '-o', "asm.$group";
+    print "Starting assembly for $group.\n";
     system($cmdPath, @parms);
 }
