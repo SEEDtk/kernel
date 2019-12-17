@@ -9,7 +9,7 @@ closedir $dh;
 my %groups;
 for my $file (@files1) {
     print "$file ";
-    if ($_ =~ /^(bin\.\d+\.\d+)_([12s])\.fastq/) {
+    if ($file =~ /^(bin\.\d+\.\d+)_([12s])\.fastq/) {
         print "kept.\n";
         $groups{$1}{"-$2"} = $file;
     } else {
