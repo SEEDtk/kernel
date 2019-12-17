@@ -4,13 +4,17 @@ use SeedTkRun;
 
 my ($dir) = @ARGV;
 open (my $dh, $dir) || die "Could not open directory $dir: $!";
-my @files = grep { $_ =~ /^bin\.\d+\.\d+_[12s]\.fastq/ } readdir $dh;
+my @files1 = readdir $dh;
 closedir $dh;
-print scalar(@files) . " read files found.\n";
 my %groups;
-for my $file (@files) {
-    my ($prefix, $type) = $file =~ /(bin\.\d+\.\d+)_(.)/;
-    $groups{$prefix}{"-$type"} = $file;
+for my $file (@files1) {
+    print "$file ";
+    if ($_ =~ /^(bin\.\d+\.\d+)_([12s])\.fastq/) {
+        print "kept.\n";
+        $groups{$1}{"-$2"} = $file;
+    } else {
+        print "rejected.\n";
+    }
 }
 chdir $dir;
 # Find the command.
