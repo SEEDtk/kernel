@@ -3,7 +3,7 @@ use FIG_Config;
 use SeedTkRun;
 
 my ($dir) = @ARGV;
-open (my $dh, $dir) || die "Could not open directory $dir: $!";
+opendir(my $dh, $dir) || die "Could not open directory $dir: $!";
 my @files1 = readdir $dh;
 closedir $dh;
 my %groups;
