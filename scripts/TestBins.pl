@@ -5,9 +5,8 @@ use File::Copy::Recursive;
 
 my ($dir) = @ARGV;
 opendir(my $dh, $dir) || die "Could not open directory $dir: $!";
-my @files1 = grep { -s "$dir/$_/contigs.fasta"  } readdir $dh;
+my @files1 = readdir $dh;
 closedir $dh;
-open(my $ih, '<', "$dir/fq_bin.tbl") || die "Could not open fq_bin: $!";
 my %groups;
 for my $file (@files1) {
     print "$file ";
