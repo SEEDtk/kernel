@@ -37,14 +37,14 @@ for my $genome (@$genomes) {
         print "$bin already annotated.\n";
     } else {
         print "Reading $bin.\n";
-        my $triples = gjoseqlib::read_fasta("asm.bin.$bin/contigs.fasta");
+        my $triples = gjoseqlib::read_fasta("$dir/asm.bin.$bin/contigs.fasta");
         print "Annotating $bin.\n";
         my $gto = RASTlib::Annotate($triples, $taxID, "$name clonal population", noIndex => 1);
         print "Checking eligibility for improvement.\n";
            my $ok = $improver->eligible($gto);
            if ($ok) {
                print "Improving genome.\n";
-               $ok = $improver->improve([$bin], $gto);
+               $ok = $improver->Improve([$bin], $gto);
                if ($ok) {
                    print "Evaluating improved genome.\n";
                    EvalHelper::ProcessGto($gto, ref => $bin, p3 => $p3, external => 1, workDir => $dir);
