@@ -40,18 +40,22 @@ for my $genome (@$genomes) {
         print "Reading $bin.\n";
         my $triples = gjoseqlib::read_fasta("$dir/asm.bin.$bin/contigs.fasta");
         print "Annotating $bin.\n";
-        my $gto = RASTlib::Annotate($triples, $taxID, "$name clonal population", noIndex => 1);
-        print "Checking eligibility for improvement.\n";
-           my $ok = $improver->eligible($gto);
-           if ($ok) {
-               print "Improving genome.\n";
-               $ok = $improver->Improve([$bin], $gto);
-               if ($ok) {
-                   print "Evaluating improved genome.\n";
-                   EvalHelper::ProcessGto($gto, ref => $bin, p3 => $p3, external => 1, workDir => $dir);
-               }
+        my $gto = RASTlib::Annotate($triples, $taxID, "$name clonal population", noIndex => 1, robust => 1);
+        if (! $gto) {
+            print "RAST job failed.  Continuing.\n";
+        } else {
+            print "Checking eligibility for improvement.\n";
+            my $ok = $improver->eligible($gto);
+            if ($ok) {
+                print "Improving genome.\n";
+                $ok = $improver->Improve([$bin], $gto);
+                if ($ok) {
+                    print "Evaluating improved genome.\n";
+                    EvalHelper::ProcessGto($gto, ref => $bin, p3 => $p3, external => 1, workDir => $dir);
+                }
+            }
+            print "Writing final GTO.\n";
+            SeedUtils::write_encoded_object($gto, $gtoName);
         }
-        print "Writing final GTO.\n";
-        SeedUtils::write_encoded_object($gto, $gtoName);
     }
 }
