@@ -9,6 +9,7 @@ use P3Utils;
 use Bin::Improve;
 use EvalHelper;
 
+$| = 1;
 my $p3 = P3DataAPI->new();
 my ($dir) = @ARGV;
 opendir(my $dh, $dir) || die "Could not open directory $dir: $!";
