@@ -1,40 +1,25 @@
 use strict;
 use FIG_Config;
-use SeedTkRun;
-use File::Copy::Recursive;
 
 my ($dir) = @ARGV;
-opendir(my $dh, $dir) || die "Could not open directory $dir: $!";
-my @files1 = grep { -s "$dir/$_/contigs.fasta"  } readdir $dh;
+opendir(my $dh, $dir) || die "Could not open $dir: $!";
+my @bins = grep { -s "$dir/$_/run.log" } readdir $dh;
 closedir $dh;
-open(my $ih, '<', "$dir/fq_bin.tbl") || die "Could not open fq_bin: $!";
-my %groups;
-for my $file (@files1) {
-    print "$file ";
-    if ($file =~ /^(bin\.\d+\.\d+)_([12s])\.fastq/) {
-        print "kept.\n";
-        $groups{$1}{"-$2"} = $file;
-    } else {
-        print "rejected.\n";
+print STDERR scalar(@bins) . " bins found.\n";
+print "Bin\tsample\tfootprint\n";
+for my $bin (@bins) {
+    print STDERR "Processing $bin.\n";
+    open(my $ih, '<', "$dir/$bin/run.log") || die "Could not open log for $bin: $!";
+    my ($size, $done, $footprint) = ('', 0, 0);
+    while (! $done) {
+        my $line = <$ih>;
+        if (! defined $line || $line =~ /^SPAdes log can be found here/) {
+            $done = 1;
+        } elsif ($line =~ /\s+\d+G \/ (\d+)G\s+INFO/) {
+            $footprint = $1 if $footprint < $1;
+        } elsif ($line =~ /^Sample size is (\d+) gigabytes/) {
+            $size = $1;
+        }
     }
-}
-chdir $dir;
-# Find the command.
-my $cmd = "spades.py";
-my $cmdPath = SeedTkRun::executable_for($cmd);
-die "Could not find $cmd." if ! $cmdPath;
-# Windows hack for paths with spaces.
-if ($cmdPath =~ /\s/) {
-    $cmdPath = $cmd;
-}
-my @groups = sort keys %groups;
-print scalar(@groups) . " bin groups found.\n";
-for my $group (sort keys %groups) {
-    print "Processing $group.\n";
-    my $parmH = $groups{$group};
-    my @parms = map { $_, $parmH->{$_} } keys %$parmH;
-    File::Copy::Recursive::pathmk("asm.$group") || die "Could not make directory asm.$group: $!";
-    push @parms, '-o', "asm.$group";
-    print "Starting assembly for $group.\n";
-    system($cmdPath, @parms);
+    print "$bin\t$size\t$footprint\n";
 }
