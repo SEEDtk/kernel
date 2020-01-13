@@ -21,5 +21,7 @@ for my $bin (@bins) {
             $size = $1;
         }
     }
-    print "$bin\t$size\t$footprint\n";
+    if ($size) {
+        print "$bin\t$size\t$footprint\n";
+    }
 }
