@@ -1,14 +1,17 @@
 use strict;
 use FIG_Config;
 
+$| = 1;
 my ($dir) = @ARGV;
 opendir(my $dh, $dir) || die "Could not open $dir: $!";
 my @bins = grep { -s "$dir/$_/run.log" } readdir $dh;
 closedir $dh;
-print STDERR scalar(@bins) . " bins found.\n";
+my ($count, $tot) = (0, scalar @bins);
+print STDERR "$tot bins found.\n";
 print "Bin\tsample\tfootprint\n";
 for my $bin (@bins) {
-    print STDERR "Processing $bin.\n";
+    $count++;
+    print STDERR "Processing $bin ($count of $tot).\n";
     open(my $ih, '<', "$dir/$bin/run.log") || die "Could not open log for $bin: $!";
     my ($size, $done, $footprint) = ('', 0, 0);
     while (! $done) {
