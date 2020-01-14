@@ -60,7 +60,7 @@ parser.add_argument("probDir", help="Directory which contains a role matrix",
                     type=str)
 parser.add_argument("-f", "--fraction", dest="fraction", default=0.2, type=float, help="Fraction of data to use in testing")
 parser.add_argument("-c", "--classifier", dest="classifier", default="RandomForest", help="Type of sklearn classifier to use")
-parser.add_argument("-n", "--n_jobs", dest="n_jobs", default=16, help="Number of parallel jobs to run")
+parser.add_argument("-n", "--n_jobs", dest="n_jobs", default=8, help="Number of parallel jobs to run")
 parser.add_argument("--clear", action="store_true",
                   help="Clear input probDir Predictors directory")
 args = parser.parse_args()
