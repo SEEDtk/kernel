@@ -67,7 +67,7 @@ if (!-d $probDir) {
 }
 
 # Create the eval object.
-my $eval = EvalCon->new(predictors => $probDir);
+my $eval = EvalCon->new(predictors => $probDir, logH => \*STDOUT);
 # Process the input and produce the output.
 print "Processing $table_file.\n";
 $eval->BuildFileMatrix($table_file, $probDir);
