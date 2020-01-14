@@ -53,15 +53,14 @@ we will use C<FunctionPredictors.X> for the predictors and C<Staging> for the ro
 
 The first command creates the initial role files.
 
-    p3-build-role-tables Staging Annotations Subsystems
+    p3-build-role-tables Eval.XX Annotations Subsystems
 
 The following four commands are run repeatedly in a loop. When the output of L<build_roles_to_use.pl> indicates that
 all of the roles are good, the loop stops.
 
-    build_matrix --clear Staging FunctionPredictors.X
-    build_LDA_predictors FunctionPredictors.X
-    cp Staging/roles.to.use FunctionPredictors.X/
-    build_roles_to_use FunctionPredictors.X Staging
+    build_matrix --clear Eval.XX Eval.XX/FunctionPredictors
+    build_LDA_predictors Eval.XX/FunctionPredictors
+    build_roles_to_use Eval.XX/FunctionPredictors Eval.XX
 
 Once the role set has converged, to install the new predictors you must (1) copy C<roles.in.subsystems> from C<Staging>
 to the SEEDtk P3Data directory. (2) Copy C<FunctionPredictors.X/roles.to.use> to the SEEDtk P3Data directory. (3)
