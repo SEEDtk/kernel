@@ -58,7 +58,7 @@ The first command creates the initial role files.
 The following four commands are run repeatedly in a loop. When the output of L<build_roles_to_use.pl> indicates that
 all of the roles are good, the loop stops.
 
-    build_matrix --clear Staging/raw.table FunctionPredictors.X Staging/roles.to.use
+    build_matrix --clear Staging FunctionPredictors.X
     build_LDA_predictors FunctionPredictors.X
     cp Staging/roles.to.use FunctionPredictors.X/
     build_roles_to_use FunctionPredictors.X Staging

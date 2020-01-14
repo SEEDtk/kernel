@@ -14,7 +14,8 @@ The final step is L<build_roles_to_use.pl>, after which this script is used agai
 
 =head2 Parameters
 
-The positional parameters are the name of the C<raw.table> file and the name of the output directory.
+The positional parameters are the name of the directory containing C<raw.table>, C<roles.in.subsystems>, and
+C<roles.to.use>, and the name of the output directory.
 
 The output directory cannot exist unless the C<--clear> option is specified. If it does exist, the C<roles.to.use>
 and C<roles.in.subsystems> files will be taken from it if they exist. Otherwise they will default to the global files.
@@ -34,14 +35,14 @@ my %funcs;
 my %genomes;
 my %counts;
 
-my $opt = ScriptUtils::Opts('raw.table probDir',
+my $opt = ScriptUtils::Opts('filesDir probDir',
         ['clear', 'overwrite previous results']);
 
-my ($table_file, $probDir) = @ARGV;
-if (! $table_file) {
+my ($table_dir, $probDir) = @ARGV;
+if (! $table_dir) {
     die "No raw.table specified.";
-} elsif (! -s $table_file) {
-    die "$table_file is missing or empty.";
+} elsif (! -s "$table_dir/raw.table") {
+    die "$table_dir/raw.table is missing or empty.";
 } elsif (! $probDir) {
     die "No output directory specified.";
 } elsif (-f $probDir) {
@@ -67,8 +68,10 @@ if (!-d $probDir) {
 }
 
 # Create the eval object.
-my $eval = EvalCon->new(predictors => $probDir, logH => \*STDOUT);
+my $eval = EvalCon->new(predictors => $probDir, roleFile => "$table_dir/roles.in.subsystems",
+        rolesToUse => "$table_dir/roles.to.use", logH => \*STDOUT);
 # Process the input and produce the output.
+my $table_file = "$table_dir/raw.table";
 print "Processing $table_file.\n";
 $eval->BuildFileMatrix($table_file, $probDir);
 print "All done.\n" . $eval->stats->Show();
