@@ -194,15 +194,13 @@ if ($subsystems) {
     print scalar(keys %roleHash) . " roles read from file.\n";
 }
 # Now we build the raw table. Get the genomes.
-opendir(my $adh, $annotations) || die "Could not open annotations directory: $!";
-my @subDirs = grep { -d "$annotations/$_" } readdir $adh;
-closedir $adh;
+opendir(my $dh, $annotations) || die "Could not open annotations directory: $!";
 my %genomeFiles;
-for my $subDir (@subDirs) {
-    opendir(my $dh, "$annotations/$subDir") || die "Could not open $annotations/$subDir: $!";
-    while (my $file = readdir $dh) {
-        if ($genomes{$file}) {
-            $genomeFiles{$file} = "$annotations/$subDir/$file";
+while (my $file = readdir $dh) {
+    if ($genomes{$file}) {
+        my $path = "$annotations/$file";
+        if (-s $path) {
+            $genomeFiles{$file} = $path;
         }
     }
 }
@@ -235,7 +233,7 @@ for my $genome (sort keys %genomeFiles) {
             }
         }
     }
-    # Loop through the roles in this genome, counting the ones that occur less than 5 times.
+    # Loop through the roles in this genome, keeping the ones that occur 5 times or less.
     for my $roleID (keys %gRoleCount) {
         my $rCount = $gRoleCount{$roleID};
         if ($rCount >= 1 && $rCount <= 5) {
