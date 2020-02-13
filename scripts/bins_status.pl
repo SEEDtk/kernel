@@ -120,6 +120,10 @@ If specified, the annotated genomes will not be indexed in PATRIC.
 Remove binning results from samples stopped during evaluation.  If the value is C<all>, also remove binning results from
 samples stopped during binning.
 
+=item reset
+
+Delete all binning results to force re-binning of all directories.
+
 =item stopFile
 
 The name of a file to contain error information about stopped jobs.  The default is C<stoppedJobs.log> in the

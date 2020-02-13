@@ -225,7 +225,7 @@ for my $sample (@binDirs) {
                 my ($coarse2, $fine2, $complete2, $contam2, $group2) = $geo->scores;
                 print "New genome is $id2: $name2 and is $status.\n";
                 print "NEW SCORES: complete $complete to $complete2, fine $fine to $fine2, contamination $contam to $contam2.\n";
-                SeedUtils::write_encoded_object($gto, $gtoNew);
+                $gto->destroy_to_file($gtoNew);
                 print "$gtoNew saved.\n";
             }
         }

@@ -323,7 +323,7 @@ while (! $done) {
                 # Check the GTOS option.
                 if ($opt->gtos) {
                     # Save the GTOs to disk.
-                    SeedUtils::write_encoded_object($gto, "$workDir/$genomeID.gto");
+                   $gto->destroy_to_file("$workDir/$genomeID.gto");
                     print STDERR "Genome saved to $genomeID.gto.\n";
                 }
                 my $quality = $gto->{quality};

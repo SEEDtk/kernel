@@ -28,6 +28,7 @@ package SamplePipeline;
     use SeedUtils;
     use SeedTkRun;
     use RoleParse;
+    use Sys::Hostname;
 
 =head1 Process a Metagenome Sample Pipeline
 
@@ -484,8 +485,12 @@ sub RastBins {
                     GenomeTypeObject::write_contigs_to_file($gto, $binFastaFile);
                 }
             }
+            print "Storing reference genomes.\n";
+            $gto->add_analysis_event({ tool_name => "bins_generate",
+                execution_time => time(), parameters => [$bin->refGenomes],
+                hostname => Sys::Hostname::hostname() });
             print "Spooling genome to $workDir.\n";
-            SeedUtils::write_encoded_object($gto, "$workDir/bin$binNum.gto");
+            $gto->destroy_to_file("$workDir/bin$binNum.gto");
         }
         print "Fixing bin object.\n";
         # Clear the bin's current universal protein list.
