@@ -489,6 +489,9 @@ sub RastBins {
             $gto->add_analysis_event({ tool_name => "bins_generate",
                 execution_time => time(), parameters => [$bin->refGenomes],
                 hostname => Sys::Hostname::hostname() });
+            if (! $options{noIndex}) {
+                $gto->{home} = "PATRIC";
+            }
             print "Spooling genome to $workDir.\n";
             $gto->destroy_to_file("$workDir/bin$binNum.gto");
         }
