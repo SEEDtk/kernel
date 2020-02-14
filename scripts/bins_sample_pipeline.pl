@@ -140,7 +140,7 @@ my $opt = ScriptUtils::Opts('sampleID workDir',
         ['noBin', 'do not bin the samples'],
         ['nameSuffix=s', 'suffix to assign to the bin name', { default => 'clonal population' }],
         ['seedProtFasta=s', 'name of a FASTA file containing examples of the seed protein to use for seeding the bins',
-                            { default => "$FIG_Config::p3data/seedprot.fa" }],
+                            { default => "$FIG_Config::p3data/seedProt.fa" }],
         ['seedrole|R=s',   'ID of the universal role to seed the bins', { default => 'PhenTrnaSyntAlph' }],
         ['seedfasta|F=s',  'BLAST database (or FASTA file) of seed protein in all genomes', { default => "$FIG_Config::p3data/PhenTrnaSyntAlph.fa"}],
         );
