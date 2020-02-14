@@ -28,7 +28,6 @@ package SamplePipeline;
     use SeedUtils;
     use SeedTkRun;
     use RoleParse;
-    use Sys::Hostname;
 
 =head1 Process a Metagenome Sample Pipeline
 
@@ -438,6 +437,15 @@ sub RastBins {
     # Create the RAST option hash.
     my %rastOpts = (user => $rastUser, password => $rastPass, 'sleep' => $sleep);
     $rastOpts{noIndex} = 1 if $options{noIndex};
+    # Read the names of the reference genomes.
+    my %refNames;
+    open(my $rh, "<$workDir/ref.genomes.scores.tbl") || die "Could not open ref genomes scores file: $!";
+    while (! eof $rh) {
+        if (<$rh> =~ /(\d+\.\d+)\t\d+\t(.+)/) {
+            $refNames{$1} = $2;
+        }
+    }
+    close $rh; undef $rh;
     # Loop through the bins, processing them one at a time. For each bin, we read the whole sample
     # file to get the contigs. Only one bin's worth of contigs is kept in memory at a time, at the cost of
     # a lot of extra reading.
@@ -499,9 +507,8 @@ sub RastBins {
             if ($len > 0) {
                 $total /= $len;
             }
-            $gto->add_analysis_event({ tool_name => "bins_generate",
-                execution_time => time(), parameters => ['--ref', $bin->refGenomes, '--covg', $total],
-                hostname => Sys::Hostname::hostname() });
+            my ($refGenome) = $bin->refGenomes;
+            push @{$gto->{close_genomes}}, { genome => $refGenome, genome_name => $refNames{$refGenome}, closeness_measure => $total, analysis_method => 'bins_generate' };
             if (! $options{noIndex}) {
                 $gto->{home} = "PATRIC";
             }
@@ -555,7 +562,7 @@ sub RastBins {
         $analyzer->SetGenomes(\%genomes);
     }
     # Write the report.
-    open(my $rh, ">$workDir/bins.report.txt") || die "Could not open report file: $!";
+    open($rh, ">$workDir/bins.report.txt") || die "Could not open report file: $!";
     $analyzer->BinReport($rh, \%uniName, \@$binList);
     close $rh;
 }
