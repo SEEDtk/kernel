@@ -482,12 +482,25 @@ sub RastBins {
                 my $improved = $improver->Improve($bin->{refGenomes}, $gto);
                 if ($improved) {
                     print "Updating fasta file for $binNum.\n";
-                    GenomeTypeObject::write_contigs_to_file($gto, $binFastaFile);
+                    $gto->write_contigs_to_file($binFastaFile);
                 }
             }
-            print "Storing reference genomes.\n";
+            print "Storing reference genomes and coverage.\n";
+            # Compute the coverage.
+            my %covgMap = map { $_->[0] => [$_->[1], $_->[2]] } @{$bin->all_contigs()};
+            my ($total, $len) = (0, 0);
+            for my $contig ($gto->contigs) {
+                my $coverage = $covgMap{$contig->{id}};
+                if ($coverage) {
+                    $total += $coverage->[0] * $coverage->[1];
+                    $len += $coverage->[0];
+                }
+            }
+            if ($len > 0) {
+                $total /= $len;
+            }
             $gto->add_analysis_event({ tool_name => "bins_generate",
-                execution_time => time(), parameters => [$bin->refGenomes],
+                execution_time => time(), parameters => ['--ref', $bin->refGenomes, '--covg', $total],
                 hostname => Sys::Hostname::hostname() });
             if (! $options{noIndex}) {
                 $gto->{home} = "PATRIC";
