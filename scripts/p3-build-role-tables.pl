@@ -26,6 +26,8 @@ use RoleParse;
 use CopyFromSeed;
 use Stats;
 use SeedUtils;
+use P3DataAPI;
+use P3Utils;
 
 =head1 Build Role Tables From the Patric Snapshot
 
@@ -55,7 +57,7 @@ The first command creates the initial role files.
 
     p3-build-role-tables Eval.XX Annotations Subsystems
 
-The following four commands are run repeatedly in a loop. When the output of L<build_roles_to_use.pl> indicates that
+The following three commands are run repeatedly in a loop. When the output of L<build_roles_to_use.pl> indicates that
 all of the roles are good, the loop stops.
 
     build_matrix --clear Eval.XX Eval.XX/FunctionPredictors
@@ -76,9 +78,17 @@ the name of the subsystem directory.
 Annotations are in C</vol/core-seed/kmers/core.>I<XXXX-XXXX>C</Annotations/0>. Subsystems are in
 C</vol/patric3/fams/>I<XXXX-XXXX>C</subsystem-import/subsystems.tgz>. In both cases I<XXXX-XXXX> is
 the release date. The subsystems need to be decompressed before processing. If the subsystem directory
-is omitted, then it is assumed C<roles.in.subsystems> already exists in the output directory.
+is omitted, then it is assumed C<roles.in.subsystems> already exists in the output directory.  If both
+directories are omitted, then it is assumed all genomes are being loaded from PATRIC.
 
-The command-line options are those found in L<Shrub/script_options>.
+The command-line options are those found in L<Shrub/script_options> plus the following.
+
+=over 4
+
+=item patric
+
+The name of a file containing PATRIC genome IDs in the first column.  These will be processed in addition to
+the coreSEED genomes.
 
 =cut
 
@@ -86,19 +96,18 @@ $| = 1;
 # Get the command-line parameters.
 my $opt = ScriptUtils::Opts('outDir annotations subsystems',
         Shrub::script_options(),
+        ['patric=s', 'name of a file containing PATRIC genome IDs'],
         );
 my $stats = Stats->new();
-# Connect to the database.
-my $shrub = Shrub->new_for_script($opt);
-# Get a list of acceptable genomes.
-my %genomes = map { $_ => 1 } $shrub->GetFlat('Genome', 'Genome(well-behaved) = ?', [1], 'id');
 # Get the directories.
+my $core = 1;
 my ($outDir, $annotations, $subsystems) = @ARGV;
 if (! $annotations) {
-    die "No annotation directory specified.";
+    $core = 0;
 } elsif (! -d $annotations) {
     die "Annotation directory $annotations not found.";
-} elsif (! $outDir) {
+}
+if (! $outDir) {
     die "No output directory specified.";
 } elsif (! -d $outDir) {
     die "Output directory $outDir not found.";
@@ -109,6 +118,13 @@ if (! $subsystems) {
     }
 } elsif (! -d $subsystems) {
     die "Subsystem directory $subsystems not found.";
+}
+# Connect to the database.
+my $shrub = Shrub->new_for_script($opt);
+# Get a list of acceptable genomes.
+my %genomes;
+if ($core) {
+    %genomes = map { $_ => 1 } $shrub->GetFlat('Genome', 'Genome(well-behaved) = ?', [1], 'id');
 }
 # This hash will contain the roles found in subsystems. For each checksum, it will contain the role ID and name.
 my %roleHash;
@@ -193,13 +209,15 @@ if ($subsystems) {
     print scalar(keys %roleHash) . " roles read from file.\n";
 }
 # Now we build the raw table. Get the genomes.
-opendir(my $dh, $annotations) || die "Could not open annotations directory: $!";
 my %genomeFiles;
-while (my $file = readdir $dh) {
-    if ($genomes{$file}) {
-        my $path = "$annotations/$file";
-        if (-s $path) {
-            $genomeFiles{$file} = $path;
+if ($core) {
+    opendir(my $dh, $annotations) || die "Could not open annotations directory: $!";
+    while (my $file = readdir $dh) {
+        if ($genomes{$file}) {
+            my $path = "$annotations/$file";
+            if (-s $path) {
+                $genomeFiles{$file} = $path;
+            }
         }
     }
 }
@@ -207,47 +225,86 @@ while (my $file = readdir $dh) {
 open(my $oh, ">$outDir/raw.table") || die "Could not open raw.table: $!";
 # The role counts will be stored in here.
 my %roleCount;
-# Loop through the genomes.
+# The bad roles will be listed in here.
+my %badRoles;
+# Loop through the genomes in files.
 for my $genome (sort keys %genomeFiles) {
-    print "Processing $genome.\n";
+    print "Processing $genome from CoreSEED.\n";
     open(my $ih, '<', $genomeFiles{$genome}) || die "Could not open $genome annotations: $!";
     # This will track the genome counts for each role.
     my %gRoleCount;
     while (! eof $ih) {
         my $line = <$ih>;
-        $stats->Add(genomeLineIn => 1);
+        $stats->Add(featureLineIn => 1);
         if ($line =~ /^(\S+)\t(.+)/) {
             my ($peg, $function) = ($1, $2);
-            my @roleNames = SeedUtils::roles_of_function($function);
-            for my $roleName (@roleNames) {
-                my $checksum = RoleParse::Checksum($roleName);
-                if (! exists $roleHash{$checksum}) {
-                    $stats->Add(annotationRoleSkipped => 1);
-                } else {
-                    my $roleID = $roleHash{$checksum}[0];
-                    $gRoleCount{$roleID}++;
-                    print $oh join("\t", $roleName, $roleID, $peg) . "\n";
-                    $stats->Add(annotationRoleOut => 1);
-                }
+            processRoles($peg, $function, \%gRoleCount);
+        }
+    }
+    close $ih; undef $ih;
+    countRoles(\%gRoleCount);
+}
+# Loop through the genomes in PATRIC.
+if ($opt->patric) {
+    my $p3 = P3DataAPI->new();
+    open(my $ih, '<', $opt->patric) || die "Could not open PATRIC genome file: $!";
+    my @genomes;
+    while (! eof $ih) {
+        my $line = <$ih>;
+        if ($ih =~ /^(\d+\.\d+)/) {
+            my $genome = $1;
+            my %gRoleCount;
+            print "Processing $genome from PATRIC.\n";
+            my $features = P3Utils::get_data($p3, feature => [['eq', 'genome_id', $genome]], ['patric_id', 'product']);
+            for my $feature (@$features) {
+                my ($peg, $function) = @$feature;
+                processRoles($peg, $function, \%gRoleCount);
             }
+            countRoles(\%gRoleCount);
         }
     }
-    # Loop through the roles in this genome, keeping the ones that occur 5 times or less.
-    for my $roleID (keys %gRoleCount) {
-        my $rCount = $gRoleCount{$roleID};
-        if ($rCount >= 1 && $rCount <= 5) {
-            $roleCount{$roleID}++;
-        }
-    }
+    close $ih; undef $ih;
 }
 close $oh; undef $oh;
 # Now output the roles that occur 100 times or more.
 print "Writing roles.to.use.\n";
 open($oh, ">$outDir/roles.to.use") || die "Could not open roles.to.use: $!";
 for my $roleID (sort keys %roleCount) {
-    if ($roleCount{$roleID} >= 100) {
+    if ($roleCount{$roleID} >= 100 && ! $badRoles{$roleID}) {
         print $oh "$roleID\n";
         $stats->Add(roleAcceptedForUse => 1);
     }
 }
 print "All done.\n" . $stats->Show();
+
+# Count the roles in a peg and write them to the output.
+sub processRoles {
+    my ($peg, $function, $gRoleCount) = @_;
+    my @roleNames = SeedUtils::roles_of_function($function);
+    for my $roleName (@roleNames) {
+        my $checksum = RoleParse::Checksum($roleName);
+        if (! exists $roleHash{$checksum}) {
+            $stats->Add(annotationRoleSkipped => 1);
+        } else {
+            my $roleID = $roleHash{$checksum}[0];
+            $gRoleCount->{$roleID}++;
+            print $oh join("\t", $roleName, $roleID, $peg) . "\n";
+            $stats->Add(annotationRoleOut => 1);
+        }
+    }
+}
+
+# Fold a genome's roles into the counter.
+sub countRoles {
+    my ($gRoleCount) = @_;
+    # Loop through the roles in this genome, keeping the ones that occur 5 times or less.
+    for my $roleID (keys %$gRoleCount) {
+        my $rCount = $gRoleCount->{$roleID};
+        if ($rCount > 5) {
+            $badRoles{$roleID} = 1;
+        } elsif ($rCount >= 1) {
+            $roleCount{$roleID}++;
+        }
+    }
+
+}
