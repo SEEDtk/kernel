@@ -251,7 +251,7 @@ if ($opt->patric) {
     my @genomes;
     while (! eof $ih) {
         my $line = <$ih>;
-        if ($ih =~ /^(\d+\.\d+)/) {
+        if ($line =~ /^(\d+\.\d+)/) {
             my $genome = $1;
             my %gRoleCount;
             print "Processing $genome from PATRIC.\n";
