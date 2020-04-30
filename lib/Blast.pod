@@ -1,0 +1,214 @@
+=head1 genome.distance blast
+
+=head2 Introduction
+
+The C<genome.distance blast> command performs a BLAST command in the SEEDtk environment.  Its primary
+advantage is the possibility of visual HTML output.
+
+The BLAST is performed between a query stream and a subject database.  You specify either of these things
+with a I<type> and a I<file name>, and the program will figure out the correct BLAST parameters and add
+any genetic code translation parameters automatically.  The file name can refer to a FASTA file or
+a L<GenomeTypeObject> file.
+
+The type indicates the type of file and what information to extract.
+
+=over 4
+
+=item db
+
+File is an existing BLAST database
+
+=item dna
+
+File is a DNA FASTA file.
+
+=item prot
+
+File is a protein FASTA file.
+
+=item contigs
+
+File is a GTO file.  The contigs will be extracted as DNA sequences.
+
+=item pegs
+
+File is a GTO file.  The proteins will be extracted a protein sequences.
+
+=item features
+
+File is a GTO file.  The features will be extracted as DNA sequences.
+
+=item pegs_dna
+
+File is a GTO file.	The proteins will be extracted as untranslated DNA sequences.
+
+=back
+
+When you are specifying the subject file, it will be converted into a BLAST database.  Use the C<--keep>
+option to keep the BLAST database from being deleted.
+
+The file types and names are specified as positional parameters.  So, the following BLASTs the DNA FASTA file
+C<assembled.fa> against the proteins in the genome C<83333.1.gto>.  The BLAST database will be put in temporary
+files and deleted at the end of the run.
+
+    genome.distance blast dna assembled.fa pegs 83333.1.gto >results.html
+
+The standard output should always be piped, as log messages go to STDERR.
+
+The default report format is HTML, with each query sequence shown as a horizontal line and the subject
+sequence hits shown as colored arrows below it.  The colors indicate the percent identity.  All of these
+things are configurable.  You can specify sorting by subject sequence instead (so that each subject sequence
+is a horizontal line and the query sequence hits are arrows), you can specify that the color scheme be based
+on percent similarity or coverage of the target sequence, or you can specify one of two tab-delimited textual
+report formats.
+
+=head2 Command-Line Options
+
+The following BLAST parameters and result filters are supported as command-line options.
+
+=over 4
+
+=item --gc
+
+Genetic code of the DNA.  The genetic code is stored in genome GTO files and in BLAST databases created by
+this program.  So this is generally not required.  The default is C<11>.
+
+=item --max
+
+The maximum number of hits to return for each query.  The default is C<100>.
+
+=item --maxE
+
+The maximum permissible e-value for a hit.  The default is C<1e-10>.
+
+=item --minIdent
+
+The minimum permissible percent identity for a hit.  The default is C<0>.
+
+=item --minQuery
+
+The minimum permissible coverage for a query sequence.  This is the percent of positions in the entire
+query sequence (not just the hit) that are identical or positive in the hit.  The default is C<0>.
+
+=item --minSubject
+
+The minimum permissible coverage for a subject sequence.  This is the percent of positions in the entire
+subject sequence (not just the hit) that are identical or positive in the hit.  The default is C<0>.
+
+=item --threads
+
+The number of threads to run in the BLAST process.
+
+=back
+
+The following command-line options affect reporting.
+
+=over 4
+
+=item --format
+
+The format of the report.
+
+=over 8
+
+=item HTML
+
+A web page showing the visual nature of the hits.  This is the default.
+
+=item TABLE
+
+A tab-delimited file with headers describing each hit.  Sections of the output relating to a single sequence
+are separated by blank lines.
+
+=item ALIGN
+
+A tab-delimited file with headers showing the alignment sequences for each hit.  Each hit is represented
+by two lines of output, and each pair of lines is separated by a blank line.
+
+=back
+
+=item --color
+
+The color scheme for HTML reports.  A color key is shown at the top of the web page, but essentially blue is 100%,
+green is 90% or better, orange is 70% or better, red is 50% or better, and dark gray is less than 50%.  The colors
+are vaguely inspired by traffic lights.
+
+=over 8
+
+=item ident
+
+The color reflects the percent identity for the hit.  This is the default.
+
+=item sim
+
+The color reflects the percent similarity (identical + positive) for the hit.
+
+=item covg
+
+The color reflects the percent coverage of the target sequence for the hit.  The target sequence is the one
+indicated by the arrow.  The arrow shows visually how much of the anchor sequence is covered by the hit because
+of its relationship to the horizontal line.  The color gives you an indication of how much of the other sequence
+participated.
+
+=back
+
+=item --sort
+
+The type of anchor sequence.  The anchor sequence type determines how the output is sorted.  You can sort by C<>QUERY>
+or C<SUBJECT>.  The sort order for the anchor sequences is a natural sort by the sequence label.
+So, C<fig|83333.2.peg.4> sorts before C<fig|83333.10.peg.1>, because C<4> is less than C<10>.  Features within a
+genome are sorted in the preferred manner as well:  C<fig|83333.1.peg.4> comes before C<fig|83333.1.peg.20>.
+Similarly, when sorting contigs from a SPAdes assembly, the sequences will be sorted by node numbers.  This makes
+it much easier to tell which sequences or features are missing.  The default is C<QUERY>, so in the default case,
+you will see the results grouped by query sequence, and in the HTML report, each horizontal line will be a query
+sequence, with the subject sequence hits shown as arrows.
+
+=back
+
+The following parameters affect the operation of this program.
+
+=over 4
+
+=item --keep
+
+If a BLAST database is created, keep all the files.  Normally, any files created to build the BLAST database are deleted.
+
+=item --batch
+
+The number of queries to submit to BLAST each time it is run.  This is used to break up the query stream.  The default is
+C<20>.
+
+=item --dir
+
+The working directory.  If any of the inputs are GTO files, the FASTA files spooled out from them are put in the
+working directory.  The default is the current directory.
+
+=item --verbose
+
+Display more detailed progress messages.  This includes output from B<makeblastdb> as well as the IDs of query
+sequences that have no hits.
+
+=back
+
+=head2 Examples
+
+BLAST RNAseq data from C<assembly_1.fasta> against the contigs of the genome in the file C<100226.1.gto>.  The
+BLAST database will be created in subdirectory C<Temp> and deleted after use.  The output will be a web page
+showing each RNA sequence with the contig hits shown as arrows below.
+
+    genome.distance blast --dir Temp dna assembly_1.fasta contigs 100226.1.gto >results.html
+
+BLAST RNAseq data from C<assembly_1.fasta> against the protein sequences of the genome in the file
+C<100226.1.gto>.  The BLAST database will be created in the current directory and kept after completion.  The
+output will be a web page showing each RNA sequence with the protein hits shown as arrows below.  The
+colors will indicate how much of the protein sequence matched the query.
+
+    genome.distance blast --keep --color covg dna assembly_1.fasta pegs 100226.1.gto >results.html
+
+BLAST the contigs from the genome in the file C<100226.1.gto> against the protein sequences in the FASTA file
+C<Proteins/universals.fa>.  The BLAST database support files will be created in the subdirectory C<Proteins>
+(where the subject FASTA file is located), and deleted after use.  The output will be a flat file showing
+alignments, sorted by protein sequence label.
+
+    genome.distance blast --sort SUBJECT --format ALIGN contigs 100226.1.gto prot Proteins/universals.fa >results.txt
+
