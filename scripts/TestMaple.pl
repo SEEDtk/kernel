@@ -25,8 +25,10 @@ while (! eof $ih) {
     if ($members >= 10 && $pMembers / $members >= 0.9) {
         my $check = RoleParse::Checksum($function);
         my $role = $checksum{$check};
-        print "Copying $subDir/$name for role $role.\n";
-        File::Copy::Recursive::fcopy("$dir/$subDir/$name.smp", "Profiles/$role.smp") || die "Copy failed for $role: $!";
+        if ($role) {
+            print "Copying $subDir/$name for role $role.\n";
+            File::Copy::Recursive::fcopy("$dir/$subDir/$name.smp", "Profiles/$role.smp") || die "Copy failed for $role: $!";
+        }
     }
 }
 print "All done.\n";
