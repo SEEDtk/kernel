@@ -23,7 +23,7 @@ while (! eof $ih) {
     chomp $line;
     my ($subDir, $name, $pMembers, $members, $percent, $function) = split /\t/, $line;
     if ($members >= 10 && $pMembers / $members >= 0.9) {
-        my $check = RoleParse::CheckSum($function);
+        my $check = RoleParse::Checksum($function);
         my $role = $checksum{$check};
         print "Copying $subDir/$name for role $role.\n";
         File::Copy::Recursive::fcopy("$dir/$subDir/$name.smp", "Profiles/$role.smp") || die "Copy failed for $role: $!";
