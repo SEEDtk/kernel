@@ -298,8 +298,7 @@ the C<--minQuery> and C<--batch> parameters are not supported.
 
 In a profile blast, the profiles are the query sequences and the subject sequences are being investigated for proteins
 that mimic the profiles.  A psi-blast is used to allow more distant hits than would be possible with normal sequence
-blasting.  The hits are also much weaker than what is normal for sequence blasting.  It takes around a quarter of a
-second to process each profile, so the number of profiles has a big influence on the execution time.
+blasting.  The hits are also much weaker than what is normal for sequence blasting.
 
 
 
