@@ -1,6 +1,4 @@
-=head1 genome.blast
-
-=head2 Introduction
+=head1 Introduction
 
 C<genome.blast> is a Java utility that handles BLAST processing.  It supports both normal sequence blasting and
 processing with subsets of Gary's profiles.  The output can be presented as a web page, a tab-delimited file
@@ -64,7 +62,7 @@ This sets up two logging destinations, STDERR and the aforementioned file.  I kn
 but it really helps when you are trying to figure out what is going on.  The particular logging facility chosen was
 built-in to the deep learning software I use, and a lot of Java packages use it.
 
-=head3 genome.blast blast
+=head1 genome.blast blast
 
 The C<genome.blast blast> command performs a BLAST command in the SEEDtk environment.  Its primary
 advantage is the possibility of visual HTML output.
@@ -254,7 +252,7 @@ sequences that have no hits.
 
 =back
 
-=head2 genome.blast makepdb
+=head1 genome.blast makepdb
 
 The C<makepdb> command is a very simple thing that organizes the profiles for specific roles into a single
 directory.  This makes the profiles more portable and easier to manage.  In addition, each profile is assigned
@@ -289,7 +287,7 @@ processing.
 This is actually a very fast command.  Note that when a single role has multiple profiles, we pretty much pick a random
 one to use.  This will be fixed eventually.
 
-=head3 genome.blast profile
+=head1 genome.blast profile
 
 Once you have created a profile directory using C<makepdb> you use C<profile> to run it.  The C<profile> command works
 like C<blast> above, and has almost all of the same options.  Instead of a query sequence stream specified by two
@@ -302,7 +300,7 @@ blasting.  The hits are also much weaker than what is normal for sequence blasti
 
 
 
-=head2 Examples
+=head1 Examples
 
 BLAST RNAseq data from C<assembly_1.fasta> against the contigs of the genome in the file C<100226.1.gto>.  The
 BLAST database will be created in subdirectory C<Temp> and deleted after use.  The output will be a web page
