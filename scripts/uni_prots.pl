@@ -23,7 +23,7 @@ use FIG_Config;
 use Shrub;
 use ScriptUtils;
 use Stats;
-##TODO more use clauses
+
 
 =head1 Create FASTA for Universal Proteins
 
