@@ -1,8 +1,70 @@
-=head1 genome.distance blast
+=head1 Introduction
 
-=head2 Introduction
+C<genome.blast> is a Java utility that handles BLAST processing.  It supports both normal sequence blasting and
+processing with subsets of Gary's profiles.  The output can be presented as a web page, a tab-delimited file
+of hit information, or a tab-delimited file of alignment information.  Three commands are currently supported.
 
-The C<genome.distance blast> command performs a BLAST command in the SEEDtk environment.  Its primary
+=over 4
+
+=item blast
+
+BLASTS sequences against each other
+
+=item makepdb
+
+Creates a profile directory from Gary's raw profiles (currently only available on aspen in directory
+C<pssm /disks/ssd/olson/profiles/bob1>).
+
+=item profile
+
+BLASTs the profiles from a profile directory against protein or DNA sequences.
+
+=back
+
+As a Java program, C<genome.blast> can be run anywhere in any environment.  It requires only that the
+environment variable B<>BLAST_PATH> point to the directory containing the BLAST runtime applications.
+
+In the SEEDtk environment, a script and a configuration file are provided to invoke it without having to
+type the full java command and to redirect the log output.  The log output is sent to STDERR and also to
+a file in the C<~parrello/SEEDtk/Data/logs> directory.  The script looks like this on my laptop.
+
+    java -Dlogback.configurationFile=/Users/parrello/Documents/SEEDtk/git/kernel/jars/logback.xml -Dlogfile.name=/Users/parrello/Documents/SEEDtk/Data/logs/genome.blast -jar /Users/parrello/Documents/SEEDtk/git/kernel/jars/genome.blast.jar $@
+
+The C<logback.xml> configuration file contains the following.
+
+    <?xml version="1.0" encoding="UTF-8"?>
+    <configuration>
+
+        <timestamp key="byDate" datePattern="yyyy-MM-dd" />
+
+        <appender name="STDERR" class="ch.qos.logback.core.ConsoleAppender">
+            <target>System.err</target>
+            <encoder>
+                <pattern>%date [%thread] %msg%n</pattern>
+            </encoder>
+        </appender>
+
+        <appender name="LOGFILE" class="ch.qos.logback.core.FileAppender">
+            <file>${logfile.name}.${byDate}.log</file>
+            <encoder>
+                <pattern>%date [%thread] %-5level %msg%n</pattern>
+            </encoder>
+        </appender>
+
+        <logger name="org.theseed" level="INFO">
+            <appender-ref ref="STDERR"/>
+            <appender-ref ref="LOGFILE"/>
+        </logger>
+
+    </configuration>
+
+This sets up two logging destinations, STDERR and the aforementioned file.  I know the logging is a bit of a complication,
+but it really helps when you are trying to figure out what is going on.  The particular logging facility chosen was
+built-in to the deep learning software I use, and a lot of Java packages use it.
+
+=head1 genome.blast blast
+
+The C<genome.blast blast> command performs a BLAST command in the SEEDtk environment.  Its primary
 advantage is the possibility of visual HTML output.
 
 The BLAST is performed between a query stream and a subject database.  You specify either of these things
@@ -16,7 +78,7 @@ The type indicates the type of file and what information to extract.
 
 =item db
 
-File is an existing BLAST database
+File is an existing BLAST database.
 
 =item dna
 
@@ -47,7 +109,7 @@ File is a GTO file.	The proteins will be extracted as untranslated DNA sequences
 When you are specifying the subject file, it will be converted into a BLAST database.  Use the C<--keep>
 option to keep the BLAST database from being deleted.
 
-The file types and names are specified as positional parameters.  So, the following BLASTs the DNA FASTA file
+The file types and names are specified as positional parameters.  So, the following command BLASTs the DNA FASTA file
 C<assembled.fa> against the proteins in the genome C<83333.1.gto>.  The BLAST database will be put in temporary
 files and deleted at the end of the run.
 
@@ -190,25 +252,83 @@ sequences that have no hits.
 
 =back
 
-=head2 Examples
+=head1 genome.blast makepdb
+
+The C<makepdb> command is a very simple thing that organizes the profiles for specific roles into a single
+directory.  This makes the profiles more portable and easier to manage.  In addition, each profile is assigned
+a SEEDtk-style role ID that is more readily identifiable with the role, and a mapping file is built that
+simplifies the execution of the profile blasting.
+
+The command has only the standard two command-line flags-- C<-v> for more detailed logging and C<-h> for help.
+
+The positional parameters are
+
+=over 4
+
+=item roleFile
+
+A file containing role IDs, checksums, and role names.  This file is usually built by extracting desired roles
+from the master C<roles.in.subsystems> file for SEEDtk.  The checksum is not used, so all that matters is a unique
+role ID in the first column and a role description in the third.  (The checksums in C<roles.in.subsystems> are
+a weird form of PERL MD5 that no one, anywhere knows how to create outside of PERL.  Who knew? So all the Java programs build
+their own murmur3 checksums during role loading.)
+
+=item inDir
+
+The master profile directory.  This currently exists only on aspen, in the directory C</disks/ssd/olson/profiles/bob1/>.
+
+=item outDir
+
+The name of the output directory in which the profiles are to be placed.  If it exists, it will be erased before
+processing.
+
+=back
+
+This is actually a very fast command.  Note that when a single role has multiple profiles, we pretty much pick a random
+one to use.  This will be fixed eventually.
+
+=head1 genome.blast profile
+
+Once you have created a profile directory using C<makepdb> you use C<profile> to run it.  The C<profile> command works
+like C<blast> above, and has almost all of the same options.  Instead of a query sequence stream specified by two
+positional parameters, however, there is a single positional parameter specifying the profile directory.  In addition,
+the C<--minQuery> and C<--batch> parameters are not supported.
+
+In a profile blast, the profiles are the query sequences and the subject sequences are being investigated for proteins
+that mimic the profiles.  A psi-blast is used to allow more distant hits than would be possible with normal sequence
+blasting.  The hits are also much weaker than what is normal for sequence blasting.
+
+
+
+=head1 Examples
 
 BLAST RNAseq data from C<assembly_1.fasta> against the contigs of the genome in the file C<100226.1.gto>.  The
 BLAST database will be created in subdirectory C<Temp> and deleted after use.  The output will be a web page
 showing each RNA sequence with the contig hits shown as arrows below.
 
-    genome.distance blast --dir Temp dna assembly_1.fasta contigs 100226.1.gto >results.html
+    genome.blast blast --dir Temp dna assembly_1.fasta contigs 100226.1.gto >results.html
 
 BLAST RNAseq data from C<assembly_1.fasta> against the protein sequences of the genome in the file
 C<100226.1.gto>.  The BLAST database will be created in the current directory and kept after completion.  The
 output will be a web page showing each RNA sequence with the protein hits shown as arrows below.  The
 colors will indicate how much of the protein sequence matched the query.
 
-    genome.distance blast --keep --color covg dna assembly_1.fasta pegs 100226.1.gto >results.html
+    genome.blast blast --keep --color covg dna assembly_1.fasta pegs 100226.1.gto >results.html
 
 BLAST the contigs from the genome in the file C<100226.1.gto> against the protein sequences in the FASTA file
 C<Proteins/universals.fa>.  The BLAST database support files will be created in the subdirectory C<Proteins>
 (where the subject FASTA file is located), and deleted after use.  The output will be a flat file showing
 alignments, sorted by protein sequence label.
 
-    genome.distance blast --sort SUBJECT --format ALIGN contigs 100226.1.gto prot Proteins/universals.fa >results.txt
+    genome.blast blast --sort SUBJECT --format ALIGN contigs 100226.1.gto prot Proteins/universals.fa >results.txt
+
+Create a profile directory from the SEEDtk universal role set.  This would be run from the SEEDtk Data directory
+on the aspen machine and builds the directory in C<UProfiles>.
+
+    genome.blast makepdb Global/uniRoles.tbl /disks/ssd/olson/profiles/bob1 UProfiles
+
+Do a profile analysis of the genome in the file C<100226.1.gto> for the universal roles.  The output will be
+a tab-delimited file, sorted by role.
+
+    genome.blast profile --sort QUERY --format TABLE contigs 100226.1.gto >results.txt
 

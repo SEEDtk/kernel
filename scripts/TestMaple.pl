@@ -1,28 +1,34 @@
 use strict;
 use FIG_Config;
+use RoleParse;
+use File::Copy::Recursive;
 
-open(my $ih, '<', "subRoles.tbl") || die "Could not open subRoles.tbl: $!";
-my %roles;
-my $line = <$ih>;
-while (! eof $ih) {
-    if (<$ih> =~ /\t(.+)$/) {
-        $roles{$1} = 1;
-    }
+if (! -d "Profiles") {
+    File::Copy::Recursive::pathmk("Profiles");
 }
-close $ih; undef $ih;
-my ($count, $kept) = 0;
-my %fams;
-open($ih, '<', '/vol/patric3/fams/2018-0531/merge1/prop.out/merged.families.1.1.nr-only') || die "Could not open families file: $!";
+open(my $rh, '<', "Global/uniRoles.tbl") || die "Could not open uniRoles: $!";
+my %checksum;
+print "Reading roles.\n";
+while (! eof $rh) {
+    my ($rid, $check, $name) = split /\t/, <$rh>;
+    $checksum{$check} = $rid;
+}
+close $rh;
+print scalar(keys %checksum) . " universal roles found.\n";
+print "Reading census.\n";
+my $dir = "/disks/ssd/olson/profiles/bob1/";
+open(my $ih, '<', "/homes/gdpusch/Projects/Profiles/cluster_census.subsystem_based.tab") || die "Could not open census: $!";
 while (! eof $ih) {
     my $line = <$ih>;
-    $count++;
-    my ($fam, undef, undef, undef, undef, $role) = split /\t/, $line;
-    if ($roles{$role}) {
-        $fams{$fam} = 1;
-        $kept++;
-    }
-    if ($count % 5000 == 0) {
-        print STDERR "$count records process, $kept counted.\n";
+    chomp $line;
+    my ($subDir, $name, $pMembers, $members, $percent, $function) = split /\t/, $line;
+    if ($members >= 10 && $pMembers / $members >= 0.9) {
+        my $check = RoleParse::Checksum($function);
+        my $role = $checksum{$check};
+        if ($role) {
+            print "Copying $subDir/$name for role $role.\n";
+            File::Copy::Recursive::fcopy("$dir/$subDir/$name.smp", "Profiles/$role.smp") || die "Copy failed for $role: $!";
+        }
     }
 }
-print scalar(keys %fams) . " families found for " . scalar(keys %roles) . " subsystem roles in $kept records.\n";
+print "All done.\n";
