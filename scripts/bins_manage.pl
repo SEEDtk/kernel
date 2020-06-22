@@ -246,9 +246,10 @@ sub StopFile {
 
 sub StartJob {
     my ($binDir, $dir, $extras) = @_;
+    my $nohup = ($FIG_Config::win_mode ? "" : "nohup ");
     my $subDir = "$binDir/$dir";
     my $cmd = "bins_sample_pipeline $extras $dir $subDir >$subDir/run.log 2>$subDir/err.log";
-    my $rc = system("nohup $cmd &");
+    my $rc = system("$nohup$cmd &");
     my $time = scalar(localtime);
     # Check the start marker.
     my $start = 'Started';

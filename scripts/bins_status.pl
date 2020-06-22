@@ -457,7 +457,8 @@ print "\nAll done:\n" . $stats->Show();
 sub StartJob {
     my ($dir, $subDir, $gz, $start, $label) = @_;
     my $cmd = "bins_sample_pipeline --engine=$engine $noIndex $gz $dir $subDir >$subDir/run.log 2>$subDir/err.log";
-    my $rc = system("nohup $cmd &");
+    my $nohup = ($FIG_Config::win_mode ? "" : "nohup ");
+    my $rc = system("$nohup$cmd &");
     push @other, "$label: $start $cmd.\n";
     $stats->Add("dirsX$start" => 1);
 }
