@@ -25,6 +25,7 @@ use Stats;
 use File::Copy::Recursive;
 use FIG_Config;
 use Math::Round;
+use GenomeTypeObject;
 
 =head1 Check Status of Bin Pipeline
 
@@ -137,6 +138,11 @@ The target number of assemblies to use for predicting the next command.  The def
 
 If specified, a file will be generated to stop the L<bins_manage.pl> process.
 
+=item resetBad
+
+Check each sample for instances where the bin was improperly annotated.  If a bad annotation is found, delete the RAST results
+and rerun the sample.
+
 =back
 
 =cut
@@ -163,6 +169,7 @@ my $opt = ScriptUtils::Opts('directory',
                 ['stop', 'stop the binning manager loop'],
                 ['stopAsm', 'stop the binning assembler loop'],
                 ['target=i', 'maximum number of assembly jobs', { default => 4 }],
+                ['resetBad', 'reset RAST for badly-annotated bins'],
                 ['run=i', 'run binning pipeline on new directories', { default => 0 }]);
 my $stats = Stats->new();
 # Get the main directory name.
@@ -179,6 +186,7 @@ my $fix = $opt->fix;
 my $engine = $opt->engine;
 my $noIndex = ($opt->noindex ? '--noIndex ' : '');
 my $resetOpt = $opt->reset;
+my $resetBad = $opt->resetbad;
 # Make sure the rebin value is comparable and easy to discern.
 my $rebin = $opt->rebin;
 if (! defined $rebin) {
@@ -268,152 +276,163 @@ for my $dir (@dirs) {
     } elsif ($evalDone && ! -s "$subDir/ref.genomes.scores.tbl") {
         $done = "Done (No binnable seeds).";
         $stats->Add(noBinsFound => 1);
-    } elsif ($evalDone) {
-        $done = "Done.";
-        # Check for evaluation results.
-        if (open(my $ih, "$subDir/Eval/index.tbl")) {
-            my $line = <$ih>;
-            my ($good, $tot) = (0, 0);
-            while (! eof $ih) {
-                $line = <$ih>;
-                if ($line =~ /\t1$/) {
-                    $good++;
-                    $totGood++;
-                    $stats->Add(binsGood => 1);
-                } else {
-                    $stats->Add(binsBad => 1);
-                }
-                $tot++;
-                $stats->Add(binsTotal => 1);
-            }
-            $totDone++;
-            if ($tot) {
-                $binStatus = "  $good of $tot bins.";
-            }
-        }
-    } elsif ($rastFound) {
-        if (! $run && $rebin) {
-            ResetSample($dir, $subDir);
-        }
-        if (! $run && $opt->resume && $resumeLeft) {
-            StartJob($dir, $subDir, '', 'Restarted', $label);
-            $resumeLeft--;
-        } else {
-            push @other, "$label: RAST Complete.\n";
-            $stats->Add(dirs7RastComplete => 1);
-            if (! $run) {
-                RecordStopped($sh, $label, 'Evaluation', $subDir, \$stopped);
-            }
-        }
-    } elsif (-s "$subDir/bin1.gto") {
-        if (! $run && $opt->resume && $resumeLeft) {
-            StartJob($dir, $subDir, '', 'Restarted', $label);
-            $resumeLeft--;
-        } else {
-            my $i = 2;
-            while (-s "$subDir/bin$i.gto") { $i++; }
-            my $bins = $i - 1;
-            push @other, "$label: RAST in Progress. $bins completed.\n";
-            $stats->Add(binsAccumulating => $bins);
-            RecordStopped($sh, $label, 'RAST Processing', $subDir, \$stopped) if (! $run);
-        }
-        $stats->Add(dirs6RastPartial => 1);
-    } elsif (-s "$subDir/bins.json") {
-        if (! $run && $opt->resume && $resumeLeft) {
-            StartJob($dir, $subDir, '', 'Restarted', $label);
-            $resumeLeft--;
-        } else {
-            push @other, "$label: Bins Computed.\n";
-            RecordStopped($sh, $label, 'RAST Processing', $subDir, \$stopped) if (! $run);
-        }
-        $stats->Add(dirs5Binned => 1);
-    } elsif (-f "$subDir/bins.report.txt") {
-        $stats->Add(noBinsFound => 1);
-        $done = "No bins found.";
-    } elsif (-s "$subDir/sample.fasta") {
-        if (! $run && $rebin eq 'all') {
-            # Stopped and we are re-binning these. Delete the binning stuff.
-            ResetSample($dir, $subDir);
-        }
-        if (! $run && $opt->resume && $resumeLeft) {
-            StartJob($dir, $subDir, '', 'Restarted', $label);
-            $resumeLeft--;
-        } else {
-            RecordStopped($sh, $label, 'Binning', $subDir, \$stopped) if (! $run);
-            push @other, "$label: Binning in Progress.\n";
-        }
-        $stats->Add(dirs4Binning => 1);
-    } elsif (-s "$subDir/contigs.fasta") {
-        if (! $run && $opt->resume && $resumeLeft) {
-            StartJob($dir, $subDir, '', 'Restarted', $label);
-            $resumeLeft--;
-        } elsif (! $run && $opt->all) {
-            push @other, "$label: Assembled.\n";
-        }
-        $stats->Add(dirs3Assembled => 1);
-    } elsif (-d "$subDir/Assembly") {
-        if (! $run && ! -f "$subDir/ASSEMBLE" && $opt->backout) {
-            File::Copy::Recursive::pathrmdir("$subDir/Assembly");
-            $stats->Add(assemblyBackout => 1);
-            push @other, "$label: Downloaded.\n";
-            $stats->Add(dirs1Downloaded => 1);
-        } else {
-            # Here we are assembling.  Get the time in progress if it is running or is on an assembly machine.
-            my $duration = '';
-            if ($run || -f "$subDir/ASSEMBLE") {
-                $duration = -M "$subDir/Assembly/params.txt";
-                if ($duration) {
-                    $duration = "  " . Math::Round::nearest(0.1, 24 * $duration) . " hours.";
-                } else {
-                    $duration = '';
-                }
-                $asming++ if $run;
-            }
-            push @other, "$label: Assembling.$duration\n";
-            $stats->Add(dirs2Assembling => 1);
-        }
-    } elsif (! -s "$subDir/site.tbl") {
-        # A download is in progress here.  Compute the progress.
-        opendir(my $dh, $subDir) || die "Could not open directory $subDir: $!";
-        my $count = 0;
-        map { $count += -s "$subDir/$_" } grep { $_ =~ /\.(?:fastq|fq)/ } readdir $dh;
-        if ($count > 1000000) {
-            $count = int($count/1000000) . "M";
-        }
-        push @other, "$label: Downloading. $count so far.\n";
-        $stats->Add(dirs0Downloading => 1);
     } else {
-        # Here the directory is downloaded. We may need to fix it or run the pipeline.
-        opendir(my $dh, $subDir) || die "Could not open directory $subDir: $!";
-        my @files = grep { $_ =~ /\.(?:fastq|fq)/ } readdir $dh;
-        closedir $dh;
-        my $found = scalar @files;
-        if (! $found) {
-            my $status = "$label: Empty.";
-            $stats->Add(dirs0Empty => 1);
-            if ($fix ne 'none') {
+        if (! $run && $rastFound && $resetBad) {
+            # Check for a need to rerun.
+            my $needRerun = rerunNeeded($dir, $subDir);
+            if ($needRerun) {
+                ResetRast($dir, $subDir);
+                $rastFound = 0;
+                $evalDone = 0;
+            }
+        }
+        if ($evalDone) {
+            $done = "Done.";
+            # Check for evaluation results.
+            if (open(my $ih, "$subDir/Eval/index.tbl")) {
+                my $line = <$ih>;
+                my ($good, $tot) = (0, 0);
+                while (! eof $ih) {
+                    $line = <$ih>;
+                    if ($line =~ /\t1$/) {
+                        $good++;
+                        $totGood++;
+                        $stats->Add(binsGood => 1);
+                    } else {
+                        $stats->Add(binsBad => 1);
+                    }
+                    $tot++;
+                    $stats->Add(binsTotal => 1);
+                }
+                $totDone++;
+                if ($tot) {
+                    $binStatus = "  $good of $tot bins.";
+                }
+            }
+        } elsif ($rastFound) {
+            if (! $run && $rebin) {
+                ResetSample($dir, $subDir);
+            }
+            if (! $run && $opt->resume && $resumeLeft) {
+                StartJob($dir, $subDir, '', 'Restarted', $label);
+                $resumeLeft--;
+            } else {
+                push @other, "$label: RAST Complete.\n";
+                $stats->Add(dirs7RastComplete => 1);
+                if (! $run) {
+                    RecordStopped($sh, $label, 'Evaluation', $subDir, \$stopped);
+                }
+            }
+        } elsif (-s "$subDir/bin1.gto") {
+            if (! $run && $opt->resume && $resumeLeft) {
+                StartJob($dir, $subDir, '', 'Restarted', $label);
+                $resumeLeft--;
+            } else {
+                my $i = 2;
+                while (-s "$subDir/bin$i.gto") { $i++; }
+                my $bins = $i - 1;
+                push @other, "$label: RAST in Progress. $bins completed.\n";
+                $stats->Add(binsAccumulating => $bins);
+                RecordStopped($sh, $label, 'RAST Processing', $subDir, \$stopped) if (! $run);
+            }
+            $stats->Add(dirs6RastPartial => 1);
+        } elsif (-s "$subDir/bins.json") {
+            if (! $run && $opt->resume && $resumeLeft) {
+                StartJob($dir, $subDir, '', 'Restarted', $label);
+                $resumeLeft--;
+            } else {
+                push @other, "$label: Bins Computed.\n";
+                RecordStopped($sh, $label, 'RAST Processing', $subDir, \$stopped) if (! $run);
+            }
+            $stats->Add(dirs5Binned => 1);
+        } elsif (-f "$subDir/bins.report.txt") {
+            $stats->Add(noBinsFound => 1);
+            $done = "No bins found.";
+        } elsif (-s "$subDir/sample.fasta") {
+            if (! $run && $rebin eq 'all') {
+                # Stopped and we are re-binning these. Delete the binning stuff.
+                ResetSample($dir, $subDir);
+            }
+            if (! $run && $opt->resume && $resumeLeft) {
+                StartJob($dir, $subDir, '', 'Restarted', $label);
+                $resumeLeft--;
+            } else {
+                RecordStopped($sh, $label, 'Binning', $subDir, \$stopped) if (! $run);
+                push @other, "$label: Binning in Progress.\n";
+            }
+            $stats->Add(dirs4Binning => 1);
+        } elsif (-s "$subDir/contigs.fasta") {
+            if (! $run && $opt->resume && $resumeLeft) {
+                StartJob($dir, $subDir, '', 'Restarted', $label);
+                $resumeLeft--;
+            } elsif (! $run && $opt->all) {
+                push @other, "$label: Assembled.\n";
+            }
+            $stats->Add(dirs3Assembled => 1);
+        } elsif (-d "$subDir/Assembly") {
+            if (! $run && ! -f "$subDir/ASSEMBLE" && $opt->backout) {
+                File::Copy::Recursive::pathrmdir("$subDir/Assembly");
+                $stats->Add(assemblyBackout => 1);
+                push @other, "$label: Downloaded.\n";
+                $stats->Add(dirs1Downloaded => 1);
+            } else {
+                # Here we are assembling.  Get the time in progress if it is running or is on an assembly machine.
+                my $duration = '';
+                if ($run || -f "$subDir/ASSEMBLE") {
+                    $duration = -M "$subDir/Assembly/params.txt";
+                    if ($duration) {
+                        $duration = "  " . Math::Round::nearest(0.1, 24 * $duration) . " hours.";
+                    } else {
+                        $duration = '';
+                    }
+                    $asming++ if $run;
+                }
+                push @other, "$label: Assembling.$duration\n";
+                $stats->Add(dirs2Assembling => 1);
+            }
+        } elsif (! -s "$subDir/site.tbl") {
+            # A download is in progress here.  Compute the progress.
+            opendir(my $dh, $subDir) || die "Could not open directory $subDir: $!";
+            my $count = 0;
+            map { $count += -s "$subDir/$_" } grep { $_ =~ /\.(?:fastq|fq)/ } readdir $dh;
+            if ($count > 1000000) {
+                $count = int($count/1000000) . "M";
+            }
+            push @other, "$label: Downloading. $count so far.\n";
+            $stats->Add(dirs0Downloading => 1);
+        } else {
+            # Here the directory is downloaded. We may need to fix it or run the pipeline.
+            opendir(my $dh, $subDir) || die "Could not open directory $subDir: $!";
+            my @files = grep { $_ =~ /\.(?:fastq|fq)/ } readdir $dh;
+            closedir $dh;
+            my $found = scalar @files;
+            if (! $found) {
+                my $status = "$label: Empty.";
+                $stats->Add(dirs0Empty => 1);
+                if ($fix ne 'none') {
+                    File::Copy::Recursive::pathrmdir($subDir);
+                    $status .= "  Deleted.\n";
+                    $stats->Add(dirsDeleted => 1);
+                } else {
+                    $status .= "\n";
+                }
+                push @other, $status;
+            } elsif ($runCount > 0) {
+                # It's valid, and we want to run it. Check for gz files.
+                $found = grep { $_ =~ /q\.gz$/ } @files;
+                my $gz = ($found ? '--gz' : '');
+                StartJob($dir, $subDir, $gz, 'Started', $label);
+                $runCount--;
+            } elsif (! $run && $fix eq 'all') {
+                # It's valid, and we are deleting it.
                 File::Copy::Recursive::pathrmdir($subDir);
-                $status .= "  Deleted.\n";
                 $stats->Add(dirsDeleted => 1);
             } else {
-                $status .= "\n";
-            }
-            push @other, $status;
-        } elsif ($runCount > 0) {
-            # It's valid, and we want to run it. Check for gz files.
-            $found = grep { $_ =~ /q\.gz$/ } @files;
-            my $gz = ($found ? '--gz' : '');
-            StartJob($dir, $subDir, $gz, 'Started', $label);
-            $runCount--;
-        } elsif (! $run && $fix eq 'all') {
-            # It's valid, and we are deleting it.
-            File::Copy::Recursive::pathrmdir($subDir);
-            $stats->Add(dirsDeleted => 1);
-        } else {
-            # It's valid, but we are leaving it alone.
-            $stats->Add(dirs1Downloaded => 1);
-            if ($opt->all) {
-                push @downloaded, "$label: Downloaded.\n";
+                # It's valid, but we are leaving it alone.
+                $stats->Add(dirs1Downloaded => 1);
+                if ($opt->all) {
+                    push @downloaded, "$label: Downloaded.\n";
+                }
             }
         }
     }
@@ -482,6 +501,51 @@ sub ResetSample {
     }
     print "$count of $total files deleted by reset of $dir.\n";
 }
+
+sub rerunNeeded {
+    my ($dir, $subDir) = @_;
+    my $retVal;
+    for (my $i = 1; ! $retVal && -s "$subDir/bin$i.gto"; $i++) {
+        my $genome = GenomeTypeObject->create_from_file("$subDir/bin$i.gto");
+        # Search the close genomes for the reference.
+        my $closeGenomes = $genome->{close_genomes};
+        my $taxon = $genome->{ncbi_taxonomy_id};
+        for my $closeGenome (@$closeGenomes) {
+            if ($closeGenome->{analysis_method} eq "bins_generate") {
+                my ($otherTaxon) = split /\./, $closeGenome->{genome};
+                if ($otherTaxon ne $taxon) {
+                    # This is a red flag.  Verify the taxonomy ID in the original genome.
+                    my $gto2 = GenomeTypeObject->create_from_file("$subDir/$closeGenome->{genome}.json");
+                    if ($gto2->{ncbi_taxonomy_id} ne $taxon) {
+                        print "$dir has a bad genome in bin $i.\n";
+                        $retVal = 1;
+                    }
+                }
+            }
+        }
+    }
+    return $retVal;
+}
+
+sub ResetRast {
+    my ($dir, $subDir) = @_;
+    my ($count, $total) = (0, 0);
+    opendir(my $dh, $subDir) || die "Could not open work directory: $!";
+    my @files = grep { -f "$subDir/$_" } readdir $dh;
+    for my $file (@files) {
+        my $fullName = "$subDir/$file";
+        $total++;
+        if ($fullName =~ /\/bin\d+\./ || $fullName =~ /bins\.rast\.json$/ || $fullName =~ /bins\.report\.txt$/) {
+            unlink $fullName;
+            $count++;
+        }
+    }
+    if (-d "$subDir/Eval") {
+        File::Copy::Recursive::pathrmdir("$subDir/Eval") || die "Could not remove Eval from $subDir: $!";
+    }
+    print "$count of $total files deleted by RAST reset of $dir.\n";
+}
+
 
 sub RecordStopped {
     my ($sh, $label, $status, $subDir, $pStopped) = @_;
