@@ -64,7 +64,7 @@ $| = 1;
 # Get the command-line parameters.
 my $opt = ScriptUtils::Opts('outDir', ScriptUtils::ih_options(),
         ['clear', 'erase output before starting'],
-        ['processes=i', 'number of processes to run in each batch']
+        ['processes=i', 'number of processes to run in each batch', { default => 20 }]
         );
 # [domain, gc] information will be cached in here.
 my %taxons;
