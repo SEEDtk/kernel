@@ -154,9 +154,13 @@ while (! eof $ih) {
             # Submit the annotation.
             print STDERR "Submitting to RAST with taxonomic ID $taxID in domain $domain with gc = $gc.\n";
             my ($jobID, $checksum) = RASTlib::Submit([$contigs->tuples], $taxID, $name, domain => $domain,
-                    geneticCode => $gc, noIndex => 1);
-            push @batch, [$jobID, $checksum, $taxID, $subDir, $outFile];
-            $stats->Add(jobSubmitted => 1);
+                    geneticCode => $gc, noIndex => 1, robust => 1);
+            if ($jobID) {
+                push @batch, [$jobID, $checksum, $taxID, $subDir, $outFile];
+                $stats->Add(jobSubmitted => 1);
+            } else {
+                $stats->Add(submitFailed => 1);
+            }
         }
     }
     # Now all the jobs are submitted.  Get them back.
