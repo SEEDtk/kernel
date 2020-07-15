@@ -1,34 +1,58 @@
 use strict;
 use FIG_Config;
-use RoleParse;
 use File::Copy::Recursive;
+use GEO;
+use EvalCon;
+use Stats;
+use P3DataAPI;
 
-if (! -d "Profiles") {
-    File::Copy::Recursive::pathmk("Profiles");
-}
-open(my $rh, '<', "Global/uniRoles.tbl") || die "Could not open uniRoles: $!";
-my %checksum;
-print "Reading roles.\n";
-while (! eof $rh) {
-    my ($rid, $check, $name) = split /\t/, <$rh>;
-    $checksum{$check} = $rid;
-}
-close $rh;
-print scalar(keys %checksum) . " universal roles found.\n";
-print "Reading census.\n";
-my $dir = "/disks/ssd/olson/profiles/bob1/";
-open(my $ih, '<', "/homes/gdpusch/Projects/Profiles/cluster_census.subsystem_based.tab") || die "Could not open census: $!";
+my ($inFile, $inDir) = @ARGV;
+my $stats = Stats->new();
+print STDERR "Input file is $inFile.  Input directory is $inDir.\n";
+my ($nMap, $cMap) = EvalCon::LoadRoleHashes("$FIG_Config::p3data/roles.in.subsystems", $stats);
+my $p3 = P3DataAPI->new();
+my %geoOptions = (rolesHashes => [$nMap, $cMap], p3 => $p3, stats => $stats, detail => 0, logH => \*STDERR);
+# This is the original file.  We will create a new one with two additional columns.
+open(my $ih, '<', $inFile) || die "Could not open input: $!";
+# Skip the header and print the new header.
+my $line = <$ih>;
+print "Sample\tgood_meta\tbad_meta\tgood_patric\tbad_patric\tgood_bam\tbad_bam\n";
 while (! eof $ih) {
-    my $line = <$ih>;
+    $line = <$ih>;
     chomp $line;
-    my ($subDir, $name, $pMembers, $members, $percent, $function) = split /\t/, $line;
-    if ($members >= 10 && $pMembers / $members >= 0.9) {
-        my $check = RoleParse::Checksum($function);
-        my $role = $checksum{$check};
-        if ($role) {
-            print "Copying $subDir/$name for role $role.\n";
-            File::Copy::Recursive::fcopy("$dir/$subDir/$name.smp", "Profiles/$role.smp") || die "Copy failed for $role: $!";
+    my ($sample, $goodMeta, $badMeta, $goodPat, $badPat) = split /\t/, $line;
+    $stats->Add(lineIn => 1);
+    $stats->Add(goodMeta => $goodMeta);
+    $stats->Add(allMeta => ($goodMeta + $badMeta));
+    $stats->Add(goodPat => $goodPat);
+    $stats->Add(allPat => ($goodPat + $badPat));
+    # Get all the GTOs in the sample directory.
+    my ($goodBam, $badBam) = (0, 0);
+    my $sampDir = "$inDir/metabat-$sample";
+    if (! -d $sampDir) {
+        print STDERR "WARNING: $sampDir not found.\n";
+        $stats->Add(missingDir => 1);
+    } else {
+        print STDERR "Processing $sampDir.\n";
+        opendir(my $dh, $sampDir) || die "Could not open $sampDir: $!";
+        my @gtoFiles = map { "$sampDir/$_" } grep { $_ =~ /\.gto$/ } readdir $dh;
+        print STDERR scalar(@gtoFiles) . " genomes found.\n";
+        # Create the GEOs.
+        my $geoHash = GEO->CreateFromGtoFiles(\@gtoFiles, %geoOptions);
+        my $geoCount = scalar keys %$geoHash;
+        print STDERR "$geoCount genomes loaded.\n";
+        $stats->Add(geosRead => $geoCount);
+        for my $genome (sort keys %$geoHash) {
+            my $geo = $geoHash->{$genome};
+            if ($geo->is_good()) {
+                $goodBam++;
+            } else {
+                $badBam++;
+            }
         }
     }
+    $stats->Add(goodBam => $goodBam);
+    $stats->Add(allBam => ($goodBam + $badBam));
+    print join("\t", $sample, $goodMeta, $badMeta, $goodPat, $badPat, $goodBam, $badBam) . "\n";
 }
-print "All done.\n";
+print STDERR "All done:\n" . $stats->Show();
