@@ -14,7 +14,11 @@ Add the points of interest
 
 Prepare the GTO directory for use in the website.
 
-    kmers.reps prepare -n CLOSE couples.tbl GTOcouple
+    kmers.reps prepare -n CLOSE Global/couples.tbl GTOcouple
+
+Erase the temp directory.
+
+    rm GTOtemp/*
 
 =head2 Creating the couples.tbl File
 
@@ -24,5 +28,5 @@ Insure the RepGen.200 GTOs have the latest points of interest.
 
 Generate the coupling table.
 
-    kmers.reps coupling -n CLOSE --names poi_seeds.fa GTOtemp >couples.tbl
+    kmers.reps coupling -n CLOSE --names poi_seeds.fa GTOtemp >Global/couples.tbl
 
