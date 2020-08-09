@@ -1,0 +1,28 @@
+=head1 Procedure for Building Coupling Data
+
+Create the CoreSEED GTOs
+
+    genome.download core --clear /vol/core-seed/FIGdisk/FIG/Data/Organisms GTOtemp
+
+Add the subsystems
+
+    genome.download subsystems GTOcore /vol/core-seed/FIGdisk/FIG/Data/Subsystems
+
+Add the points of interest
+
+    genome.blast poi --clear poi_seeds.fa GTOtemp GTOcouple
+
+Prepare the GTO directory for use in the website.
+
+    kmers.reps prepare -n CLOSE couples.tbl GTOcouple
+
+=head2 Creating the couples.tbl File
+
+Insure the RepGen.200 GTOs have the latest points of interest.
+
+    genome.blast poi --reset --clear poi_seeds.ga Kmers/GTO200 GTOtemp
+
+Generate the coupling table.
+
+    kmers.reps coupling -n CLOSE --names poi_seeds.fa GTOtemp >couples.tbl
+
