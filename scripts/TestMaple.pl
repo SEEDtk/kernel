@@ -10,7 +10,7 @@ for my $org (@orgs) {
     for my $file (map { "Features/$_/deleted.features" } qw(peg rna)) {
         if (-s "$orgDir/$file") {
             print "Copying $file.\n";
-            File::Copy::Recursive::fcopy("$orgDir/$file", "FakeCore/$file") || die "Could not copy $org $file: $!";
+            File::Copy::Recursive::fcopy("$orgDir/$file", "FakeCore/$org/$file") || die "Could not copy $org $file: $!";
         }
     }
 }
