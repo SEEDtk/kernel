@@ -1,0 +1,21 @@
+=head1 Creating a New Maven Archetype
+
+=over 4
+
+=item 1
+
+Copy seed-command.  This is a low-level archetype file.
+
+=item 2
+
+Modify the various files.
+
+=item 3
+
+Go into the project directory in a console.  Use C<mvn clean install> and C<mvn deploy>.
+
+=item 4
+
+Copy the archetype-catalog from .m2/repository to .m2/.
+
+=back
