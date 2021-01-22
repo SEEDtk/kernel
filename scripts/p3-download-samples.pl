@@ -40,6 +40,10 @@ is best used with C<--missing> to download a few at a time from a specific list.
 
 If specified, the output files will be in gzip format.
 
+=item virtual
+
+If specifed, then the input should contain run IDs.  The output will be a single virtual sample combining all the runs.
+
 =back
 
 =cut
@@ -59,7 +63,7 @@ my $opt = P3Utils::script_opts('outDir', P3Utils::col_options(), P3Utils::ih_opt
         ['site=s', 'site name to specify'],
         ['gzip', 'output files should be compressed'],
         ['max=i', 'maximum number to download'],
-
+        ['virtual=s', 'if specified, create a single virtual sample from the specified runs']
         );
 # Create a statistics object.
 my $stats = Stats->new();
@@ -92,7 +96,12 @@ my ($outHeaders, $keyCol) = P3Utils::process_headers($ih, $opt);
 # Get the sample IDs.
 my $inSamples = P3Utils::get_col($ih, $keyCol);
 $stats->Add(inputIDs => scalar @$inSamples);
-push @samples, @$inSamples;
+if ($opt->virtual) {
+    # Here we have a virtual sample and the input is runs.
+    push @samples, $opt->virtual;
+} else {
+    push @samples, @$inSamples;
+}
 my $sampleTot = scalar @samples;
 # Compute the number of samples to download.
 my $max = $opt->max || $sampleTot;
@@ -109,7 +118,12 @@ for my $sample (@samples) {
         $stats->Add(sampleSkipped => 1);
     } elsif ($max > 0) {
         print "Processing $sample ($count of $sampleTot).\n";
-        my $runList = $sra->get_runs($sample);
+        my $runList;
+        if ($opt->virtual) {
+             $runList = $inSamples;
+        } else {
+            $runList = $sra->get_runs($sample);
+        }
         if (! $runList) {
             print "No runs found.\n";
             $stats->Add(sampleEmpty => 1);
