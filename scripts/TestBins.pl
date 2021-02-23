@@ -53,11 +53,15 @@ sub getSource {
 sub printBin {
     my ($sample, $source, $qual, $bin) = @_;
     my $gto = GenomeTypeObject->create_from_file($bin);
-    my $genus = $gto->{ncbi_genus};
     my $id = $gto->{id};
-    my $a = $gto->{analysis_events};
-    my @tools = grep { $_->{tool_name} eq "p3x-improve-gto" } @$a;
-    my $improved = (scalar(@tools) ? "1" : "");
     my $q = $qual->{$id};
-    print join("\t", $sample, $source, $id, $genus, @$q, $improved) . "\n";
+    if (! $q) {
+        print STDERR "Bin $id is invalid-- skipped.\n";
+    } else {
+        my $genus = $gto->{ncbi_genus};
+        my $a = $gto->{analysis_events};
+        my @tools = grep { $_->{tool_name} eq "p3x-improve-gto" } @$a;
+        my $improved = (scalar(@tools) ? "1" : "");
+        print join("\t", $sample, $source, $id, $genus, @$q, $improved) . "\n";
+    }
 }
