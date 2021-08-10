@@ -6,7 +6,7 @@ my $inDir = '/vol/patric3/QA/applications';
 my $outDir = "$FIG_Config::data/p3Tests";
 File::Copy::Recursive::pathempty($outDir) || die "Could not empty $outDir: $!";
 opendir(my $dh, $inDir) || die "Could not open input directory: $!";
-my @appdirs = grep { $_ =~ /^App-/ && -d "$inDir/$_" } readdir $dh;
+my @appdirs = grep { $_ =~ /^App-/ && -d "$inDir/$_/tests" } readdir $dh;
 closedir $dh; undef $dh;
 for my $appdir (@appdirs) {
     my $source = "$inDir/$appdir/tests";
