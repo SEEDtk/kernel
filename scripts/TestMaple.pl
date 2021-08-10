@@ -2,21 +2,21 @@ use strict;
 use FIG_Config;
 use File::Copy::Recursive;
 
-my ($dest) = @ARGV;
-opendir(my $dh, "Bins_HMP") || die "Could not open Bins_HMP: $!";
-my @dirs = grep { -s "Bins_HMP/$_/contigs.fasta" } readdir $dh;
-for my $dir (@dirs) {
-    if (! open(my $ih, '<', "Bins_HMP/$dir/site.tbl")) {
-        print "$dir has no site file.\n";
-    } else {
-        my $line = <$ih>;
-        close $ih;
-        if ($line =~ /HMP\s+stool/) {
-            File::Copy::Recursive::fcopy("Bins_HMP/$dir/contigs.fasta", "$dest/$dir.fasta")
-                || die "Error copying $dir: $!";
-            print "$dir copied.\n";
-        } else {
-            print "$dir is of type $line";
-        }
+my $inDir = '/vol/patric3/QA/applications';
+my $outDir = "$FIG_Config::data/p3Tests";
+File::Copy::Recursive::pathempty($outDir) || die "Could not empty $outDir: $!";
+opendir(my $dh, $inDir) || die "Could not open input directory: $!";
+my @appdirs = grep { $_ =~ /^App-/ && -d "$inDir/$_" } readdir $dh;
+closedir $dh; undef $dh;
+for my $appdir (@appdirs) {
+    my $source = "$inDir/$appdir/tests";
+    my $appName = substr $appdir, 4;
+    print "Processing application $appName.\n";
+    opendir(my $dh, $source) || die "Could not open $source directory: $!";
+    my @jsons = grep { $_ =~ /\.json$/ } readdir $dh;
+    close $dh; undef $dh;
+    for my $json (@jsons) {
+        File::Copy::Recursive::fcopy("$source/$json", "$outDir/$appName.$json") || die "Copy failed for $json of $appName: $!";
     }
 }
+print "All done.";
