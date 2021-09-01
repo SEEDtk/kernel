@@ -3,7 +3,7 @@
     p3-taxon-analysis.pl [options] workDir
 
 This script determines the universal roles for taxonomic groupings. A I<universal role> is one that occurs singly 97% of the time in genomes
-of a given taxonomic grouping. The script takes as input a file of PATRIC genomes believed to complete along with their singly-occurring roles
+of a given taxonomic grouping. The script takes as input a file of BV-BRC genomes believed to complete along with their singly-occurring roles
 and taxonomic lineages.
 
 Progress messages are sent to the standard output. The work directory must contain the file C<genomes.tbl> produced by L<p3-genome-unis.pl>. The

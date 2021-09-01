@@ -62,7 +62,7 @@ if (! $outDir) {
 } elsif (! -d $outDir) {
     File::Copy::Recursive::pathmk($outDir) || die "Could not create output directory $outDir: $!";
 }
-# Get access to PATRIC.
+# Get access to BV-BRC.
 my $p3 = P3DataAPI->new();
 # Read the role file.
 my $roleFile = $opt->rolefile;

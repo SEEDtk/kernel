@@ -26,7 +26,7 @@ use SeedUtils;
 # Get the command-line options.
 my $opt = P3Utils::script_opts('', P3Utils::col_options(), P3Utils::ih_options(),
         );
-# Get access to PATRIC.
+# Get access to BV-BRC.
 my $p3 = P3DataAPI->new();
 # Open the input file.
 my $ih = P3Utils::ih($opt);

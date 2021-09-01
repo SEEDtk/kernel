@@ -54,8 +54,8 @@ my $debug = $opt->verbose;
 my $role = $opt->role;
 my $N = $opt->num;
 my $minScore = $opt->minscore;
-# Get access to PATRIC.
-print STDERR "Connecting to PATRIC.\n" if $debug;
+# Get access to BV-BRC.
+print STDERR "Connecting to BV-BRC.\n" if $debug;
 my $p3 = P3DataAPI->new();
 # Get the positional parameters.
 my ($repDir, $genome) = @ARGV;
@@ -75,7 +75,7 @@ my $p3RepDB = P3RepGenomes->new($p3, $repDB, role => $role);
 my $gHash = $p3RepDB->GetProts([$genome]);
 my $gData = $gHash->{$genome};
 if (! $gData) {
-    die "$genome not found in PATRIC.";
+    die "$genome not found in BV-BRC.";
 } else {
     my ($gName, $seedProt) = @$gData;
     # Ask for the closest genomes.

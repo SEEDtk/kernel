@@ -47,8 +47,8 @@ my $opt = P3Utils::script_opts('repDir', EvalCon::role_options(),
 my $debug = $opt->verbose;
 my $logH = ($debug ? \*STDERR : undef);
 my $resume = $opt->resume;
-# Get access to PATRIC.
-print STDERR "Connecting to PATRIC.\n" if $debug;
+# Get access to BV-BRC.
+print STDERR "Connecting to BV-BRC.\n" if $debug;
 my $p3 = P3DataAPI->new();
 # Check the representative-genome directory.
 my ($repDir) = @ARGV;

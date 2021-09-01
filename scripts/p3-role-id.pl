@@ -1,8 +1,8 @@
-=head1 Compute Role IDs for PATRIC Features
+=head1 Compute Role IDs for BV-BRC Features
 
     p3-role-id.pl [options]
 
-This script takes as input a file of PATRIC features with a product column and appends the role ID to each.  Roles without an ID in
+This script takes as input a file of BV-BRC features with a product column and appends the role ID to each.  Roles without an ID in
 the Shrub will not be output. If a feature has multiple roles, it will get multiple output lines.
 
 =head2 Parameters

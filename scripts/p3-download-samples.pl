@@ -3,7 +3,7 @@
     p3-download-samples.pl [options] outDir
 
 This script will take as input a list of SRA sample IDs and download the FastQ files for the runs in a format
-usable for the PATRIC binning service. The SRA toolkit must be installed (see L<InstallSRAtk>).
+usable for the BV-BRC binning service. The SRA toolkit must be installed (see L<InstallSRAtk>).
 
 =head2 Parameters
 

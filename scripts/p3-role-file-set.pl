@@ -21,7 +21,7 @@
     p3-role-file-set.pl [options] outDir role1 role2 ... roleN
 
 This script handles the incredibly complex tax of generating role-triple files.  These files are generated for good
-genomes in PATRIC for one or more roles.  The process works in two passes for each role.  During the first pass, we
+genomes in BV-BRC for one or more roles.  The process works in two passes for each role.  During the first pass, we
 pull in the protein strings and remove bad genomes or genomes with more than one copy of the protein.  In the second
 pass we remove proteins whose length differs too much from the mean.
 
@@ -75,7 +75,7 @@ my $opt = P3Utils::script_opts('outDir role1 role2 ... roleN',
         ['preFiltered|pre|p=s', 'prefiltered role', { default => 'PhenTrnaSyntAlph' }],
     );
 my $stats = Stats->new();
-# Connect to PATRIC.
+# Connect to BV-BRC.
 my $p3 = P3DataAPI->new();
 # Get the options.
 my $roleFile = $opt->rolefile;

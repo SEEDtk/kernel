@@ -1,8 +1,8 @@
-=head1 Check for Good PATRIC Genomes
+=head1 Check for Good BV-BRC Genomes
 
     p3-good-check.pl [options] inDir outDir
 
-This script performs a good-genome check on the PATRIC genomes. It accepts as input a list of previously-determined
+This script performs a good-genome check on the BV-BRC genomes. It accepts as input a list of previously-determined
 good and bad genome IDs. It first checks for a bad seed protein, then performs an EvalG check, then runs through a
 SciKit check on everything remaining.
 
@@ -57,8 +57,8 @@ if (! $inDir) {
     print "Creating $outDir.\n";
     File::Copy::Recursive::pathmk($outDir) || die "Could not create output directory: $!";
 }
-# Get access to PATRIC.
-print "Connecting to PATRIC.\n";
+# Get access to BV-BRC.
+print "Connecting to BV-BRC.\n";
 my $p3 = P3DataAPI->new();
 # To start, we get the known-genome information.
 my ($goodH, $badH) = ({}, {});
@@ -79,10 +79,10 @@ if ($opt->genomes) {
             push @gids, $1;
         }
     }
-    print "Getting " . scalar(@gids) . " genomes from PATRIC.\n";
+    print "Getting " . scalar(@gids) . " genomes from BV-BRC.\n";
     $genomeList = P3Utils::get_data_keyed($p3, genome => [], ['genome_id', 'genome_name', 'kingdom'], \@gids, 'genome_id');
 } else {
-    print "Reading genomes from PATRIC.\n";
+    print "Reading genomes from BV-BRC.\n";
     $genomeList = P3Utils::get_data($p3, genome => [['eq', 'public', 1]], ['genome_id', 'genome_name', 'kingdom']);
 }
 my $total = scalar(@$genomeList);
@@ -104,7 +104,7 @@ my $gh = IO::File->new(">$outDir/good.patric.tbl") || die "Could not open output
 my $bh = IO::File->new(">$outDir/bad.patric.tbl") || die "Could not open output bad.patric.tbl: $!";
 # This list will accumulate a batch of genomes of unknown provenance.
 my @queue;
-# Run through the PATRIC genomes.
+# Run through the BV-BRC genomes.
 for my $genomeEntry (@$genomeList) {
     my ($id, $name, $type) = @$genomeEntry;
     # Only keep proks.

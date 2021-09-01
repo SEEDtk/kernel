@@ -60,7 +60,7 @@ if (! $repDir) {
 } elsif (! $genomeID) {
     die "No input genome ID specified.";
 }
-# Get access to PATRIC.
+# Get access to BV-BRC.
 my $p3 = P3DataAPI->new();
 # Write the output file header.
 P3Utils::print_cols(['genomeID', 'score']);

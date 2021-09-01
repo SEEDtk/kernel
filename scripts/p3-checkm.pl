@@ -1,8 +1,8 @@
-=head1 Run CheckM Against A List of PATRIC Genomes
+=head1 Run CheckM Against A List of BV-BRC Genomes
 
     p3-checkm.pl [options] outDir
 
-This script runs CheckM against a list of IDs for PATRIC genomes. The output directory will be used to contain working files.
+This script runs CheckM against a list of IDs for BV-BRC genomes. The output directory will be used to contain working files.
 In addition, the output lists will be put in there.
 
 =head2 Parameters
@@ -73,7 +73,7 @@ if (! $outDir) {
 File::Copy::Recursive::pathmk("$outDir/fasta") || die "Could not create FASTA directory: $!";
 # Create the work directory.
 File::Copy::Recursive::pathmk("$outDir/checkm") || die "Could not create work directory: $!";
-# Get access to PATRIC.
+# Get access to BV-BRC.
 my $p3 = P3DataAPI->new();
 # Open the input file.
 my $ih = P3Utils::ih($opt);

@@ -2,7 +2,7 @@
 
     p3-find-reps.pl [options] inDir
 
-This script looks at an input list of PATRIC and/or Shrub genome IDs and outputs the representative genome for each one.
+This script looks at an input list of BV-BRC and/or Shrub genome IDs and outputs the representative genome for each one.
 
 The script operates on a representative server directory. The directory contains three files of paramount interest.
 
@@ -29,7 +29,7 @@ similarity number for a genome to be considered represented (e.g. C<100>).
 
 The positional parameters are the input directory and the output directory. The input directory must contain the above three files.
 
-The standard input can be overridden using the options in L<P3Utils/ih_options>. It should contain PATRIC genome IDs in the key column.
+The standard input can be overridden using the options in L<P3Utils/ih_options>. It should contain BV-BRC genome IDs in the key column.
 
 Additional command-line options are those given in L<P3Utils/col_options> (to select the input column) and L<Shrub/script_options>
 (to identify the L<Shrub> database) plus the following.
@@ -86,11 +86,11 @@ my $fastaMode = $opt->fasta;
 my $batchSize = $opt->batchsize;
 # Get access to the databases.
 if (! $opt->fasta) {
-    print STDERR "Connecting to PATRIC.\n" if $debug;
+    print STDERR "Connecting to BV-BRC.\n" if $debug;
     $p3 = P3DataAPI->new();
     print STDERR "Connecting to Shrub.\n" if $debug;
     $shrub = Shrub->new_for_script($opt);
-    # Create the PATRIC filter and column clauses for genome queries.
+    # Create the BV-BRC filter and column clauses for genome queries.
     @filter = (['eq', 'product', 'Phenylalanyl-tRNA synthetase alpha chain']);
     @cols = qw(genome_id genome_name product aa_sequence);
     # Save the checksum for the seed role.
@@ -134,7 +134,7 @@ while (! $done) {
         }
         print STDERR "$count sequences read from FASTA.\n" if $debug;
     } else {
-        # Here we are getting PATRIC/Shrub genome IDs.  This process is much more complex, since we have to sort out
+        # Here we are getting BV-BRC/Shrub genome IDs.  This process is much more complex, since we have to sort out
         # the proteins we want from the extra junk returned by a typical query.
         my $couplets = P3Utils::get_couplets($ih, $keyCol, $opt);
         my @genomes = map { $_->[0] } @$couplets;
@@ -167,7 +167,7 @@ while (! $done) {
                     }
                 }
             }
-            # Ask PATRIC for the names and identifying proteins of the remaining genomes.
+            # Ask BV-BRC for the names and identifying proteins of the remaining genomes.
             my $resultList = P3Utils::get_data_keyed($p3, 'feature', \@filter, \@cols, \@rem, 'genome_id');
             # The resultList entries are in the form [$genome, $name, $function, $prot]. Get the longest
             # protein for each genome. We also track obviously bad genomes.

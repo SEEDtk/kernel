@@ -2,7 +2,7 @@
 
     p3-eval-ref-table.pl [options] outDir
 
-This script builds the reference-genome table from PATRIC for each genus and species for which a good genome can be found.
+This script builds the reference-genome table from BV-BRC for each genus and species for which a good genome can be found.
 The reference-genome table is a tab-delimited file, each record containing (0) a taxonomic grouping ID and (1) the best-quality
 genome found in that grouping. The groupings are all species or genus level. The table is produced under the name C<ref.genomes.tbl>
 in the specified output directory.
@@ -54,7 +54,7 @@ if (! $outDir) {
     die "Output directory $outDir missing or invalid.";
 }
 print "Connecting to databases.\n";
-# Get access to PATRIC.
+# Get access to BV-BRC.
 my $p3 = P3DataAPI->new();
 # Get access to the Shrub.
 my $shrub = Shrub->new_for_script($opt);

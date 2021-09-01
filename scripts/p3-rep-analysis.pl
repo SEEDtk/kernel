@@ -5,7 +5,7 @@
 This script will analyze the taxonomic composition of one or more representative-genome directories in an attempt to determine
 how well they mirror known taxonomic classifications.
 
-A specific set of genomes will be taken from the input.  For each genome, we will interrogate PATRIC for its major
+A specific set of genomes will be taken from the input.  For each genome, we will interrogate BV-BRC for its major
 taxonomic groupings.  Then we will run through the various representative-genome directories and perform the appropriate
 taxonomic analysis.
 
@@ -54,7 +54,7 @@ my $opt = P3Utils::script_opts('repDir1 repDir2 repDir3 ... repDirN', P3Utils::i
         ['verbose|debug|v', 'show progress on STDERR'],
         ['save', 'save group assignments']
         );
-# Get access to PATRIC.
+# Get access to BV-BRC.
 my $p3 = P3DataAPI->new();
 # Get the options.
 my $debug = $opt->verbose;

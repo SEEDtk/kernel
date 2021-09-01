@@ -2,7 +2,7 @@
 
     p3-check-reps.pl [options] inDir outDir
 
-This script looks at an input list of PATRIC genome IDs and determines the representative genome for each one.
+This script looks at an input list of BV-BRC genome IDs and determines the representative genome for each one.
 
 The script operates on a representative server directory. The directory contains four files of paramount interest.
 
@@ -34,7 +34,7 @@ similarity number for a genome to be considered represented (e.g. C<100>).
 
 The positional parameters are the input directory and the output directory. The input directory must contain the above three files.
 
-The standard input can be overridden using the options in L<P3Utils/ih_options>. It should contain PATRIC genome IDs in the key column.
+The standard input can be overridden using the options in L<P3Utils/ih_options>. It should contain BV-BRC genome IDs in the key column.
 
 Additional command-line options are those given in L<P3Utils/col_options> (to select the input column) plus the following.
 
@@ -57,7 +57,7 @@ the genomes that are less similar than the main score but more similar than this
 =item fasta
 
 If specified, the standard input will be a FASTA file of protein sequences with genome or feature IDs.  If this option is
-specified, the PATRIC database is not accessed; instead, the protein sequences are read from the input.
+specified, the BV-BRC database is not accessed; instead, the protein sequences are read from the input.
 
 =back
 
@@ -111,11 +111,11 @@ if (! $outDir) {
 my ($p3, @filter, @cols, $roleCheck, $ih, $keyCol);
 my $fastaMode = $opt->fasta;
 my $batchSize = $opt->batchsize;
-# Get access to PATRIC.
+# Get access to BV-BRC.
 if (! $opt->fasta) {
-    print "Connecting to PATRIC.\n";
+    print "Connecting to BV-BRC.\n";
     $p3 = P3DataAPI->new();
-    # Create the PATRIC filter and column clauses for genome queries.
+    # Create the BV-BRC filter and column clauses for genome queries.
     @filter = (['eq', 'product', 'Phenylalanyl-tRNA synthetase alpha chain']);
     @cols = qw(genome_id genome_name product aa_sequence);
     # Save the checksum for the seed role.
@@ -163,7 +163,7 @@ while (! $done) {
         }
         print "$count sequences read from FASTA.\n";
     } else {
-        # Here we are getting PATRIC genome IDs.  This process is much more complex, since we have to sort out
+        # Here we are getting BV-BRC genome IDs.  This process is much more complex, since we have to sort out
         # the proteins we want from the extra junk returned by a typical query.  We also optimize by removing
         # genomes already in the database.
         my $couplets = P3Utils::get_couplets($ih, $keyCol, $opt);
@@ -182,7 +182,7 @@ while (! $done) {
         }
         if (@lost) {
             print scalar(@lost) . " genomes in this batch are not yet in the database.\n";
-            # Ask PATRIC for the names and identifying proteins of the un-represented genomes.
+            # Ask BV-BRC for the names and identifying proteins of the un-represented genomes.
             my $resultList = P3Utils::get_data_keyed($p3, 'feature', \@filter, \@cols, \@lost, 'genome_id');
             # The resultList entries are in the form [$genome, $name, $function, $prot]. Get the longest
             # protein for each genome. We also track obviously bad genomes.

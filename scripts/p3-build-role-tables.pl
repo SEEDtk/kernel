@@ -33,10 +33,10 @@ use P3Utils;
 
     p3-build-role-tables.pl [ options ] outDir annotations subsystems
 
-This script builds the same role tables output by L<build_role_tables.pl>, but builds them from the PATRIC
+This script builds the same role tables output by L<build_role_tables.pl>, but builds them from the BV-BRC
 kmer snapshot rather than the Shrub. The goal is to create something closer to the data used by RASTtk.
 
-PATRIC does not have a real snapshot of the coreSEED. Instead, there is a compressed copy of the subsystem
+BV-BRC does not have a real snapshot of the coreSEED. Instead, there is a compressed copy of the subsystem
 directory and a directory containing assignments for each genome. The subsystem directory must be
 decompressed before this script is used.
 
@@ -79,7 +79,7 @@ Annotations are in C</vol/core-seed/kmers/core.>I<XXXX-XXXX>C</Annotations/0>. S
 C</vol/patric3/fams/>I<XXXX-XXXX>C</subsystem-import/subsystems.tgz>. In both cases I<XXXX-XXXX> is
 the release date. The subsystems need to be decompressed before processing. If the subsystem directory
 is omitted, then it is assumed C<roles.in.subsystems> already exists in the output directory.  If both
-directories are omitted, then it is assumed all genomes are being loaded from PATRIC.
+directories are omitted, then it is assumed all genomes are being loaded from BV-BRC.
 
 The command-line options are those found in L<Shrub/script_options> plus the following.
 
@@ -87,7 +87,7 @@ The command-line options are those found in L<Shrub/script_options> plus the fol
 
 =item patric
 
-The name of a file containing PATRIC genome IDs in the first column.  These will be processed in addition to
+The name of a file containing BV-BRC genome IDs in the first column.  These will be processed in addition to
 the coreSEED genomes.
 
 =cut
@@ -96,7 +96,7 @@ $| = 1;
 # Get the command-line parameters.
 my $opt = ScriptUtils::Opts('outDir annotations subsystems',
         Shrub::script_options(),
-        ['patric=s', 'name of a file containing PATRIC genome IDs'],
+        ['patric=s', 'name of a file containing BV-BRC genome IDs'],
         );
 my $stats = Stats->new();
 # Get the directories.
@@ -244,17 +244,17 @@ for my $genome (sort keys %genomeFiles) {
     close $ih; undef $ih;
     countRoles(\%gRoleCount);
 }
-# Loop through the genomes in PATRIC.
+# Loop through the genomes in BV-BRC.
 if ($opt->patric) {
     my $p3 = P3DataAPI->new();
-    open(my $ih, '<', $opt->patric) || die "Could not open PATRIC genome file: $!";
+    open(my $ih, '<', $opt->patric) || die "Could not open BV-BRC genome file: $!";
     my @genomes;
     while (! eof $ih) {
         my $line = <$ih>;
         if ($line =~ /^(\d+\.\d+)/) {
             my $genome = $1;
             my %gRoleCount;
-            print "Processing $genome from PATRIC.\n";
+            print "Processing $genome from BV-BRC.\n";
             my $features = P3Utils::get_data($p3, feature => [['eq', 'genome_id', $genome]], ['patric_id', 'product']);
             for my $feature (@$features) {
                 my ($peg, $function) = @$feature;

@@ -4,7 +4,7 @@
 
 This script produces a report of the represented sets in a representative-genome database based on genus and species.
 In each represented set, the number of genomes in each genus, and each species within that genus, will be output.
-This is a long process because the taxonomic information is all in the PATRIC database and must be fetched.
+This is a long process because the taxonomic information is all in the BV-BRC database and must be fetched.
 
 Status messages will be written to the standard error output.
 
@@ -30,7 +30,7 @@ if (! $repDir) {
 } elsif (! -d $repDir) {
     die "Invalid or missing input directory $repDir.";
 }
-# Connect to PATRIC.
+# Connect to BV-BRC.
 my $p3 = P3DataAPI->new();
 # Load the database.
 print STDERR "Loading database from $repDir.\n";

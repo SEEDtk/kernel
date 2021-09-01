@@ -46,7 +46,7 @@ my $delim = P3Utils::delim($opt);
 # Get the debug flag.
 my $debug = $opt->verbose;
 my $logH = ($debug ? \*STDERR : undef);
-# Get access to PATRIC.
+# Get access to BV-BRC.
 my $p3 = P3DataAPI->new();
 # Read the role definitions.
 my $evalCon = EvalCon->new_for_script($opt, $logH);
@@ -64,7 +64,7 @@ if (! $genomeID) {
     my $gHash = GEO->CreateFromPatric([$genomeID], %geoOptions);
     my $geo = $gHash->{$genomeID};
     if (! $geo) {
-        die "Genome $genomeID not found in PATRIC.";
+        die "Genome $genomeID not found in BV-BRC.";
     } else {
         $roleHash = $geo->roleCounts;
     }

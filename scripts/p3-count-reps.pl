@@ -3,7 +3,7 @@
 
     p3-count-reps.pl [options] inDir score
 
-This script looks at an input list of PATRIC genome IDs and determines the number of representative genomes for each one
+This script looks at an input list of BV-BRC genome IDs and determines the number of representative genomes for each one
 at the specified distance or closer.
 
 The script operates on a representative server directory. The directory contains three files of paramount interest.
@@ -31,7 +31,7 @@ similarity number for a genome to be considered represented (e.g. C<100>).
 
 The positional parameters are the input directory and the minimum similarity score. The input directory must contain the above three files.
 
-The standard input can be overridden using the options in L<P3Utils/ih_options>. It should contain PATRIC genome IDs in the key column.
+The standard input can be overridden using the options in L<P3Utils/ih_options>. It should contain BV-BRC genome IDs in the key column.
 
 Additional command-line options are those given in L<P3Utils/col_options> (to select the input column).
 
@@ -52,7 +52,7 @@ $| = 1;
 # Get the command-line options.
 my $opt = P3Utils::script_opts('inDir score', P3Utils::col_options(), P3Utils::ih_options(),
         );
-# Get access to PATRIC.
+# Get access to BV-BRC.
 my $p3 = P3DataAPI->new();
 # Verify the parameters.
 my ($inDir, $score) = @ARGV;
@@ -68,7 +68,7 @@ if (! $score) {
 } elsif ($score =~ /\D/) {
     die "Invalid score $score.";
 }
-# Create the PATRIC filter and column clauses for genome queries.
+# Create the BV-BRC filter and column clauses for genome queries.
 my @filter = (['eq', 'product', 'Phenylalanyl-tRNA synthetase alpha chain']);
 my @cols = qw(genome_id genome_name aa_sequence);
 # Create the database from the input directory.

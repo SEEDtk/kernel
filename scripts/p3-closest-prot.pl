@@ -3,13 +3,13 @@
     p3-closest-prot.pl [options] fastaFile protein
 
 Given a protein FASTA file, find the closest one to the specified input protein using kmer similarity. The
-input protein can be expressed as a FASTA file name, a PATRIC feature ID, or an amino acid sequence string.
+input protein can be expressed as a FASTA file name, a BV-BRC feature ID, or an amino acid sequence string.
 The output will be a single line containing the ID of the closest protein and the similarity score.
 
 =head2 Parameters
 
 The positional parameters are the name of a protein FASTA file and the input protein itself. The input protein can
-be a FASTA file name (in which case the first protein will be used), a PATRIC feature ID, or a raw protein sequence.
+be a FASTA file name (in which case the first protein will be used), a BV-BRC feature ID, or a raw protein sequence.
 
 The command-line options are as follows.
 
@@ -38,7 +38,7 @@ my $opt = P3Utils::script_opts('fastaFile protein',
         ['kmerSize|kmersize|K=i', 'protein kmer size'],
         ['count|N=i', 'number of matches to return', { default => 1 }],
         );
-# Get access to PATRIC.
+# Get access to BV-BRC.
 my $p3 = P3DataAPI->new();
 # Get the positional parameters.
 my ($fastaFile, $protein) = @ARGV;
@@ -59,7 +59,7 @@ if (! $fastaFile) {
 } elsif ($protein =~ /^fig\|/) {
     my ($protRecord) = P3Utils::get_data($p3, feature => [['eq', 'patric_id', $protein]], ['patric_id', 'aa_sequence']);
     if (! $protRecord) {
-        die "$protein not found in PATRIC.";
+        die "$protein not found in BV-BRC.";
     } else {
         $protein = $protRecord->[1];
     }

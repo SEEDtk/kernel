@@ -64,7 +64,7 @@ my $opt = P3Utils::script_opts('inDir',
         ['sep|group|g', 'separate representative-genome groups'],
         ['verbose|v', 'show progress on STDERR']
         );
-# Get access to PATRIC.
+# Get access to BV-BRC.
 my $p3 = P3DataAPI->new();
 # Verify the parameters.
 my ($inDir) = @ARGV;
