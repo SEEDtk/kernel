@@ -30,7 +30,7 @@ if (! grep { $_ eq $binDir } @paths) {
     die "Bin directory must be in the PATH.";
 }
 # Compute the absolute path to the jars.
-my $jarBase = File::Spec::rel2abs(cwd());
+my $jarBase = File::Spec->rel2abs(cwd());
 # Verify we have a log directory.
 if (! $logDir) {
     die "No log directory specified.";
