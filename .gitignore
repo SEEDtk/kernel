@@ -4,3 +4,9 @@
 *#
 .DS_Store
 /scripts/*.cmd
+/appserv-enumerate-tasks.cmd
+/appserv-query-task.cmd
+/appserv-start-app.cmd
+/p3-mkdir.cmd
+/p3-cp.cmd
+/p3-ls.cmd
