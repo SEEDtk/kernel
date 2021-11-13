@@ -12,12 +12,4 @@
         <appender-ref ref="STDLOG"/>
     </logger>
 
-    <logger name="org.apache" level="error">
-        <appender-ref ref="STDLOG"/>
-    </logger>
-
-    <logger name="httpclient" level="error">
-        <appender-ref ref="STDLOG"/>
-    </logger>
-
 </configuration>
