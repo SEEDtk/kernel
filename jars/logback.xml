@@ -17,9 +17,9 @@
         </encoder>
     </appender>
 
-    <logger name="org.theseed" level="INFO">
+    <root level="INFO">
         <appender-ref ref="STDERR"/>
         <appender-ref ref="LOGFILE"/>
-    </logger>
+    </root>
 
 </configuration>
