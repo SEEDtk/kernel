@@ -28,5 +28,6 @@ for my $file (@files) {
     }
     close $oh; close $ih;
     File::Copy::Recursive::fmove("$inDir/temp.fna", "$inDir/$file") || die "Could not rename temp file: $!";
+    print "$file completed.\n";
 }
 print "$fileCount files, $lineCount lines, $changeCount changed.\n";
