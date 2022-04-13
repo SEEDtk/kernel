@@ -1,9 +1,11 @@
 #Creates a manifest file for qiime based on the names of samples in a csv
 
 #Get the list from the user: In the format of Author_Diseased/Controls.csv
-sample_list = input("What is the sample list for manifest file? ")
+full_path = raw_input("What is the sample list for manifest file? ")
 
 #Takes the name and creates the path based on the name
+path_list = full_path.split("/")
+sample_list = path_list[:-1]
 naming_list = sample_list.split("_")
 author = naming_list[0]
 sample_type = naming_list[1].strip(".csv")
