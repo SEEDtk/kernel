@@ -16,8 +16,10 @@ with open(sample_list) as samples:
         line = line.strip("\n")
         sample_names.append(line)
 
+manifest_path_on_maple = "/vol/mg-binning/Parkinsons/ManifestFiles/"
+
 #Creates a manifest file with the paths on maple
-with open(f"{author}_{sample_type}_manifest.txt", "w+") as manifest_file:
+with open(f"{manifest_path_on_maple}{author}_{sample_type}_manifest.txt", "w+") as manifest_file:
     manifest_file.write("sample-id\tforward-absolute-filepath\treverse-absolute-filepath\n")
     for sample in sample_names:
         manifest_file.write(f"{sample}\t"
