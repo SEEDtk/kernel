@@ -12,7 +12,7 @@ sample_type = naming_list[1].strip(".csv")
 sample_names = []
 
 #opens the file and creates a list of sample names
-with open(sample_list) as samples:
+with open(sample_list[0]) as samples:
     lines = samples.readlines()
     for line in lines:
         line = line.strip("\n")
