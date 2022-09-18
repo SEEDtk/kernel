@@ -38,15 +38,19 @@ The single positional parameter is the name of the working directory for the bin
 contain the C<bins.json> file describing the bins and the C<sample.fasta> file containing the sample contigs.
 These files are produced in the working directory specified on the L<bins_generate.pl> command.
 
+If the FASTA files are to be submitted to BV-BRC for annotation, then an additional positional parameters is
+required, specifying the workspace output path.  Each bin will have its own output directory inside the
+folder specified.
+
 =cut
 
 # Get the command-line parameters.
-my $opt = ScriptUtils::Opts('workDir');
+my $opt = ScriptUtils::Opts('workDir bv-brc-output-path');
 # Get the loader object.
 my $loader = Loader->new();
 my $stats = $loader->stats;
 # Compute the working directory.
-my ($workDir) = @ARGV;
+my ($workDir, $outPath) = @ARGV;
 if (! $workDir) {
     die "No working directory specified.";
 } elsif (! -d $workDir) {
@@ -76,7 +80,8 @@ for my $bin (@$binList) {
     # Now we read the sample file and keep the contig triples.
     my @triples;
     my $ih = $loader->OpenFasta(sampleContigs => $contigFastaFile);
-    open(my $oh, ">$workDir/bin$binNum.fa") || die "Could not open FASTA output file for bin $binNum.";
+    my $fastaFile = "$workDir/bin$binNum.fa";
+    open(my $oh, '>', $fastaFile) || die "Could not open FASTA output file for bin $binNum.";
     my $triple = $loader->GetLine(sampleContigs => $ih);
     while (defined $triple) {
         my $contigID = $triple->[0];
@@ -89,6 +94,12 @@ for my $bin (@$binList) {
     }
     my $contigCount = scalar @triples;
     print "Found $contigCount contigs for bin $binNum.\n";
+    if ($outPath) {
+        # Here we want to submit the genome.
+        my $rc = system("p3-submit-genome-annotation", -t => $taxonID, -n => $name, '--contigs-file' => $fastaFile,
+                $outPath, "Bin.$binNum.$taxonID");
+        print "Annotation request returned $rc.\n";
+    }
 }
 print "All done.\n" . $stats->Show();
 
