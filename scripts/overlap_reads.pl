@@ -47,6 +47,14 @@ The minimum length of contiguously matching characters within the overlap region
 Require 100% identity over the full length of the overlap region.
 (Default: "non-strict" --- require 100% identity only over the width of the probe-length)
 
+=item verbose
+
+If specified print detailed information to error filehandle.
+
+=item debug                                                                                                                    
+
+If specified print debugging information to error filehandle.
+
 =item help (h)
 
 Print usage-message and exit.
@@ -74,14 +82,20 @@ my $opt = P3Utils::script_opts(
     [ 'probe|p=i',  'The minimum required length for a "perfect match" ovwrlap-region (D: 25)',   { default => 25 } ],
     [ 'strict|s',   'Demand identity over the full overlap-region betwwee the forward and reverse reads. (D: "non-strict" --- require identity only over the probe length)',
       { default => 0 } ],
+    [ 'verbose',    'Print detailed information to error-filehandle',  ],
+    [ 'debug',      'Print debugging information to error-filehandle', ],
     );
 
 my $strict    = $opt->strict();    #  Default: 0   (Do not demand perfect match in overlap)
 my $probe_len = $opt->probe();     #  Default: Arbitrarily demand a perfect overlap of 20 nt
 
-print STDERR Dumper(\@ARGV) if $ENV{DEBUG};
+my $verbose   = $opt->verbose() || $ENV{VERBOSE};
+my $debug     = $opt->debug()   || $ENV{DEBUG};
+
+
+print STDERR Dumper(\@ARGV) if $debug;
 my ( $fwd_file, $rev_file ) = @ARGV;
-print STDERR ("fwd_file=$fwd_file\n", "rev_file=$rev_file\n") if $ENV{DEBUG};
+print STDERR ("fwd_file=$fwd_file\n", "rev_file=$rev_file\n") if $debug;
 
 
 #+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
@@ -194,7 +208,7 @@ for ( my $len = 0; $len < @length; $len++ )
 {
     my $cnt = $length[$len] || 0;
     $print ||= $cnt;
-    printf STDERR "%4d%9d\n", $len, $cnt  if $print;
+    printf STDERR "%4d%9d\n", $len, $cnt  if ($print && ($cnt || $debug));
 }
 
 exit(0);
