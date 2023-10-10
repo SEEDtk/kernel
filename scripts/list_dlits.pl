@@ -13,7 +13,7 @@ my $fig = FIG->new();
 print STDERR "Requesting DLITs.\n";
 my $dlits = $fig->all_dlits();
 print STDERR scalar(@$dlits) . " DLITs found.\n";
-print "status\taa_sequence_md5\tpubmed\tcurator\tGO_code\n";
+print "status\taa_sequence_md5\tpubmed\tcurator\n";
 my $out = 0;
 for my $dlit (@$dlits) {
     if ($dlit->[1] =~ /^[a-f0-9]+$/) {
