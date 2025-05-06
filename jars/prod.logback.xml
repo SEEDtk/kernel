@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<configuration>
+
+    <timestamp key="byDate" datePattern="yyyy-MM-dd" />
+
+    <appender name="STDERR" class="ch.qos.logback.core.ConsoleAppender">
+        <target>System.err</target>
+        <encoder>
+            <pattern>%date [%thread] %msg%n</pattern>
+        </encoder>
+    </appender>
+
+     <root level="INFO">
+        <appender-ref ref="STDERR"/>
+    </root>
+
+</configuration>
