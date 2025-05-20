@@ -37,11 +37,11 @@ module GenomeAnnotation
 		the strand
 		the length
 
-	We often speak of "a region".  By "location", we mean a sequence
-	of regions from the same genome (perhaps from distinct contigs).
+	   We often speak of "a region".  By "location", we mean a sequence
+	   of regions from the same genome (perhaps from distinct contigs).
 
-	Strand is either '+' or '-'.
-     */
+	   Strand is either '+' or '-'.
+        */
     typedef tuple<contig_id, int begin, string strand,int length> region_of_dna;
 
     /*
@@ -439,8 +439,8 @@ module GenomeAnnotation
     } genome_metadata;
 
     typedef string subsystem;
-    typedef string variant_id;
-    typedef tuple<subsystem,variant_id> variant_of_subsystem;
+    typedef string variant;
+    typedef tuple<subsystem,variant> variant_of_subsystem;
     typedef list<variant_of_subsystem> variant_subsystem_pairs;
     typedef string fid;
     typedef string role;
