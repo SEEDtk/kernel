@@ -327,6 +327,20 @@ module GenomeAnnotation
     } classifier;
 
     typedef structure {
+	string antibiotic_name;
+	string model_antibiotic_name;
+	string evidence;
+	string computational_method;
+	string computational_method_performance;
+	string computational_method_version;
+
+	string resistant_phenotype;
+	string measurement_unit;
+	string measurement_value;
+	analysis_event_id event_id;
+    } amr_assertion;
+
+    typedef structure {
 	string role_id;
 	list<feature_id> features;
     } role_binding;
@@ -399,6 +413,7 @@ module GenomeAnnotation
 
 	list<strain_type> typing;
 	list<classifier> classifications;
+	list<amr_assertion> amr_assertions;
 
 	list<subsystem_data> subsystems;
 
@@ -411,8 +426,19 @@ module GenomeAnnotation
 
 	list<computed_variant> computed_variants;
 
-
-	    
+	structure {
+	    string user;
+	    float job_start;
+	    float job_end;
+	    float job_elapsed;
+	    string hostname;
+	    string container;
+	    string task_id;
+	    string slurm_jobname;
+	    string slurm_jobid;
+	    freeform workflow;
+	    freeform params;
+	} job_metadata;
 
     } genomeTO;
 
@@ -586,6 +612,13 @@ module GenomeAnnotation
 
     typedef structure
     {
+	bool remove_existing_features;
+    } lowvan_parameters;
+    
+    funcdef call_features_lowvan(genomeTO, lowvan_parameters params) returns (genomeTO);
+    
+    typedef structure
+    {
 	string reference_name;
 	bool remove_existing_features;
     } vigor4_parameters;
@@ -745,6 +778,7 @@ module GenomeAnnotation
     funcdef compute_special_proteins(genomeTO genome_in, list<string> database_names) returns (list<special_protein_hit> results);
 
     funcdef annotate_special_proteins(genomeTO genome_in) returns (genomeTO genome_out);
+    funcdef annotate_special_proteins_v2(genomeTO genome_in) returns (genomeTO genome_out);
     funcdef annotate_families_figfam_v1(genomeTO genome_in) returns (genomeTO genome_out);
     funcdef annotate_families_patric(genomeTO genome_in) returns (genomeTO genome_out);
     funcdef annotate_families_patric_viral(genomeTO genome_in) returns (genomeTO genome_out);
@@ -753,6 +787,7 @@ module GenomeAnnotation
     funcdef remove_genbank_features(genomeTO genome_in) returns (genomeTO genome_out);
 
     funcdef annotate_strain_type_MLST(genomeTO genome_in) returns (genomeTO genome_out);
+    funcdef annotate_strain_type_MLST_v2(genomeTO genome_in) returns (genomeTO genome_out);
 
     typedef tuple <
 	string protein_id,
@@ -800,6 +835,7 @@ module GenomeAnnotation
      * Perform AMR classification.
      */
     funcdef classify_amr(genomeTO) returns (genomeTO);
+    funcdef classify_amr_v2(genomeTO) returns (genomeTO);
 
     typedef structure {
 	string reference_genome_id;
