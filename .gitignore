@@ -8,4 +8,4 @@
 /appserv-query-task.cmd
 /appserv-start-app.cmd
 /p3-*.cmd
-
+jars/p3.query.jar
