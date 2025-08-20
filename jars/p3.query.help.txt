@@ -139,8 +139,15 @@ COMMON OPTIONS
 
 Several options are common to all three commands. First and foremost, the commands produce output in the form of a tabular report on the standard output. The
 "--output" or "-o" option can be used to specify an alternative output file. The format of the report is specifed using the "--format" option. The default
-format is TAB, which is a tab-delimited file with headers. You can also specify JSON as the format, in which case the output will be a JSON list. Expect
-other formats to appear in the future.
+format is TAB, which is a tab-delimited file with headers. You can also specify JSON as the format, in which case the output will be a JSON list, or FASTA,
+which outputs a FASTA file.
+
+If you specify FASTA output, the default behavior is to use the first column as the ID and the last column as the sequence. The default behavior can be
+modified by specifying the columns in the "--id", "--seq", and "--comment" options. "--id" and "--seq" must specify a single column, but "--comment"
+can specify multiple columns, comma-delimited, in which case the column contents are joined together with tab characters. A column can be specified as a 1-based
+index or an output column name. If a name is specified, it is treated as case-insensitive, and can match everything after a period as well as the
+entire column name. Thus, if you specify "na_length", it will match "NA_LENGTH", "na_Length", and "feature.na_length". If a 1-based index is specified,
+"0" specifies the last column, and negative numbers count backward from that. Thus, "-1" is the second-to-last output column.
 
 The "--map" option specifies the data map file, described above.
 
@@ -203,7 +210,12 @@ The following command gets the ID and name of all prokaryotic genomes and puts t
 
 The following command gets the ID, length, and DNA sequence of all rRNA features for Streptococcus genomes and writes them to rna.tbl in tab-delimited format.
 
-	p3.query get feature feature_id na_length dna_sequence --eq genome_name,Streptococcus > rna.tbl
+	p3.query get feature patric_id na_length na_sequence --eq genome_name,Streptococcus > rna.tbl
+
+The following command creates a FASTA file of all the protein sequences in PATRIC-annotated features of the genome "100226.11". The comment column will contain
+the annotation itself.
+
+	p3.query get feature patric_id product aa_sequence --eq annotation,PATRIC --eq genome_id,100226.11 --eq feature_type,CDS --format FASTA --comment product > Streptomyces.faa
 
 LIST ACTION
 
@@ -232,7 +244,7 @@ the "na_length" field from the feature table, the column header will be "feature
 The following command expects a list of genome IDs in the file "genomes.tbl" and outputs the feature ID, annotation, and protein sequence of each gene 
 in the genomes whose gene name begins with "rms". Only PATRIC-annotated genomes will be included. The genome IDs will be expected in the first column.
 
-	p3.query list --key genome_id --eq gene,rms* --eq annotation,PATRIC feature patric_id product protein_sequence > rms.tbl
+	p3.query list --key genome_id --eq gene,rms* --eq annotation,PATRIC feature patric_id product aa_sequence > rms.tbl
 
 The output is redirected to the file "rms.tbl". Note we are using the default data map, so there are no fancy user-friendly field names, just internal
 names except for the table itself.
@@ -240,6 +252,6 @@ names except for the table itself.
 This command takes as input a list of PATRIC feature IDs and outputs the annotation (product) and DNA sequence. Since we expect one record per ID, we up
 the batch size to 1000. There is no need to specify "--key" since we are using the primary key.
 
-	p3.query list feature product dna_sequence > dna.tbl
+	p3.query list feature product na_sequence --batch 1000 > dna.tbl
 
 Contact brucep.mobile@gmail.com for help if this document isn't enough!
