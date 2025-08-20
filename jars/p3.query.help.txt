@@ -1,0 +1,245 @@
+How to use the p3.query command
+
+The basic format of the command is
+
+	p3.query <action> <options> <tableName> <field1> <field2> ... <fieldN>
+
+where
+
+	<action> is the action to take (currently "get" to run a query, "list" to read a file for IDs and run a query for each, or "fields" to list the fields in a table
+	<tablename> is the user-friendly name of a database table
+	<field1> <field2> ... <fieldN> are the names of the database fields to display (only for "get" and "list")
+	<options> are various command-line options that depend on the action
+
+The "--help" option will display the command-line usage for each action, so
+
+	p3.query get --help
+
+will display the command-line usage for the "get" action. In addition,
+
+	p3.query --help
+
+will display all the available actions.
+
+INSTALLATION
+
+The directory /vol/mg-binning/p3.query contains five files. One is this file (p3.query.help.txt). The others are as follows
+
+	p3.query		a skeleton for a bash script to execute the command
+	p3.query.jar		a fat jar containing the p-code and the execution environment for the command
+	prod.logback.xml	the logging configuration file; currently, it sends all INFO or higher messages to STDERR
+	patric.json		a BV-BRC data map file you can customize to create more user-friendly field and table names
+
+The "patric.json" file is described below, and is specified using the "--map" option on all commands. If it (or a similar file) is
+not specified, a default map is used. The default map provides the following user-friendly table names.
+
+	feature		for genome_feature
+	taxon		for taxonomy
+	contig		for genome_sequence
+	sequence	for feature_sequence
+	subsystem_item	for subsystem
+	subsystem	for subsystem_ref
+	family		for protein_family_ref
+	special_gene	for sp_gene
+
+In addition, the "genome" and "genome_amr" tables are exposed but the names have not been changed. If you need access to additional
+cores, they need to be added to the map file. At some point, the default map will be updated to optimize its utility for LLMs, but
+we are still learning.
+
+Put "p3.query" in a bin directory, enable it for execution, and edit the directory names. Put the other three files in a directory
+for the directory you named in the "p3.query" file.
+
+Finally, you need Java 21 or better. The default Java on a Mac is 8. (Use "java -version" to check. Version 8 displays as 1.8.xxx.)
+Use homebrew to install Java 21.
+
+	brew install openjdk@21
+
+The brew output will give you instructions for activating it, but it will involve adding something like the following to your bash profile
+
+	export PATH="/opt/homebrew/opt/openjdk@21/bin:$PATH"
+	export JAVA_HOME="/opt/homebrew/opt/openjdk@21"
+
+(On some Intel Macs the directories may be "/usr/local/opt" instead of "/opt/homebrew/opt".)
+
+Now, when you do "java -version", you'll see something like
+
+	openjdk version "21.0.4" 2024-07-16
+	OpenJDK Runtime Environment Homebrew (build 21.0.4+7)
+	OpenJDK 64-Bit Server VM Homebrew (build 21.0.4+7, mixed mode, sharing)
+
+DATA MAPS
+
+The data map is a text JSON file that is used to make the database appear more LLM-friendly. It serves several purposes. First, it restricts the tables
+that the p3.query command is allowed to access. If a table is not described in this file, it is blocked. Second, it provides important internal
+information for each table used to form queries and cross relationships. Finally, and most important, it provides a map that contains user-friendly
+field names and describes how to access them. For example, the LLM has trouble figuring out what "product" means, preferring to use the term
+"annotation". Thus, there is a mapping from the user-friendly "annotation" to the internal "product". To allow the old "annotation" field to be
+accessed, we map it from the user-friendly name "annotation_source". This must be a one-to-one mapping. If a field is not listed in the map,
+its user-friendly name and internal name are the same.
+
+Another thing the data map allows is specification of derived fields. For example, the protein sequence for a feature is stored in a separate
+table "feature_sequence". The data map explains that to find a feature's protein sequence, you need to look at the "aa_sequence_md5" field
+and pull the corresponding sequence from the "sequence" field of the "feature_sequence" table. This allows the LLM to talk about protein and DNA
+sequences for features without having to know about the extra table lookup involved. p3.query does this lookup automatically. It even batches
+the lookups for greater efficiency.
+
+The data map is a hash of table objects. The hash key is the user-friendly table name. Each table object has the following fields
+
+	name		the internal name of the table
+	key		the internal name of the primary key of the table
+	sort		the internal name of the database's ID field for the table
+	map		the field mapping
+
+The field mapping is a hash keyed by user-friendly name. The value is normally the field's internal name. For a derived field (that is,
+a field in another table), it is an object with the following fields
+
+	table		user-friendly name of the table containing the field value (the target table)
+	source		user-friendly name of the source field used to access the target table
+	value		user-friendly name of the field in the target table containing the desired value
+
+For example, here is a table object for the "genome_feature" table
+
+	"feature": {
+		"name": "genome_feature",
+		"key": "patric_id",
+		"sort": "feature_id",
+		"map": {
+			"feature_id":"patric_id",
+			"annotation_source":"annotation",
+			"annotation":"product",
+			"gene_name":"gene",
+			"protein_sequence": { "table":"sequence", "source":"aa_sequence_md5", "value":"sequence" },
+			"dna_sequence": { "table":"sequence", "source":"na_sequence_md5", "value":"sequence" }
+		}
+	},
+
+Here the user-friendly name of the table is "feature". The primary key used when accessing this table for a derived field is "patric_id". The sort field is "feature_id". Both
+of these are internal names. We cannot use "patric_id" for a sort key because it is not present in every record, so we use "feature_id" instead.
+
+The mapping tells us we can use "feature_id" instead of "patric_id" in queries. We can also use "annotation" instead of product. To get to the internal "annotation"
+field, we must use "annotation_source".
+
+There are two derived fields, both in the "sequence" table (which is elsewhere mapped to "feature_sequence". The "aa_sequence_md5" field contains the sequence key for
+the protein, and "na_sequence_md5" contains the sequence key for the DNA. In both cases, the actual sequence is stored in the "feature_sequence" table's "sequence" field.
+
+Here is a much simpler table object for the "genome_sequence" table.
+
+	"contig": {
+		"name": "genome_sequence",
+		"key": "sequence_id",
+		"sort": "sequence_id",
+		"map": {}
+	},
+
+No fields are mapped, so we use the internal name for everything. The primary key and sort fields are the same, because the key field normally used to access the
+table from external sources (primary key) is present and unique in every record. The only change is to use the more user-friendly name "contig" instead of
+"genome_sequence".
+
+COMMON OPTIONS
+
+Several options are common to all three commands. First and foremost, the commands produce output in the form of a tabular report on the standard output. The
+"--output" or "-o" option can be used to specify an alternative output file. The format of the report is specifed using the "--format" option. The default
+format is TAB, which is a tab-delimited file with headers. You can also specify JSON as the format, in which case the output will be a JSON list. Expect
+other formats to appear in the future.
+
+The "--map" option specifies the data map file, described above.
+
+Finally, the "-v" option (also "--verbose" or "--debug") can be used to get more frequent log messages. This is useful when HTTP errors start cropping up.
+
+FILTER OPTIONS
+
+The "get" and "list" commands allow you to specify filters using command options. The parameter of a filter option is a user-friendly field name followed
+by one or more values, comma-delimited. (Only the "--in" filter currently allows multiple values.) There are three text filters
+
+	--in	the specified field should match at least one of the specified values
+	--eq	the specified field should match the specified value
+	--ne	the specified field should not match the specified value
+
+If the field is a case-insensitive string field, then the match is a bit fuzzy, and "*" as a wild card is allowed at the end if there are no special characters
+or spaces in the value (sorry). The field value is considered a list of words, and a match occurs if all the words are found at the beginning of the field.
+Thus, 
+	--eq "genome_name,Streptococcus pyogenes"
+
+will match "Streptococcus pyogenes M21-AS", "Streptococcus pyogenes", or "Streptococcus pyogenes pyogenes". It will not match "Streptococcus pyogenesM21"
+or "Streptococcus and pyogenes".
+
+Use "*" by itself in the "--eq" filter to match any nonblank value. Thus
+
+	--eq feature_id,*
+
+will match any record with a non-empty feature ID.
+
+There are four numeric filter options. Each specifies a user-friendly field name, a comma, and a single number. The options name the standard inequality
+relations.
+
+	--lt	strictly less than
+	--le	less than or equal to
+	--gt	greater than
+	--ge	greater than or equal to
+
+QUERY MODIFICATION OPTIONS
+
+Like the filter options, the query modification options are common to the "get" and "list" actions. Currently, the only one is "--limit". This specifies
+the maxmimum number of records that can be returned. The default is a staggering 4 billion. Currently, the "get" option will run out of memory if you
+go even remotely close to that number, but we are working on it.
+
+FIELDS ACTION
+
+The "fields" action is provided for user convenience. It lists all the fields available in a particular table. Both the user-friendly-name and the internal name is
+shown for each field, and for derived fields, a description of the required data path is shown. In addition, the field's data type is displayed along with whether
+or not the field is multi-valued.
+
+The single positional parameter is the table name. A tabular report about the table's fields is produced on the standard output. All the common command-line options
+are available.
+
+GET ACTION
+
+The "get" action performs a single query. The position parameters are the user-friendly table name followed by user-friendly field names for the desired output
+fields. It has no unique options, only the common, filter, and query modification options listed above. 
+
+The following command gets the ID and name of all prokaryotic genomes and puts them in the file "genomes.json" in JSON format.
+
+	p3.query get genome genome_id genome_name --in superkingdom,Archaea,Bacteria --format JSON -o genomes.json
+
+The following command gets the ID, length, and DNA sequence of all rRNA features for Streptococcus genomes and writes them to rna.tbl in tab-delimited format.
+
+	p3.query get feature feature_id na_length dna_sequence --eq genome_name,Streptococcus > rna.tbl
+
+LIST ACTION
+
+Sometimes you have a list of IDs and you want to run a query for each one. In this case, you use the "list" action. This action has several unique command-line
+options.
+
+	-b		number of IDs to process at one time
+	--col		index (1-based) or name of the input file column containing the keys
+	-i		name of the input file (if not STDIN)
+	--key		user-friendly name of the key field in the table to match against the input keys
+
+The "-b" option is tuned for performance. If you expect each ID to produce a lot of records, then you want to reduce it to a small number. If you expect each
+ID to produce a small number of records, you can make it bigger. The default is 200.
+
+The input file normally comes in via the standard input, but this can be overridden with the "-i" option. It is expected to be a tab-delimited file with headers,
+such as produced by the TAB format in the "get" and "list" actions. The "--col" option specifies which column contains the incoming key fields, either by number
+or name. The default is "1", indicating the keys are in the first column.
+
+Finally, the "--key" option is the user-friendly name of the table field that will match the incoming IDs. The default is the table's primary key (as specified
+in the data map).
+
+The output is tabular, just like with the "get" action. The leftmost columns of the table will be copied directly from the input line containing the key. The
+remaining columns are the ones specified in the positional parameters, but they will have the table name prefixed in the header. Thus, if you are asking for
+the "na_length" field from the feature table, the column header will be "feature.na_length".
+
+The following command expects a list of genome IDs in the file "genomes.tbl" and outputs the feature ID, annotation, and protein sequence of each gene 
+in the genomes whose gene name begins with "rms". Only PATRIC-annotated genomes will be included. The genome IDs will be expected in the first column.
+
+	p3.query list --key genome_id --eq gene,rms* --eq annotation,PATRIC feature patric_id product protein_sequence > rms.tbl
+
+The output is redirected to the file "rms.tbl". Note we are using the default data map, so there are no fancy user-friendly field names, just internal
+names except for the table itself.
+
+This command takes as input a list of PATRIC feature IDs and outputs the annotation (product) and DNA sequence. Since we expect one record per ID, we up
+the batch size to 1000. There is no need to specify "--key" since we are using the primary key.
+
+	p3.query list feature product dna_sequence > dna.tbl
+
+Contact brucep.mobile@gmail.com for help if this document isn't enough!
