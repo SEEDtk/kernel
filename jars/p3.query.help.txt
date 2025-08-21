@@ -230,6 +230,10 @@ options.
 The "-b" option is tuned for performance. If you expect each ID to produce a lot of records, then you want to reduce it to a small number. If you expect each
 ID to produce a small number of records, you can make it bigger. The default is 200.
 
+The "list" action read all of the records for a batch into memory so that it can associate input records with output data. This could cause a problem
+if too many records are associated with each input key. If that happens, reduce the batch size. Note that the "get" action does not have this problem,
+as it processes records in chunks, and each chunk has a maximum size.
+
 The input file normally comes in via the standard input, but this can be overridden with the "-i" option. It is expected to be a tab-delimited file with headers,
 such as produced by the TAB format in the "get" and "list" actions. The "--col" option specifies which column contains the incoming key fields, either by number
 or name. The default is "1", indicating the keys are in the first column.
@@ -253,5 +257,7 @@ This command takes as input a list of PATRIC feature IDs and outputs the annotat
 the batch size to 1000. There is no need to specify "--key" since we are using the primary key.
 
 	p3.query list feature product na_sequence --batch 1000 > dna.tbl
+
+CONTACT ME
 
 Contact brucep.mobile@gmail.com for help if this document isn't enough!
